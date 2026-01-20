@@ -26,7 +26,8 @@ public class SecurityConfig {
                                 "/actuator/info",
                                 "/api/v1/news",
                                 "/api/v1/news/**",
-                                "/api/v1/market/summary"
+                                "/api/v1/market/summary",
+                                "/api/v1/portfolio/**"
                         ).permitAll()
                         // Diğer her şey (şimdilik de açık istersen permitAll bırakabilirsin)
                         .anyRequest().permitAll()
