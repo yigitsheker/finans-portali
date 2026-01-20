@@ -11,6 +11,9 @@ import com.finansportali.backend.repo.PortfolioPositionRepository;
 import org.springframework.stereotype.Service;
 import com.finansportali.backend.dto.AllocationItem;
 import java.util.Comparator;
+import com.finansportali.backend.dto.AllocationByTypeItem;
+import java.util.Map;
+import java.util.HashMap;
 
 
 import java.math.BigDecimal;
@@ -126,6 +129,34 @@ public class PortfolioService {
                 .sorted(Comparator.comparing(AllocationItem::marketValue).reversed())
                 .toList();
     }
+    public List<AllocationByTypeItem> allocationByType() {
+        marketService.seedIfEmpty();
+
+        PortfolioSummary s = summary();
+        BigDecimal total = s.totalValue();
+        if (total == null || total.compareTo(BigDecimal.ZERO) == 0) return List.of();
+
+        Map<String, BigDecimal> sums = new HashMap<>();
+
+        for (PositionView p : s.positions()) {
+            String type = instrumentRepo.findBySymbol(p.symbol())
+                    .map(MarketInstrument::getType)
+                    .orElse("UNKNOWN");
+
+            BigDecimal mv = p.marketValue() == null ? BigDecimal.ZERO : p.marketValue();
+            sums.put(type, sums.getOrDefault(type, BigDecimal.ZERO).add(mv));
+        }
+
+        return sums.entrySet().stream()
+                .map(e -> {
+                    BigDecimal pct = e.getValue().divide(total, 6, RoundingMode.HALF_UP)
+                            .multiply(BigDecimal.valueOf(100));
+                    return new AllocationByTypeItem(e.getKey(), e.getValue(), pct);
+                })
+                .sorted((a, b) -> b.marketValue().compareTo(a.marketValue()))
+                .toList();
+    }
+
 
 
 }

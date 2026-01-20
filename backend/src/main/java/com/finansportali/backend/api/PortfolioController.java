@@ -6,6 +6,9 @@ import com.finansportali.backend.dto.UpsertPositionRequest;
 import com.finansportali.backend.service.PortfolioService;
 import org.springframework.web.bind.annotation.*;
 import com.finansportali.backend.dto.AllocationItem;
+import com.finansportali.backend.dto.AllocationByTypeItem;
+import jakarta.validation.Valid;
+
 
 
 import java.util.List;
@@ -30,11 +33,16 @@ public class PortfolioController {
         return service.allocation();
     }
 
+    @GetMapping("/allocation/by-type")
+    public List<AllocationByTypeItem> allocationByType() {
+        return service.allocationByType();
+    }
 
     @PostMapping("/positions")
-    public void upsert(@RequestBody UpsertPositionRequest req) {
+    public void upsert(@Valid @RequestBody UpsertPositionRequest req) {
         service.upsert(req);
     }
+
 
     @GetMapping("/summary")
     public PortfolioSummary summary() {
