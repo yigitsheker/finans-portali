@@ -1,0 +1,151 @@
+﻿/* ── Design tokens ─────────────────────────────────────────── */
+:root {
+  /* Dark blue-black theme */
+  --bg-page:        #0d1117;
+  --bg-sidebar:     #0d1117;
+  --bg-content:     #0d1117;
+  --bg-panel:       #161b22;
+  --bg-panel2:      #161b22;
+  --bg-card:        #1c2128;
+  --bg-topbar:      #161b22;
+  --bg-grad:        #0d1117;
+  --border:         rgba(48, 54, 61, 1);
+  --border-soft:    rgba(48, 54, 61, 0.7);
+  --border-card:    rgba(48, 54, 61, 1);
+  --text-primary:   #e6edf3;
+  --text-muted:     #7d8590;
+  --accent:         rgba(37, 99, 235, 0.20);
+  --accent-solid:   #2563eb;
+  --accent-border:  rgba(37, 99, 235, 0.60);
+  --accent-hover-bg: rgba(37, 99, 235, 0.12);
+  --card-hover-border: rgba(37, 99, 235, 0.50);
+  --input-bg:       #21262d;
+  --input-border:   #30363d;
+  --shadow:         0 8px 32px rgba(0,0,0,0.40);
+  --danger-bg:      rgba(239,68,68,0.12);
+  --danger-border:  rgba(239,68,68,0.45);
+  --danger-text:    #fca5a5;
+  --dropdown-bg:    #1c2128;
+  --skeleton-bg:    rgba(255,255,255,0.06);
+  --green:          #3fb950;
+  --red:            #f85149;
+}
+
+/* Light theme overrides */
+[data-theme="light"] {
+  --bg-page:        #f6f8fa;
+  --bg-sidebar:     #ffffff;
+  --bg-content:     #f6f8fa;
+  --bg-panel:       #ffffff;
+  --bg-panel2:      #f6f8fa;
+  --bg-card:        #ffffff;
+  --bg-topbar:      #ffffff;
+  --bg-grad:        #f6f8fa;
+  --border:         #d0d7de;
+  --border-soft:    #e1e4e8;
+  --border-card:    #d0d7de;
+  --text-primary:   #1f2328;
+  --text-muted:     #656d76;
+  --accent:         rgba(37, 99, 235, 0.10);
+  --accent-solid:   #2563eb;
+  --accent-border:  rgba(37, 99, 235, 0.45);
+  --accent-hover-bg: rgba(37, 99, 235, 0.08);
+  --card-hover-border: rgba(37, 99, 235, 0.40);
+  --input-bg:       #f6f8fa;
+  --input-border:   #d0d7de;
+  --shadow:         0 4px 16px rgba(0,0,0,0.08);
+  --danger-bg:      rgba(239,68,68,0.08);
+  --danger-border:  rgba(239,68,68,0.35);
+  --danger-text:    #b91c1c;
+  --dropdown-bg:    #ffffff;
+  --skeleton-bg:    rgba(0,0,0,0.06);
+  --green:          #1a7f37;
+  --red:            #cf222e;
+}
+
+/* ── Base ──────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body, #root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  min-height: 100vh;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-primary);
+  background: var(--bg-page);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  transition: background 0.2s ease, color 0.2s ease;
+}
+
+button {
+  font-family: inherit;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, opacity 0.15s;
+}
+button:disabled { opacity: 0.50; cursor: not-allowed; }
+
+/* ── Card hover ────────────────────────────────────────────── */
+.market-card {
+  transition: border-color 0.15s ease, background 0.15s ease;
+}
+.market-card:hover {
+  border-color: var(--card-hover-border) !important;
+  background: var(--accent-hover-bg) !important;
+}
+
+/* ── Full-screen layout ────────────────────────────────────── */
+.fp-shell {
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  min-height: 100vh;
+}
+
+.fp-sidebar {
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border);
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow-y: auto;
+  overflow-x: hidden;
+}
+
+.fp-content {
+  background: var(--bg-content);
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  overflow: hidden;
+}
+
+/* ── Responsive ────────────────────────────────────────────── */
+@media (max-width: 900px) {
+  .fp-shell { grid-template-columns: 1fr; }
+  .fp-sidebar { position: relative; height: auto; }
+}
+
+/* ── Table row hover ───────────────────────────────────────── */
+tbody tr:hover { background: rgba(37,99,235,0.05); }
+
+/* ── Toggle button reset ───────────────────────────────────── */
+button[role="switch"] { outline: none; }
+button[role="switch"]:focus-visible { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
+
+/* ── Scrollbar ─────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+
+/* ── Animations ────────────────────────────────────────────── */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}

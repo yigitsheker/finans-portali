@@ -2,9 +2,20 @@ package com.finansportali.backend.repo;
 
 import com.finansportali.backend.domain.PortfolioPosition;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Optional;
 
 public interface PortfolioPositionRepository extends JpaRepository<PortfolioPosition, Long> {
-    Optional<PortfolioPosition> findBySymbol(String symbol);
+
+    List<PortfolioPosition> findByUserId(String userId);
+
+    Optional<PortfolioPosition> findByUserIdAndSymbol(String userId, String symbol);
+
+    @Transactional
+    long deleteByUserIdAndSymbol(String userId, String symbol);
+
+    @Transactional
+    void deleteByUserId(String userId);
 }

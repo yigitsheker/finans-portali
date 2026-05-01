@@ -1,5 +1,6 @@
 package com.finansportali.backend.api;
 
+import com.finansportali.backend.domain.MarketInstrument;
 import com.finansportali.backend.dto.MarketHistoryPoint;
 import com.finansportali.backend.dto.MarketSummaryItem;
 import com.finansportali.backend.service.MarketService;
@@ -23,6 +24,16 @@ public class MarketController {
     @GetMapping("/summary")
     public List<MarketSummaryItem> summary() {
         return service.summary();
+    }
+
+    @GetMapping("/instruments")
+    public List<MarketInstrument> instruments() {
+        return service.instruments();
+    }
+
+    @GetMapping("/price")
+    public java.util.Map<String, Object> price(@RequestParam String symbol) {
+        return service.latestPrice(symbol);
     }
 
     @GetMapping("/history")

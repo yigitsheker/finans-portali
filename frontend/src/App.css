@@ -1,0 +1,4 @@
+/* App.css — intentionally minimal, all theming is in index.css */
+#root {
+  min-height: 100vh;
+}

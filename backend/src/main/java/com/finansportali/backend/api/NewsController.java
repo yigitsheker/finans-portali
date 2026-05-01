@@ -20,4 +20,14 @@ public class NewsController {
     public List<NewsArticle> latest(@RequestParam(required = false) String category) {
         return service.latest(category);
     }
+
+    @GetMapping("/categories")
+    public List<String> getCategories() {
+        return service.getCategories();
+    }
+
+    @GetMapping("/{id}")
+    public NewsArticle getById(@PathVariable Long id) {
+        return service.getById(id);
+    }
 }

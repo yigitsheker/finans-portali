@@ -13,10 +13,18 @@ public class CacheConfig {
 
     @Bean
     public CacheManager cacheManager() {
-        CaffeineCacheManager mgr = new CaffeineCacheManager("marketSummary", "marketHistory");
+        CaffeineCacheManager mgr = new CaffeineCacheManager(
+            "marketSummary", 
+            "marketHistory", 
+            "yahooChart",
+            "exchange-rates",
+            "exchange-rates-by-source",
+            "investment-funds",
+            "funds-by-type"
+        );
         mgr.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(1000)
-                .expireAfterWrite(Duration.ofSeconds(30)));
+                .expireAfterWrite(Duration.ofSeconds(30))); // Short TTL for fresh chart data
         return mgr;
     }
 }

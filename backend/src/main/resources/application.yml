@@ -1,15 +1,104 @@
 spring:
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://localhost:8081/realms/finans/protocol/openid-connect/certs
   datasource:
     url: jdbc:postgresql://localhost:5432/finans
     username: finans
     password: finans
   jpa:
     hibernate:
-      ddl-auto: update
+      ddl-auto: update  # Temporarily set to update to fix schema mismatches
     open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    clean-disabled: false
 
 management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,metrics,prometheus,loggers,env,configprops,beans,mappings
+  endpoint:
+    health:
+      show-details: always
+      show-components: always
+    metrics:
+      enabled: true
+    prometheus:
+      enabled: true
+  metrics:
+    export:
+      prometheus:
+        enabled: true
+    distribution:
+      percentiles-histogram:
+        http.server.requests: true
+      percentiles:
+        http.server.requests: 0.5, 0.95, 0.99
+    tags:
+      application: finans-backend
+      environment: ${spring.profiles.active:default}
+
+# OpenTelemetry configuration
+management.tracing:
+  enabled: true
+  sampling:
+    probability: 1.0
+  
+otel:
+  service:
+    name: finans-backend
+  exporter:
+    otlp:
+      endpoint: http://jaeger:14250
+  resource:
+    attributes:
+      service.name: finans-backend
+      service.version: 1.0.0
+      deployment.environment: ${spring.profiles.active:default}
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+
+logging:
+  level:
+    org.springframework.security.oauth2.jwt: DEBUG
+    com.finansportali: INFO
+    org.springframework.web: INFO
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level [%X{traceId:-},%X{spanId:-}] %logger{36} - %msg%n"
+  file:
+    name: logs/finans-backend.log
+    max-size: 100MB
+    max-history: 30
+
+server:
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on_param
+
+---
+# Docker profile
+spring:
+  config:
+    activate:
+      on-profile: docker
+  datasource:
+    url: jdbc:postgresql://postgres:5432/finans
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          jwk-set-uri: http://keycloak:8080/realms/finans/protocol/openid-connect/certs

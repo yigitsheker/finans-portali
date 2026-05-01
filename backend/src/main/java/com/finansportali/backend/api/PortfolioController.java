@@ -1,15 +1,12 @@
 package com.finansportali.backend.api;
 
 import com.finansportali.backend.domain.PortfolioPosition;
-import com.finansportali.backend.dto.PortfolioSummary;
-import com.finansportali.backend.dto.UpsertPositionRequest;
-import com.finansportali.backend.service.PortfolioService;
+import com.finansportali.backend.dto.*;
+import com.finansportali.backend.service.PortfolioService;import jakarta.validation.Valid;
+import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
-import com.finansportali.backend.dto.AllocationItem;
-import com.finansportali.backend.dto.AllocationByTypeItem;
-import jakarta.validation.Valid;
-
-
 
 import java.util.List;
 
@@ -23,29 +20,59 @@ public class PortfolioController {
         this.service = service;
     }
 
+    private String userId(Jwt jwt) {
+        return jwt.getSubject(); // Keycloak sub claim
+    }
+
     @GetMapping("/positions")
-    public List<PortfolioPosition> positions() {
-        return service.list();
+    public List<PortfolioPosition> positions(@AuthenticationPrincipal Jwt jwt) {
+        return service.list(userId(jwt));
+    }
+
+    @GetMapping("/summary")
+    public PortfolioSummary summary(@AuthenticationPrincipal Jwt jwt) {
+        return service.summary(userId(jwt));
     }
 
     @GetMapping("/allocation")
-    public List<AllocationItem> allocation() {
-        return service.allocation();
+    public List<AllocationItem> allocation(@AuthenticationPrincipal Jwt jwt) {
+        return service.allocation(userId(jwt));
     }
 
     @GetMapping("/allocation/by-type")
-    public List<AllocationByTypeItem> allocationByType() {
-        return service.allocationByType();
+    public List<AllocationByTypeItem> allocationByType(@AuthenticationPrincipal Jwt jwt) {
+        return service.allocationByType(userId(jwt));
     }
 
     @PostMapping("/positions")
-    public void upsert(@Valid @RequestBody UpsertPositionRequest req) {
-        service.upsert(req);
+    public ResponseEntity<Void> upsert(@AuthenticationPrincipal Jwt jwt,
+                                       @Valid @RequestBody UpsertPositionRequest req) {
+        service.upsert(userId(jwt), req);
+        return ResponseEntity.ok().build();
     }
 
+    @PostMapping("/positions/sell")
+    public ResponseEntity<java.util.Map<String, Object>> sell(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody SellPositionRequest req) {
+        java.math.BigDecimal proceeds = service.sell(userId(jwt), req);
+        return ResponseEntity.ok(java.util.Map.of(
+                "symbol", req.symbol(),
+                "soldQuantity", req.quantity(),
+                "proceeds", proceeds
+        ));
+    }
 
-    @GetMapping("/summary")
-    public PortfolioSummary summary() {
-        return service.summary();
+    @DeleteMapping("/positions/{symbol}")
+    public ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt,
+                                       @PathVariable String symbol) {
+        service.deleteBySymbol(userId(jwt), symbol);
+        return ResponseEntity.noContent().build();
+    }
+
+    @DeleteMapping("/positions")
+    public ResponseEntity<Void> clear(@AuthenticationPrincipal Jwt jwt) {
+        service.clear(userId(jwt));
+        return ResponseEntity.noContent().build();
     }
 }

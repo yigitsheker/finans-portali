@@ -2,6 +2,7 @@ package com.finansportali.backend.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.web.SecurityFilterChain;
@@ -13,25 +14,35 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
                 .csrf(csrf -> csrf.disable())
-                // Tarayıcıyı /login sayfasına yönlendirmesin
                 .formLogin(form -> form.disable())
-                // Şimdilik Basic Auth da kapalı kalsın (tamamen açık geliştirme modu)
-                .httpBasic(Customizer.withDefaults())
+                .cors(Customizer.withDefaults())
                 .authorizeHttpRequests(auth -> auth
-                        // Açık endpointler
-                        .requestMatchers(
-                                "/",
-                                "/error",
-                                "/actuator/health",
-                                "/actuator/info",
-                                "/api/v1/news",
-                                "/api/v1/news/**",
-                                "/api/v1/market/summary",
-                                "/api/v1/portfolio/**"
-                        ).permitAll()
-                        // Diğer her şey (şimdilik de açık istersen permitAll bırakabilirsin)
+                        // Preflight (CORS)
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+
+                        // Swagger / OpenAPI
+                        .requestMatchers("/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
+
+                        // Actuator
+                        .requestMatchers("/actuator/**").permitAll()
+
+                        // Admin (local only — no auth for dev convenience)
+                        .requestMatchers("/api/v1/admin/**").permitAll()
+
+                        // Public market & news endpoints
+                        .requestMatchers(HttpMethod.GET, "/api/v1/market/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/news/**").permitAll()
+
+                        // Portfolio requires authentication
+                        .requestMatchers("/api/v1/portfolio/**").authenticated()
+
+                        // Price alerts require authentication
+                        .requestMatchers("/api/v1/alerts/**").authenticated()
+
+                        // Everything else — permit (güvenlik portfolio ile sağlanıyor)
                         .anyRequest().permitAll()
-                );
+                )
+                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
 
         return http.build();
     }

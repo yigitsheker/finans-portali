@@ -12,4 +12,12 @@ public interface MarketCandleRepository extends JpaRepository<MarketCandle, Long
     List<MarketCandle> findByInstrumentAndDayBetweenOrderByDayAsc(
             MarketInstrument instrument, LocalDate start, LocalDate end
     );
+
+    List<MarketCandle> findTop100ByInstrument_SymbolOrderByDayDesc(String symbol);
+    
+    List<MarketCandle> findTop50ByInstrument_SymbolOrderByDayDesc(String symbol);
+
+    void deleteByInstrumentAndDay(MarketInstrument instrument, LocalDate day);
+    
+    long countByInstrument(MarketInstrument instrument);
 }
