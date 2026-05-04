@@ -9,6 +9,8 @@ import {
   getPositions, getLatestPrice, getMarketSummary,
   upsertPosition, sellPosition,
   type MarketInstrument, type Position, type MarketSummaryItem,
+  getPortfolioSummaryDetail, getPortfolioPerformance,
+  type PortfolioSummaryDetail, type PortfolioPerformanceResponse,
 } from "../api/portfolioApi";
 import { getMarketInstruments } from "../api/portfolioApi";
 
@@ -23,6 +25,11 @@ export default function Portfolio({ keycloak }: Props) {
   const [err, setErr] = useState<string | null>(null);
   const [instruments, setInstruments] = useState<MarketInstrument[]>([]);
   const [marketData, setMarketData] = useState<MarketSummaryItem[]>([]);
+
+  // Real API data states
+  const [summaryDetail, setSummaryDetail] = useState<PortfolioSummaryDetail | null>(null);
+  const [perfResponse, setPerfResponse] = useState<PortfolioPerformanceResponse | null>(null);
+  const [perfLoading, setPerfLoading] = useState(false);
 
   const [addOpen, setAddOpen] = useState(false);
   const [addSymbol, setAddSymbol] = useState("");
@@ -68,9 +75,35 @@ export default function Portfolio({ keycloak }: Props) {
         catch { priceMap[p.symbol] = Number(p.avgCost ?? 0); }
       }));
       setPrices(priceMap);
+      
+      // Fetch real portfolio summary
+      try {
+        const summary = await getPortfolioSummaryDetail(keycloak);
+        setSummaryDetail(summary);
+        console.log("[Portfolio] Summary detail loaded:", summary);
+      } catch (e: any) {
+        console.error("[Portfolio] Failed to load summary detail:", e);
+      }
     } catch (e: any) { setErr(e?.message ?? "Fetch error"); }
     finally { setLoading(false); }
   }
+
+  // Fetch portfolio performance when period changes
+  useEffect(() => {
+    if (!keycloak.authenticated || items.length === 0) return;
+    
+    setPerfLoading(true);
+    getPortfolioPerformance(keycloak, perfPeriod)
+      .then(response => {
+        setPerfResponse(response);
+        console.log("[Portfolio] Performance loaded:", response);
+      })
+      .catch(e => {
+        console.error("[Portfolio] Failed to load performance:", e);
+        setPerfResponse(null);
+      })
+      .finally(() => setPerfLoading(false));
+  }, [keycloak.authenticated, perfPeriod, items.length]);
 
   useEffect(() => {
     refresh();
@@ -105,6 +138,18 @@ export default function Portfolio({ keycloak }: Props) {
   }, [histSymbol, instruments]);
 
   const stats = useMemo(() => {
+    // Use real API data if available
+    if (summaryDetail) {
+      return {
+        totalValue: summaryDetail.totalCurrentValue,
+        totalCost: summaryDetail.totalInvested,
+        totalGain: summaryDetail.totalChangeValue,
+        totalGainPct: summaryDetail.totalChangePercent,
+        count: summaryDetail.positions.length
+      };
+    }
+    
+    // Fallback to old calculation if API data not loaded yet
     let totalValue = 0, totalCost = 0;
     items.forEach((p) => {
       const qty = Number(p.quantity);
@@ -115,117 +160,36 @@ export default function Portfolio({ keycloak }: Props) {
     const totalGain = totalValue - totalCost;
     const totalGainPct = totalCost > 0 ? (totalGain / totalCost) * 100 : 0;
     return { totalValue, totalCost, totalGain, totalGainPct, count: items.length };
-  }, [items, prices]);
+  }, [summaryDetail, items, prices]);
 
   const perfData = useMemo(() => {
-    if (stats.totalValue === 0 || items.length === 0) return [];
-    
-    // For realistic portfolio performance, we need to calculate based on actual positions
-    // Since we don't have historical portfolio values, we'll use a weighted approach
-    // based on each position's performance
-    
-    const currentValue = stats.totalValue;
-    const currentCost = stats.totalCost;
-    
-    // If no cost data, can't calculate realistic performance
-    if (currentCost === 0) {
-      return [];
+    // Use real API data if available
+    if (perfResponse && perfResponse.points.length > 0) {
+      return perfResponse.points.map(p => {
+        const date = new Date(p.date);
+        let label: string;
+        
+        // Format label based on period
+        if (perfPeriod === "1D") {
+          label = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        } else if (perfPeriod === "5D") {
+          label = date.toLocaleDateString('tr-TR', { weekday: 'short' });
+        } else if (perfPeriod === "1M" || perfPeriod === "3M") {
+          label = date.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
+        } else {
+          label = date.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
+        }
+        
+        return {
+          label,
+          value: p.value
+        };
+      });
     }
     
-    // Calculate overall return
-    const totalReturn = (currentValue - currentCost) / currentCost;
-    
-    let dataPoints: { label: string; value: number }[] = [];
-    
-    switch (perfPeriod) {
-      case "1D": {
-        // For 1 day, show hourly progression
-        // Assume we started the day at yesterday's close (estimate: current - 2% daily volatility)
-        const yesterdayClose = currentValue / (1 + (totalReturn * 0.01)); // 1% of total return per day
-        const hours = Array.from({ length: 24 }, (_, i) => i);
-        dataPoints = hours.map((h) => {
-          const progress = h / 23;
-          const value = yesterdayClose + (currentValue - yesterdayClose) * progress;
-          // Add some intraday volatility
-          const volatility = (Math.sin(h * 0.5) * 0.003 + (Math.random() - 0.5) * 0.005) * currentValue;
-          return {
-            label: `${h}:00`,
-            value: Math.round(value + volatility),
-          };
-        });
-        break;
-      }
-      case "5D": {
-        // For 5 days, show daily progression
-        const fiveDaysAgo = currentValue / (1 + (totalReturn * 0.05)); // 5% of total return
-        const days = ["Pzt", "Sal", "Çar", "Per", "Cum"];
-        dataPoints = days.map((d, i) => {
-          const progress = i / 4;
-          const value = fiveDaysAgo + (currentValue - fiveDaysAgo) * progress;
-          const volatility = (Math.random() - 0.5) * 0.01 * currentValue;
-          return {
-            label: d,
-            value: Math.round(value + volatility),
-          };
-        });
-        break;
-      }
-      case "1M": {
-        // For 1 month, show weekly progression
-        const oneMonthAgo = currentValue / (1 + (totalReturn * 0.1)); // 10% of total return
-        const weeks = ["1H", "2H", "3H", "4H"];
-        dataPoints = weeks.map((w, i) => {
-          const progress = i / 3;
-          const value = oneMonthAgo + (currentValue - oneMonthAgo) * progress;
-          const volatility = (Math.random() - 0.5) * 0.02 * currentValue;
-          return {
-            label: w,
-            value: Math.round(value + volatility),
-          };
-        });
-        break;
-      }
-      case "3M": {
-        // For 3 months, show weekly progression
-        const threeMonthsAgo = currentValue / (1 + (totalReturn * 0.3)); // 30% of total return
-        const weeks = Array.from({ length: 12 }, (_, i) => `${i + 1}H`);
-        dataPoints = weeks.map((w, i) => {
-          const progress = i / 11;
-          const value = threeMonthsAgo + (currentValue - threeMonthsAgo) * progress;
-          const volatility = (Math.random() - 0.5) * 0.03 * currentValue;
-          return {
-            label: w,
-            value: Math.round(value + volatility),
-          };
-        });
-        break;
-      }
-      case "1Y":
-      default: {
-        // For 1 year, use actual cost as starting point
-        const months = ["Oca", "Sub", "Mar", "Nis", "May", "Haz", "Tem", "Agu", "Eyl", "Eki", "Kas", "Ara"];
-        const startValue = currentCost;
-        dataPoints = months.map((m, i) => {
-          const progress = i / 11;
-          const value = startValue + (currentValue - startValue) * progress;
-          // Add realistic market volatility
-          const volatility = (Math.random() - 0.5) * 0.04 * currentValue;
-          return {
-            label: m,
-            value: Math.round(value + volatility),
-          };
-        });
-        break;
-      }
-    }
-    
-    // Ensure last point is exactly current value
-    if (dataPoints.length > 0) {
-      dataPoints[dataPoints.length - 1].value = Math.round(currentValue);
-    }
-    
-    return dataPoints;
-  }, [stats.totalValue, stats.totalCost, perfPeriod, items.length]);
+    // Empty state or loading
+    return [];
+  }, [perfResponse, perfPeriod]);
 
   const allocData = useMemo(() => {
     // Per-symbol allocation so each position gets its own slice
@@ -443,10 +407,15 @@ export default function Portfolio({ keycloak }: Props) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
               <div>
                 <div style={s.chartTitle}>Portfoy Performansi</div>
-                <div style={s.chartSub}>Tahmini portfoy degeri</div>
+                <div style={s.chartSub}>
+                  {perfLoading ? "Yukleniyor..." : 
+                   perfResponse && perfResponse.points.length > 0 ? 
+                   `${new Date(perfResponse.startDate).toLocaleDateString('tr-TR')} - ${new Date(perfResponse.endDate).toLocaleDateString('tr-TR')}` :
+                   "Gercek portfoy degeri"}
+                </div>
               </div>
               <div style={{ display: "flex", gap: 6 }}>
-                {["1D", "5D", "1M", "3M", "1Y"].map((p) => (
+                {["1D", "5D", "1M", "3M", "1Y", "ALL"].map((p) => (
                   <button
                     key={p}
                     style={{
@@ -454,6 +423,7 @@ export default function Portfolio({ keycloak }: Props) {
                       ...(perfPeriod === p ? s.periodBtnActive : {}),
                     }}
                     onClick={() => setPerfPeriod(p)}
+                    disabled={perfLoading}
                   >
                     {p}
                   </button>
@@ -461,18 +431,24 @@ export default function Portfolio({ keycloak }: Props) {
               </div>
             </div>
             <ResponsiveContainer width="100%" height={200}>
-              <AreaChart data={perfData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                <defs>
-                  <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="5%" stopColor="#3fb950" stopOpacity={0.25} />
-                    <stop offset="95%" stopColor="#3fb950" stopOpacity={0} />
-                  </linearGradient>
-                </defs>
-                <XAxis dataKey="label" tick={{ fill: axisColor, fontSize: 11 }} tickLine={false} axisLine={false} />
-                <YAxis tick={{ fill: axisColor, fontSize: 10 }} tickLine={false} axisLine={false} width={65} tickFormatter={(v) => "$" + (v / 1000).toFixed(0) + "k"} />
-                <Tooltip contentStyle={{ background: tooltipBg, border: "1px solid " + tooltipBorder, borderRadius: 6, color: tooltipColor, fontSize: 11 }} formatter={(v: any) => ["$" + Number(v).toLocaleString("tr-TR"), "Deger"]} />
-                <Area type="monotone" dataKey="value" stroke="#3fb950" strokeWidth={1.5} fill="url(#pg)" dot={false} />
-              </AreaChart>
+              {perfData.length > 0 ? (
+                <AreaChart data={perfData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="5%" stopColor="#3fb950" stopOpacity={0.25} />
+                      <stop offset="95%" stopColor="#3fb950" stopOpacity={0} />
+                    </linearGradient>
+                  </defs>
+                  <XAxis dataKey="label" tick={{ fill: axisColor, fontSize: 11 }} tickLine={false} axisLine={false} />
+                  <YAxis tick={{ fill: axisColor, fontSize: 10 }} tickLine={false} axisLine={false} width={65} tickFormatter={(v) => "$" + (v / 1000).toFixed(0) + "k"} />
+                  <Tooltip contentStyle={{ background: tooltipBg, border: "1px solid " + tooltipBorder, borderRadius: 6, color: tooltipColor, fontSize: 11 }} formatter={(v: any) => ["$" + Number(v).toLocaleString("tr-TR"), "Deger"]} />
+                  <Area type="monotone" dataKey="value" stroke="#3fb950" strokeWidth={1.5} fill="url(#pg)" dot={false} />
+                </AreaChart>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-muted)", fontSize: 13 }}>
+                  {perfLoading ? "Performans verileri yukleniyor..." : "Performans grafiği için yeterli geçmiş fiyat verisi bulunamadı"}
+                </div>
+              )}
             </ResponsiveContainer>
           </div>
 
@@ -539,38 +515,76 @@ export default function Portfolio({ keycloak }: Props) {
                 </tr>
               </thead>
               <tbody>
-                {items.map((p) => {
-                  const qty = Number(p.quantity);
-                  const cost = Number(p.avgCost ?? 0);
-                  const cur = prices[p.symbol] ?? cost;
-                  const value = cur * qty;
-                  const change = cost > 0 ? ((cur - cost) / cost) * 100 : 0;
-                  const pos = change >= 0;
-                  const mkt = marketData.find((m) => m.symbol === p.symbol);
-                  const dailyChangePct = mkt?.changePct ?? 0;
-                  const dailyChangePos = dailyChangePct >= 0;
-                  const purchaseDate = p.purchaseDate ? new Date(p.purchaseDate).toLocaleDateString("tr-TR") : "-";
-                  return (
-                    <tr key={p.symbol} style={s.tr}>
-                      <td style={s.td}><span style={s.symbolBadge}>{p.symbol}</span></td>
-                      <td style={{ ...s.td, color: "var(--text-muted)" }}>{mkt?.name ?? "-"}</td>
-                      <td style={s.td}>{qty.toLocaleString("tr-TR")}</td>
-                      <td style={{ ...s.td, color: "var(--text-muted)", fontSize: 12 }}>{purchaseDate}</td>
-                      <td style={s.td}>{cost > 0 ? "$" + cost.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
-                      <td style={s.td}>{cur > 0 ? "$" + cur.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
-                      <td style={{ ...s.td, fontWeight: 600 }}>{value > 0 ? "$" + value.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
-                      <td style={{ ...s.td, color: pos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
-                        {pos ? "+" : ""}{change.toFixed(2)}%
-                      </td>
-                      <td style={{ ...s.td, color: dailyChangePos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
-                        {dailyChangePos ? "▲ +" : "▼ "}{Math.abs(dailyChangePct).toFixed(2)}%
-                      </td>
-                      <td style={s.td}>
-                        <button style={s.sellBtn} onClick={() => { setSellTarget(p); setSellQty(1); setErr(null); setSellOpen(true); }}>Sat</button>
-                      </td>
-                    </tr>
-                  );
-                })}
+                {summaryDetail && summaryDetail.positions.length > 0 ? (
+                  // Use real API data
+                  summaryDetail.positions.map((pos) => {
+                    const totalChangePos = pos.totalChangePercent >= 0;
+                    const dailyChangePos = pos.dailyChangePercent >= 0;
+                    const purchaseDate = pos.buyDate ? new Date(pos.buyDate).toLocaleDateString("tr-TR") : "-";
+                    return (
+                      <tr key={pos.symbol} style={s.tr}>
+                        <td style={s.td}><span style={s.symbolBadge}>{pos.symbol}</span></td>
+                        <td style={{ ...s.td, color: "var(--text-muted)" }}>{pos.name ?? "-"}</td>
+                        <td style={s.td}>{pos.quantity.toLocaleString("tr-TR")}</td>
+                        <td style={{ ...s.td, color: "var(--text-muted)", fontSize: 12 }}>{purchaseDate}</td>
+                        <td style={s.td}>{pos.buyPrice > 0 ? "$" + pos.buyPrice.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
+                        <td style={s.td}>{pos.currentPrice > 0 ? "$" + pos.currentPrice.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
+                        <td style={{ ...s.td, fontWeight: 600 }}>{pos.currentValue > 0 ? "$" + pos.currentValue.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
+                        <td style={{ ...s.td, color: totalChangePos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
+                          {totalChangePos ? "+" : ""}{pos.totalChangePercent.toFixed(2)}%
+                        </td>
+                        <td style={{ ...s.td, color: dailyChangePos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
+                          {dailyChangePos ? "▲ +" : "▼ "}{Math.abs(pos.dailyChangePercent).toFixed(2)}%
+                        </td>
+                        <td style={s.td}>
+                          <button style={s.sellBtn} onClick={() => { 
+                            const position = items.find(p => p.symbol === pos.symbol);
+                            if (position) {
+                              setSellTarget(position); 
+                              setSellQty(1); 
+                              setErr(null); 
+                              setSellOpen(true); 
+                            }
+                          }}>Sat</button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                ) : (
+                  // Fallback to old data
+                  items.map((p) => {
+                    const qty = Number(p.quantity);
+                    const cost = Number(p.avgCost ?? 0);
+                    const cur = prices[p.symbol] ?? cost;
+                    const value = cur * qty;
+                    const change = cost > 0 ? ((cur - cost) / cost) * 100 : 0;
+                    const pos = change >= 0;
+                    const mkt = marketData.find((m) => m.symbol === p.symbol);
+                    const dailyChangePct = mkt?.changePct ?? 0;
+                    const dailyChangePos = dailyChangePct >= 0;
+                    const purchaseDate = p.purchaseDate ? new Date(p.purchaseDate).toLocaleDateString("tr-TR") : "-";
+                    return (
+                      <tr key={p.symbol} style={s.tr}>
+                        <td style={s.td}><span style={s.symbolBadge}>{p.symbol}</span></td>
+                        <td style={{ ...s.td, color: "var(--text-muted)" }}>{mkt?.name ?? "-"}</td>
+                        <td style={s.td}>{qty.toLocaleString("tr-TR")}</td>
+                        <td style={{ ...s.td, color: "var(--text-muted)", fontSize: 12 }}>{purchaseDate}</td>
+                        <td style={s.td}>{cost > 0 ? "$" + cost.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
+                        <td style={s.td}>{cur > 0 ? "$" + cur.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
+                        <td style={{ ...s.td, fontWeight: 600 }}>{value > 0 ? "$" + value.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
+                        <td style={{ ...s.td, color: pos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
+                          {pos ? "+" : ""}{change.toFixed(2)}%
+                        </td>
+                        <td style={{ ...s.td, color: dailyChangePos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
+                          {dailyChangePos ? "▲ +" : "▼ "}{Math.abs(dailyChangePct).toFixed(2)}%
+                        </td>
+                        <td style={s.td}>
+                          <button style={s.sellBtn} onClick={() => { setSellTarget(p); setSellQty(1); setErr(null); setSellOpen(true); }}>Sat</button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
