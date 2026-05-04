@@ -227,6 +227,61 @@ export async function getPortfolioAllocationByType(keycloak: Keycloak): Promise<
     return res.data;
 }
 
+/** PORTFOLIO SUMMARY DETAIL */
+export type PortfolioPositionDetail = {
+    symbol: string;
+    name: string;
+    quantity: number;
+    buyDate: string;
+    buyPrice: number;
+    currentPrice: number;
+    investedAmount: number;
+    currentValue: number;
+    totalChangeValue: number;
+    totalChangePercent: number;
+    dailyChangePercent: number;
+    dailyChangeValue: number;
+};
+
+export type PortfolioSummaryDetail = {
+    totalInvested: number;
+    totalCurrentValue: number;
+    totalChangeValue: number;
+    totalChangePercent: number;
+    positions: PortfolioPositionDetail[];
+};
+
+export async function getPortfolioSummaryDetail(keycloak: Keycloak): Promise<PortfolioSummaryDetail> {
+    const headers = await authHeader(keycloak);
+    const res = await axios.get(`${API_BASE}/api/v1/portfolio/summary-detail`, { headers });
+    return res.data;
+}
+
+/** PORTFOLIO PERFORMANCE */
+export type PortfolioPerformancePoint = {
+    date: string;
+    value: number;
+};
+
+export type PortfolioPerformanceResponse = {
+    range: string;
+    startDate: string;
+    endDate: string;
+    points: PortfolioPerformancePoint[];
+};
+
+export async function getPortfolioPerformance(
+    keycloak: Keycloak, 
+    range: string = "ALL"
+): Promise<PortfolioPerformanceResponse> {
+    const headers = await authHeader(keycloak);
+    const res = await axios.get(`${API_BASE}/api/v1/portfolio/performance`, { 
+        headers,
+        params: { range }
+    });
+    return res.data;
+}
+
 /** NEWS */
 export type NewsArticle = {
     id: number;

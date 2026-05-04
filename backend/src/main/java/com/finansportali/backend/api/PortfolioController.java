@@ -75,4 +75,16 @@ public class PortfolioController {
         service.clear(userId(jwt));
         return ResponseEntity.noContent().build();
     }
+
+    @GetMapping("/summary-detail")
+    public PortfolioSummaryDetail summaryDetail(@AuthenticationPrincipal Jwt jwt) {
+        return service.calculatePortfolioSummaryDetail(userId(jwt));
+    }
+
+    @GetMapping("/performance")
+    public PortfolioPerformanceResponse performance(
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam(defaultValue = "ALL") String range) {
+        return service.calculatePortfolioPerformance(userId(jwt), range);
+    }
 }
