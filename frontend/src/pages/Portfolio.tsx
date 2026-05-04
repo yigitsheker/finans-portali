@@ -42,6 +42,7 @@ export default function Portfolio({ keycloak }: Props) {
   const [histSymbol, setHistSymbol] = useState("");
   const [histDate, setHistDate] = useState("");
   const [histPrice, setHistPrice] = useState<number | null>(null);
+  const [histCurrentPrice, setHistCurrentPrice] = useState<number>(0);
   const [histLoading, setHistLoading] = useState(false);
   const [histError, setHistError] = useState<string | null>(null);
   const [showHistSugg, setShowHistSugg] = useState(false);
@@ -190,8 +191,12 @@ export default function Portfolio({ keycloak }: Props) {
       setHistLoading(true);
       setHistError(null);
       
+      console.log("[Historical Compare] Symbol:", sym);
+      console.log("[Historical Compare] Selected Date:", histDate);
+      
       // Get current price
       const currentPrice = await getLatestPrice(sym, keycloak);
+      console.log("[Historical Compare] Current Price:", currentPrice);
       
       // Calculate days difference to determine appropriate period
       const daysDiff = Math.floor((today.getTime() - selectedDate.getTime()) / (1000 * 60 * 60 * 24));
@@ -201,9 +206,13 @@ export default function Portfolio({ keycloak }: Props) {
       else if (daysDiff > 90) period = "6M";
       else if (daysDiff > 30) period = "3M";
       
+      console.log("[Historical Compare] Days Diff:", daysDiff, "Period:", period);
+      
       // Fetch historical data
       const { getMarketHistory } = await import("../api/portfolioApi");
       const historyData = await getMarketHistory(sym, period);
+      
+      console.log("[Historical Compare] History Data Points:", historyData?.length);
       
       if (!historyData || historyData.length === 0) {
         setHistError("Bu sembol için geçmiş veri bulunamadı");
@@ -224,9 +233,14 @@ export default function Portfolio({ keycloak }: Props) {
         }
       }
       
+      console.log("[Historical Compare] Closest Point:", closestPoint);
+      console.log("[Historical Compare] Historical Price:", closestPoint.close);
+      console.log("[Historical Compare] Change:", currentPrice - closestPoint.close);
+      
       setHistPrice(closestPoint.close);
+      setHistCurrentPrice(currentPrice);
     } catch (e: any) {
-      console.error("Historical comparison error:", e);
+      console.error("[Historical Compare] Error:", e);
       setHistError(e?.message ?? "Fiyat alınamadı");
     } finally {
       setHistLoading(false);
@@ -236,7 +250,6 @@ export default function Portfolio({ keycloak }: Props) {
   const gainPos = stats.totalGain >= 0;
 
   // Historical comparison calculations
-  const histCurrentPrice = histSymbol.trim() ? (prices[histSymbol.trim().toUpperCase()] ?? 0) : 0;
   const histChange = histPrice && histCurrentPrice ? histCurrentPrice - histPrice : 0;
   const histChangePct = histPrice && histPrice > 0 ? ((histChange / histPrice) * 100) : 0;
   const histChangePos = histChange >= 0;
@@ -264,6 +277,7 @@ export default function Portfolio({ keycloak }: Props) {
               setHistSymbol("");
               setHistDate("");
               setHistPrice(null);
+              setHistCurrentPrice(0);
               setHistError(null);
               setHistOpen(true);
             }}
@@ -526,6 +540,8 @@ export default function Portfolio({ keycloak }: Props) {
         onClose={() => {
           setHistOpen(false);
           setHistError(null);
+          setHistPrice(null);
+          setHistCurrentPrice(0);
         }}
         footer={
           <>
