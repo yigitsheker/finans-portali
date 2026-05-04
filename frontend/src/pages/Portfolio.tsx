@@ -166,18 +166,24 @@ export default function Portfolio({ keycloak }: Props) {
     // Use real API data if available
     if (perfResponse && perfResponse.points.length > 0) {
       return perfResponse.points.map(p => {
-        const date = new Date(p.date);
         let label: string;
         
-        // Format label based on period
-        if (perfPeriod === "1D") {
-          label = date.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-        } else if (perfPeriod === "5D") {
-          label = date.toLocaleDateString('tr-TR', { weekday: 'short' });
-        } else if (perfPeriod === "1M" || perfPeriod === "3M") {
-          label = date.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
+        // Use datetime for intraday, date for daily
+        if (p.datetime) {
+          const datetime = new Date(p.datetime);
+          label = datetime.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
+        } else if (p.date) {
+          const date = new Date(p.date);
+          // Format based on period
+          if (perfPeriod === "5D") {
+            label = date.toLocaleDateString('tr-TR', { weekday: 'short' });
+          } else if (perfPeriod === "1M" || perfPeriod === "3M") {
+            label = date.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
+          } else {
+            label = date.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
+          }
         } else {
-          label = date.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
+          label = "";
         }
         
         return {
@@ -410,7 +416,7 @@ export default function Portfolio({ keycloak }: Props) {
                 <div style={s.chartSub}>
                   {perfLoading ? "Yukleniyor..." : 
                    perfResponse && perfResponse.points.length > 0 ? 
-                   `${new Date(perfResponse.startDate).toLocaleDateString('tr-TR')} - ${new Date(perfResponse.endDate).toLocaleDateString('tr-TR')}` :
+                   `${new Date(perfResponse.startDate).toLocaleDateString('tr-TR')} - ${new Date(perfResponse.endDate).toLocaleDateString('tr-TR')} (${perfResponse.source === 'BUY_CURRENT_FALLBACK' ? 'Alış-Güncel' : perfResponse.source === 'YAHOO_INTRADAY' ? 'Gün içi' : 'Günlük'})` :
                    "Gercek portfoy degeri"}
                 </div>
               </div>

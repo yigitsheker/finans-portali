@@ -7,5 +7,7 @@ public record PortfolioPerformanceResponse(
         String range,
         LocalDate startDate,
         LocalDate endDate,
+        String granularity,
+        String source,
         List<PortfolioPerformancePoint> points
 ) {}

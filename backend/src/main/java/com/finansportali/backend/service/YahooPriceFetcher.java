@@ -298,6 +298,30 @@ public class YahooPriceFetcher {
     private static BigDecimal bd(double v) {
         return BigDecimal.valueOf(v);
     }
+    
+    private static BigDecimal bd(Object o) {
+        if (o == null) return null;
+        if (o instanceof Number) {
+            return BigDecimal.valueOf(((Number) o).doubleValue());
+        }
+        try {
+            return new BigDecimal(o.toString());
+        } catch (Exception e) {
+            return null;
+        }
+    }
+    
+    private static Long num(Object o) {
+        if (o == null) return null;
+        if (o instanceof Number) {
+            return ((Number) o).longValue();
+        }
+        try {
+            return Long.parseLong(o.toString());
+        } catch (Exception e) {
+            return null;
+        }
+    }
 
     private static String str(Object o) {
         return o == null ? null : o.toString();
@@ -328,6 +352,89 @@ public class YahooPriceFetcher {
         /** Backward-compat constructor for daily candles */
         public DayClose(LocalDate day, BigDecimal close) {
             this(day, close, day.toEpochDay() * 86400L, day.toString());
+        }
+    }
+    
+    /**
+     * Intraday price point with datetime
+     */
+    public record IntradayPoint(
+            LocalDateTime datetime,
+            BigDecimal price
+    ) {}
+    
+    /**
+     * Fetch intraday prices for today (1D chart)
+     * @param yahooSymbol e.g. "ASELS.IS", "AAPL", "BTC-USD"
+     * @param interval e.g. "5m", "15m", "1h"
+     * @return list of intraday points
+     */
+    public List<IntradayPoint> fetchIntraday(String yahooSymbol, String interval) {
+        try {
+            log.info("Fetching intraday data for symbol={}, interval={}", yahooSymbol, interval);
+            
+            Map<?, ?> resp = client.get()
+                    .uri(u -> u.path("/v8/finance/chart/{symbol}")
+                            .queryParam("range", "1d")
+                            .queryParam("interval", interval)
+                            .build(yahooSymbol))
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+            
+            if (resp == null) {
+                log.warn("No response from Yahoo for intraday {}", yahooSymbol);
+                return List.of();
+            }
+            
+            Map<?, ?> chart = (Map<?, ?>) resp.get("chart");
+            if (chart == null) return List.of();
+            
+            List<?> results = (List<?>) chart.get("result");
+            if (results == null || results.isEmpty()) return List.of();
+            
+            Map<?, ?> result = (Map<?, ?>) results.get(0);
+            List<?> timestamps = (List<?>) result.get("timestamp");
+            Map<?, ?> indicators = (Map<?, ?>) result.get("indicators");
+            
+            if (timestamps == null || indicators == null) return List.of();
+            
+            List<?> quotes = (List<?>) indicators.get("quote");
+            if (quotes == null || quotes.isEmpty()) return List.of();
+            
+            Map<?, ?> quote = (Map<?, ?>) quotes.get(0);
+            List<?> closes = (List<?>) quote.get("close");
+            
+            if (closes == null) return List.of();
+            
+            List<IntradayPoint> points = new ArrayList<>();
+            for (int i = 0; i < timestamps.size() && i < closes.size(); i++) {
+                Object closeObj = closes.get(i);
+                if (closeObj == null) continue;
+                
+                BigDecimal price = bd(closeObj);
+                if (price == null || price.compareTo(BigDecimal.ZERO) <= 0) continue;
+                
+                Long ts = num(timestamps.get(i));
+                if (ts == null) continue;
+                
+                LocalDateTime datetime = LocalDateTime.ofInstant(
+                        Instant.ofEpochSecond(ts), 
+                        ZoneOffset.UTC);
+                
+                points.add(new IntradayPoint(datetime, price));
+            }
+            
+            log.info("Fetched {} intraday points for {}", points.size(), yahooSymbol);
+            return points;
+            
+        } catch (WebClientResponseException e) {
+            log.error("Yahoo intraday fetch failed for {}: {} - {}", 
+                    yahooSymbol, e.getStatusCode(), e.getResponseBodyAsString());
+            return List.of();
+        } catch (Exception e) {
+            log.error("Error fetching intraday data for {}: {}", yahooSymbol, e.getMessage(), e);
+            return List.of();
         }
     }
 }

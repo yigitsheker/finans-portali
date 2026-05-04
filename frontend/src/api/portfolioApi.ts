@@ -259,7 +259,8 @@ export async function getPortfolioSummaryDetail(keycloak: Keycloak): Promise<Por
 
 /** PORTFOLIO PERFORMANCE */
 export type PortfolioPerformancePoint = {
-    date: string;
+    date?: string;
+    datetime?: string;
     value: number;
 };
 
@@ -267,6 +268,8 @@ export type PortfolioPerformanceResponse = {
     range: string;
     startDate: string;
     endDate: string;
+    granularity: string;
+    source: string;
     points: PortfolioPerformancePoint[];
 };
 
