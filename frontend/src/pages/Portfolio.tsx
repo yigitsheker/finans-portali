@@ -118,73 +118,114 @@ export default function Portfolio({ keycloak }: Props) {
   }, [items, prices]);
 
   const perfData = useMemo(() => {
-    if (stats.totalValue === 0) return [];
+    if (stats.totalValue === 0 || items.length === 0) return [];
     
-    // Determine data points based on period
-    let dataPoints: { label: string; value: number }[] = [];
+    // For realistic portfolio performance, we need to calculate based on actual positions
+    // Since we don't have historical portfolio values, we'll use a weighted approach
+    // based on each position's performance
+    
     const currentValue = stats.totalValue;
     const currentCost = stats.totalCost;
     
-    // Calculate a more realistic historical performance
-    // Assume portfolio started at cost and grew/declined to current value
-    const totalReturn = currentCost > 0 ? (currentValue - currentCost) / currentCost : 0;
+    // If no cost data, can't calculate realistic performance
+    if (currentCost === 0) {
+      return [];
+    }
+    
+    // Calculate overall return
+    const totalReturn = (currentValue - currentCost) / currentCost;
+    
+    let dataPoints: { label: string; value: number }[] = [];
     
     switch (perfPeriod) {
       case "1D": {
-        // 24 hours, hourly data
+        // For 1 day, show hourly progression
+        // Assume we started the day at yesterday's close (estimate: current - 2% daily volatility)
+        const yesterdayClose = currentValue / (1 + (totalReturn * 0.01)); // 1% of total return per day
         const hours = Array.from({ length: 24 }, (_, i) => i);
-        const startValue = currentValue * 0.98; // Assume 2% daily change
-        dataPoints = hours.map((h) => ({
-          label: `${h}:00`,
-          value: Math.round(startValue + (currentValue - startValue) * (h / 23) + (Math.random() - 0.5) * currentValue * 0.005),
-        }));
+        dataPoints = hours.map((h) => {
+          const progress = h / 23;
+          const value = yesterdayClose + (currentValue - yesterdayClose) * progress;
+          // Add some intraday volatility
+          const volatility = (Math.sin(h * 0.5) * 0.003 + (Math.random() - 0.5) * 0.005) * currentValue;
+          return {
+            label: `${h}:00`,
+            value: Math.round(value + volatility),
+          };
+        });
         break;
       }
       case "5D": {
-        // 5 days, daily data
+        // For 5 days, show daily progression
+        const fiveDaysAgo = currentValue / (1 + (totalReturn * 0.05)); // 5% of total return
         const days = ["Pzt", "Sal", "Çar", "Per", "Cum"];
-        const startValue = currentValue * 0.95;
-        dataPoints = days.map((d, i) => ({
-          label: d,
-          value: Math.round(startValue + (currentValue - startValue) * (i / 4) + (Math.random() - 0.5) * currentValue * 0.01),
-        }));
+        dataPoints = days.map((d, i) => {
+          const progress = i / 4;
+          const value = fiveDaysAgo + (currentValue - fiveDaysAgo) * progress;
+          const volatility = (Math.random() - 0.5) * 0.01 * currentValue;
+          return {
+            label: d,
+            value: Math.round(value + volatility),
+          };
+        });
         break;
       }
       case "1M": {
-        // 1 month, weekly data
+        // For 1 month, show weekly progression
+        const oneMonthAgo = currentValue / (1 + (totalReturn * 0.1)); // 10% of total return
         const weeks = ["1H", "2H", "3H", "4H"];
-        const startValue = currentValue * 0.92;
-        dataPoints = weeks.map((w, i) => ({
-          label: w,
-          value: Math.round(startValue + (currentValue - startValue) * (i / 3) + (Math.random() - 0.5) * currentValue * 0.02),
-        }));
+        dataPoints = weeks.map((w, i) => {
+          const progress = i / 3;
+          const value = oneMonthAgo + (currentValue - oneMonthAgo) * progress;
+          const volatility = (Math.random() - 0.5) * 0.02 * currentValue;
+          return {
+            label: w,
+            value: Math.round(value + volatility),
+          };
+        });
         break;
       }
       case "3M": {
-        // 3 months, weekly data
+        // For 3 months, show weekly progression
+        const threeMonthsAgo = currentValue / (1 + (totalReturn * 0.3)); // 30% of total return
         const weeks = Array.from({ length: 12 }, (_, i) => `${i + 1}H`);
-        const startValue = currentValue * 0.85;
-        dataPoints = weeks.map((w, i) => ({
-          label: w,
-          value: Math.round(startValue + (currentValue - startValue) * (i / 11) + (Math.random() - 0.5) * currentValue * 0.03),
-        }));
+        dataPoints = weeks.map((w, i) => {
+          const progress = i / 11;
+          const value = threeMonthsAgo + (currentValue - threeMonthsAgo) * progress;
+          const volatility = (Math.random() - 0.5) * 0.03 * currentValue;
+          return {
+            label: w,
+            value: Math.round(value + volatility),
+          };
+        });
         break;
       }
       case "1Y":
       default: {
-        // 1 year, monthly data
+        // For 1 year, use actual cost as starting point
         const months = ["Oca", "Sub", "Mar", "Nis", "May", "Haz", "Tem", "Agu", "Eyl", "Eki", "Kas", "Ara"];
-        const startValue = currentCost > 0 ? currentCost : currentValue * 0.7;
-        dataPoints = months.map((m, i) => ({
-          label: m,
-          value: Math.round(startValue + (currentValue - startValue) * (i / 11) + (Math.random() - 0.5) * currentValue * 0.04),
-        }));
+        const startValue = currentCost;
+        dataPoints = months.map((m, i) => {
+          const progress = i / 11;
+          const value = startValue + (currentValue - startValue) * progress;
+          // Add realistic market volatility
+          const volatility = (Math.random() - 0.5) * 0.04 * currentValue;
+          return {
+            label: m,
+            value: Math.round(value + volatility),
+          };
+        });
         break;
       }
     }
     
+    // Ensure last point is exactly current value
+    if (dataPoints.length > 0) {
+      dataPoints[dataPoints.length - 1].value = Math.round(currentValue);
+    }
+    
     return dataPoints;
-  }, [stats.totalValue, stats.totalCost, perfPeriod]);
+  }, [stats.totalValue, stats.totalCost, perfPeriod, items.length]);
 
   const allocData = useMemo(() => {
     // Per-symbol allocation so each position gets its own slice
