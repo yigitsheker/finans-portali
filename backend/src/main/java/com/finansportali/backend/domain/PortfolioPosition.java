@@ -27,6 +27,10 @@ public class PortfolioPosition {
     @Column(nullable = true, precision = 19, scale = 6)
     private BigDecimal avgCost;
 
+    // Pozisyon eklenme tarihi (günlük değişim hesabı için)
+    @Column(nullable = true)
+    private java.time.LocalDate purchaseDate;
+
     public PortfolioPosition() {}
 
     public PortfolioPosition(String userId, String symbol, BigDecimal quantity, BigDecimal avgCost) {
@@ -41,9 +45,11 @@ public class PortfolioPosition {
     public String getSymbol() { return symbol; }
     public BigDecimal getQuantity() { return quantity; }
     public BigDecimal getAvgCost() { return avgCost; }
+    public java.time.LocalDate getPurchaseDate() { return purchaseDate; }
 
     public void setUserId(String userId) { this.userId = userId; }
     public void setSymbol(String symbol) { this.symbol = symbol; }
     public void setQuantity(BigDecimal quantity) { this.quantity = quantity; }
     public void setAvgCost(BigDecimal avgCost) { this.avgCost = avgCost; }
+    public void setPurchaseDate(java.time.LocalDate purchaseDate) { this.purchaseDate = purchaseDate; }
 }

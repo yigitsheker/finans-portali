@@ -395,7 +395,7 @@ export default function Portfolio({ keycloak }: Props) {
             <table style={s.table}>
               <thead>
                 <tr>
-                  {["Sembol", "Isim", "Adet", "Alis Fiyati", "Guncel Fiyat", "Deger", "Toplam Degisim", "Gunluk Degisim", ""].map((h) => (
+                  {["Sembol", "Isim", "Adet", "Alis Tarihi", "Alis Fiyati", "Guncel Fiyat", "Deger", "Toplam Degisim", "Gunluk Degisim", ""].map((h) => (
                     <th key={h} style={s.th}>{h}</th>
                   ))}
                 </tr>
@@ -411,11 +411,13 @@ export default function Portfolio({ keycloak }: Props) {
                   const mkt = marketData.find((m) => m.symbol === p.symbol);
                   const dailyChangePct = mkt?.changePct ?? 0;
                   const dailyChangePos = dailyChangePct >= 0;
+                  const purchaseDate = p.purchaseDate ? new Date(p.purchaseDate).toLocaleDateString("tr-TR") : "-";
                   return (
                     <tr key={p.symbol} style={s.tr}>
                       <td style={s.td}><span style={s.symbolBadge}>{p.symbol}</span></td>
                       <td style={{ ...s.td, color: "var(--text-muted)" }}>{mkt?.name ?? "-"}</td>
                       <td style={s.td}>{qty.toLocaleString("tr-TR")}</td>
+                      <td style={{ ...s.td, color: "var(--text-muted)", fontSize: 12 }}>{purchaseDate}</td>
                       <td style={s.td}>{cost > 0 ? "$" + cost.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
                       <td style={s.td}>{cur > 0 ? "$" + cur.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
                       <td style={{ ...s.td, fontWeight: 600 }}>{value > 0 ? "$" + value.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>

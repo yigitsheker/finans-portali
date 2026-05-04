@@ -9,6 +9,7 @@ export type Position = {
     quantity: number;
     avgCost?: number | null;
     userId?: string;
+    purchaseDate?: string | null;
 };
 
 export type UpsertPositionRequest = {

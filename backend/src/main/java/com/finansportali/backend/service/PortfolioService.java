@@ -48,6 +48,9 @@ public class PortfolioService {
         PortfolioPosition pos = positionRepo.findByUserIdAndSymbol(userId, req.symbol())
                 .orElseGet(() -> new PortfolioPosition(userId, req.symbol(), BigDecimal.ZERO, null));
 
+        // İlk kez ekleniyor mu kontrol et
+        boolean isNewPosition = pos.getId() == null;
+
         // Mevcut miktara ekle (replace değil)
         BigDecimal newQuantity = pos.getQuantity().add(req.quantity());
         pos.setQuantity(newQuantity);
@@ -63,6 +66,11 @@ public class PortfolioService {
                 BigDecimal weightedAvg = oldValue.add(newValue).divide(newQuantity, 6, java.math.RoundingMode.HALF_UP);
                 pos.setAvgCost(weightedAvg);
             }
+        }
+
+        // İlk kez ekleniyorsa bugünün tarihini kaydet
+        if (isNewPosition && pos.getPurchaseDate() == null) {
+            pos.setPurchaseDate(java.time.LocalDate.now());
         }
 
         positionRepo.save(pos);
