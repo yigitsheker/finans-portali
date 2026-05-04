@@ -47,6 +47,9 @@ export default function Portfolio({ keycloak }: Props) {
   const [histError, setHistError] = useState<string | null>(null);
   const [showHistSugg, setShowHistSugg] = useState(false);
 
+  // Portfolio performance period
+  const [perfPeriod, setPerfPeriod] = useState<string>("1Y");
+
   const isDark = document.documentElement.getAttribute("data-theme") !== "light";
   const axisColor = isDark ? "#7d8590" : "#656d76";
   const tooltipBg = isDark ? "#1c2128" : "#ffffff";
@@ -115,13 +118,73 @@ export default function Portfolio({ keycloak }: Props) {
   }, [items, prices]);
 
   const perfData = useMemo(() => {
-    const months = ["Oca","Sub","Mar","Nis","May","Haz","Tem","Agu","Eyl","Eki","Kas","Ara"];
-    const base = stats.totalValue * 0.72;
-    return months.map((m, i) => ({
-      label: m,
-      value: Math.round(base + (stats.totalValue - base) * (i / 11) + (Math.random() - 0.3) * base * 0.04),
-    }));
-  }, [stats.totalValue]);
+    if (stats.totalValue === 0) return [];
+    
+    // Determine data points based on period
+    let dataPoints: { label: string; value: number }[] = [];
+    const currentValue = stats.totalValue;
+    const currentCost = stats.totalCost;
+    
+    // Calculate a more realistic historical performance
+    // Assume portfolio started at cost and grew/declined to current value
+    const totalReturn = currentCost > 0 ? (currentValue - currentCost) / currentCost : 0;
+    
+    switch (perfPeriod) {
+      case "1D": {
+        // 24 hours, hourly data
+        const hours = Array.from({ length: 24 }, (_, i) => i);
+        const startValue = currentValue * 0.98; // Assume 2% daily change
+        dataPoints = hours.map((h) => ({
+          label: `${h}:00`,
+          value: Math.round(startValue + (currentValue - startValue) * (h / 23) + (Math.random() - 0.5) * currentValue * 0.005),
+        }));
+        break;
+      }
+      case "5D": {
+        // 5 days, daily data
+        const days = ["Pzt", "Sal", "Çar", "Per", "Cum"];
+        const startValue = currentValue * 0.95;
+        dataPoints = days.map((d, i) => ({
+          label: d,
+          value: Math.round(startValue + (currentValue - startValue) * (i / 4) + (Math.random() - 0.5) * currentValue * 0.01),
+        }));
+        break;
+      }
+      case "1M": {
+        // 1 month, weekly data
+        const weeks = ["1H", "2H", "3H", "4H"];
+        const startValue = currentValue * 0.92;
+        dataPoints = weeks.map((w, i) => ({
+          label: w,
+          value: Math.round(startValue + (currentValue - startValue) * (i / 3) + (Math.random() - 0.5) * currentValue * 0.02),
+        }));
+        break;
+      }
+      case "3M": {
+        // 3 months, weekly data
+        const weeks = Array.from({ length: 12 }, (_, i) => `${i + 1}H`);
+        const startValue = currentValue * 0.85;
+        dataPoints = weeks.map((w, i) => ({
+          label: w,
+          value: Math.round(startValue + (currentValue - startValue) * (i / 11) + (Math.random() - 0.5) * currentValue * 0.03),
+        }));
+        break;
+      }
+      case "1Y":
+      default: {
+        // 1 year, monthly data
+        const months = ["Oca", "Sub", "Mar", "Nis", "May", "Haz", "Tem", "Agu", "Eyl", "Eki", "Kas", "Ara"];
+        const startValue = currentCost > 0 ? currentCost : currentValue * 0.7;
+        dataPoints = months.map((m, i) => ({
+          label: m,
+          value: Math.round(startValue + (currentValue - startValue) * (i / 11) + (Math.random() - 0.5) * currentValue * 0.04),
+        }));
+        break;
+      }
+    }
+    
+    return dataPoints;
+  }, [stats.totalValue, stats.totalCost, perfPeriod]);
 
   const allocData = useMemo(() => {
     // Per-symbol allocation so each position gets its own slice
@@ -336,8 +399,26 @@ export default function Portfolio({ keycloak }: Props) {
       {!loading && items.length > 0 && (
         <div style={s.chartsRow}>
           <div style={s.chartCard}>
-            <div style={s.chartTitle}>Portfoy Performansi</div>
-            <div style={s.chartSub}>Tahmini portfoy degeri (son 12 ay)</div>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+              <div>
+                <div style={s.chartTitle}>Portfoy Performansi</div>
+                <div style={s.chartSub}>Tahmini portfoy degeri</div>
+              </div>
+              <div style={{ display: "flex", gap: 6 }}>
+                {["1D", "5D", "1M", "3M", "1Y"].map((p) => (
+                  <button
+                    key={p}
+                    style={{
+                      ...s.periodBtn,
+                      ...(perfPeriod === p ? s.periodBtnActive : {}),
+                    }}
+                    onClick={() => setPerfPeriod(p)}
+                  >
+                    {p}
+                  </button>
+                ))}
+              </div>
+            </div>
             <ResponsiveContainer width="100%" height={200}>
               <AreaChart data={perfData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
                 <defs>
@@ -690,4 +771,20 @@ const s: Record<string, React.CSSProperties> = {
   histResultItem: { display: "flex", flexDirection: "column", gap: 4 },
   histResultLabel: { fontSize: 11, color: "var(--text-muted)", fontWeight: 500 },
   histResultValue: { fontSize: 15, fontWeight: 600, color: "var(--text-primary)" },
+  periodBtn: {
+    padding: "6px 12px",
+    borderRadius: 6,
+    border: "1px solid var(--border-card)",
+    background: "transparent",
+    color: "var(--text-muted)",
+    cursor: "pointer",
+    fontSize: 11,
+    fontWeight: 600,
+    transition: "all 0.2s",
+  },
+  periodBtnActive: {
+    border: "1px solid #3b82f6",
+    background: "rgba(59, 130, 246, 0.15)",
+    color: "#3b82f6",
+  },
 };
