@@ -1,4 +1,55 @@
-﻿/* ── Design tokens ─────────────────────────────────────────── */
+﻿@import "tailwindcss";
+
+@theme {
+  /* Dark mode colors */
+  --color-dark-bg: #0d1117;
+  --color-dark-surface: #161b22;
+  --color-dark-border: #30363d;
+  --color-dark-hover: #1c2128;
+  
+  /* Primary colors */
+  --color-primary-50: #eff6ff;
+  --color-primary-100: #dbeafe;
+  --color-primary-200: #bfdbfe;
+  --color-primary-300: #93c5fd;
+  --color-primary-400: #60a5fa;
+  --color-primary-500: #3b82f6;
+  --color-primary-600: #2563eb;
+  --color-primary-700: #1d4ed8;
+  --color-primary-800: #1e40af;
+  --color-primary-900: #1e3a8a;
+  
+  /* Semantic colors */
+  --color-success: #3fb950;
+  --color-error: #f85149;
+  --color-warning: #d29922;
+  
+  /* Text colors */
+  --color-text-primary: #e6edf3;
+  --color-text-muted: #7d8590;
+  
+  /* Animations */
+  --animate-flash-green: flash-green 800ms ease-out;
+  --animate-flash-red: flash-red 800ms ease-out;
+  --animate-shimmer: shimmer 1.5s infinite;
+}
+
+@keyframes flash-green {
+  0% { background-color: rgba(63, 185, 80, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes flash-red {
+  0% { background-color: rgba(248, 81, 73, 0.3); }
+  100% { background-color: transparent; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -1000px 0; }
+  100% { background-position: 1000px 0; }
+}
+
+/* ── Design tokens ─────────────────────────────────────────── */
 :root {
   /* Dark blue-black theme */
   --bg-page:        #0d1117;
@@ -148,4 +199,17 @@ button[role="switch"]:focus-visible { outline: 2px solid var(--accent-solid); ou
 @keyframes spin {
   from { transform: rotate(0deg); }
   to { transform: rotate(360deg); }
+}
+
+/* ── Tailwind Custom Utilities ─────────────────────────────── */
+@layer utilities {
+  .transition-micro {
+    transition-duration: 150ms;
+  }
+  .transition-standard {
+    transition-duration: 200ms;
+  }
+  .transition-complex {
+    transition-duration: 300ms;
+  }
 }

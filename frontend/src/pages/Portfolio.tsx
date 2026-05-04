@@ -1,10 +1,10 @@
 ﻿import type Keycloak from "keycloak-js";
 import { useEffect, useMemo, useState } from "react";
 import {
-  AreaChart, Area, XAxis, YAxis, Tooltip, ResponsiveContainer,
-  PieChart, Pie, Cell,
+  PieChart, Pie, Cell, Tooltip, ResponsiveContainer,
 } from "recharts";
 import Modal from "../components/Modal";
+import { PortfolioAreaChart, type ChartPoint } from "../components/common/PortfolioAreaChart";
 import {
   getPositions, getLatestPrice, getMarketSummary,
   upsertPosition, sellPosition,
@@ -55,10 +55,25 @@ export default function Portfolio({ keycloak }: Props) {
   const [showHistSugg, setShowHistSugg] = useState(false);
 
   // Portfolio performance period
-  const [perfPeriod, setPerfPeriod] = useState<string>("1Y");
+  const [perfPeriod, setPerfPeriod] = useState<string>("1D");
+
+  // Auto-select best default period based on earliest buy date
+  useEffect(() => {
+    if (items.length === 0) return;
+    const today = new Date().toISOString().split("T")[0];
+    const earliest = items
+      .map(p => p.purchaseDate ?? today)
+      .sort()[0];
+    const daysDiff = Math.floor((Date.now() - new Date(earliest).getTime()) / 86400000);
+    if (daysDiff === 0) setPerfPeriod("1D");
+    else if (daysDiff <= 5) setPerfPeriod("5D");
+    else if (daysDiff <= 30) setPerfPeriod("1M");
+    else if (daysDiff <= 90) setPerfPeriod("3M");
+    else if (daysDiff <= 365) setPerfPeriod("1Y");
+    else setPerfPeriod("ALL");
+  }, [items]);
 
   const isDark = document.documentElement.getAttribute("data-theme") !== "light";
-  const axisColor = isDark ? "#7d8590" : "#656d76";
   const tooltipBg = isDark ? "#1c2128" : "#ffffff";
   const tooltipBorder = isDark ? "#30363d" : "#d0d7de";
   const tooltipColor = isDark ? "#e6edf3" : "#1f2328";
@@ -162,40 +177,23 @@ export default function Portfolio({ keycloak }: Props) {
     return { totalValue, totalCost, totalGain, totalGainPct, count: items.length };
   }, [summaryDetail, items, prices]);
 
-  const perfData = useMemo(() => {
-    // Use real API data if available
-    if (perfResponse && perfResponse.points.length > 0) {
-      return perfResponse.points.map(p => {
-        let label: string;
-        
-        // Use datetime for intraday, date for daily
-        if (p.datetime) {
-          const datetime = new Date(p.datetime);
-          label = datetime.toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' });
-        } else if (p.date) {
-          const date = new Date(p.date);
-          // Format based on period
-          if (perfPeriod === "5D") {
-            label = date.toLocaleDateString('tr-TR', { weekday: 'short' });
-          } else if (perfPeriod === "1M" || perfPeriod === "3M") {
-            label = date.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
-          } else {
-            label = date.toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' });
-          }
-        } else {
-          label = "";
-        }
-        
-        return {
-          label,
-          value: p.value
-        };
-      });
-    }
-    
-    // Empty state or loading
-    return [];
-  }, [perfResponse, perfPeriod]);
+  const perfData = useMemo((): ChartPoint[] => {
+    if (!perfResponse || perfResponse.points.length === 0) return [];
+
+    return perfResponse.points.map((p) => {
+      let time: string;
+      if (p.datetime) {
+        // Intraday: ISO datetime → keep as-is, PortfolioAreaChart handles it
+        time = p.datetime;
+      } else if (p.date) {
+        // Daily: 'YYYY-MM-DD'
+        time = typeof p.date === "string" ? p.date.split("T")[0] : String(p.date);
+      } else {
+        time = new Date().toISOString().split("T")[0];
+      }
+      return { time, value: Number(p.value) };
+    });
+  }, [perfResponse]);
 
   const allocData = useMemo(() => {
     // Per-symbol allocation so each position gets its own slice
@@ -436,26 +434,21 @@ export default function Portfolio({ keycloak }: Props) {
                 ))}
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={200}>
-              {perfData.length > 0 ? (
-                <AreaChart data={perfData} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="pg" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#3fb950" stopOpacity={0.25} />
-                      <stop offset="95%" stopColor="#3fb950" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="label" tick={{ fill: axisColor, fontSize: 11 }} tickLine={false} axisLine={false} />
-                  <YAxis tick={{ fill: axisColor, fontSize: 10 }} tickLine={false} axisLine={false} width={65} tickFormatter={(v) => "$" + (v / 1000).toFixed(0) + "k"} />
-                  <Tooltip contentStyle={{ background: tooltipBg, border: "1px solid " + tooltipBorder, borderRadius: 6, color: tooltipColor, fontSize: 11 }} formatter={(v: any) => ["$" + Number(v).toLocaleString("tr-TR"), "Deger"]} />
-                  <Area type="monotone" dataKey="value" stroke="#3fb950" strokeWidth={1.5} fill="url(#pg)" dot={false} />
-                </AreaChart>
-              ) : (
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100%", color: "var(--text-muted)", fontSize: 13 }}>
-                  {perfLoading ? "Performans verileri yukleniyor..." : "Performans grafiği için yeterli geçmiş fiyat verisi bulunamadı"}
-                </div>
-              )}
-            </ResponsiveContainer>
+            {perfLoading ? (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-muted)", fontSize: 13 }}>
+                Performans verileri yükleniyor...
+              </div>
+            ) : perfData.length >= 2 ? (
+              <PortfolioAreaChart
+                data={perfData}
+                isIntraday={perfResponse?.granularity === "INTRADAY"}
+                height={200}
+              />
+            ) : (
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-muted)", fontSize: 13 }}>
+                Veri yükleniyor...
+              </div>
+            )}
           </div>
 
           <div style={s.allocCard}>

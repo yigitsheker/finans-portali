@@ -173,8 +173,6 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }: Pro
             open={!!baseInstrument}
             title={`Karşılaştır: ${baseInstrument.symbol}`}
             onClose={onClose}
-            width="90%"
-            maxWidth="1200px"
         >
             <div style={s.root}>
                 {/* Controls */}

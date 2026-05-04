@@ -6,7 +6,6 @@ import {
     type MarketSummaryItem,
 } from "../api/portfolioApi";
 import Modal from "./Modal";
-import PriceAlertModal from "./PriceAlertModal";
 import InstrumentChartModal from "./InstrumentChartModal";
 import CompareInstrumentsModal from "./CompareInstrumentsModal";
 

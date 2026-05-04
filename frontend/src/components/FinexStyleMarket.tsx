@@ -2,12 +2,14 @@ import type Keycloak from "keycloak-js";
 import { useEffect, useMemo, useState } from "react";
 import {
     getMarketSummary,
+    getMarketHistory,
     upsertPosition,
     type MarketSummaryItem,
 } from "../api/portfolioApi";
 import Modal from "./Modal";
 import InstrumentChartModal from "./InstrumentChartModal";
 import CompareInstrumentsModal from "./CompareInstrumentsModal";
+import { LWSparkline, type SparklinePoint } from "./common/LWSparkline";
 
 type Props = { keycloak: Keycloak; onAdded: () => void };
 
@@ -24,11 +26,13 @@ export default function FinexStyleMarket({ keycloak, onAdded }: Props) {
     const [addErr, setAddErr] = useState<string | null>(null);
     const [compareTarget, setCompareTarget] = useState<MarketSummaryItem | null>(null);
 
+    // Sparkline data: symbol → last 30 daily closes
+    const [sparklines, setSparklines] = useState<Record<string, SparklinePoint[]>>({});
+
     useEffect(() => {
         getMarketSummary()
             .then((data) => {
                 setItems(data);
-                // Don't auto-select any stock
             })
             .catch((e) => setErr(e?.message ?? "Fetch error"))
             .finally(() => setLoading(false));
@@ -53,6 +57,36 @@ export default function FinexStyleMarket({ keycloak, onAdded }: Props) {
         }
         return list;
     }, [items, filter, search]);
+
+    // Fetch sparkline history for visible items (batched, low priority)
+    useEffect(() => {
+        if (filtered.length === 0) return;
+        let cancelled = false;
+
+        const fetchBatch = async () => {
+            for (const item of filtered.slice(0, 40)) {
+                if (cancelled) break;
+                if (sparklines[item.symbol]) continue; // already loaded
+                try {
+                    const history = await getMarketHistory(item.symbol, "1M");
+                    if (!cancelled && history.length > 0) {
+                        const pts: SparklinePoint[] = history.map((h) => ({
+                            time: h.day.split("T")[0],
+                            value: h.close,
+                        }));
+                        setSparklines((prev) => ({ ...prev, [item.symbol]: pts }));
+                    }
+                } catch {
+                    // silently skip — sparkline is optional
+                }
+                await new Promise((r) => setTimeout(r, 80));
+            }
+        };
+
+        fetchBatch();
+        return () => { cancelled = true; };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [filtered.length, filter]);
 
     const addTotal = useMemo(() => {
         if (!addTarget || !addQty || addQty <= 0) return 0;
@@ -194,7 +228,12 @@ export default function FinexStyleMarket({ keycloak, onAdded }: Props) {
                                         </div>
                                     </div>
                                     <div style={s.colGrafik}>
-                                        <MiniChart positive={pos} />
+                                        <LWSparkline
+                                            data={sparklines[item.symbol] ?? []}
+                                            positive={pos}
+                                            width={100}
+                                            height={36}
+                                        />
                                     </div>
                                     <div style={s.colIslem}>
                                         <button
@@ -290,37 +329,6 @@ export default function FinexStyleMarket({ keycloak, onAdded }: Props) {
     );
 }
 
-function MiniChart({ positive }: { positive: boolean }) {
-    const color = positive ? "#10b981" : "#ef4444";
-    const pts = positive
-        ? "0,20 15,16 30,18 45,14 60,12 75,10"
-        : "0,10 15,12 30,14 45,16 60,18 75,20";
-    return (
-        <svg width="75" height="30" viewBox="0 0 75 30" preserveAspectRatio="none" style={{ display: "block" }}>
-            <polyline points={pts} fill="none" stroke={color} strokeWidth="2" />
-        </svg>
-    );
-}
-
-function LargeChart({ positive }: { positive: boolean }) {
-    const color = positive ? "#10b981" : "#ef4444";
-    const pts = positive
-        ? "0,80 50,70 100,75 150,60 200,55 250,50 300,45 350,40 400,35"
-        : "0,35 50,40 100,45 150,50 200,55 250,60 300,65 350,70 400,80";
-    return (
-        <svg width="100%" height="200" viewBox="0 0 400 100" preserveAspectRatio="none" style={{ display: "block" }}>
-            <defs>
-                <linearGradient id={"lg" + positive} x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-                    <stop offset="100%" stopColor={color} stopOpacity="0" />
-                </linearGradient>
-            </defs>
-            <polygon points={"0,100 " + pts + " 400,100"} fill={"url(#lg" + positive + ")"} />
-            <polyline points={pts} fill="none" stroke={color} strokeWidth="2" />
-        </svg>
-    );
-}
-
 const s: Record<string, React.CSSProperties> = {
     root: { display: "flex", flexDirection: "column", gap: 16 },
     loading: {
@@ -364,7 +372,7 @@ const s: Record<string, React.CSSProperties> = {
         gap: 12,
         alignItems: "center",
     },
-    searchBox: {
+    searchBox_old: {
         display: "flex",
         alignItems: "center",
         gap: 10,
@@ -375,7 +383,7 @@ const s: Record<string, React.CSSProperties> = {
         flex: 1,
         maxWidth: 400,
     },
-    searchInput: {
+    searchInput_old: {
         flex: 1,
         background: "transparent",
         border: "none",
@@ -383,8 +391,8 @@ const s: Record<string, React.CSSProperties> = {
         color: "var(--text-primary)",
         fontSize: 13,
     },
-    filterRow: { display: "flex", gap: 6, flexWrap: "wrap" },
-    filterBtn: {
+    filterRow_old: { display: "flex", gap: 6, flexWrap: "wrap" } as React.CSSProperties,
+    filterBtn_old: {
         padding: "8px 16px",
         borderRadius: 6,
         border: "1px solid #374151",
@@ -395,7 +403,7 @@ const s: Record<string, React.CSSProperties> = {
         fontWeight: 500,
         transition: "all 0.2s",
     },
-    filterActive: {
+    filterActive_old: {
         border: "1px solid #10b981",
         background: "rgba(16, 185, 129, 0.15)",
         color: "#10b981",
@@ -471,7 +479,7 @@ const s: Record<string, React.CSSProperties> = {
         color: "var(--text-primary)",
         fontSize: 13,
     },
-    filterRow: { display: "flex", gap: 6, flexWrap: "wrap" },
+    filterRow: { display: "flex", gap: 6, flexWrap: "wrap" } as React.CSSProperties,
     filterBtn: {
         padding: "5px 12px",
         borderRadius: 6,
@@ -617,9 +625,9 @@ const s: Record<string, React.CSSProperties> = {
     ghostBtn: {
         padding: "10px 20px",
         borderRadius: 8,
-        border: "1px solid #374151",
+        border: "1px solid var(--border-card)",
         background: "transparent",
-        color: "#9ca3af",
+        color: "var(--text-muted)",
         cursor: "pointer",
         fontWeight: 600,
         fontSize: 14,

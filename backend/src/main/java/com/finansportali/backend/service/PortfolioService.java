@@ -345,6 +345,12 @@ public class PortfolioService {
         }
         
         // For other ranges, use daily historical data
+        // If earliest buy date is today, always fall back to intraday/buy-current
+        if (earliestBuyDate.equals(today)) {
+            log.info("All positions bought today, using intraday fallback for range={}", range);
+            return calculateIntradayPerformance(userId, positions, earliestBuyDate, today);
+        }
+        
         LocalDate startDate = calculateStartDate(earliestBuyDate, range);
         LocalDate endDate = today;
         
@@ -417,19 +423,17 @@ public class PortfolioService {
             String userId, List<PortfolioPosition> positions, 
             LocalDate earliestBuyDate, LocalDate today) {
         
-        log.info("Calculating intraday performance for userId={}", userId);
+        log.info("Calculating intraday performance for userId={}, earliestBuyDate={}", userId, earliestBuyDate);
         
-        // If earliest buy date is not today, no intraday data makes sense
-        if (!earliestBuyDate.equals(today)) {
-            log.info("Earliest buy date {} is not today, using daily data for 1D", earliestBuyDate);
-            return createBuyCurrentFallback(positions, earliestBuyDate, today, "1D");
-        }
-        
-        // Try to fetch intraday data for each position
+        // Try to fetch intraday data for each position bought on or before today
         Map<String, List<YahooPriceFetcher.IntradayPoint>> intradayDataMap = new HashMap<>();
         boolean hasIntradayData = false;
         
         for (PortfolioPosition pos : positions) {
+            // Only include positions bought on or before today
+            LocalDate buyDate = pos.getPurchaseDate() != null ? pos.getPurchaseDate() : today;
+            if (buyDate.isAfter(today)) continue;
+            
             MarketInstrument inst = instrumentRepo.findBySymbol(pos.getSymbol()).orElse(null);
             if (inst == null) continue;
             
@@ -445,6 +449,8 @@ public class PortfolioService {
                 intradayDataMap.put(pos.getSymbol(), intradayPoints);
                 hasIntradayData = true;
                 log.info("Found {} intraday points for {}", intradayPoints.size(), pos.getSymbol());
+            } else {
+                log.warn("No intraday data for symbol={}", pos.getSymbol());
             }
         }
         
@@ -467,29 +473,29 @@ public class PortfolioService {
             BigDecimal portfolioValue = BigDecimal.ZERO;
             
             for (PortfolioPosition pos : positions) {
+                LocalDate buyDate = pos.getPurchaseDate() != null ? pos.getPurchaseDate() : today;
+                if (buyDate.isAfter(today)) continue;
+                
                 List<YahooPriceFetcher.IntradayPoint> posIntradayData = intradayDataMap.get(pos.getSymbol());
                 
                 if (posIntradayData != null) {
-                    // Find closest price for this datetime
+                    // Find closest price at or before this datetime
                     Optional<BigDecimal> price = posIntradayData.stream()
                             .filter(p -> !p.datetime().isAfter(datetime))
                             .max(Comparator.comparing(YahooPriceFetcher.IntradayPoint::datetime))
                             .map(YahooPriceFetcher.IntradayPoint::price);
                     
                     if (price.isPresent()) {
-                        BigDecimal positionValue = price.get().multiply(pos.getQuantity());
-                        portfolioValue = portfolioValue.add(positionValue);
+                        portfolioValue = portfolioValue.add(price.get().multiply(pos.getQuantity()));
                     }
                 } else {
-                    // Use current price for positions without intraday data
+                    // No intraday data: use current price from DB
                     MarketInstrument inst = instrumentRepo.findBySymbol(pos.getSymbol()).orElse(null);
                     if (inst != null) {
                         BigDecimal currentPrice = quoteRepo.findTop1ByInstrumentOrderByAsOfDesc(inst)
                                 .map(q -> q.getLast())
                                 .orElse(pos.getAvgCost() != null ? pos.getAvgCost() : BigDecimal.ZERO);
-                        
-                        BigDecimal positionValue = currentPrice.multiply(pos.getQuantity());
-                        portfolioValue = portfolioValue.add(positionValue);
+                        portfolioValue = portfolioValue.add(currentPrice.multiply(pos.getQuantity()));
                     }
                 }
             }

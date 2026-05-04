@@ -151,9 +151,10 @@ const s: Record<string, React.CSSProperties> = {
     },
     itemActive: {
         ...baseItem,
-        background: "rgba(37,99,235,0.15)",
+        background: "var(--accent-hover-bg)",
         color: "var(--text-primary)",
-        border: "none",
+        borderLeft: "3px solid var(--accent-solid)",
+        paddingLeft: 9,
     },
     icon: {
         fontSize: 14,

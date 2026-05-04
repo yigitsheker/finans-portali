@@ -10,6 +10,7 @@ import MarketData from "./pages/MarketData";
 import News from "./pages/News";
 import PriceAlertModal from "./components/PriceAlertModal";
 import { applyTheme, getStoredTheme, type Theme } from "./theme";
+import { ThemeProvider } from "./contexts/ThemeContext";
 
 type Tab = "market" | "portfolio" | "settings" | "market-data" | "news-enhanced";
 type Props = { keycloak: Keycloak };
@@ -47,50 +48,52 @@ export default function App({ keycloak }: Props) {
     };
 
     return (
-        <Layout
-            sidebar={
-                <Sidebar
-                    tab={tab}
-                    onTabChange={(t) => setTab(t as Tab)}
-                    keycloak={keycloak}
-                />
-            }
-            topbar={
-                <Topbar
-                    title={titles[tab]}
-                    subtitle={subtitles[tab]}
-                    username={username}
-                    theme={theme}
-                    onThemeToggle={toggleTheme}
-                    onLogout={() => keycloak.logout({ redirectUri: window.location.origin })}
-                    showAlerts={keycloak.authenticated}
-                    onAlertsClick={() => setShowAlertModal(true)}
-                />
-            }
-        >
-            {tab === "news-enhanced" && <News />}
-            {tab === "market" && (
-                <FinexStyleMarket
-                    keycloak={keycloak}
-                    onAdded={() => setPortfolioKey((k) => k + 1)}
-                />
-            )}
-            {tab === "market-data" && <MarketData />}
-            {tab === "portfolio" && (
-                <Portfolio key={portfolioKey} keycloak={keycloak} />
-            )}
-            {tab === "settings" && (
-                <Settings keycloak={keycloak} theme={theme} onThemeChange={setTheme} />
-            )}
-            
-            {/* Global Price Alert Modal */}
-            {showAlertModal && (
-                <PriceAlertModal
-                    open={showAlertModal}
-                    onClose={() => setShowAlertModal(false)}
-                    keycloak={keycloak}
-                />
-            )}
-        </Layout>
+        <ThemeProvider>
+            <Layout
+                sidebar={
+                    <Sidebar
+                        tab={tab}
+                        onTabChange={(t) => setTab(t as Tab)}
+                        keycloak={keycloak}
+                    />
+                }
+                topbar={
+                    <Topbar
+                        title={titles[tab]}
+                        subtitle={subtitles[tab]}
+                        username={username}
+                        theme={theme}
+                        onThemeToggle={toggleTheme}
+                        onLogout={() => keycloak.logout({ redirectUri: window.location.origin })}
+                        showAlerts={keycloak.authenticated}
+                        onAlertsClick={() => setShowAlertModal(true)}
+                    />
+                }
+            >
+                {tab === "news-enhanced" && <News />}
+                {tab === "market" && (
+                    <FinexStyleMarket
+                        keycloak={keycloak}
+                        onAdded={() => setPortfolioKey((k) => k + 1)}
+                    />
+                )}
+                {tab === "market-data" && <MarketData />}
+                {tab === "portfolio" && (
+                    <Portfolio key={portfolioKey} keycloak={keycloak} />
+                )}
+                {tab === "settings" && (
+                    <Settings keycloak={keycloak} theme={theme} onThemeChange={setTheme} />
+                )}
+                
+                {/* Global Price Alert Modal */}
+                {showAlertModal && (
+                    <PriceAlertModal
+                        open={showAlertModal}
+                        onClose={() => setShowAlertModal(false)}
+                        keycloak={keycloak}
+                    />
+                )}
+            </Layout>
+        </ThemeProvider>
     );
 }
