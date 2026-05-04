@@ -120,8 +120,10 @@ public class MarketService {
         var eurtry = upsert("EURTRY", "EUR/TRY",              InstrumentType.FX,        "EURTRY=X",    false);
         // Emtia — Yahoo: "GC=F" (altın vadeli)
         var xauusd = upsert("XAUUSD", "Gold (XAU/USD)",       InstrumentType.COMMODITY, "GC=F",        false);
-        // Endeks — BIST 100 gecikmeli
+        // Endeks — BIST endeksleri gecikmeli
         var xu100  = upsert("XU100",  "BIST 100",             InstrumentType.INDEX,     "XU100.IS",    true);
+        var xu050  = upsert("XU050",  "BIST 50",              InstrumentType.INDEX,     "XU050.IS",    true);
+        var xu030  = upsert("XU030",  "BIST 30",              InstrumentType.INDEX,     "XU030.IS",    true);
         // Kripto — Yahoo: "BTC-USD"
         var btcusd = upsert("BTCUSD", "Bitcoin (BTC/USD)",    InstrumentType.CRYPTO,    "BTC-USD",     false);
         var ethusd = upsert("ETHUSD", "Ethereum (ETH/USD)",   InstrumentType.CRYPTO,    "ETH-USD",     false);
@@ -189,6 +191,8 @@ public class MarketService {
         seedQuoteIfMissing(eurtry, "52.70",    "0.11",   "0.21",  now);
         seedQuoteIfMissing(xauusd, "4820.00",  "-5.00",  "-0.10", now);
         seedQuoteIfMissing(xu100,  "14200.00", "2.00",   "0.01",  now);
+        seedQuoteIfMissing(xu050,  "9850.00",  "1.50",   "0.02",  now);
+        seedQuoteIfMissing(xu030,  "8920.00",  "1.20",   "0.01",  now);
         seedQuoteIfMissing(btcusd, "73900.00", "-290.00","-0.39", now);
         seedQuoteIfMissing(ethusd, "2316.00",  "-7.00",  "-0.30", now);
         seedQuoteIfMissing(solusd, "83.00",    "-0.70",  "-0.84", now);
@@ -250,6 +254,7 @@ public class MarketService {
         // Her enstrüman için ayrı kontrol yap
         seedCandlesIfMissing(usdtry, "44.00");   seedCandlesIfMissing(eurtry, "52.00");
         seedCandlesIfMissing(xauusd, "4700.00"); seedCandlesIfMissing(xu100,  "14000.00");
+        seedCandlesIfMissing(xu050,  "9800.00"); seedCandlesIfMissing(xu030,  "8900.00");
         seedCandlesIfMissing(btcusd, "70000.00");seedCandlesIfMissing(ethusd, "2200.00");
         seedCandlesIfMissing(solusd, "80.00");   seedCandlesIfMissing(aapl,   "255.00");
         seedCandlesIfMissing(msft,   "380.00");  seedCandlesIfMissing(googl,  "160.00");
