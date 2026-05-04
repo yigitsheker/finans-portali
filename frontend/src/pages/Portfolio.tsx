@@ -239,6 +239,9 @@ export default function Portfolio({ keycloak }: Props) {
       
       setHistPrice(closestPoint.close);
       setHistCurrentPrice(currentPrice);
+      
+      // Close modal after successful calculation
+      setHistOpen(false);
     } catch (e: any) {
       console.error("[Historical Compare] Error:", e);
       setHistError(e?.message ?? "Fiyat alınamadı");
@@ -274,10 +277,9 @@ export default function Portfolio({ keycloak }: Props) {
           <button 
             style={s.histBtn} 
             onClick={() => {
+              // Clear input fields and errors, but keep previous results visible
               setHistSymbol("");
               setHistDate("");
-              setHistPrice(null);
-              setHistCurrentPrice(0);
               setHistError(null);
               setHistOpen(true);
             }}
@@ -539,9 +541,7 @@ export default function Portfolio({ keycloak }: Props) {
         title="Geçmişten Bugüne Değişim" 
         onClose={() => {
           setHistOpen(false);
-          setHistError(null);
-          setHistPrice(null);
-          setHistCurrentPrice(0);
+          // Don't clear state so results remain visible in the card
         }}
         footer={
           <>
