@@ -193,14 +193,40 @@ export default function Portfolio({ keycloak }: Props) {
       // Get current price
       const currentPrice = await getLatestPrice(sym, keycloak);
       
-      // For demo purposes, simulate historical price
-      // In production, you would fetch actual historical data from Yahoo Finance
+      // Calculate days difference to determine appropriate period
       const daysDiff = Math.floor((today.getTime() - selectedDate.getTime()) / (1000 * 60 * 60 * 24));
-      const randomChange = (Math.random() - 0.5) * 0.3; // -15% to +15% random change
-      const historicalPrice = currentPrice / (1 + randomChange);
+      let period = "30D";
+      if (daysDiff > 365) period = "5Y";
+      else if (daysDiff > 180) period = "1Y";
+      else if (daysDiff > 90) period = "6M";
+      else if (daysDiff > 30) period = "3M";
       
-      setHistPrice(historicalPrice);
+      // Fetch historical data
+      const { getMarketHistory } = await import("../api/portfolioApi");
+      const historyData = await getMarketHistory(sym, period);
+      
+      if (!historyData || historyData.length === 0) {
+        setHistError("Bu sembol için geçmiş veri bulunamadı");
+        return;
+      }
+      
+      // Find the closest date to the selected date
+      const targetTime = selectedDate.getTime();
+      let closestPoint = historyData[0];
+      let minDiff = Math.abs(new Date(historyData[0].day).getTime() - targetTime);
+      
+      for (const point of historyData) {
+        const pointTime = new Date(point.day).getTime();
+        const diff = Math.abs(pointTime - targetTime);
+        if (diff < minDiff) {
+          minDiff = diff;
+          closestPoint = point;
+        }
+      }
+      
+      setHistPrice(closestPoint.close);
     } catch (e: any) {
+      console.error("Historical comparison error:", e);
       setHistError(e?.message ?? "Fiyat alınamadı");
     } finally {
       setHistLoading(false);
@@ -369,7 +395,7 @@ export default function Portfolio({ keycloak }: Props) {
             <table style={s.table}>
               <thead>
                 <tr>
-                  {["Sembol", "Isim", "Adet", "Alis Fiyati", "Guncel Fiyat", "Deger", "Degisim", ""].map((h) => (
+                  {["Sembol", "Isim", "Adet", "Alis Fiyati", "Guncel Fiyat", "Deger", "Toplam Degisim", "Gunluk Degisim", ""].map((h) => (
                     <th key={h} style={s.th}>{h}</th>
                   ))}
                 </tr>
@@ -383,6 +409,8 @@ export default function Portfolio({ keycloak }: Props) {
                   const change = cost > 0 ? ((cur - cost) / cost) * 100 : 0;
                   const pos = change >= 0;
                   const mkt = marketData.find((m) => m.symbol === p.symbol);
+                  const dailyChangePct = mkt?.changePct ?? 0;
+                  const dailyChangePos = dailyChangePct >= 0;
                   return (
                     <tr key={p.symbol} style={s.tr}>
                       <td style={s.td}><span style={s.symbolBadge}>{p.symbol}</span></td>
@@ -393,6 +421,9 @@ export default function Portfolio({ keycloak }: Props) {
                       <td style={{ ...s.td, fontWeight: 600 }}>{value > 0 ? "$" + value.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
                       <td style={{ ...s.td, color: pos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
                         {pos ? "+" : ""}{change.toFixed(2)}%
+                      </td>
+                      <td style={{ ...s.td, color: dailyChangePos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
+                        {dailyChangePos ? "▲ +" : "▼ "}{Math.abs(dailyChangePct).toFixed(2)}%
                       </td>
                       <td style={s.td}>
                         <button style={s.sellBtn} onClick={() => { setSellTarget(p); setSellQty(1); setErr(null); setSellOpen(true); }}>Sat</button>
