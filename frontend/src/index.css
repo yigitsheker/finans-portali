@@ -1,32 +1,32 @@
 ﻿@import "tailwindcss";
 
 @theme {
-  /* Dark mode colors */
-  --color-dark-bg: #0d1117;
-  --color-dark-surface: #161b22;
-  --color-dark-border: #30363d;
-  --color-dark-hover: #1c2128;
+  /* Dark mode colors — black base */
+  --color-dark-bg: #080b08;
+  --color-dark-surface: #0f1410;
+  --color-dark-border: #1e2d1e;
+  --color-dark-hover: #162016;
   
-  /* Primary colors */
-  --color-primary-50: #eff6ff;
-  --color-primary-100: #dbeafe;
-  --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd;
-  --color-primary-400: #60a5fa;
-  --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb;
-  --color-primary-700: #1d4ed8;
-  --color-primary-800: #1e40af;
-  --color-primary-900: #1e3a8a;
+  /* Primary = green */
+  --color-primary-50: #f0fdf4;
+  --color-primary-100: #dcfce7;
+  --color-primary-200: #bbf7d0;
+  --color-primary-300: #86efac;
+  --color-primary-400: #4ade80;
+  --color-primary-500: #22c55e;
+  --color-primary-600: #16a34a;
+  --color-primary-700: #15803d;
+  --color-primary-800: #166534;
+  --color-primary-900: #14532d;
   
   /* Semantic colors */
-  --color-success: #3fb950;
+  --color-success: #22c55e;
   --color-error: #f85149;
   --color-warning: #d29922;
   
   /* Text colors */
-  --color-text-primary: #e6edf3;
-  --color-text-muted: #7d8590;
+  --color-text-primary: #e8f5e8;
+  --color-text-muted: #6b8f6b;
   
   /* Animations */
   --animate-flash-green: flash-green 800ms ease-out;
@@ -51,66 +51,66 @@
 
 /* ── Design tokens ─────────────────────────────────────────── */
 :root {
-  /* Dark blue-black theme */
-  --bg-page:        #0d1117;
-  --bg-sidebar:     #0d1117;
-  --bg-content:     #0d1117;
-  --bg-panel:       #161b22;
-  --bg-panel2:      #161b22;
-  --bg-card:        #1c2128;
-  --bg-topbar:      #161b22;
-  --bg-grad:        #0d1117;
-  --border:         rgba(48, 54, 61, 1);
-  --border-soft:    rgba(48, 54, 61, 0.7);
-  --border-card:    rgba(48, 54, 61, 1);
-  --text-primary:   #e6edf3;
-  --text-muted:     #7d8590;
-  --accent:         rgba(37, 99, 235, 0.20);
-  --accent-solid:   #2563eb;
-  --accent-border:  rgba(37, 99, 235, 0.60);
-  --accent-hover-bg: rgba(37, 99, 235, 0.12);
-  --card-hover-border: rgba(37, 99, 235, 0.50);
-  --input-bg:       #21262d;
-  --input-border:   #30363d;
-  --shadow:         0 8px 32px rgba(0,0,0,0.40);
+  /* Black & Green dark theme */
+  --bg-page:        #080b08;
+  --bg-sidebar:     #0a0e0a;
+  --bg-content:     #080b08;
+  --bg-panel:       #0f1410;
+  --bg-panel2:      #0f1410;
+  --bg-card:        #141a14;
+  --bg-topbar:      #0a0e0a;
+  --bg-grad:        #080b08;
+  --border:         rgba(34, 197, 94, 0.15);
+  --border-soft:    rgba(34, 197, 94, 0.08);
+  --border-card:    rgba(34, 197, 94, 0.12);
+  --text-primary:   #e8f5e8;
+  --text-muted:     #6b8f6b;
+  --accent:         rgba(34, 197, 94, 0.15);
+  --accent-solid:   #22c55e;
+  --accent-border:  rgba(34, 197, 94, 0.50);
+  --accent-hover-bg: rgba(34, 197, 94, 0.08);
+  --card-hover-border: rgba(34, 197, 94, 0.40);
+  --input-bg:       #111611;
+  --input-border:   rgba(34, 197, 94, 0.20);
+  --shadow:         0 8px 32px rgba(0,0,0,0.60);
   --danger-bg:      rgba(239,68,68,0.12);
   --danger-border:  rgba(239,68,68,0.45);
   --danger-text:    #fca5a5;
-  --dropdown-bg:    #1c2128;
-  --skeleton-bg:    rgba(255,255,255,0.06);
-  --green:          #3fb950;
+  --dropdown-bg:    #141a14;
+  --skeleton-bg:    rgba(34,197,94,0.06);
+  --green:          #22c55e;
   --red:            #f85149;
 }
 
 /* Light theme overrides */
 [data-theme="light"] {
-  --bg-page:        #f6f8fa;
+  --bg-page:        #f0faf0;
   --bg-sidebar:     #ffffff;
-  --bg-content:     #f6f8fa;
+  --bg-content:     #f0faf0;
   --bg-panel:       #ffffff;
-  --bg-panel2:      #f6f8fa;
+  --bg-panel2:      #f0faf0;
   --bg-card:        #ffffff;
   --bg-topbar:      #ffffff;
-  --bg-grad:        #f6f8fa;
-  --border:         #d0d7de;
-  --border-soft:    #e1e4e8;
-  --border-card:    #d0d7de;
-  --text-primary:   #1f2328;
-  --text-muted:     #656d76;
-  --accent:         rgba(37, 99, 235, 0.10);
-  --accent-solid:   #2563eb;
-  --accent-border:  rgba(37, 99, 235, 0.45);
-  --accent-hover-bg: rgba(37, 99, 235, 0.08);
-  --card-hover-border: rgba(37, 99, 235, 0.40);
-  --input-bg:       #f6f8fa;
-  --input-border:   #d0d7de;
+  --bg-grad:        #f0faf0;
+  --border:         #c8e6c8;
+  --border-soft:    #dceadc;
+  --border-card:    #c8e6c8;
+  --text-primary:   #0d1f0d;
+  --text-muted:     #4a7a4a;
+  --accent:         rgba(22, 163, 74, 0.10);
+  --accent-solid:   #16a34a;
+  --accent-border:  rgba(22, 163, 74, 0.45);
+  --accent-hover-bg: rgba(22, 163, 74, 0.08);
+  --card-hover-border: rgba(22, 163, 74, 0.40);
+  --input-bg:       #f0faf0;
+  --input-border:   #c8e6c8;
   --shadow:         0 4px 16px rgba(0,0,0,0.08);
   --danger-bg:      rgba(239,68,68,0.08);
   --danger-border:  rgba(239,68,68,0.35);
   --danger-text:    #b91c1c;
   --dropdown-bg:    #ffffff;
   --skeleton-bg:    rgba(0,0,0,0.06);
-  --green:          #1a7f37;
+  --green:          #16a34a;
   --red:            #cf222e;
 }
 
@@ -183,7 +183,7 @@ button:disabled { opacity: 0.50; cursor: not-allowed; }
 }
 
 /* ── Table row hover ───────────────────────────────────────── */
-tbody tr:hover { background: rgba(37,99,235,0.05); }
+tbody tr:hover { background: rgba(34,197,94,0.05); }
 
 /* ── Toggle button reset ───────────────────────────────────── */
 button[role="switch"] { outline: none; }
@@ -192,8 +192,8 @@ button[role="switch"]:focus-visible { outline: 2px solid var(--accent-solid); ou
 /* ── Scrollbar ─────────────────────────────────────────────── */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: var(--text-muted); }
+::-webkit-scrollbar-thumb { background: rgba(34,197,94,0.25); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(34,197,94,0.45); }
 
 /* ── Animations ────────────────────────────────────────────── */
 @keyframes spin {
