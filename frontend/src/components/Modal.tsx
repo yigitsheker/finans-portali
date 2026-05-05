@@ -7,9 +7,10 @@ type Props = {
     children: React.ReactNode;
     onClose: () => void;
     footer?: React.ReactNode;
+    maxWidth?: number;
 };
 
-export default function Modal({ open, title, children, onClose, footer }: Props) {
+export default function Modal({ open, title, children, onClose, footer, maxWidth = 560 }: Props) {
     useEffect(() => {
         function onKey(e: KeyboardEvent) { if (e.key === "Escape") onClose(); }
         if (open) {
@@ -31,7 +32,7 @@ export default function Modal({ open, title, children, onClose, footer }: Props)
             onMouseDown={onClose}
         >
             <div 
-                style={{ width: "100%", maxWidth: 560, maxHeight: "90vh", overflowY: "auto", borderRadius: 12, background: "var(--bg-panel)", border: "1px solid var(--border-card)", boxShadow: "var(--shadow)" }}
+                style={{ width: "100%", maxWidth, maxHeight: "90vh", overflowY: "auto", borderRadius: 12, background: "var(--bg-panel)", border: "1px solid var(--border-card)", boxShadow: "var(--shadow)" }}
                 onMouseDown={(e) => e.stopPropagation()}
             >
                 {/* Header */}

@@ -173,6 +173,7 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }: Pro
             open={!!baseInstrument}
             title={`Karşılaştır: ${baseInstrument.symbol}`}
             onClose={onClose}
+            maxWidth={860}
         >
             <div style={s.root}>
                 {/* Controls */}
@@ -298,14 +299,14 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }: Pro
                     <div style={s.addSection}>
                         <input
                             type="text"
-                            placeholder="Hisse ara..."
+                            placeholder="Hisse ara... (karşılaştırmak için ekle)"
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
                             style={s.searchInput}
                         />
                         {searchTerm && (
                             <div style={s.searchResults}>
-                                {filteredInstruments.slice(0, 10).map((instrument) => (
+                                {filteredInstruments.slice(0, 8).map((instrument) => (
                                     <div
                                         key={instrument.symbol}
                                         style={s.searchItem}
@@ -318,6 +319,11 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }: Pro
                                         <div style={s.searchAdd}>+</div>
                                     </div>
                                 ))}
+                                {filteredInstruments.length === 0 && (
+                                    <div style={{ padding: "12px 14px", color: "var(--text-muted)", fontSize: 13 }}>
+                                        Sonuç bulunamadı
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>
@@ -328,41 +334,41 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }: Pro
 }
 
 const s: Record<string, React.CSSProperties> = {
-    root: { display: "flex", flexDirection: "column", gap: 20 },
+    root: { display: "flex", flexDirection: "column", gap: 20, paddingBottom: 8 },
     controls: { display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 },
     periodRow: { display: "flex", gap: 6 },
     periodBtn: {
         padding: "8px 16px",
         borderRadius: 6,
-        border: "1px solid #374151",
-        background: "#1f2937",
-        color: "#9ca3af",
+        border: "1px solid var(--border-card)",
+        background: "var(--input-bg)",
+        color: "var(--text-muted)",
         cursor: "pointer",
         fontSize: 13,
         fontWeight: 500,
         transition: "all 0.2s",
     },
     periodActive: {
-        border: "1px solid #3b82f6",
-        background: "#1e3a8a",
-        color: "#fff",
+        border: "1px solid var(--accent-solid)",
+        background: "var(--accent)",
+        color: "var(--accent-solid)",
     },
     modeRow: { display: "flex", gap: 6 },
     modeBtn: {
         padding: "8px 16px",
         borderRadius: 6,
-        border: "1px solid #374151",
-        background: "#1f2937",
-        color: "#9ca3af",
+        border: "1px solid var(--border-card)",
+        background: "var(--input-bg)",
+        color: "var(--text-muted)",
         cursor: "pointer",
         fontSize: 13,
         fontWeight: 500,
         transition: "all 0.2s",
     },
     modeActive: {
-        border: "1px solid #10b981",
-        background: "rgba(16, 185, 129, 0.15)",
-        color: "#10b981",
+        border: "1px solid var(--accent-solid)",
+        background: "var(--accent)",
+        color: "var(--accent-solid)",
     },
     selectedRow: { display: "flex", gap: 8, flexWrap: "wrap" },
     selectedChip: {
@@ -396,7 +402,7 @@ const s: Record<string, React.CSSProperties> = {
         color: "var(--text-muted)",
         fontSize: 14,
     },
-    addSection: { position: "relative" },
+    addSection: { display: "flex", flexDirection: "column", gap: 0 },
     searchInput: {
         width: "100%",
         padding: "10px 14px",
@@ -406,19 +412,15 @@ const s: Record<string, React.CSSProperties> = {
         color: "var(--text-primary)",
         fontSize: 14,
         outline: "none",
+        boxSizing: "border-box",
     },
     searchResults: {
-        position: "absolute",
-        top: "100%",
-        left: 0,
-        right: 0,
         marginTop: 4,
         background: "var(--bg-card)",
         border: "1px solid var(--border-card)",
         borderRadius: 8,
-        maxHeight: 300,
+        maxHeight: 220,
         overflowY: "auto",
-        zIndex: 10,
     },
     searchItem: {
         display: "flex",
