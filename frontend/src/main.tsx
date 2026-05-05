@@ -25,7 +25,7 @@ function AuthGate() {
                 onLoad: "check-sso",
                 pkceMethod: "S256",
                 checkLoginIframe: false,
-                silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html",
+                // No silentCheckSsoRedirectUri — avoids iframe issues on localhost
             })
             .then((auth) => {
                 setAuthenticated(auth);
