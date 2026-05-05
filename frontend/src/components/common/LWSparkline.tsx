@@ -1,14 +1,7 @@
-import { useEffect, useRef } from "react";
-import {
-  createChart,
-  type IChartApi,
-  type ISeriesApi,
-  ColorType,
-  AreaSeries,
-} from "lightweight-charts";
+import { useMemo } from "react";
 
 export interface SparklinePoint {
-  time: string;   // 'YYYY-MM-DD'
+  time: string;
   value: number;
 }
 
@@ -20,77 +13,84 @@ interface LWSparklineProps {
 }
 
 export function LWSparkline({ data, positive, width = 100, height = 36 }: LWSparklineProps) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const chartRef     = useRef<IChartApi | null>(null);
-  const seriesRef    = useRef<ISeriesApi<"Area"> | null>(null);
+  const { path, fillPath } = useMemo(() => {
+    if (data.length < 2) return { path: "", fillPath: "" };
 
-  // Create chart once on mount
-  useEffect(() => {
-    if (!containerRef.current) return;
+    const values = data.map((d) => d.value);
+    const min = Math.min(...values);
+    const max = Math.max(...values);
+    const range = max - min || 1;
 
-    const chart = createChart(containerRef.current, {
-      layout: {
-        background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "transparent",
-      },
-      grid: {
-        vertLines: { visible: false },
-        horzLines: { visible: false },
-      },
-      crosshair: {
-        vertLine: { visible: false },
-        horzLine: { visible: false },
-      },
-      rightPriceScale: { visible: false, borderVisible: false },
-      leftPriceScale:  { visible: false },
-      timeScale:       { visible: false, borderVisible: false },
-      // Disable all interactions — pure display/watch mode
-      handleScroll: false,
-      handleScale:  false,
-      width,
-      height,
-    });
+    const pad = 2; // vertical padding in px
+    const usableH = height - pad * 2;
+    const stepX = width / (values.length - 1);
 
-    const series = chart.addSeries(AreaSeries, {
-      lineColor:  positive ? "#22c55e" : "#ef4444",
-      topColor:   positive ? "rgba(34,197,94,0.20)"  : "rgba(239,68,68,0.20)",
-      bottomColor: "transparent",
-      lineWidth: 2,
-      priceLineVisible:       false,
-      lastValueVisible:       false,
-      crosshairMarkerVisible: false,
-    });
+    const points = values.map((v, i) => ({
+      x: i * stepX,
+      y: pad + usableH - ((v - min) / range) * usableH,
+    }));
 
-    chartRef.current  = chart;
-    seriesRef.current = series;
-
-    return () => {
-      chart.remove();
-      chartRef.current  = null;
-      seriesRef.current = null;
-    };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // mount once — intentionally no deps
-
-  // Update series data and colors whenever data/positive changes
-  useEffect(() => {
-    if (!seriesRef.current || !chartRef.current) return;
-
-    const lc = positive ? "#22c55e" : "#ef4444";
-    const tc = positive ? "rgba(34,197,94,0.20)" : "rgba(239,68,68,0.20)";
-
-    seriesRef.current.applyOptions({ lineColor: lc, topColor: tc });
-
-    if (data.length > 0) {
-      seriesRef.current.setData(data as any);
-      chartRef.current.timeScale().fitContent();
+    // Smooth polyline using cubic bezier
+    const lineParts: string[] = [`M ${points[0].x} ${points[0].y}`];
+    for (let i = 1; i < points.length; i++) {
+      const prev = points[i - 1];
+      const curr = points[i];
+      const cpX = (prev.x + curr.x) / 2;
+      lineParts.push(`C ${cpX} ${prev.y} ${cpX} ${curr.y} ${curr.x} ${curr.y}`);
     }
-  }, [data, positive]);
+    const linePath = lineParts.join(" ");
+
+    // Fill path: close down to baseline
+    const fillPath =
+      linePath +
+      ` L ${points[points.length - 1].x} ${height} L ${points[0].x} ${height} Z`;
+
+    return { path: linePath, fillPath };
+  }, [data, width, height]);
+
+  if (!path) {
+    // No data yet — render a flat placeholder line
+    return (
+      <svg width={width} height={height} viewBox={`0 0 ${width} ${height}`}>
+        <line
+          x1={0} y1={height / 2}
+          x2={width} y2={height / 2}
+          stroke="rgba(128,128,128,0.3)"
+          strokeWidth={1}
+        />
+      </svg>
+    );
+  }
+
+  const color = positive ? "#22c55e" : "#ef4444";
+  const fillId = `sf-${positive ? "g" : "r"}-${width}`;
 
   return (
-    <div
-      ref={containerRef}
-      style={{ width, height, display: "block", overflow: "hidden", flexShrink: 0 }}
-    />
+    <svg
+      width={width}
+      height={height}
+      viewBox={`0 0 ${width} ${height}`}
+      style={{ display: "block", overflow: "visible" }}
+    >
+      <defs>
+        <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor={color} stopOpacity={0.25} />
+          <stop offset="100%" stopColor={color} stopOpacity={0} />
+        </linearGradient>
+      </defs>
+
+      {/* Fill area */}
+      <path d={fillPath} fill={`url(#${fillId})`} />
+
+      {/* Line */}
+      <path
+        d={path}
+        fill="none"
+        stroke={color}
+        strokeWidth={1.5}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
   );
 }
