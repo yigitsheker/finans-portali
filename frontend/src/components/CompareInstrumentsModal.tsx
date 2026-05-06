@@ -176,11 +176,17 @@ function SVGChart({ series, xLabels, yLabel, mode }: SVGChartProps) {
                 {/* Series lines */}
                 {series.map(s => {
                     if (s.points.length < 2) return null;
-                    // Build path — skip gaps by using M for first point of each consecutive run
+                    // Map each point to its x position using its label's index in xLabels
                     const d = s.points.reduce((acc, pt, i) => {
-                        const x = toX(xLabels.indexOf(pt.label));
+                        const labelIdx = xLabels.indexOf(pt.label);
+                        if (labelIdx === -1) return acc;
+                        const x = toX(labelIdx);
                         const y = toY(pt.value);
-                        return acc + (i === 0 ? `M ${x} ${y}` : ` L ${x} ${y}`);
+                        // Use M (move) for first point or after a gap, L (line) otherwise
+                        const prevPt = i > 0 ? s.points[i - 1] : null;
+                        const prevIdx = prevPt ? xLabels.indexOf(prevPt.label) : -1;
+                        const isGap = prevIdx === -1 || labelIdx !== prevIdx + 1;
+                        return acc + (acc === "" || isGap ? `M ${x} ${y}` : ` L ${x} ${y}`);
                     }, "");
                     return (
                         <path
@@ -312,16 +318,18 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }: Pro
 
     // Build series for SVG chart
     const { series, xLabels } = useMemo(() => {
-        // Collect all unique sorted labels
+        // Collect all unique sorted labels — sort by actual value (works for both HH:mm and yyyy-MM-dd)
         const labelSet = new Set<string>();
         Object.values(rawData).forEach(d => d.forEach(p => labelSet.add(p.label)));
         const xLabels = Array.from(labelSet).sort();
 
         const series: SeriesData[] = selectedInstruments.map((inst, idx) => {
             const data = rawData[inst.symbol] || [];
-            const first = data[0];
-            const points = data
-                .filter(p => xLabels.includes(p.label))
+            // Sort data by label to ensure correct order
+            const sortedData = [...data].sort((a, b) => a.label.localeCompare(b.label));
+            // Use the very first data point as baseline for percentage (not per-day)
+            const first = sortedData[0];
+            const points = sortedData
                 .map(p => {
                     let value: number;
                     if (mode === "percentage") {

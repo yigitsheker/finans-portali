@@ -240,7 +240,11 @@ public class YahooPriceFetcher {
                 String label;
                 if (isIntraday) {
                     LocalDateTime dt = Instant.ofEpochSecond(ts).atZone(ZoneOffset.UTC).toLocalDateTime();
-                    label = String.format("%02d:%02d", dt.getHour(), dt.getMinute());
+                    // Include date prefix for multi-day intraday (5d range) to avoid duplicate labels
+                    // Single-day (1d): "HH:mm", Multi-day (5d): "MM-dd HH:mm"
+                    label = String.format("%02d-%02d %02d:%02d",
+                            dt.getMonthValue(), dt.getDayOfMonth(),
+                            dt.getHour(), dt.getMinute());
                 } else {
                     label = day.toString();
                 }
