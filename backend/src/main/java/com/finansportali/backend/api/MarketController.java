@@ -31,6 +31,11 @@ public class MarketController {
         return service.instruments();
     }
 
+    @GetMapping("/search")
+    public List<MarketInstrument> search(@RequestParam String query) {
+        return service.searchInstruments(query);
+    }
+
     @GetMapping("/price")
     public java.util.Map<String, Object> price(@RequestParam String symbol) {
         return service.latestPrice(symbol);

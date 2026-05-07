@@ -8,6 +8,7 @@ import com.finansportali.backend.repo.MarketQuoteRepository;
 import com.finansportali.backend.repo.PriceAlertRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -148,6 +149,28 @@ public class PriceAlertService {
                 userId, alertId, alert.getActive());
     }
 
+    @Transactional
+    public void triggerAlertManually(String userId, Long alertId, Authentication authentication) {
+        PriceAlert alert = alertRepo.findById(alertId)
+                .orElseThrow(() -> new IllegalArgumentException("Alarm bulunamadı: " + alertId));
+
+        if (!alert.getUserId().equals(userId)) {
+            throw new IllegalArgumentException("Bu alarm size ait değil");
+        }
+
+        // Mevcut fiyatı al
+        BigDecimal currentPrice = getCurrentPrice(alert.getInstrument());
+        if (currentPrice == null) {
+            throw new IllegalStateException("Mevcut fiyat alınamadı: " + alert.getSymbol());
+        }
+
+        // Alarmı tetikle ve email gönder (Authentication ile)
+        triggerAlertWithAuth(alert, currentPrice, authentication);
+        
+        log.info("Alarm manuel olarak tetiklendi: userId={} alertId={} symbol={} currentPrice={}", 
+                userId, alertId, alert.getSymbol(), currentPrice);
+    }
+
     // ── Price Monitoring ─────────────────────────────────────────────────────
 
     @Transactional
@@ -216,8 +239,23 @@ public class PriceAlertService {
         alert.trigger(currentPrice);
         alertRepo.save(alert);
 
-        // Bildirim gönder
-        notificationService.sendPriceAlert(alert, currentPrice);
+        // Bildirim gönder (Authentication olmadan - scheduled task için)
+        // Email gönderilemez çünkü JWT token yok
+        log.warn("Alarm tetiklendi ama email gönderilemedi (scheduled task - JWT token yok): userId={} symbol={}", 
+                alert.getUserId(), alert.getSymbol());
+
+        log.info("Alarm tetiklendi: userId={} symbol={} type={} target={} current={}", 
+                alert.getUserId(), alert.getSymbol(), alert.getAlertType(), 
+                alert.getTargetPrice(), currentPrice);
+    }
+
+    @Transactional
+    public void triggerAlertWithAuth(PriceAlert alert, BigDecimal currentPrice, Authentication authentication) {
+        alert.trigger(currentPrice);
+        alertRepo.save(alert);
+
+        // Bildirim gönder (Authentication ile - email gönderilebilir)
+        notificationService.sendPriceAlert(alert, currentPrice, authentication);
 
         log.info("Alarm tetiklendi: userId={} symbol={} type={} target={} current={}", 
                 alert.getUserId(), alert.getSymbol(), alert.getAlertType(), 

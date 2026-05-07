@@ -86,10 +86,18 @@ export async function getMarketInstruments(): Promise<MarketInstrument[]> {
     return res.data;
 }
 
+export async function searchMarketInstruments(query: string): Promise<MarketInstrument[]> {
+    const res = await axios.get(`${API_BASE}/api/v1/market/search`, {
+        params: { query }
+    });
+    return res.data;
+}
+
 export type MarketHistoryPoint = {
     day: string;
     close: number;
     label: string;
+    timestamp: number;  // Unix seconds — for Lightweight Charts
 };
 
 export async function getMarketHistory(symbol: string, period: string): Promise<MarketHistoryPoint[]> {
@@ -202,6 +210,12 @@ export async function togglePriceAlert(keycloak: Keycloak, alertId: number): Pro
     await axios.put(`${API_BASE}/api/v1/alerts/${alertId}/toggle`, {}, { headers });
 }
 
+export async function triggerAlertManually(keycloak: Keycloak, alertId: number): Promise<{ success: boolean; message: string }> {
+    const headers = await authHeader(keycloak);
+    const res = await axios.post(`${API_BASE}/api/v1/alerts/${alertId}/trigger-test`, {}, { headers });
+    return res.data;
+}
+
 /** PORTFOLIO ALLOCATION */
 export type AllocationItem = {
     symbol: string;
@@ -290,6 +304,7 @@ export type NewsArticle = {
     id: number;
     title: string;
     summary: string;
+    content?: string;
     category: string;
     publishedAt: string;
     sourceUrl?: string;
@@ -305,6 +320,16 @@ export async function getNews(category?: string): Promise<NewsArticle[]> {
 
 export async function getNewsCategories(): Promise<string[]> {
     const res = await axios.get(`${API_BASE}/api/v1/news/categories`);
+    return res.data;
+}
+
+export async function getNewsCategoryCounts(): Promise<Record<string, number>> {
+    const res = await axios.get(`${API_BASE}/api/v1/news/category-counts`);
+    return res.data;
+}
+
+export async function fetchNewsContent(id: number): Promise<NewsArticle> {
+    const res = await axios.post(`${API_BASE}/api/v1/news/${id}/fetch-content`);
     return res.data;
 }
 

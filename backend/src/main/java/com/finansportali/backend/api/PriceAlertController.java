@@ -83,4 +83,32 @@ public class PriceAlertController {
         alertService.checkAllAlerts();
         return ResponseEntity.ok("Alert check completed");
     }
+
+    // Manuel tetikleme endpoint'i - test için
+    @PostMapping("/{alertId}/trigger-test")
+    public ResponseEntity<Map<String, Object>> triggerAlertManually(
+            Authentication auth,
+            @PathVariable Long alertId) {
+        
+        String userId = auth.getName();
+        log.info("[AlertController] Manually triggering alert {} for user {}", alertId, userId);
+        
+        try {
+            alertService.triggerAlertManually(userId, alertId, auth);
+            
+            // Email JWT token'dan alınacak
+            String message = "Alarm tetiklendi ve email gönderildi!";
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", message
+            ));
+        } catch (Exception e) {
+            log.error("[AlertController] Failed to trigger alert manually: {}", e.getMessage(), e);
+            return ResponseEntity.ok(Map.of(
+                "success", false,
+                "message", "Alarm tetiklenemedi: " + e.getMessage()
+            ));
+        }
+    }
 }

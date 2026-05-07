@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import Modal from "./Modal";
-import { createPriceAlert, getUserAlerts, deletePriceAlert, type AlertView, type CreateAlertRequest } from "../api/portfolioApi";
+import { createPriceAlert, getUserAlerts, deletePriceAlert, triggerAlertManually, searchMarketInstruments, type AlertView, type CreateAlertRequest, type MarketInstrument } from "../api/portfolioApi";
 import type Keycloak from "keycloak-js";
 
 type Props = {
@@ -30,6 +30,11 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
     const [alertType, setAlertType] = useState<AlertType>("PRICE_ABOVE");
     const [targetPrice, setTargetPrice] = useState(prefilledPrice?.toString() || "");
     const [note, setNote] = useState("");
+    
+    // Autocomplete state
+    const [searchResults, setSearchResults] = useState<MarketInstrument[]>([]);
+    const [showDropdown, setShowDropdown] = useState(false);
+    const [searchLoading, setSearchLoading] = useState(false);
 
     useEffect(() => {
         if (open) {
@@ -38,6 +43,33 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
             if (prefilledPrice) setTargetPrice(prefilledPrice.toString());
         }
     }, [open, prefilledSymbol, prefilledPrice]);
+
+    // Search instruments when symbol changes
+    useEffect(() => {
+        const searchInstruments = async () => {
+            if (symbol.length < 2) {
+                setSearchResults([]);
+                setShowDropdown(false);
+                return;
+            }
+
+            setSearchLoading(true);
+            try {
+                const results = await searchMarketInstruments(symbol);
+                setSearchResults(results);
+                setShowDropdown(results.length > 0);
+            } catch (error) {
+                console.error("Failed to search instruments:", error);
+                setSearchResults([]);
+                setShowDropdown(false);
+            } finally {
+                setSearchLoading(false);
+            }
+        };
+
+        const timeoutId = setTimeout(searchInstruments, 300); // Debounce
+        return () => clearTimeout(timeoutId);
+    }, [symbol]);
 
     const loadAlerts = async () => {
         setLoading(true);
@@ -78,6 +110,7 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
             setSymbol("");
             setTargetPrice("");
             setNote("");
+            setShowDropdown(false);
             
             // Reload alerts
             console.log("[AlertModal] Reloading alerts...");
@@ -97,6 +130,11 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
         }
     };
 
+    const handleSelectInstrument = (instrument: MarketInstrument) => {
+        setSymbol(instrument.symbol);
+        setShowDropdown(false);
+    };
+
     const handleDeleteAlert = async (alertId: number) => {
         if (!confirm("Bu alarmı silmek istediğinizden emin misiniz?")) return;
 
@@ -107,6 +145,24 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
         } catch (error) {
             console.error("Failed to delete alert:", error);
             alert("Alarm silinemedi");
+        }
+    };
+
+    const handleTriggerTest = async (alertId: number) => {
+        if (!confirm("Bu alarmı manuel olarak tetiklemek ve email göndermek istiyor musunuz?\n\nEmail, giriş yaptığınız hesabın email adresine gönderilecek.")) return;
+
+        try {
+            const result = await triggerAlertManually(keycloak, alertId);
+            if (result.success) {
+                alert("✅ Başarılı!\n\n" + result.message + "\n\nEmail adresinizi kontrol edin!");
+                await loadAlerts(); // Reload to show triggered status
+            } else {
+                alert("❌ Hata\n\n" + result.message);
+            }
+        } catch (error: any) {
+            console.error("Failed to trigger alert:", error);
+            const errorMsg = error.response?.data?.message || error.message || "Bilinmeyen hata";
+            alert("❌ Alarm tetiklenemedi\n\n" + errorMsg);
         }
     };
 
@@ -141,14 +197,45 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                         <div style={s.row}>
                             <div style={s.field}>
                                 <label style={s.label}>Sembol</label>
-                                <input
-                                    type="text"
-                                    value={symbol}
-                                    onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                                    placeholder="AAPL, ETHUSD, KCHOL..."
-                                    style={s.input}
-                                    required
-                                />
+                                <div style={s.autocompleteContainer}>
+                                    <input
+                                        type="text"
+                                        value={symbol}
+                                        onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                                        onFocus={() => {
+                                            if (searchResults.length > 0) {
+                                                setShowDropdown(true);
+                                            }
+                                        }}
+                                        placeholder="AAPL, ETHUSD, KCHOL..."
+                                        style={s.input}
+                                        required
+                                    />
+                                    {showDropdown && searchResults.length > 0 && (
+                                        <div style={s.dropdown}>
+                                            {searchResults.map((instrument) => (
+                                                <div
+                                                    key={instrument.id}
+                                                    style={s.dropdownItem}
+                                                    onClick={() => handleSelectInstrument(instrument)}
+                                                    onMouseEnter={(e) => {
+                                                        e.currentTarget.style.background = "var(--bg-panel2)";
+                                                    }}
+                                                    onMouseLeave={(e) => {
+                                                        e.currentTarget.style.background = "transparent";
+                                                    }}
+                                                >
+                                                    <div style={s.dropdownSymbol}>{instrument.symbol}</div>
+                                                    <div style={s.dropdownName}>{instrument.name}</div>
+                                                    <div style={s.dropdownType}>{instrument.type}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                    {searchLoading && (
+                                        <div style={s.searchLoading}>Aranıyor...</div>
+                                    )}
+                                </div>
                             </div>
                             <div style={s.field}>
                                 <label style={s.label}>Alarm Tipi</label>
@@ -267,12 +354,23 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                         <span style={s.alertDate}>
                                             {formatDate(alert.createdAt)}
                                         </span>
-                                        <button
-                                            onClick={() => handleDeleteAlert(alert.id)}
-                                            style={s.deleteButton}
-                                        >
-                                            Sil
-                                        </button>
+                                        <div style={s.alertActions}>
+                                            {alert.active && (
+                                                <button
+                                                    onClick={() => handleTriggerTest(alert.id)}
+                                                    style={s.testButton}
+                                                    title="Alarmı manuel olarak tetikle ve test email'i gönder"
+                                                >
+                                                    🧪 Test Et
+                                                </button>
+                                            )}
+                                            <button
+                                                onClick={() => handleDeleteAlert(alert.id)}
+                                                style={s.deleteButton}
+                                            >
+                                                Sil
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -318,6 +416,9 @@ const s: Record<string, React.CSSProperties> = {
         display: "flex",
         flexDirection: "column",
         gap: 4,
+    },
+    autocompleteContainer: {
+        position: "relative" as const,
     },
     label: {
         fontSize: 12,
@@ -429,6 +530,11 @@ const s: Record<string, React.CSSProperties> = {
         justifyContent: "space-between",
         alignItems: "center",
     },
+    alertActions: {
+        display: "flex",
+        gap: 8,
+        alignItems: "center",
+    },
     alertDate: {
         fontSize: 11,
         color: "var(--text-muted)",
@@ -441,5 +547,67 @@ const s: Record<string, React.CSSProperties> = {
         borderRadius: 4,
         fontSize: 11,
         cursor: "pointer",
+        transition: "all 0.2s",
+    },
+    testButton: {
+        padding: "4px 8px",
+        background: "transparent",
+        color: "#22c55e",
+        border: "1px solid #22c55e",
+        borderRadius: 4,
+        fontSize: 11,
+        cursor: "pointer",
+        transition: "all 0.2s",
+        fontWeight: 500,
+    },
+    dropdown: {
+        position: "absolute" as const,
+        top: "100%",
+        left: 0,
+        right: 0,
+        maxHeight: 300,
+        overflowY: "auto" as const,
+        background: "var(--bg-panel)",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+        marginTop: 4,
+        zIndex: 1000,
+        boxShadow: "0 4px 12px rgba(0, 0, 0, 0.15)",
+    },
+    dropdownItem: {
+        padding: "10px 12px",
+        cursor: "pointer",
+        borderBottom: "1px solid var(--border-card)",
+        transition: "background 0.2s",
+    },
+    dropdownSymbol: {
+        fontSize: 14,
+        fontWeight: 600,
+        color: "var(--text-primary)",
+        marginBottom: 2,
+    },
+    dropdownName: {
+        fontSize: 12,
+        color: "var(--text-muted)",
+        marginBottom: 2,
+    },
+    dropdownType: {
+        fontSize: 11,
+        color: "#22c55e",
+        fontWeight: 500,
+    },
+    searchLoading: {
+        position: "absolute" as const,
+        top: "100%",
+        left: 0,
+        right: 0,
+        padding: 8,
+        background: "var(--bg-panel)",
+        border: "1px solid var(--border)",
+        borderRadius: 8,
+        marginTop: 4,
+        fontSize: 12,
+        color: "var(--text-muted)",
+        textAlign: "center" as const,
     },
 };
