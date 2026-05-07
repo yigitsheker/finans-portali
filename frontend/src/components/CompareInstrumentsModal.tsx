@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import Modal from "./Modal";
-import { LWMultiLineChart, type LWSeriesData } from "./common/LWMultiLineChart";
 import { getMarketHistory, getMarketSummary, type MarketHistoryPoint, type MarketSummaryItem } from "../api/portfolioApi";
 
 type Period = "1D" | "5D" | "30D" | "1Y";
@@ -362,31 +361,6 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }: Pro
         });
 
         return { series: seriesData, xLabels: sortedLabels };
-    }, [rawData, selectedInstruments, mode, usdRate]);
-
-    // Build series for LW Charts (kept for potential future use)
-    const lwSeries = useMemo((): LWSeriesData[] => {
-        return selectedInstruments.map((inst, idx) => {
-            const data = rawData[inst.symbol] || [];
-            const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
-            const first = sortedData[0];
-
-            const points = sortedData.map(p => {
-                let value: number;
-                if (mode === "percentage") {
-                    value = first && first.close > 0
-                        ? ((p.close - first.close) / first.close) * 100
-                        : 0;
-                } else if (mode === "usd") {
-                    value = p.close / usdRate;
-                } else {
-                    value = p.close;
-                }
-                return { time: p.timestamp, value };
-            });
-
-            return { symbol: inst.symbol, color: COLORS[idx % COLORS.length], data: points };
-        });
     }, [rawData, selectedInstruments, mode, usdRate]);
 
     const addInstrument = (instrument: MarketSummaryItem) => {
