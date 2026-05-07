@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import PriceAlertModal from "./PriceAlertModal";
-import { LWAreaChart, type LWChartPoint } from "./common/LWAreaChart";
+import { LWAreaChart } from "./common/LWAreaChart";
 import { 
     getMarketHistory, 
     getTrendAnalysis,

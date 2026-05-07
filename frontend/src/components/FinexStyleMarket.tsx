@@ -14,7 +14,6 @@ import { LWSparkline, type SparklinePoint } from "./common/LWSparkline";
 type Props = { 
     keycloak: Keycloak; 
     onAdded: () => void;
-    username?: string;
     theme?: string;
     onThemeToggle?: () => void;
     onLogout?: () => void;
@@ -46,7 +45,7 @@ const BIST100_STOCKS = [
     "BANVT", "BARMA", "BASGZ", "BAYRK", "BEGYO", "BERA", "BEYAZ", "BFREN"
 ];
 
-export default function FinexStyleMarket({ keycloak, onAdded, username, theme, onThemeToggle, onLogout, onAlertsClick }: Props) {
+export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeToggle, onLogout, onAlertsClick }: Props) {
     const [items, setItems] = useState<MarketSummaryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<string>("ALL");

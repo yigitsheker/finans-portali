@@ -65,9 +65,6 @@ export function LWAreaChart({ data, color = "#22c55e", height = 300 }: LWAreaCha
             handleScale: true,
             width: containerRef.current.clientWidth,
             height,
-            watermark: {
-                visible: false,
-            },
         });
 
         const series = chart.addSeries(AreaSeries, {

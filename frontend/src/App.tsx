@@ -77,7 +77,6 @@ export default function App({ keycloak }: Props) {
                     <FinexStyleMarket
                         keycloak={keycloak}
                         onAdded={() => setPortfolioKey((k) => k + 1)}
-                        username={username}
                         theme={theme}
                         onThemeToggle={toggleTheme}
                         onLogout={() => keycloak.logout({ redirectUri: window.location.origin })}
