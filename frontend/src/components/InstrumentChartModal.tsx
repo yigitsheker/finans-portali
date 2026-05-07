@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import PriceAlertModal from "./PriceAlertModal";
+import { LWAreaChart, type LWChartPoint } from "./common/LWAreaChart";
 import { 
     getMarketHistory, 
     getTrendAnalysis,
@@ -11,143 +12,6 @@ import {
     type TechnicalAnalysis
 } from "../api/portfolioApi";
 import type Keycloak from "keycloak-js";
-
-// ── Pure SVG area chart — no external library, no watermark ───────────────
-function SVGAreaChart({ data, color }: { data: MarketHistoryPoint[]; color: string }) {
-    const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string; value: number } | null>(null);
-    const svgRef = useRef<SVGSVGElement>(null);
-
-    const W = 700, H = 280;
-    const PAD = { top: 16, right: 16, bottom: 36, left: 72 };
-    const cW = W - PAD.left - PAD.right;
-    const cH = H - PAD.top - PAD.bottom;
-
-    const sorted = useMemo(() => [...data].sort((a, b) => a.label.localeCompare(b.label)), [data]);
-
-    const values = sorted.map(d => d.close);
-    const minV = Math.min(...values) * 0.998;
-    const maxV = Math.max(...values) * 1.002;
-    const vRange = maxV - minV || 1;
-
-    const toX = (i: number) => PAD.left + (i / Math.max(sorted.length - 1, 1)) * cW;
-    const toY = (v: number) => PAD.top + cH - ((v - minV) / vRange) * cH;
-
-    // Build smooth path
-    const linePath = sorted.reduce((acc, d, i) => {
-        const x = toX(i), y = toY(d.close);
-        if (i === 0) return `M ${x} ${y}`;
-        const px = toX(i - 1), py = toY(sorted[i - 1].close);
-        const cpX = (px + x) / 2;
-        return acc + ` C ${cpX} ${py} ${cpX} ${y} ${x} ${y}`;
-    }, "");
-
-    const fillPath = linePath + ` L ${toX(sorted.length - 1)} ${PAD.top + cH} L ${toX(0)} ${PAD.top + cH} Z`;
-
-    // Y ticks
-    const yTicks = Array.from({ length: 5 }, (_, i) => minV + (i / 4) * vRange);
-
-    // X ticks — ~5 evenly spaced
-    const xTickCount = Math.min(5, sorted.length);
-    const xTickIndices = Array.from({ length: xTickCount }, (_, i) =>
-        Math.round((i / (xTickCount - 1)) * (sorted.length - 1))
-    );
-
-    const handleMouseMove = (e: React.MouseEvent<SVGSVGElement>) => {
-        if (!svgRef.current || sorted.length === 0) return;
-        const rect = svgRef.current.getBoundingClientRect();
-        const mouseX = (e.clientX - rect.left) * (W / rect.width) - PAD.left;
-        const idx = Math.max(0, Math.min(sorted.length - 1, Math.round((mouseX / cW) * (sorted.length - 1))));
-        const pt = sorted[idx];
-        setTooltip({ x: toX(idx), y: toY(pt.close), label: pt.label, value: pt.close });
-    };
-
-    const fillId = `icm-fill-${color.replace("#", "")}`;
-
-    return (
-        <div style={{ position: "relative", width: "100%" }}>
-            <svg
-                ref={svgRef}
-                viewBox={`0 0 ${W} ${H}`}
-                style={{ width: "100%", height: "auto", display: "block" }}
-                onMouseMove={handleMouseMove}
-                onMouseLeave={() => setTooltip(null)}
-            >
-                <defs>
-                    <linearGradient id={fillId} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={color} stopOpacity={0.25} />
-                        <stop offset="100%" stopColor={color} stopOpacity={0} />
-                    </linearGradient>
-                </defs>
-
-                {/* Grid */}
-                {yTicks.map((v, i) => (
-                    <line key={i} x1={PAD.left} y1={toY(v)} x2={PAD.left + cW} y2={toY(v)}
-                        stroke="var(--border-soft)" strokeWidth={0.8} strokeDasharray="4 4" />
-                ))}
-
-                {/* Y labels */}
-                {yTicks.map((v, i) => (
-                    <text key={i} x={PAD.left - 6} y={toY(v) + 4} textAnchor="end" fontSize={10} fill="var(--text-muted)">
-                        {v.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
-                    </text>
-                ))}
-
-                {/* X labels */}
-                {xTickIndices.map(i => (
-                    <text key={i} x={toX(i)} y={H - 6} textAnchor="middle" fontSize={10} fill="var(--text-muted)">
-                        {sorted[i]?.label}
-                    </text>
-                ))}
-
-                {/* Fill */}
-                <path d={fillPath} fill={`url(#${fillId})`} />
-
-                {/* Line */}
-                <path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" />
-
-                {/* Crosshair */}
-                {tooltip && (
-                    <>
-                        <line x1={tooltip.x} y1={PAD.top} x2={tooltip.x} y2={PAD.top + cH}
-                            stroke="var(--text-muted)" strokeWidth={1} strokeDasharray="4 4" opacity={0.5} />
-                        <circle cx={tooltip.x} cy={tooltip.y} r={4} fill={color}
-                            stroke="var(--bg-panel)" strokeWidth={2} />
-                    </>
-                )}
-            </svg>
-
-            {/* Tooltip */}
-            {tooltip && (
-                <div style={{
-                    position: "absolute",
-                    top: Math.max(0, (tooltip.y / H) * 100) + "%",
-                    left: tooltip.x / W > 0.6 ? "auto" : `calc(${(tooltip.x / W) * 100}% + 10px)`,
-                    right: tooltip.x / W > 0.6 ? `calc(${100 - (tooltip.x / W) * 100}% + 10px)` : "auto",
-                    background: "var(--bg-card)",
-                    border: "1px solid var(--border-card)",
-                    borderRadius: 8,
-                    padding: "6px 10px",
-                    pointerEvents: "none",
-                    zIndex: 10,
-                    boxShadow: "var(--shadow)",
-                    transform: "translateY(-50%)",
-                }}>
-                    <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 2 }}>{tooltip.label}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)" }}>
-                        {tooltip.value.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                    </div>
-                </div>
-            )}
-
-            {/* Debug info */}
-            <div style={{ fontSize: 10, color: "var(--text-muted)", textAlign: "center", marginTop: 4 }}>
-                {sorted.length} veri noktası
-                {sorted.length > 0 && ` • ${sorted[0].label} - ${sorted[sorted.length - 1].label}`}
-                {sorted.length > 0 && ` • Son: ${sorted[sorted.length - 1].close.toLocaleString("tr-TR")}`}
-            </div>
-        </div>
-    );
-}
 
 type Period = "1D" | "5D" | "30D" | "1Y";
 
@@ -236,11 +100,14 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
     const positive = instrument.changePct >= 0;
     const color = positive ? "#4ade80" : "#f87171";
 
+    console.log('[InstrumentChartModal] Rendering with instrument:', instrument.symbol, 'data points:', data.length);
+
     return (
         <Modal
             open={!!instrument}
             title={`${instrument.symbol} — ${instrument.name}`}
             onClose={onClose}
+            maxWidth={900}
         >
             {/* Fiyat başlığı */}
             <div style={s.priceRow}>
@@ -344,7 +211,11 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                             Veri yok - {instrument.symbol} için {period} verisi bulunamadı
                         </div>
                     ) : (
-                        <SVGAreaChart data={data} color={color} />
+                        <LWAreaChart
+                            data={data.map(d => ({ time: d.timestamp, value: d.close }))}
+                            color={color}
+                            height={300}
+                        />
                     )}
                     
                     {/* Debug info */}

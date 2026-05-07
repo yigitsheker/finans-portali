@@ -23,12 +23,38 @@ const FILTER_LABELS: Record<string, string> = {
 };
 
 // Ticker bar: show these symbols prominently at top
-const TICKER_SYMBOLS = ["XU100", "IXIC", "XAUUSD", "USDTRY", "EURTRY", "BTCUSD"];
+const TICKER_SYMBOLS = ["XU100", "XU050", "XU030"];
+
+// BIST endeks üyelikleri
+const BIST30_STOCKS = [
+    "THYAO", "GARAN", "AKBNK", "YKBNK", "ISCTR", "SISE", "KCHOL", "EREGL",
+    "ASELS", "BIMAS", "SAHOL", "TUPRS", "PETKM", "KOZAL", "TAVHL", "ENKAI",
+    "TCELL", "PGSUS", "SODA", "KOZAA", "TTKOM", "HEKTS", "ARCLK", "TOASO",
+    "EKGYO", "VESTL", "FROTO", "KRDMD", "OYAKC", "AEFES"
+];
+
+const BIST50_STOCKS = [
+    ...BIST30_STOCKS,
+    "DOHOL", "GUBRF", "ODAS", "SOKM", "MAVI", "LOGO", "KONTR", "ALARK",
+    "AGHOL", "BRSAN", "CCOLA", "DOAS", "GOZDE", "ISGYO", "KLMSN", "MGROS",
+    "OTKAR", "SELEC", "ULKER", "VAKBN"
+];
+
+const BIST100_STOCKS = [
+    ...BIST50_STOCKS,
+    "AKENR", "AKSA", "AKSEN", "ALGYO", "ANACM", "ANSGR", "ASUZU", "AYDEM",
+    "BAGFS", "BERA", "BIOEN", "BIZIM", "BOBET", "BRISA", "BRYAT", "BUCIM",
+    "CANTE", "CEMTS", "CIMSA", "CLEBI", "CRFSA", "CVKMD", "DEVA", "DGNMO",
+    "EGEEN", "EGGUB", "ENJSA", "ERBOS", "ESEN", "FENER", "GENIL", "GESAN",
+    "GLYHO", "GOODY", "GSDHO", "HALKB", "INDES", "IPEKE", "ISMEN", "IZMDC",
+    "KARSN", "KARTN", "KENT", "KERVT", "KLRHO", "KMPUR", "KONYA", "KORDS"
+];
 
 export default function MarketBrowser({ keycloak, onAdded }: Props) {
     const [items, setItems] = useState<MarketSummaryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<string>("ALL");
+    const [indexFilter, setIndexFilter] = useState<string | null>(null); // BIST30, BIST50, BIST100
     const [search, setSearch] = useState("");
     const [err, setErr] = useState<string | null>(null);
     const [selected, setSelected] = useState<MarketSummaryItem | null>(null);
@@ -60,13 +86,26 @@ export default function MarketBrowser({ keycloak, onAdded }: Props) {
 
     const filtered = useMemo(() => {
         let list = items.filter((i) => i.type !== "INDEX");
+        
+        // Index filter (BIST30, BIST50, BIST100)
+        if (indexFilter === "XU030") {
+            list = list.filter((i) => BIST30_STOCKS.includes(i.symbol));
+        } else if (indexFilter === "XU050") {
+            list = list.filter((i) => BIST50_STOCKS.includes(i.symbol));
+        } else if (indexFilter === "XU100") {
+            list = list.filter((i) => BIST100_STOCKS.includes(i.symbol));
+        }
+        
+        // Type filter
         if (filter !== "ALL") list = list.filter((i) => i.type === filter);
+        
+        // Search filter
         if (search.trim()) {
             const q = search.trim().toUpperCase();
             list = list.filter((i) => i.symbol.includes(q) || i.name.toUpperCase().includes(q));
         }
         return list;
-    }, [items, filter, search]);
+    }, [items, filter, indexFilter, search]);
 
     const addTotal = useMemo(() => {
         if (!addTarget || !addQty || addQty <= 0) return 0;
@@ -93,14 +132,35 @@ export default function MarketBrowser({ keycloak, onAdded }: Props) {
                     {tickerItems.map((idx) => {
                         const pos = idx.changePct >= 0;
                         const clr = pos ? "var(--green)" : "var(--red)";
+                        const isActive = indexFilter === idx.symbol;
                         return (
-                            <div key={idx.symbol} style={s.tickerCard} onClick={() => setSelected(idx)}>
+                            <div 
+                                key={idx.symbol} 
+                                style={{
+                                    ...s.tickerCard,
+                                    ...(isActive ? s.tickerCardActive : {})
+                                }} 
+                                onClick={() => {
+                                    // Toggle index filter
+                                    if (indexFilter === idx.symbol) {
+                                        setIndexFilter(null);
+                                    } else {
+                                        setIndexFilter(idx.symbol);
+                                        setFilter("BIST"); // Auto-select BIST filter
+                                    }
+                                }}
+                            >
                                 <div style={s.tickerLabel}>{idx.symbol}</div>
                                 <div style={s.tickerPrice}>{idx.last?.toLocaleString("tr-TR")}</div>
                                 <div style={{ color: clr, fontSize: 11, fontWeight: 600, marginTop: 2 }}>
                                     {pos ? "▲" : "▼"} {pos ? "+" : ""}{idx.changePct?.toFixed(2)}%
                                     &nbsp;({pos ? "+" : ""}{idx.changeAbs?.toFixed(2)})
                                 </div>
+                                {isActive && (
+                                    <div style={s.activeIndicator}>
+                                        ✓ Filtrelendi
+                                    </div>
+                                )}
                             </div>
                         );
                     })}
@@ -111,6 +171,19 @@ export default function MarketBrowser({ keycloak, onAdded }: Props) {
 
             {/* ── Main content ── */}
             <div style={s.mainContent}>
+                {indexFilter && (
+                    <div style={s.filterBanner}>
+                        <span>
+                            📊 {indexFilter === "XU030" ? "BIST 30" : indexFilter === "XU050" ? "BIST 50" : "BIST 100"} hisseleri gösteriliyor
+                        </span>
+                        <button 
+                            style={s.clearFilterBtn}
+                            onClick={() => setIndexFilter(null)}
+                        >
+                            ✕ Filtreyi Kaldır
+                        </button>
+                    </div>
+                )}
                 <div style={s.searchWrap}>
                     <span style={{ fontSize: 13, color: "var(--text-muted)" }}>🔍</span>
                     <input
@@ -292,7 +365,22 @@ const s: Record<string, React.CSSProperties> = {
         background: "var(--bg-card)",
         padding: "12px 14px",
         cursor: "pointer",
-        transition: "border-color 0.12s",
+        transition: "all 0.2s ease",
+        position: "relative" as const,
+    },
+    tickerCardActive: {
+        border: "2px solid #22c55e",
+        background: "rgba(34, 197, 94, 0.1)",
+        transform: "scale(1.02)",
+    },
+    activeIndicator: {
+        marginTop: 6,
+        fontSize: 10,
+        color: "#22c55e",
+        fontWeight: 600,
+        display: "flex",
+        alignItems: "center",
+        gap: 4,
     },
     tickerLabel: { fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 500 },
     tickerPrice: { fontSize: 17, fontWeight: 700, color: "var(--text-primary)" },
@@ -300,6 +388,30 @@ const s: Record<string, React.CSSProperties> = {
     error: { color: "var(--danger-text)", fontSize: 13 },
 
     mainContent: { display: "flex", flexDirection: "column", gap: 10 },
+
+    filterBanner: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "10px 14px",
+        borderRadius: 8,
+        background: "rgba(34, 197, 94, 0.1)",
+        border: "1px solid #22c55e",
+        fontSize: 13,
+        fontWeight: 500,
+        color: "var(--text-primary)",
+    },
+    clearFilterBtn: {
+        padding: "4px 10px",
+        borderRadius: 6,
+        border: "1px solid #22c55e",
+        background: "transparent",
+        color: "#22c55e",
+        cursor: "pointer",
+        fontSize: 12,
+        fontWeight: 600,
+        transition: "all 0.2s",
+    },
 
     searchWrap: {
         display: "flex", alignItems: "center", gap: 8,

@@ -1,5 +1,6 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from "react";
+import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import Modal from "./Modal";
+import { LWMultiLineChart, type LWSeriesData } from "./common/LWMultiLineChart";
 import { getMarketHistory, getMarketSummary, type MarketHistoryPoint, type MarketSummaryItem } from "../api/portfolioApi";
 
 type Period = "1D" | "5D" | "30D" | "1Y";
@@ -316,37 +317,76 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }: Pro
         fetch();
     }, [selectedInstruments, period]);
 
-    // Build series for SVG chart
+    // Build series for SVG Chart
     const { series, xLabels } = useMemo(() => {
-        // Collect all unique sorted labels — sort by actual value (works for both HH:mm and yyyy-MM-dd)
-        const labelSet = new Set<string>();
-        Object.values(rawData).forEach(d => d.forEach(p => labelSet.add(p.label)));
-        const xLabels = Array.from(labelSet).sort();
+        if (selectedInstruments.length === 0) return { series: [], xLabels: [] };
 
-        const series: SeriesData[] = selectedInstruments.map((inst, idx) => {
+        // Collect all unique timestamps/labels
+        const allLabels = new Set<string>();
+        selectedInstruments.forEach(inst => {
             const data = rawData[inst.symbol] || [];
-            // Sort data by label to ensure correct order
-            const sortedData = [...data].sort((a, b) => a.label.localeCompare(b.label));
-            // Use the very first data point as baseline for percentage (not per-day)
+            data.forEach(p => allLabels.add(p.label || p.day.split("T")[0]));
+        });
+        const sortedLabels = Array.from(allLabels).sort();
+
+        // Build series
+        const seriesData: SeriesData[] = selectedInstruments.map((inst, idx) => {
+            const data = rawData[inst.symbol] || [];
+            const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
             const first = sortedData[0];
-            const points = sortedData
-                .map(p => {
-                    let value: number;
-                    if (mode === "percentage") {
-                        value = first && first.close > 0
-                            ? ((p.close - first.close) / first.close) * 100
-                            : 0;
-                    } else if (mode === "usd") {
-                        value = p.close / usdRate;
-                    } else {
-                        value = p.close;
-                    }
-                    return { x: 0, y: 0, label: p.label, value };
-                });
-            return { symbol: inst.symbol, color: COLORS[idx % COLORS.length], points };
+
+            const points = sortedData.map((p, i) => {
+                let value: number;
+                if (mode === "percentage") {
+                    value = first && first.close > 0
+                        ? ((p.close - first.close) / first.close) * 100
+                        : 0;
+                } else if (mode === "usd") {
+                    value = p.close / usdRate;
+                } else {
+                    value = p.close;
+                }
+                return {
+                    x: i,
+                    y: value,
+                    label: p.label || p.day.split("T")[0],
+                    value
+                };
+            });
+
+            return {
+                symbol: inst.symbol,
+                color: COLORS[idx % COLORS.length],
+                points
+            };
         });
 
-        return { series, xLabels };
+        return { series: seriesData, xLabels: sortedLabels };
+    }, [rawData, selectedInstruments, mode, usdRate]);
+
+    // Build series for LW Charts (kept for potential future use)
+    const lwSeries = useMemo((): LWSeriesData[] => {
+        return selectedInstruments.map((inst, idx) => {
+            const data = rawData[inst.symbol] || [];
+            const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
+            const first = sortedData[0];
+
+            const points = sortedData.map(p => {
+                let value: number;
+                if (mode === "percentage") {
+                    value = first && first.close > 0
+                        ? ((p.close - first.close) / first.close) * 100
+                        : 0;
+                } else if (mode === "usd") {
+                    value = p.close / usdRate;
+                } else {
+                    value = p.close;
+                }
+                return { time: p.timestamp, value };
+            });
+
+            return { symbol: inst.symbol, color: COLORS[idx % COLORS.length], data: points };
+        });
     }, [rawData, selectedInstruments, mode, usdRate]);
 
     const addInstrument = (instrument: MarketSummaryItem) => {
