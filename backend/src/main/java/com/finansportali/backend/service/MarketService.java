@@ -128,6 +128,19 @@ public class MarketService {
         var btcusd = upsert("BTCUSD", "Bitcoin (BTC/USD)",    InstrumentType.CRYPTO,    "BTC-USD",     false);
         var ethusd = upsert("ETHUSD", "Ethereum (ETH/USD)",   InstrumentType.CRYPTO,    "ETH-USD",     false);
         var solusd = upsert("SOLUSD", "Solana (SOL/USD)",     InstrumentType.CRYPTO,    "SOL-USD",     false);
+        var bnbusd = upsert("BNBUSD", "Binance Coin (BNB/USD)", InstrumentType.CRYPTO,  "BNB-USD",     false);
+        var xrpusd = upsert("XRPUSD", "Ripple (XRP/USD)",     InstrumentType.CRYPTO,    "XRP-USD",     false);
+        var adausd = upsert("ADAUSD", "Cardano (ADA/USD)",    InstrumentType.CRYPTO,    "ADA-USD",     false);
+        var dogusd = upsert("DOGUSD", "Dogecoin (DOGE/USD)",  InstrumentType.CRYPTO,    "DOGE-USD",    false);
+        var matusd = upsert("MATUSD", "Polygon (MATIC/USD)",  InstrumentType.CRYPTO,    "MATIC-USD",   false);
+        var dotusd = upsert("DOTUSD", "Polkadot (DOT/USD)",   InstrumentType.CRYPTO,    "DOT-USD",     false);
+        var avxusd = upsert("AVXUSD", "Avalanche (AVAX/USD)", InstrumentType.CRYPTO,    "AVAX-USD",    false);
+        var lnkusd = upsert("LNKUSD", "Chainlink (LINK/USD)", InstrumentType.CRYPTO,    "LINK-USD",    false);
+        var ltcusd = upsert("LTCUSD", "Litecoin (LTC/USD)",   InstrumentType.CRYPTO,    "LTC-USD",     false);
+        var uniusd = upsert("UNIUSD", "Uniswap (UNI/USD)",    InstrumentType.CRYPTO,    "UNI-USD",     false);
+        var atomusd= upsert("ATOMUSD","Cosmos (ATOM/USD)",    InstrumentType.CRYPTO,    "ATOM-USD",    false);
+        var xlmusd = upsert("XLMUSD", "Stellar (XLM/USD)",    InstrumentType.CRYPTO,    "XLM-USD",     false);
+        var algousd= upsert("ALGOUSD","Algorand (ALGO/USD)",  InstrumentType.CRYPTO,    "ALGO-USD",    false);
         // ABD Hisseleri — Yahoo: doğrudan ticker
         var aapl   = upsert("AAPL",   "Apple Inc.",           InstrumentType.STOCK,     "AAPL",        false);
         var msft   = upsert("MSFT",   "Microsoft Corp.",      InstrumentType.STOCK,     "MSFT",        false);
@@ -136,7 +149,7 @@ public class MarketService {
         var nvda   = upsert("NVDA",   "NVIDIA Corp.",         InstrumentType.STOCK,     "NVDA",        false);
         var tsla   = upsert("TSLA",   "Tesla Inc.",           InstrumentType.STOCK,     "TSLA",        false);
         var meta   = upsert("META",   "Meta Platforms Inc.",  InstrumentType.STOCK,     "META",        false);
-        // BIST Hisseleri — Yahoo: ".IS" uzantısı, gecikmeli/EOD
+        // BIST100 Hisseleri — Yahoo: ".IS" uzantısı, gecikmeli/EOD (Tüm BIST100)
         var thyao  = upsert("THYAO",  "Türk Hava Yolları",   InstrumentType.BIST,      "THYAO.IS",    true);
         var garan  = upsert("GARAN",  "Garanti BBVA",        InstrumentType.BIST,      "GARAN.IS",    true);
         var asels  = upsert("ASELS",  "Aselsan",             InstrumentType.BIST,      "ASELS.IS",    true);
@@ -162,6 +175,83 @@ public class MarketService {
         var kozaa  = upsert("KOZAA",  "Koza Anadolu Metal",  InstrumentType.BIST,      "KOZAA.IS",    true);
         var tavhl  = upsert("TAVHL",  "TAV Havalimanları",   InstrumentType.BIST,      "TAVHL.IS",    true);
         var soda   = upsert("SODA",   "Soda Sanayii",        InstrumentType.BIST,      "SODA.IS",     true);
+        
+        // BIST100 - Devam Eden Hisseler
+        var ekgyo  = upsert("EKGYO",  "Emlak Konut GYO",     InstrumentType.BIST,      "EKGYO.IS",    true);
+        var ykbnk  = upsert("YKBNK",  "Yapı Kredi Bankası",  InstrumentType.BIST,      "YKBNK.IS",    true);
+        var prkme  = upsert("PRKME",  "Park Elektrik",       InstrumentType.BIST,      "PRKME.IS",    true);
+        var sasa   = upsert("SASA",   "Sasa Polyester",      InstrumentType.BIST,      "SASA.IS",     true);
+        var dohol  = upsert("DOHOL",  "Doğan Holding",       InstrumentType.BIST,      "DOHOL.IS",    true);
+        var odas   = upsert("ODAS",   "Odaş Elektrik",       InstrumentType.BIST,      "ODAS.IS",     true);
+        var vestl  = upsert("VESTL",  "Vestel",              InstrumentType.BIST,      "VESTL.IS",    true);
+        var mgros  = upsert("MGROS",  "Migros",              InstrumentType.BIST,      "MGROS.IS",    true);
+        var sokm   = upsert("SOKM",   "Şok Marketler",       InstrumentType.BIST,      "SOKM.IS",     true);
+        var aefes  = upsert("AEFES",  "Anadolu Efes",        InstrumentType.BIST,      "AEFES.IS",    true);
+        var ulker  = upsert("ULKER",  "Ülker Bisküvi",       InstrumentType.BIST,      "ULKER.IS",    true);
+        var ccola  = upsert("CCOLA",  "Coca Cola İçecek",    InstrumentType.BIST,      "CCOLA.IS",    true);
+        var otkar  = upsert("OTKAR",  "Otokar",              InstrumentType.BIST,      "OTKAR.IS",    true);
+        var krdmd  = upsert("KRDMD",  "Kardemir",            InstrumentType.BIST,      "KRDMD.IS",    true);
+        var alark  = upsert("ALARK",  "Alarko Holding",      InstrumentType.BIST,      "ALARK.IS",    true);
+        var aygaz  = upsert("AYGAZ",  "Aygaz",               InstrumentType.BIST,      "AYGAZ.IS",    true);
+        var aksen  = upsert("AKSEN",  "Aksa Enerji",         InstrumentType.BIST,      "AKSEN.IS",    true);
+        var aksa   = upsert("AKSA",   "Aksa Akrilik",        InstrumentType.BIST,      "AKSA.IS",     true);
+        var brsan  = upsert("BRSAN",  "Borusan Mannesmann",  InstrumentType.BIST,      "BRSAN.IS",    true);
+        var cemts  = upsert("CEMTS",  "Çemtaş",              InstrumentType.BIST,      "CEMTS.IS",    true);
+        var cimsa  = upsert("CIMSA",  "Çimsa",               InstrumentType.BIST,      "CIMSA.IS",    true);
+        var doas   = upsert("DOAS",   "Doğuş Otomotiv",      InstrumentType.BIST,      "DOAS.IS",     true);
+        var egeen  = upsert("EGEEN",  "Ege Endüstri",        InstrumentType.BIST,      "EGEEN.IS",    true);
+        var enjsa  = upsert("ENJSA",  "Enerjisa Enerji",     InstrumentType.BIST,      "ENJSA.IS",    true);
+        var genil  = upsert("GENIL",  "Gen İlaç",            InstrumentType.BIST,      "GENIL.IS",    true);
+        var glyho  = upsert("GLYHO",  "Gübre Fabrikaları",   InstrumentType.BIST,      "GLYHO.IS",    true);
+        var goody  = upsert("GOODY",  "Good-Year",           InstrumentType.BIST,      "GOODY.IS",    true);
+        var gozde  = upsert("GOZDE",  "Gözde Girişim",       InstrumentType.BIST,      "GOZDE.IS",    true);
+        var gubrf  = upsert("GUBRF",  "Gübre Fabrikaları",   InstrumentType.BIST,      "GUBRF.IS",    true);
+        var hekts  = upsert("HEKTS",  "Hektaş",              InstrumentType.BIST,      "HEKTS.IS",    true);
+        var ipeke  = upsert("IPEKE",  "İpek Doğal Enerji",   InstrumentType.BIST,      "IPEKE.IS",    true);
+        var isgyo  = upsert("ISGYO",  "İş GYO",              InstrumentType.BIST,      "ISGYO.IS",    true);
+        var kartn  = upsert("KARTN",  "Kartonsan",           InstrumentType.BIST,      "KARTN.IS",    true);
+        var klmsn  = upsert("KLMSN",  "Klimasan",            InstrumentType.BIST,      "KLMSN.IS",    true);
+        var kontr  = upsert("KONTR",  "Kontrolmatik",        InstrumentType.BIST,      "KONTR.IS",    true);
+        var kords  = upsert("KORDS",  "Kordsa",              InstrumentType.BIST,      "KORDS.IS",    true);
+        var logo   = upsert("LOGO",   "Logo Yazılım",        InstrumentType.BIST,      "LOGO.IS",     true);
+        var mavi   = upsert("MAVI",   "Mavi Giyim",          InstrumentType.BIST,      "MAVI.IS",     true);
+        var mpark  = upsert("MPARK",  "MLP Sağlık",          InstrumentType.BIST,      "MPARK.IS",    true);
+        var netas  = upsert("NETAS",  "Netaş",               InstrumentType.BIST,      "NETAS.IS",    true);
+        var nthol  = upsert("NTHOL",  "Net Holding",         InstrumentType.BIST,      "NTHOL.IS",    true);
+        var oyakc  = upsert("OYAKC",  "Oyak Çimento",        InstrumentType.BIST,      "OYAKC.IS",    true);
+        var parsn  = upsert("PARSN",  "Parsan",              InstrumentType.BIST,      "PARSN.IS",    true);
+        var penta  = upsert("PENTA",  "Penta Teknoloji",     InstrumentType.BIST,      "PENTA.IS",    true);
+        var petun  = upsert("PETUN",  "Pınar Et ve Un",      InstrumentType.BIST,      "PETUN.IS",    true);
+        var pnsut  = upsert("PNSUT",  "Pınar Süt",           InstrumentType.BIST,      "PNSUT.IS",    true);
+        var quagr  = upsert("QUAGR",  "Qua Granite",         InstrumentType.BIST,      "QUAGR.IS",    true);
+        var raysg  = upsert("RAYSG",  "Ray Sigorta",         InstrumentType.BIST,      "RAYSG.IS",    true);
+        var selec  = upsert("SELEC",  "Selçuk Ecza",         InstrumentType.BIST,      "SELEC.IS",    true);
+        var skbnk  = upsert("SKBNK",  "Şekerbank",           InstrumentType.BIST,      "SKBNK.IS",    true);
+        var smart  = upsert("SMART",  "Smart Güneş",         InstrumentType.BIST,      "SMART.IS",    true);
+        var tatgd  = upsert("TATGD",  "Tat Gıda",            InstrumentType.BIST,      "TATGD.IS",    true);
+        var tkfen  = upsert("TKFEN",  "Tekfen Holding",      InstrumentType.BIST,      "TKFEN.IS",    true);
+        var tknsa  = upsert("TKNSA",  "Teknik Yapı",         InstrumentType.BIST,      "TKNSA.IS",    true);
+        var tmsn   = upsert("TMSN",   "Tümosan Motor",       InstrumentType.BIST,      "TMSN.IS",     true);
+        var trgyo  = upsert("TRGYO",  "Torunlar GYO",        InstrumentType.BIST,      "TRGYO.IS",    true);
+        var trkcm  = upsert("TRKCM",  "Trakya Cam",          InstrumentType.BIST,      "TRKCM.IS",    true);
+        var ttrak  = upsert("TTRAK",  "Türk Traktör",        InstrumentType.BIST,      "TTRAK.IS",    true);
+        var uluse  = upsert("ULUSE",  "Ulusoy Elektrik",     InstrumentType.BIST,      "ULUSE.IS",    true);
+        var yatas  = upsert("YATAS",  "Yataş",               InstrumentType.BIST,      "YATAS.IS",    true);
+        var aghol  = upsert("AGHOL",  "Anadolu Grubu Holding", InstrumentType.BIST,    "AGHOL.IS",    true);
+        var anacm  = upsert("ANACM",  "Anadolu Cam",         InstrumentType.BIST,      "ANACM.IS",    true);
+        var ansgr  = upsert("ANSGR",  "Anadolu Sigorta",     InstrumentType.BIST,      "ANSGR.IS",    true);
+        var bagfs  = upsert("BAGFS",  "Bagfaş",              InstrumentType.BIST,      "BAGFS.IS",    true);
+        var banvt  = upsert("BANVT",  "Banvit",              InstrumentType.BIST,      "BANVT.IS",    true);
+        var bfren  = upsert("BFREN",  "Bosch Fren",          InstrumentType.BIST,      "BFREN.IS",    true);
+        var bioen  = upsert("BIOEN",  "Biotrend Enerji",     InstrumentType.BIST,      "BIOEN.IS",    true);
+        var bizim  = upsert("BIZIM",  "Bizim Toptan",        InstrumentType.BIST,      "BIZIM.IS",    true);
+        var brisa  = upsert("BRISA",  "Brisa",               InstrumentType.BIST,      "BRISA.IS",    true);
+        var bryat  = upsert("BRYAT",  "Borusan Yatırım",     InstrumentType.BIST,      "BRYAT.IS",    true);
+        var bucim  = upsert("BUCIM",  "Bursa Çimento",       InstrumentType.BIST,      "BUCIM.IS",    true);
+        var clebi  = upsert("CLEBI",  "Çelebi Hava",         InstrumentType.BIST,      "CLEBI.IS",    true);
+        var crfsa  = upsert("CRFSA",  "Carrefoursa",         InstrumentType.BIST,      "CRFSA.IS",    true);
+        var deva   = upsert("DEVA",   "Deva Holding",        InstrumentType.BIST,      "DEVA.IS",     true);
+        var dgklb  = upsert("DGKLB",  "Doğan Şirketler",     InstrumentType.BIST,      "DGKLB.IS",    true);
 
         // VİOP Vadeli İşlem Sözleşmeleri
         var xu030f = upsert("XU030F", "BIST 30 Vadeli",      InstrumentType.VIOP,      "XU030F",      true);
@@ -196,6 +286,19 @@ public class MarketService {
         seedQuoteIfMissing(btcusd, "73900.00", "-290.00","-0.39", now);
         seedQuoteIfMissing(ethusd, "2316.00",  "-7.00",  "-0.30", now);
         seedQuoteIfMissing(solusd, "83.00",    "-0.70",  "-0.84", now);
+        seedQuoteIfMissing(bnbusd, "625.00",   "5.20",   "0.84",  now);
+        seedQuoteIfMissing(xrpusd, "2.45",     "0.03",   "1.24",  now);
+        seedQuoteIfMissing(adausd, "1.08",     "-0.01",  "-0.92", now);
+        seedQuoteIfMissing(dogusd, "0.38",     "0.01",   "2.70",  now);
+        seedQuoteIfMissing(matusd, "0.52",     "-0.01",  "-1.89", now);
+        seedQuoteIfMissing(dotusd, "7.85",     "0.12",   "1.55",  now);
+        seedQuoteIfMissing(avxusd, "42.30",    "-0.50",  "-1.17", now);
+        seedQuoteIfMissing(lnkusd, "23.45",    "0.35",   "1.51",  now);
+        seedQuoteIfMissing(ltcusd, "105.20",   "-1.20",  "-1.13", now);
+        seedQuoteIfMissing(uniusd, "14.75",    "0.25",   "1.72",  now);
+        seedQuoteIfMissing(atomusd,"11.90",    "-0.15",  "-1.24", now);
+        seedQuoteIfMissing(xlmusd, "0.42",     "0.01",   "2.43",  now);
+        seedQuoteIfMissing(algousd,"0.35",     "-0.01",  "-2.78", now);
         seedQuoteIfMissing(aapl,   "258.83",   "-1.65",  "-0.63", now);
         seedQuoteIfMissing(msft,   "393.00",   "22.00",  "5.93",  now);
         seedQuoteIfMissing(googl,  "165.00",   "0.80",   "0.49",  now);
@@ -229,6 +332,83 @@ public class MarketService {
         seedQuoteIfMissing(tavhl,  "1892.00",  "15.00",  "0.80",  now);
         seedQuoteIfMissing(soda,   "45.78",    "-0.22",  "-0.48", now);
         
+        // BIST100 - Devam Eden Hisseler
+        seedQuoteIfMissing(ekgyo,  "8.45",     "0.05",   "0.60",  now);
+        seedQuoteIfMissing(ykbnk,  "28.50",    "-0.15",  "-0.52", now);
+        seedQuoteIfMissing(prkme,  "156.00",   "1.20",   "0.78",  now);
+        seedQuoteIfMissing(sasa,   "42.30",    "-0.30",  "-0.70", now);
+        seedQuoteIfMissing(dohol,  "3.85",     "0.02",   "0.52",  now);
+        seedQuoteIfMissing(odas,   "89.50",    "0.70",   "0.79",  now);
+        seedQuoteIfMissing(vestl,  "38.20",    "-0.20",  "-0.52", now);
+        seedQuoteIfMissing(mgros,  "245.00",   "2.00",   "0.82",  now);
+        seedQuoteIfMissing(sokm,   "312.50",   "3.50",   "1.13",  now);
+        seedQuoteIfMissing(aefes,  "68.40",    "0.40",   "0.59",  now);
+        seedQuoteIfMissing(ulker,  "124.50",   "-0.50",  "-0.40", now);
+        seedQuoteIfMissing(ccola,  "189.00",   "1.50",   "0.80",  now);
+        seedQuoteIfMissing(otkar,  "1245.00",  "10.00",  "0.81",  now);
+        seedQuoteIfMissing(krdmd,  "12.85",    "-0.10",  "-0.77", now);
+        seedQuoteIfMissing(alark,  "45.60",    "0.30",   "0.66",  now);
+        seedQuoteIfMissing(aygaz,  "178.50",   "1.50",   "0.85",  now);
+        seedQuoteIfMissing(aksen,  "92.30",    "0.80",   "0.87",  now);
+        seedQuoteIfMissing(aksa,   "67.20",    "-0.30",  "-0.44", now);
+        seedQuoteIfMissing(brsan,  "234.00",   "2.00",   "0.86",  now);
+        seedQuoteIfMissing(cemts,  "156.50",   "1.20",   "0.77",  now);
+        seedQuoteIfMissing(cimsa,  "89.40",    "0.60",   "0.68",  now);
+        seedQuoteIfMissing(doas,   "345.00",   "3.00",   "0.88",  now);
+        seedQuoteIfMissing(egeen,  "78.90",    "0.50",   "0.64",  now);
+        seedQuoteIfMissing(enjsa,  "34.50",    "0.25",   "0.73",  now);
+        seedQuoteIfMissing(genil,  "123.00",   "1.00",   "0.82",  now);
+        seedQuoteIfMissing(glyho,  "234.50",   "2.00",   "0.86",  now);
+        seedQuoteIfMissing(goody,  "145.00",   "1.20",   "0.83",  now);
+        seedQuoteIfMissing(gozde,  "23.40",    "0.15",   "0.65",  now);
+        seedQuoteIfMissing(gubrf,  "189.00",   "1.50",   "0.80",  now);
+        seedQuoteIfMissing(hekts,  "67.80",    "0.40",   "0.59",  now);
+        seedQuoteIfMissing(ipeke,  "56.30",    "0.30",   "0.54",  now);
+        seedQuoteIfMissing(isgyo,  "12.45",    "0.08",   "0.65",  now);
+        seedQuoteIfMissing(kartn,  "98.50",    "0.70",   "0.72",  now);
+        seedQuoteIfMissing(klmsn,  "134.00",   "1.00",   "0.75",  now);
+        seedQuoteIfMissing(kontr,  "78.20",    "0.50",   "0.64",  now);
+        seedQuoteIfMissing(kords,  "156.00",   "1.20",   "0.78",  now);
+        seedQuoteIfMissing(logo,   "289.00",   "2.50",   "0.87",  now);
+        seedQuoteIfMissing(mavi,   "234.50",   "2.00",   "0.86",  now);
+        seedQuoteIfMissing(mpark,  "167.00",   "1.30",   "0.78",  now);
+        seedQuoteIfMissing(netas,  "89.40",    "0.60",   "0.68",  now);
+        seedQuoteIfMissing(nthol,  "45.60",    "0.30",   "0.66",  now);
+        seedQuoteIfMissing(oyakc,  "123.50",   "1.00",   "0.82",  now);
+        seedQuoteIfMissing(parsn,  "67.80",    "0.40",   "0.59",  now);
+        seedQuoteIfMissing(penta,  "345.00",   "3.00",   "0.88",  now);
+        seedQuoteIfMissing(petun,  "78.90",    "0.50",   "0.64",  now);
+        seedQuoteIfMissing(pnsut,  "56.30",    "0.30",   "0.54",  now);
+        seedQuoteIfMissing(quagr,  "23.40",    "0.15",   "0.65",  now);
+        seedQuoteIfMissing(raysg,  "12.45",    "0.08",   "0.65",  now);
+        seedQuoteIfMissing(selec,  "98.50",    "0.70",   "0.72",  now);
+        seedQuoteIfMissing(skbnk,  "5.67",     "0.03",   "0.53",  now);
+        seedQuoteIfMissing(smart,  "134.00",   "1.00",   "0.75",  now);
+        seedQuoteIfMissing(tatgd,  "78.20",    "0.50",   "0.64",  now);
+        seedQuoteIfMissing(tkfen,  "156.00",   "1.20",   "0.78",  now);
+        seedQuoteIfMissing(tknsa,  "89.40",    "0.60",   "0.68",  now);
+        seedQuoteIfMissing(tmsn,   "234.50",   "2.00",   "0.86",  now);
+        seedQuoteIfMissing(trgyo,  "12.45",    "0.08",   "0.65",  now);
+        seedQuoteIfMissing(trkcm,  "98.50",    "0.70",   "0.72",  now);
+        seedQuoteIfMissing(ttrak,  "456.00",   "4.00",   "0.88",  now);
+        seedQuoteIfMissing(uluse,  "67.80",    "0.40",   "0.59",  now);
+        seedQuoteIfMissing(yatas,  "45.60",    "0.30",   "0.66",  now);
+        seedQuoteIfMissing(aghol,  "234.50",   "2.00",   "0.86",  now);
+        seedQuoteIfMissing(anacm,  "89.40",    "0.60",   "0.68",  now);
+        seedQuoteIfMissing(ansgr,  "12.45",    "0.08",   "0.65",  now);
+        seedQuoteIfMissing(bagfs,  "67.80",    "0.40",   "0.59",  now);
+        seedQuoteIfMissing(banvt,  "123.50",   "1.00",   "0.82",  now);
+        seedQuoteIfMissing(bfren,  "345.00",   "3.00",   "0.88",  now);
+        seedQuoteIfMissing(bioen,  "78.90",    "0.50",   "0.64",  now);
+        seedQuoteIfMissing(bizim,  "156.00",   "1.20",   "0.78",  now);
+        seedQuoteIfMissing(brisa,  "234.50",   "2.00",   "0.86",  now);
+        seedQuoteIfMissing(bryat,  "89.40",    "0.60",   "0.68",  now);
+        seedQuoteIfMissing(bucim,  "45.60",    "0.30",   "0.66",  now);
+        seedQuoteIfMissing(clebi,  "167.00",   "1.30",   "0.78",  now);
+        seedQuoteIfMissing(crfsa,  "98.50",    "0.70",   "0.72",  now);
+        seedQuoteIfMissing(deva,   "134.00",   "1.00",   "0.75",  now);
+        seedQuoteIfMissing(dgklb,  "56.30",    "0.30",   "0.54",  now);
+        
         // VİOP Vadeli İşlem Sözleşmeleri
         seedQuoteIfMissing(xu030f, "11850.00", "25.00",  "0.21",  now);
         seedQuoteIfMissing(xu100f, "14350.00", "30.00",  "0.21",  now);
@@ -256,7 +436,14 @@ public class MarketService {
         seedCandlesIfMissing(xauusd, "4700.00"); seedCandlesIfMissing(xu100,  "14000.00");
         seedCandlesIfMissing(xu050,  "9800.00"); seedCandlesIfMissing(xu030,  "8900.00");
         seedCandlesIfMissing(btcusd, "70000.00");seedCandlesIfMissing(ethusd, "2200.00");
-        seedCandlesIfMissing(solusd, "80.00");   seedCandlesIfMissing(aapl,   "255.00");
+        seedCandlesIfMissing(solusd, "80.00");   seedCandlesIfMissing(bnbusd, "600.00");
+        seedCandlesIfMissing(xrpusd, "2.30");    seedCandlesIfMissing(adausd, "1.05");
+        seedCandlesIfMissing(dogusd, "0.35");    seedCandlesIfMissing(matusd, "0.50");
+        seedCandlesIfMissing(dotusd, "7.50");    seedCandlesIfMissing(avxusd, "40.00");
+        seedCandlesIfMissing(lnkusd, "22.00");   seedCandlesIfMissing(ltcusd, "100.00");
+        seedCandlesIfMissing(uniusd, "14.00");   seedCandlesIfMissing(atomusd,"11.50");
+        seedCandlesIfMissing(xlmusd, "0.40");    seedCandlesIfMissing(algousd,"0.33");
+        seedCandlesIfMissing(aapl,   "255.00");
         seedCandlesIfMissing(msft,   "380.00");  seedCandlesIfMissing(googl,  "160.00");
         seedCandlesIfMissing(amzn,   "180.00");  seedCandlesIfMissing(nvda,   "185.00");
         seedCandlesIfMissing(tsla,   "250.00");  seedCandlesIfMissing(meta,   "550.00");
@@ -273,6 +460,46 @@ public class MarketService {
         seedCandlesIfMissing(halkb,  "18.50");   seedCandlesIfMissing(arclk,  "132.00");
         seedCandlesIfMissing(kozaa,  "88.00");   seedCandlesIfMissing(tavhl,  "1850.00");
         seedCandlesIfMissing(soda,   "45.00");
+        
+        // BIST100 - Devam Eden Hisseler
+        seedCandlesIfMissing(ekgyo,  "8.30");    seedCandlesIfMissing(ykbnk,  "28.00");
+        seedCandlesIfMissing(prkme,  "152.00");  seedCandlesIfMissing(sasa,   "41.50");
+        seedCandlesIfMissing(dohol,  "3.80");    seedCandlesIfMissing(odas,   "88.00");
+        seedCandlesIfMissing(vestl,  "37.50");   seedCandlesIfMissing(mgros,  "240.00");
+        seedCandlesIfMissing(sokm,   "305.00");  seedCandlesIfMissing(aefes,  "67.00");
+        seedCandlesIfMissing(ulker,  "122.00");  seedCandlesIfMissing(ccola,  "185.00");
+        seedCandlesIfMissing(otkar,  "1220.00"); seedCandlesIfMissing(krdmd,  "12.50");
+        seedCandlesIfMissing(alark,  "44.50");   seedCandlesIfMissing(aygaz,  "175.00");
+        seedCandlesIfMissing(aksen,  "90.00");   seedCandlesIfMissing(aksa,   "66.00");
+        seedCandlesIfMissing(brsan,  "230.00");  seedCandlesIfMissing(cemts,  "153.00");
+        seedCandlesIfMissing(cimsa,  "87.50");   seedCandlesIfMissing(doas,   "338.00");
+        seedCandlesIfMissing(egeen,  "77.00");   seedCandlesIfMissing(enjsa,  "33.80");
+        seedCandlesIfMissing(genil,  "120.00");  seedCandlesIfMissing(glyho,  "230.00");
+        seedCandlesIfMissing(goody,  "142.00");  seedCandlesIfMissing(gozde,  "22.90");
+        seedCandlesIfMissing(gubrf,  "185.00");  seedCandlesIfMissing(hekts,  "66.50");
+        seedCandlesIfMissing(ipeke,  "55.00");   seedCandlesIfMissing(isgyo,  "12.20");
+        seedCandlesIfMissing(kartn,  "96.50");   seedCandlesIfMissing(klmsn,  "131.00");
+        seedCandlesIfMissing(kontr,  "76.50");   seedCandlesIfMissing(kords,  "153.00");
+        seedCandlesIfMissing(logo,   "283.00");  seedCandlesIfMissing(mavi,   "230.00");
+        seedCandlesIfMissing(mpark,  "163.00");  seedCandlesIfMissing(netas,  "87.50");
+        seedCandlesIfMissing(nthol,  "44.50");   seedCandlesIfMissing(oyakc,  "121.00");
+        seedCandlesIfMissing(parsn,  "66.50");   seedCandlesIfMissing(penta,  "338.00");
+        seedCandlesIfMissing(petun,  "77.00");   seedCandlesIfMissing(pnsut,  "55.00");
+        seedCandlesIfMissing(quagr,  "22.90");   seedCandlesIfMissing(raysg,  "12.20");
+        seedCandlesIfMissing(selec,  "96.50");   seedCandlesIfMissing(skbnk,  "5.55");
+        seedCandlesIfMissing(smart,  "131.00");  seedCandlesIfMissing(tatgd,  "76.50");
+        seedCandlesIfMissing(tkfen,  "153.00");  seedCandlesIfMissing(tknsa,  "87.50");
+        seedCandlesIfMissing(tmsn,   "230.00");  seedCandlesIfMissing(trgyo,  "12.20");
+        seedCandlesIfMissing(ttrak,  "447.00");
+        seedCandlesIfMissing(uluse,  "66.50");   seedCandlesIfMissing(yatas,  "44.50");
+        seedCandlesIfMissing(aghol,  "230.00");  seedCandlesIfMissing(anacm,  "87.50");
+        seedCandlesIfMissing(ansgr,  "12.20");   seedCandlesIfMissing(bagfs,  "66.50");
+        seedCandlesIfMissing(banvt,  "121.00");  seedCandlesIfMissing(bfren,  "338.00");
+        seedCandlesIfMissing(bioen,  "77.00");   seedCandlesIfMissing(bizim,  "153.00");
+        seedCandlesIfMissing(brisa,  "230.00");  seedCandlesIfMissing(bryat,  "87.50");
+        seedCandlesIfMissing(bucim,  "44.50");   seedCandlesIfMissing(clebi,  "163.00");
+        seedCandlesIfMissing(crfsa,  "96.50");   seedCandlesIfMissing(deva,   "131.00");
+        seedCandlesIfMissing(dgklb,  "55.00");
         
         // VİOP Vadeli İşlem Sözleşmeleri
         seedCandlesIfMissing(xu030f, "11800.00"); seedCandlesIfMissing(xu100f, "14300.00");
@@ -295,6 +522,21 @@ public class MarketService {
     public List<MarketInstrument> instruments() {
         seedIfEmpty();
         return instrumentRepo.findAll();
+    }
+
+    /** Search instruments by symbol or name */
+    public List<MarketInstrument> searchInstruments(String query) {
+        seedIfEmpty();
+        if (query == null || query.trim().isEmpty()) {
+            return List.of();
+        }
+        
+        String searchTerm = query.trim().toUpperCase();
+        return instrumentRepo.findAll().stream()
+                .filter(inst -> inst.getSymbol().toUpperCase().contains(searchTerm) 
+                             || inst.getName().toUpperCase().contains(searchTerm))
+                .limit(10) // Limit to 10 results for autocomplete
+                .toList();
     }
 
     /** Tek sembol için anlık fiyat (portföy modal'ı için) */
@@ -347,6 +589,14 @@ public class MarketService {
         MarketInstrument inst = instrumentRepo.findBySymbol(symbol)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown symbol: " + symbol));
 
+        // For instrument types without Yahoo Finance support, use database candles directly
+        if (inst.getInstrumentType() == InstrumentType.FUND || 
+            inst.getInstrumentType() == InstrumentType.BOND || 
+            inst.getInstrumentType() == InstrumentType.VIOP) {
+            log.info("Using database candles for {} (type: {})", symbol, inst.getInstrumentType());
+            return fallbackToDatabaseHistory(inst, period);
+        }
+
         // Normalize symbol for Yahoo Finance
         String yahooSymbol = normalizeSymbolForYahoo(inst.getSymbol(), inst.getInstrumentType());
         
@@ -370,9 +620,9 @@ public class MarketService {
             // Clean and validate data
             List<YahooPriceFetcher.DayClose> cleanedData = cleanHistoricalData(yahooData, symbol);
             
-            // Convert to MarketHistoryPoint DTOs
+            // Convert to MarketHistoryPoint DTOs — pass real Unix timestamp for LW Charts
             List<MarketHistoryPoint> result = cleanedData.stream()
-                    .map(d -> new MarketHistoryPoint(d.day(), d.close(), d.label()))
+                    .map(d -> new MarketHistoryPoint(d.day(), d.close(), d.label(), d.timestamp()))
                     .toList();
 
             log.info("Chart data processed: symbol={} yahooSymbol={} period={} -> {} clean points", 
