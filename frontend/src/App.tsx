@@ -58,16 +58,18 @@ export default function App({ keycloak }: Props) {
                     />
                 }
                 topbar={
-                    <Topbar
-                        title={titles[tab]}
-                        subtitle={subtitles[tab]}
-                        username={username}
-                        theme={theme}
-                        onThemeToggle={toggleTheme}
-                        onLogout={() => keycloak.logout({ redirectUri: window.location.origin })}
-                        showAlerts={keycloak.authenticated}
-                        onAlertsClick={() => setShowAlertModal(true)}
-                    />
+                    tab !== "market" ? (
+                        <Topbar
+                            title={titles[tab]}
+                            subtitle={subtitles[tab]}
+                            username={username}
+                            theme={theme}
+                            onThemeToggle={toggleTheme}
+                            onLogout={() => keycloak.logout({ redirectUri: window.location.origin })}
+                            showAlerts={keycloak.authenticated}
+                            onAlertsClick={() => setShowAlertModal(true)}
+                        />
+                    ) : undefined
                 }
             >
                 {tab === "news-enhanced" && <News />}
@@ -75,6 +77,11 @@ export default function App({ keycloak }: Props) {
                     <FinexStyleMarket
                         keycloak={keycloak}
                         onAdded={() => setPortfolioKey((k) => k + 1)}
+                        username={username}
+                        theme={theme}
+                        onThemeToggle={toggleTheme}
+                        onLogout={() => keycloak.logout({ redirectUri: window.location.origin })}
+                        onAlertsClick={() => setShowAlertModal(true)}
                     />
                 )}
                 {tab === "market-data" && <MarketData />}

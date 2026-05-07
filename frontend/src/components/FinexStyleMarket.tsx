@@ -11,9 +11,42 @@ import InstrumentChartModal from "./InstrumentChartModal";
 import CompareInstrumentsModal from "./CompareInstrumentsModal";
 import { LWSparkline, type SparklinePoint } from "./common/LWSparkline";
 
-type Props = { keycloak: Keycloak; onAdded: () => void };
+type Props = { 
+    keycloak: Keycloak; 
+    onAdded: () => void;
+    username?: string;
+    theme?: string;
+    onThemeToggle?: () => void;
+    onLogout?: () => void;
+    onAlertsClick?: () => void;
+};
 
-export default function FinexStyleMarket({ keycloak, onAdded }: Props) {
+// BIST Index Compositions
+const BIST30_STOCKS = [
+    "AKBNK", "ARCLK", "ASELS", "BIMAS", "EKGYO", "EREGL", "FROTO", "GARAN",
+    "GUBRF", "HEKTS", "ISCTR", "KCHOL", "KOZAA", "KOZAL", "KRDMD", "PETKM",
+    "PGSUS", "SAHOL", "SASA", "SISE", "TAVHL", "TCELL", "THYAO", "TKFEN",
+    "TOASO", "TTKOM", "TUPRS", "VAKBN", "VESTL", "YKBNK"
+];
+
+const BIST50_STOCKS = [
+    ...BIST30_STOCKS,
+    "AEFES", "AKSA", "ALARK", "ALGYO", "AYGAZ", "DOHOL", "ENKAI", "ENJSA",
+    "GESAN", "HALKB", "ISGYO", "KLMSN", "KONTR", "ODAS", "OYAKC", "SOKM",
+    "TSKB", "TTRAK", "ULKER", "ZOREN"
+];
+
+const BIST100_STOCKS = [
+    ...BIST50_STOCKS,
+    "ADEL", "ADESE", "AFYON", "AHGAZ", "AKCNS", "AKFGY", "AKFYE", "AKGRT",
+    "AKSEN", "AKSGY", "AKSUE", "ALBRK", "ALCAR", "ALCTL", "ALFAS", "ALKIM",
+    "ALMAD", "ANELE", "ANGEN", "ANHYT", "ANSGR", "ARDYZ", "ARENA", "ARMDA",
+    "ARTMS", "ARZUM", "ASTOR", "ASUZU", "ATAGY", "ATAKP", "ATATP", "AVGYO",
+    "AVHOL", "AVOD", "AVTUR", "AYCES", "AYEN", "BAGFS", "BAKAB", "BALAT",
+    "BANVT", "BARMA", "BASGZ", "BAYRK", "BEGYO", "BERA", "BEYAZ", "BFREN"
+];
+
+export default function FinexStyleMarket({ keycloak, onAdded, username, theme, onThemeToggle, onLogout, onAlertsClick }: Props) {
     const [items, setItems] = useState<MarketSummaryItem[]>([]);
     const [loading, setLoading] = useState(true);
     const [filter, setFilter] = useState<string>("ALL");
@@ -25,6 +58,7 @@ export default function FinexStyleMarket({ keycloak, onAdded }: Props) {
     const [addSaving, setAddSaving] = useState(false);
     const [addErr, setAddErr] = useState<string | null>(null);
     const [compareTarget, setCompareTarget] = useState<MarketSummaryItem | null>(null);
+    const [indexFilter, setIndexFilter] = useState<string | null>(null);
 
     // Sparkline data: symbol → last 30 daily closes
     const [sparklines, setSparklines] = useState<Record<string, SparklinePoint[]>>({});
@@ -51,12 +85,22 @@ export default function FinexStyleMarket({ keycloak, onAdded }: Props) {
     const filtered = useMemo(() => {
         let list = items.filter((i) => i.type !== "INDEX");
         if (filter !== "ALL") list = list.filter((i) => i.type === filter);
+        
+        // Apply BIST index filter
+        if (indexFilter === "XU030") {
+            list = list.filter((i) => BIST30_STOCKS.includes(i.symbol));
+        } else if (indexFilter === "XU050") {
+            list = list.filter((i) => BIST50_STOCKS.includes(i.symbol));
+        } else if (indexFilter === "XU100") {
+            list = list.filter((i) => BIST100_STOCKS.includes(i.symbol));
+        }
+        
         if (search.trim()) {
             const q = search.trim().toUpperCase();
             list = list.filter((i) => i.symbol.includes(q) || i.name.toUpperCase().includes(q));
         }
         return list;
-    }, [items, filter, search]);
+    }, [items, filter, search, indexFilter]);
 
     // Fetch sparkline history for visible items (batched, low priority)
     useEffect(() => {
@@ -64,9 +108,11 @@ export default function FinexStyleMarket({ keycloak, onAdded }: Props) {
         let cancelled = false;
 
         const fetchBatch = async () => {
-            for (const item of filtered.slice(0, 40)) {
+            // Get items that don't have sparkline data yet
+            const itemsToFetch = filtered.slice(0, 50).filter(item => !sparklines[item.symbol]);
+            
+            for (const item of itemsToFetch) {
                 if (cancelled) break;
-                if (sparklines[item.symbol]) continue; // already loaded
                 try {
                     const history = await getMarketHistory(item.symbol, "1M");
                     if (!cancelled && history.length > 0) {
@@ -75,18 +121,24 @@ export default function FinexStyleMarket({ keycloak, onAdded }: Props) {
                             value: h.close,
                         }));
                         setSparklines((prev) => ({ ...prev, [item.symbol]: pts }));
+                    } else if (!cancelled && history.length === 0) {
+                        // Mark as attempted even if no data
+                        setSparklines((prev) => ({ ...prev, [item.symbol]: [] }));
                     }
-                } catch {
-                    // silently skip — sparkline is optional
+                } catch (error) {
+                    // Mark as attempted to avoid infinite retries
+                    if (!cancelled) {
+                        setSparklines((prev) => ({ ...prev, [item.symbol]: [] }));
+                    }
                 }
-                await new Promise((r) => setTimeout(r, 80));
+                await new Promise((r) => setTimeout(r, 50));
             }
         };
 
         fetchBatch();
         return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filtered.length, filter]);
+    }, [filtered, filter]);
 
     const addTotal = useMemo(() => {
         if (!addTarget || !addQty || addQty <= 0) return 0;
@@ -134,25 +186,95 @@ export default function FinexStyleMarket({ keycloak, onAdded }: Props) {
 
     return (
         <div style={s.root}>
-            {/* Index Cards */}
-            {indices.length > 0 && (
-                <div style={s.indexGrid}>
-                    {indices.map((idx) => {
-                        const pos = idx.changePct >= 0;
-                        const color = pos ? "#10b981" : "#ef4444";
-                        return (
-                            <div key={idx.symbol} style={s.indexCard}>
-                                <div style={s.indexLabel}>{idx.symbol}</div>
-                                <div style={s.indexPrice}>
-                                    {idx.last?.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {/* Header Section with Title and Index Cards */}
+            <div style={s.headerSection}>
+                <div style={s.titleRow}>
+                    <div style={s.titleArea}>
+                        <h1 style={s.pageTitle}>Hisse Fiyatları</h1>
+                        <p style={s.pageSubtitle}>Gerçek zamanlı hisse fiyatları ve piyasa performansı</p>
+                    </div>
+                    
+                    {/* User Controls */}
+                    <div style={s.userControls}>
+                        {onAlertsClick && (
+                            <button 
+                                style={s.iconBtn} 
+                                onClick={onAlertsClick} 
+                                title="Fiyat Alarmları"
+                            >
+                                🔔
+                            </button>
+                        )}
+                        {onThemeToggle && (
+                            <button 
+                                style={s.iconBtn} 
+                                onClick={onThemeToggle} 
+                                title={theme === "dark" ? "Açık tema" : "Koyu tema"}
+                            >
+                                {theme === "dark" ? "☀️" : "🌙"}
+                            </button>
+                        )}
+                        {onLogout && (
+                            <button style={s.logoutBtn} onClick={onLogout}>
+                                Çıkış
+                            </button>
+                        )}
+                    </div>
+                </div>
+                
+                {/* Index Cards */}
+                {indices.length > 0 && (
+                    <div style={s.indexGrid}>
+                        {indices.map((idx) => {
+                            const pos = idx.changePct >= 0;
+                            const color = pos ? "#10b981" : "#ef4444";
+                            const isActive = indexFilter === idx.symbol;
+                            return (
+                                <div 
+                                    key={idx.symbol} 
+                                    style={{
+                                        ...s.indexCard,
+                                        ...(isActive ? s.indexCardActive : {}),
+                                        cursor: "pointer",
+                                    }}
+                                    onClick={() => {
+                                        if (indexFilter === idx.symbol) {
+                                            setIndexFilter(null);
+                                        } else {
+                                            setIndexFilter(idx.symbol);
+                                        }
+                                    }}
+                                >
+                                    <div style={s.indexLabel}>
+                                        {idx.symbol}
+                                        {isActive && <span style={{ marginLeft: 8, color: "#22c55e", fontSize: 10 }}>✓</span>}
+                                    </div>
+                                    <div style={s.indexPrice}>
+                                        {idx.last?.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    </div>
+                                    <div style={{ color, fontSize: 13, fontWeight: 600, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                                        <span>{pos ? "▲" : "▼"}</span>
+                                        <span>{pos ? "+" : ""}{idx.changePct?.toFixed(2)}%</span>
+                                    </div>
                                 </div>
-                                <div style={{ color, fontSize: 12, fontWeight: 600, marginTop: 4 }}>
-                                    {pos ? "▲" : "▼"} {pos ? "+" : ""}
-                                    {idx.changePct?.toFixed(2)}%
-                                </div>
-                            </div>
-                        );
-                    })}
+                            );
+                        })}
+                    </div>
+                )}
+            </div>
+
+            {/* Filter Banner */}
+            {indexFilter && (
+                <div style={s.filterBanner}>
+                    <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
+                        📊 <strong>{indexFilter}</strong> endeksi hisseleri gösteriliyor
+                    </span>
+                    <button
+                        style={s.clearFilterBtn}
+                        onClick={() => setIndexFilter(null)}
+                    >
+                        ✕ Filtreyi Kaldır
+                    </button>
                 </div>
             )}
 
@@ -330,7 +452,65 @@ export default function FinexStyleMarket({ keycloak, onAdded }: Props) {
 }
 
 const s: Record<string, React.CSSProperties> = {
-    root: { display: "flex", flexDirection: "column", gap: 16 },
+    root: { display: "flex", flexDirection: "column", gap: 20 },
+    headerSection: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 20,
+        marginBottom: 8,
+    },
+    titleRow: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "flex-start",
+    },
+    titleArea: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 4,
+    },
+    userControls: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+    },
+    iconBtn: {
+        width: 38,
+        height: 38,
+        borderRadius: 8,
+        border: "1px solid var(--border-card)",
+        background: "var(--input-bg)",
+        color: "var(--text-primary)",
+        fontSize: 16,
+        cursor: "pointer",
+        display: "grid",
+        placeItems: "center",
+        transition: "all 0.2s",
+    },
+    logoutBtn: {
+        padding: "9px 16px",
+        borderRadius: 8,
+        border: "1px solid var(--danger-border)",
+        background: "var(--danger-bg)",
+        color: "var(--danger-text)",
+        cursor: "pointer",
+        fontSize: 13,
+        fontWeight: 600,
+        transition: "all 0.2s",
+    },
+    pageTitle: {
+        fontSize: 28,
+        fontWeight: 700,
+        color: "var(--text-primary)",
+        margin: 0,
+        padding: 0,
+    },
+    pageSubtitle: {
+        fontSize: 14,
+        color: "var(--text-muted)",
+        margin: 0,
+        padding: 0,
+    },
     loading: {
         display: "flex",
         flexDirection: "column",
@@ -356,17 +536,36 @@ const s: Record<string, React.CSSProperties> = {
     },
     indexGrid: {
         display: "grid",
-        gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))",
-        gap: 12,
+        gridTemplateColumns: "repeat(3, 1fr)",
+        gap: 16,
     },
     indexCard: {
         background: "var(--bg-card)",
         border: "1px solid var(--border-card)",
-        borderRadius: 8,
-        padding: "12px 14px",
+        borderRadius: 10,
+        padding: "18px 20px",
+        transition: "all 0.2s",
     },
-    indexLabel: { fontSize: 11, color: "var(--text-muted)", marginBottom: 4, fontWeight: 500 },
-    indexPrice: { fontSize: 18, fontWeight: 700, color: "var(--text-primary)", marginBottom: 2 },
+    indexCardActive: {
+        border: "2px solid #22c55e",
+        background: "rgba(34, 197, 94, 0.1)",
+        boxShadow: "0 0 0 3px rgba(34, 197, 94, 0.1)",
+    },
+    indexLabel: { 
+        fontSize: 12, 
+        color: "var(--text-muted)", 
+        marginBottom: 8, 
+        fontWeight: 500,
+        display: "flex",
+        alignItems: "center",
+    },
+    indexPrice: { 
+        fontSize: 24, 
+        fontWeight: 700, 
+        color: "var(--text-primary)", 
+        marginBottom: 4,
+        letterSpacing: "-0.5px",
+    },
     controls: {
         display: "flex",
         gap: 12,
@@ -631,6 +830,26 @@ const s: Record<string, React.CSSProperties> = {
         cursor: "pointer",
         fontWeight: 600,
         fontSize: 14,
+        transition: "all 0.2s",
+    },
+    filterBanner: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        padding: "12px 16px",
+        background: "rgba(34, 197, 94, 0.1)",
+        border: "1px solid #22c55e",
+        borderRadius: 8,
+    },
+    clearFilterBtn: {
+        padding: "6px 12px",
+        borderRadius: 6,
+        border: "1px solid #22c55e",
+        background: "transparent",
+        color: "#22c55e",
+        cursor: "pointer",
+        fontSize: 12,
+        fontWeight: 600,
         transition: "all 0.2s",
     },
 };
