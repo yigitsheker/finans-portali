@@ -7,7 +7,9 @@ import java.util.List;
 
 public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> {
 
-    List<NewsArticle> findTop20ByOrderByPublishedAtDesc();
+    List<NewsArticle> findTop50ByOrderByPublishedAtDesc();
 
-    List<NewsArticle> findTop20ByCategoryOrderByPublishedAtDesc(String category);
+    List<NewsArticle> findTop50ByCategoryOrderByPublishedAtDesc(String category);
+    
+    long countByCategory(String category);
 }

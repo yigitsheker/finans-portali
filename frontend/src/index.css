@@ -151,6 +151,25 @@ button:disabled { opacity: 0.50; cursor: not-allowed; }
   background: var(--accent-hover-bg) !important;
 }
 
+/* ── News hover effects ────────────────────────────────────── */
+button:hover .news-read-more-arrow {
+  transform: translateX(4px);
+}
+
+button:hover .news-back-arrow {
+  transform: translateX(-4px);
+}
+
+button:hover .news-external-icon {
+  transform: translate(2px, -2px);
+}
+
+/* ── Scroll to top button hover ────────────────────────────── */
+.news-scroll-top-button:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.5);
+}
+
 /* ── Full-screen layout ────────────────────────────────────── */
 .fp-shell {
   display: grid;

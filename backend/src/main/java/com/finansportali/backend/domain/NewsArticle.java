@@ -17,6 +17,9 @@ public class NewsArticle {
     @Column(nullable = false, length = 2000)
     private String summary;
 
+    @Column(columnDefinition = "TEXT")
+    private String content;
+
     @Column(length = 500)
     private String sourceUrl;
 
@@ -48,9 +51,20 @@ public class NewsArticle {
         this.sourceName = sourceName;
     }
 
+    public NewsArticle(String title, String summary, String content, String category, Instant publishedAt, String sourceUrl, String sourceName) {
+        this.title = title;
+        this.summary = summary;
+        this.content = content;
+        this.category = category;
+        this.publishedAt = publishedAt;
+        this.sourceUrl = sourceUrl;
+        this.sourceName = sourceName;
+    }
+
     public Long getId() { return id; }
     public String getTitle() { return title; }
     public String getSummary() { return summary; }
+    public String getContent() { return content; }
     public String getCategory() { return category; }
     public Instant getPublishedAt() { return publishedAt; }
     public String getSourceUrl() { return sourceUrl; }
@@ -58,6 +72,7 @@ public class NewsArticle {
 
     public void setTitle(String title) { this.title = title; }
     public void setSummary(String summary) { this.summary = summary; }
+    public void setContent(String content) { this.content = content; }
     public void setCategory(String category) { this.category = category; }
     public void setPublishedAt(Instant publishedAt) { this.publishedAt = publishedAt; }
     public void setSourceUrl(String sourceUrl) { this.sourceUrl = sourceUrl; }

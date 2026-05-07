@@ -1,13 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { getNews, getNewsCategories, getMarketSummary, type NewsArticle, type MarketSummaryItem } from '../api/portfolioApi';
+import { getNews, getNewsCategories, getNewsCategoryCounts, getMarketSummary, type NewsArticle, type MarketSummaryItem } from '../api/portfolioApi';
+import NewsDetail from './NewsDetail';
 
 const News: React.FC = () => {
     const [news, setNews] = useState<NewsArticle[]>([]);
-    const [allNews, setAllNews] = useState<NewsArticle[]>([]); // Tüm haberleri tutacak
     const [categories, setCategories] = useState<string[]>([]);
+    const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
     const [selectedCategory, setSelectedCategory] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [topMovers, setTopMovers] = useState<MarketSummaryItem[]>([]);
+    const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
+    const [showScrollTop, setShowScrollTop] = useState(false);
 
     useEffect(() => {
         loadData();
@@ -17,13 +20,25 @@ const News: React.FC = () => {
         loadNews();
     }, [selectedCategory]);
 
+    // Scroll listener for scroll-to-top button
+    useEffect(() => {
+        const handleScroll = () => {
+            setShowScrollTop(window.scrollY > 400);
+        };
+
+        window.addEventListener('scroll', handleScroll);
+        return () => window.removeEventListener('scroll', handleScroll);
+    }, []);
+
     const loadData = async () => {
         try {
-            const [categoriesData, marketData] = await Promise.all([
+            const [categoriesData, countsData, marketData] = await Promise.all([
                 getNewsCategories(),
+                getNewsCategoryCounts(),
                 getMarketSummary()
             ]);
             setCategories(categoriesData);
+            setCategoryCounts(countsData);
             
             // Get top 5 movers (by absolute change percentage)
             const movers = marketData
@@ -41,11 +56,6 @@ const News: React.FC = () => {
             setLoading(true);
             const newsData = await getNews(selectedCategory || undefined);
             setNews(newsData);
-            
-            // İlk yüklemede (kategori seçili değilken) tüm haberleri kaydet
-            if (!selectedCategory) {
-                setAllNews(newsData);
-            }
         } catch (error) {
             console.error('Error loading news:', error);
         } finally {
@@ -87,8 +97,22 @@ const News: React.FC = () => {
     };
 
     const getCategoryCount = (category: string) => {
-        return allNews.filter(n => n.category === category).length;
+        return categoryCounts[category] || 0;
     };
+
+    const scrollToTop = () => {
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+
+    // Show detail view if an article is selected
+    if (selectedArticle) {
+        return (
+            <NewsDetail
+                article={selectedArticle}
+                onBack={() => setSelectedArticle(null)}
+            />
+        );
+    }
 
     if (loading && news.length === 0) {
         return (
@@ -126,16 +150,13 @@ const News: React.FC = () => {
                                 </div>
                                 <h2 style={s.featuredTitle}>{featuredNews.title}</h2>
                                 <p style={s.featuredSummary}>{featuredNews.summary}</p>
-                                {featuredNews.sourceUrl && (
-                                    <a
-                                        href={featuredNews.sourceUrl}
-                                        target="_blank"
-                                        rel="noopener noreferrer"
-                                        style={s.readMore}
-                                    >
-                                        Devamını Oku →
-                                    </a>
-                                )}
+                                <button
+                                    onClick={() => setSelectedArticle(featuredNews)}
+                                    style={s.readMore}
+                                >
+                                    <span>Devamını Oku</span>
+                                    <span className="news-read-more-arrow" style={s.readMoreArrow}>→</span>
+                                </button>
                             </div>
                         </div>
                     )}
@@ -155,16 +176,13 @@ const News: React.FC = () => {
                                     </div>
                                     <h3 style={s.newsTitle}>{article.title}</h3>
                                     <p style={s.newsSummary}>{article.summary}</p>
-                                    {article.sourceUrl && (
-                                        <a
-                                            href={article.sourceUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            style={s.newsLink}
-                                        >
-                                            Devamını Oku →
-                                        </a>
-                                    )}
+                                    <button
+                                        onClick={() => setSelectedArticle(article)}
+                                        style={s.newsLink}
+                                    >
+                                        <span>Devamını Oku</span>
+                                        <span className="news-read-more-arrow" style={s.newsLinkArrow}>→</span>
+                                    </button>
                                 </div>
                             </div>
                         ))}
@@ -208,7 +226,7 @@ const News: React.FC = () => {
                                 onClick={() => setSelectedCategory('')}
                             >
                                 <span>Tüm Haberler</span>
-                                <span style={s.categoryCount}>{allNews.length}</span>
+                                <span style={s.categoryCount}>{categoryCounts['all'] || 0}</span>
                             </button>
                             {categories.map((category) => {
                                 const count = getCategoryCount(category);
@@ -230,6 +248,18 @@ const News: React.FC = () => {
                     </div>
                 </div>
             </div>
+
+            {/* Scroll to Top Button */}
+            {showScrollTop && (
+                <button 
+                    onClick={scrollToTop} 
+                    style={s.scrollTopButton} 
+                    className="news-scroll-top-button"
+                    aria-label="Yukarı çık"
+                >
+                    <span style={s.scrollTopIcon}>↑</span>
+                </button>
+            )}
         </div>
     );
 };
@@ -287,8 +317,15 @@ const s: Record<string, React.CSSProperties> = {
         fontSize: 14,
         fontWeight: 600,
         color: "#3b82f6",
+        background: "transparent",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
         textDecoration: "none",
         transition: "gap 0.2s",
+    },
+    readMoreArrow: {
+        transition: "transform 0.2s",
     },
     newsGrid: { display: "flex", flexDirection: "column", gap: 12 },
     newsCard: {
@@ -318,7 +355,24 @@ const s: Record<string, React.CSSProperties> = {
     newsTime: { fontSize: 11, color: "var(--text-muted)" },
     newsTitle: { fontSize: 15, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.4 },
     newsSummary: { fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" },
-    newsLink: { fontSize: 12, fontWeight: 600, color: "#3b82f6", textDecoration: "none", marginTop: 4 },
+    newsLink: { 
+        fontSize: 12, 
+        fontWeight: 600, 
+        color: "#3b82f6", 
+        background: "transparent",
+        border: "none",
+        padding: 0,
+        cursor: "pointer",
+        textDecoration: "none", 
+        marginTop: 4,
+        textAlign: "left",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+    },
+    newsLinkArrow: {
+        transition: "transform 0.2s",
+    },
     rightPanel: { display: "flex", flexDirection: "column", gap: 16 },
     sidebarCard: {
         background: "var(--bg-card)",
@@ -360,6 +414,28 @@ const s: Record<string, React.CSSProperties> = {
         background: "var(--bg-panel)",
         padding: "2px 8px",
         borderRadius: 12,
+    },
+    scrollTopButton: {
+        position: "fixed",
+        bottom: 32,
+        right: 32,
+        width: 56,
+        height: 56,
+        borderRadius: "50%",
+        background: "#22c55e",
+        border: "none",
+        boxShadow: "0 4px 12px rgba(34, 197, 94, 0.4)",
+        cursor: "pointer",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        transition: "all 0.3s",
+        zIndex: 1000,
+    },
+    scrollTopIcon: {
+        fontSize: 24,
+        fontWeight: 700,
+        color: "white",
     },
 };
 
