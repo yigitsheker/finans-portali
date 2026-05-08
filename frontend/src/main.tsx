@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import "./index.css";
 import App from "./App.tsx";
 import ChartPage from "./pages/ChartPage.tsx";
-import LoginPage from "./pages/LoginPage.tsx";
 import keycloak from "./auth/keycloak.ts";
 
 // AuthGate: holds auth state in React so re-renders happen on login/logout
@@ -22,10 +21,9 @@ function AuthGate() {
 
         keycloak
             .init({
-                onLoad: "check-sso",
+                onLoad: "login-required",  // Otomatik Keycloak'a yönlendir
                 pkceMethod: "S256",
                 checkLoginIframe: false,
-                // No silentCheckSsoRedirectUri — avoids iframe issues on localhost
             })
             .then((auth) => {
                 setAuthenticated(auth);
@@ -62,14 +60,7 @@ function AuthGate() {
         <BrowserRouter>
             <Routes>
                 <Route path="/chart" element={<ChartPage />} />
-                <Route
-                    path="/*"
-                    element={
-                        authenticated
-                            ? <App keycloak={keycloak} />
-                            : <LoginPage keycloak={keycloak} />
-                    }
-                />
+                <Route path="/*" element={<App keycloak={keycloak} />} />
             </Routes>
         </BrowserRouter>
     );

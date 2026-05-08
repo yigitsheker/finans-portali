@@ -56,7 +56,6 @@ public class PriceRefreshScheduler {
 
     /** Günlük periyodik güncelleme — 18:00 UTC */
     @Scheduled(cron = "0 0 18 * * *")
-    @Transactional
     public void refreshDaily() {
         log.info("=== Günlük fiyat güncellemesi başladı (Yahoo Finance) ===");
         refreshAll();
@@ -67,14 +66,12 @@ public class PriceRefreshScheduler {
      * fixedDelay = Long.MAX_VALUE → tekrar çalışmaz.
      */
     @Scheduled(initialDelay = 60_000, fixedDelay = Long.MAX_VALUE)
-    @Transactional
     public void refreshOnStartup() {
         log.info("=== Startup fiyat yüklemesi başladı (Yahoo Finance) ===");
         refreshAll();
     }
 
     /** Admin endpoint'ten manuel tetikleme */
-    @Transactional
     public void refreshAll() {
         List<MarketInstrument> instruments = instrumentRepo.findAll();
         int updated = 0;
@@ -85,14 +82,6 @@ public class PriceRefreshScheduler {
             // Use centralized symbol normalization
             String yahooSym = marketService.normalizeSymbolForYahoo(inst.getSymbol(), inst.getInstrumentType());
             
-            // Update provider symbol if it's different from normalized
-            if (!yahooSym.equals(inst.getProviderSymbol())) {
-                log.info("[Scheduler] Updating provider symbol for {}: {} -> {}", 
-                        inst.getSymbol(), inst.getProviderSymbol(), yahooSym);
-                inst.setProviderSymbol(yahooSym);
-                instrumentRepo.save(inst);
-            }
-
             if (yahooSym == null || yahooSym.isBlank()) {
                 log.debug("[Scheduler] Skipping {} — no provider symbol", inst.getSymbol());
                 skipped++;
@@ -100,23 +89,24 @@ public class PriceRefreshScheduler {
             }
 
             try {
-                boolean ok = refreshInstrument(inst, yahooSym);
+                // Her instrument için ayrı transaction
+                boolean ok = refreshInstrumentInTransaction(inst, yahooSym);
                 if (ok) updated++; else failed++;
             } catch (Exception e) {
                 log.error("[Scheduler] Unexpected error for {}: {}", inst.getSymbol(), e.getMessage());
                 failed++;
             }
 
-            // Yahoo rate limit yok ama礼貌 olarak küçük bekleme
+            // Yahoo rate limit yok ama nezaket olarak küçük bekleme
             sleep(300);
         }
 
         evictAllCaches();
         
-        // Fiyat güncellemesi sonrası alarm kontrolü yap
+        // Fiyat güncellemesi sonrası alarm kontrolü yap (ayrı transaction)
         log.info("=== Fiyat alarmları kontrol ediliyor ===");
         try {
-            priceAlertService.checkAllAlerts();
+            checkAlertsInTransaction();
             log.info("=== Alarm kontrolü tamamlandı ===");
         } catch (Exception e) {
             log.error("Alarm kontrolü sırasında hata: {}", e.getMessage(), e);
@@ -124,6 +114,24 @@ public class PriceRefreshScheduler {
         
         log.info("=== Güncelleme tamamlandı. Güncellenen: {}, Başarısız: {}, Atlanan: {} ===",
                 updated, failed, skipped);
+    }
+
+    @Transactional
+    public boolean refreshInstrumentInTransaction(MarketInstrument inst, String yahooSym) {
+        // Update provider symbol if it's different from normalized
+        if (!yahooSym.equals(inst.getProviderSymbol())) {
+            log.info("[Scheduler] Updating provider symbol for {}: {} -> {}", 
+                    inst.getSymbol(), inst.getProviderSymbol(), yahooSym);
+            inst.setProviderSymbol(yahooSym);
+            instrumentRepo.save(inst);
+        }
+        
+        return refreshInstrument(inst, yahooSym);
+    }
+
+    @Transactional
+    public void checkAlertsInTransaction() {
+        priceAlertService.checkAllAlerts();
     }
 
     private boolean refreshInstrument(MarketInstrument inst, String yahooSym) {

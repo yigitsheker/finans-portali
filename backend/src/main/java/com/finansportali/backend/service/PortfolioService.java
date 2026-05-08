@@ -48,6 +48,9 @@ public class PortfolioService {
         if (req.symbol() == null || req.symbol().isBlank()) throw new IllegalArgumentException("symbol is required");
         if (req.quantity() == null) throw new IllegalArgumentException("quantity is required");
 
+        log.info("Portfolio operation started - Action: UPSERT - Symbol: {} - Quantity: {} - UserId: {}",
+                req.symbol(), req.quantity(), userId);
+
         marketService.seedIfEmpty();
 
         instrumentRepo.findBySymbol(req.symbol())
@@ -82,6 +85,9 @@ public class PortfolioService {
         }
 
         positionRepo.save(pos);
+        
+        log.info("Portfolio operation completed - Action: UPSERT - Symbol: {} - NewQuantity: {} - AvgCost: {} - UserId: {}",
+                req.symbol(), pos.getQuantity(), pos.getAvgCost(), userId);
     }
 
     public List<PortfolioPosition> list(String userId) {
@@ -157,9 +163,17 @@ public class PortfolioService {
 
     @Transactional
     public void deleteBySymbol(String userId, String symbol) {
+        log.info("Portfolio operation started - Action: DELETE - Symbol: {} - UserId: {}", symbol, userId);
+        
         if (symbol == null || symbol.isBlank()) throw new IllegalArgumentException("symbol is required");
         long deleted = positionRepo.deleteByUserIdAndSymbol(userId, symbol);
-        if (deleted == 0) throw new IllegalArgumentException("Position not found: " + symbol);
+        if (deleted == 0) {
+            log.warn("Portfolio operation failed - Action: DELETE - Symbol: {} - Reason: Position not found - UserId: {}",
+                    symbol, userId);
+            throw new IllegalArgumentException("Position not found: " + symbol);
+        }
+        
+        log.info("Portfolio operation completed - Action: DELETE - Symbol: {} - UserId: {}", symbol, userId);
     }
 
     /**
@@ -169,6 +183,9 @@ public class PortfolioService {
      */
     @Transactional
     public BigDecimal sell(String userId, SellPositionRequest req) {
+        log.info("Portfolio operation started - Action: SELL - Symbol: {} - Quantity: {} - UserId: {}",
+                req.symbol(), req.quantity(), userId);
+        
         if (req.symbol() == null || req.symbol().isBlank()) throw new IllegalArgumentException("symbol is required");
         if (req.quantity() == null || req.quantity().compareTo(BigDecimal.ZERO) <= 0)
             throw new IllegalArgumentException("quantity must be > 0");
@@ -191,9 +208,13 @@ public class PortfolioService {
         BigDecimal remaining = pos.getQuantity().subtract(req.quantity());
         if (remaining.compareTo(BigDecimal.ZERO) <= 0) {
             positionRepo.deleteByUserIdAndSymbol(userId, req.symbol());
+            log.info("Portfolio operation completed - Action: SELL - Symbol: {} - Quantity: {} - Proceeds: {} - RemainingQuantity: 0 (position closed) - UserId: {}",
+                    req.symbol(), req.quantity(), proceeds, userId);
         } else {
             pos.setQuantity(remaining);
             positionRepo.save(pos);
+            log.info("Portfolio operation completed - Action: SELL - Symbol: {} - Quantity: {} - Proceeds: {} - RemainingQuantity: {} - UserId: {}",
+                    req.symbol(), req.quantity(), proceeds, remaining, userId);
         }
 
         return proceeds;

@@ -15,8 +15,11 @@ public class CorsConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Vite origin
-        config.setAllowedOrigins(List.of("http://localhost:5173"));
+        // Allowed origins - both development and production
+        config.setAllowedOrigins(List.of(
+            "http://localhost:5173",  // Vite dev server
+            "http://localhost"         // Docker frontend (port 80)
+        ));
 
         // Preflight + normal istekler
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));

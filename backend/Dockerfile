@@ -18,11 +18,19 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# Install curl for healthcheck
-RUN apk add --no-cache curl
+# Install curl and wget for healthcheck and downloading agent
+RUN apk add --no-cache curl wget
 
-# Create non-root user
-RUN addgroup -S appuser && adduser -S appuser -G appuser
+# Create non-root user, logs directory, and otel directory
+RUN addgroup -S appuser && adduser -S appuser -G appuser && \
+    mkdir -p /app/logs /otel && \
+    chown -R appuser:appuser /app /otel
+
+# Download OpenTelemetry Java Agent
+RUN wget -O /otel/opentelemetry-javaagent.jar \
+    https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.0.0/opentelemetry-javaagent.jar && \
+    chmod 644 /otel/opentelemetry-javaagent.jar && \
+    chown appuser:appuser /otel/opentelemetry-javaagent.jar
 
 # Copy jar from builder stage
 COPY --from=builder /app/target/*.jar app.jar
@@ -37,4 +45,5 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 
 EXPOSE 8080
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+# Run with OpenTelemetry Java Agent
+ENTRYPOINT ["java", "-javaagent:/otel/opentelemetry-javaagent.jar", "-jar", "app.jar"]

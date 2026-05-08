@@ -4,10 +4,13 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationConverter;
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     @Bean
@@ -26,24 +29,46 @@ public class SecurityConfig {
                         // Actuator
                         .requestMatchers("/actuator/**").permitAll()
 
-                        // Admin (local only — no auth for dev convenience)
-                        .requestMatchers("/api/v1/admin/**").permitAll()
+                        // Admin endpoints - require ADMIN role
+                        .requestMatchers("/api/v1/admin/**").hasRole("ADMIN")
 
-                        // Public market & news endpoints
+                        // Public market & news endpoints (GET only)
                         .requestMatchers(HttpMethod.GET, "/api/v1/market/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/news/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/funds/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/investment-funds/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/exchange-rates/**").permitAll()
 
-                        // Portfolio requires authentication
+                        // Portfolio requires authentication (any authenticated user)
                         .requestMatchers("/api/v1/portfolio/**").authenticated()
 
                         // Price alerts require authentication
                         .requestMatchers("/api/v1/alerts/**").authenticated()
 
-                        // Everything else — permit (güvenlik portfolio ile sağlanıyor)
-                        .anyRequest().permitAll()
+                        // Technical analysis requires authentication
+                        .requestMatchers("/api/v1/technical/**").authenticated()
+
+                        // Everything else - deny by default for security
+                        .anyRequest().authenticated()
                 )
-                .oauth2ResourceServer(oauth2 -> oauth2.jwt(Customizer.withDefaults()));
+                .oauth2ResourceServer(oauth2 -> oauth2
+                        .jwt(jwt -> jwt
+                                .jwtAuthenticationConverter(jwtAuthenticationConverter())
+                        )
+                );
 
         return http.build();
+    }
+
+    /**
+     * Configure JWT authentication converter to extract roles from token.
+     * This converter uses our custom JwtRoleConverter to map JWT roles
+     * to Spring Security GrantedAuthority objects.
+     */
+    @Bean
+    public JwtAuthenticationConverter jwtAuthenticationConverter() {
+        JwtAuthenticationConverter converter = new JwtAuthenticationConverter();
+        converter.setJwtGrantedAuthoritiesConverter(new JwtRoleConverter());
+        return converter;
     }
 }

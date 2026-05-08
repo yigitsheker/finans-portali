@@ -67,6 +67,18 @@
 			<version>7.4</version>
 		</dependency>
 
+		<!-- Kafka for log streaming -->
+		<dependency>
+			<groupId>org.springframework.kafka</groupId>
+			<artifactId>spring-kafka</artifactId>
+		</dependency>
+		
+		<dependency>
+			<groupId>com.github.danielwegener</groupId>
+			<artifactId>logback-kafka-appender</artifactId>
+			<version>0.2.0-RC2</version>
+		</dependency>
+
 		<!-- OpenTelemetry for distributed tracing -->
 		<dependency>
 			<groupId>io.micrometer</groupId>

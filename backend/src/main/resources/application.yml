@@ -1,9 +1,12 @@
 spring:
+  application:
+    name: finans-backend
   security:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: http://localhost:8081/realms/finans/protocol/openid-connect/certs
+          jwk-set-uri: http://localhost:8090/realms/finans/protocol/openid-connect/certs
+          issuer-uri: http://localhost:8090/realms/finans
   datasource:
     url: jdbc:postgresql://localhost:5432/finans
     username: finans
@@ -43,6 +46,9 @@ management:
     health:
       show-details: always
       show-components: always
+  health:
+    mail:
+      enabled: false
     metrics:
       enabled: true
     prometheus:
@@ -61,22 +67,19 @@ management:
       environment: ${spring.profiles.active:default}
 
 # OpenTelemetry configuration
+# Note: OpenTelemetry Java Agent is configured via environment variables in docker-compose.yml
+# This section is for Spring Boot Actuator integration only
 management.tracing:
   enabled: true
   sampling:
     probability: 1.0
-  
-otel:
-  service:
-    name: finans-backend
-  exporter:
-    otlp:
-      endpoint: http://jaeger:14250
-  resource:
-    attributes:
-      service.name: finans-backend
-      service.version: 1.0.0
-      deployment.environment: ${spring.profiles.active:default}
+  baggage:
+    enabled: true
+    correlation:
+      enabled: true
+    remote-fields:
+      - userId
+      - requestId
 
 springdoc:
   api-docs:
@@ -118,3 +121,4 @@ spring:
       resourceserver:
         jwt:
           jwk-set-uri: http://keycloak:8080/realms/finans/protocol/openid-connect/certs
+          issuer-uri: http://localhost:8090/realms/finans

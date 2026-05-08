@@ -1,0 +1,134 @@
+# Finance Portal LDAP Directory Structure
+# Base DN: dc=finance,dc=local
+# This file initializes the LDAP directory with organizational units, users, and groups
+
+# ============================================================================
+# ORGANIZATIONAL UNITS
+# ============================================================================
+
+# Create Users OU
+dn: ou=users,dc=finance,dc=local
+objectClass: organizationalUnit
+objectClass: top
+ou: users
+description: Finance Portal Users
+
+# Create Groups OU
+dn: ou=groups,dc=finance,dc=local
+objectClass: organizationalUnit
+objectClass: top
+ou: groups
+description: Finance Portal Groups
+
+# ============================================================================
+# USERS
+# ============================================================================
+
+# Regular User 1: John Doe
+dn: uid=john.doe,ou=users,dc=finance,dc=local
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: john.doe
+cn: John Doe
+sn: Doe
+givenName: John
+mail: john.doe@finance.local
+userPassword: password123
+displayName: John Doe
+description: Regular finance portal user
+
+# Regular User 2: Jane Smith
+dn: uid=jane.smith,ou=users,dc=finance,dc=local
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: jane.smith
+cn: Jane Smith
+sn: Smith
+givenName: Jane
+mail: jane.smith@finance.local
+userPassword: password123
+displayName: Jane Smith
+description: Regular finance portal user
+
+# Admin User: Admin User
+dn: uid=admin.user,ou=users,dc=finance,dc=local
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: admin.user
+cn: Admin User
+sn: User
+givenName: Admin
+mail: admin.user@finance.local
+userPassword: admin123
+displayName: Admin User
+description: Finance portal administrator
+
+# Test User: Test User (for testing purposes)
+dn: uid=test.user,ou=users,dc=finance,dc=local
+objectClass: inetOrgPerson
+objectClass: organizationalPerson
+objectClass: person
+objectClass: top
+uid: test.user
+cn: Test User
+sn: User
+givenName: Test
+mail: test.user@finance.local
+userPassword: test123
+displayName: Test User
+description: Test user for development
+
+# ============================================================================
+# GROUPS
+# ============================================================================
+
+# Finance Users Group (Regular users)
+dn: cn=finance-users,ou=groups,dc=finance,dc=local
+objectClass: groupOfNames
+objectClass: top
+cn: finance-users
+description: Regular finance portal users
+member: uid=john.doe,ou=users,dc=finance,dc=local
+member: uid=jane.smith,ou=users,dc=finance,dc=local
+member: uid=test.user,ou=users,dc=finance,dc=local
+
+# Finance Admins Group (Administrators)
+dn: cn=finance-admins,ou=groups,dc=finance,dc=local
+objectClass: groupOfNames
+objectClass: top
+cn: finance-admins
+description: Finance portal administrators
+member: uid=admin.user,ou=users,dc=finance,dc=local
+
+# ============================================================================
+# NOTES
+# ============================================================================
+# 
+# Test Credentials (DEVELOPMENT ONLY - DO NOT USE IN PRODUCTION):
+# 
+# Regular Users:
+#   - john.doe / password123
+#   - jane.smith / password123
+#   - test.user / test123
+# 
+# Admin User:
+#   - admin.user / admin123
+# 
+# LDAP Admin:
+#   - cn=admin,dc=finance,dc=local / admin_password
+# 
+# Group Membership:
+#   - finance-users: john.doe, jane.smith, test.user
+#   - finance-admins: admin.user
+# 
+# Keycloak Role Mapping:
+#   - finance-users group → USER role
+#   - finance-admins group → ADMIN role
+# 
+# ============================================================================
