@@ -1,5 +1,6 @@
 ﻿import type Keycloak from "keycloak-js";
 import { useEffect, useMemo, useState } from "react";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
@@ -8,15 +9,15 @@ import Portfolio from "./pages/Portfolio";
 import Settings from "./pages/Settings";
 import MarketData from "./pages/MarketData";
 import News from "./pages/News";
+import Admin from "./pages/Admin";
 import PriceAlertModal from "./components/PriceAlertModal";
 import { applyTheme, getStoredTheme, type Theme } from "./theme";
 import { ThemeProvider } from "./contexts/ThemeContext";
 
-type Tab = "market" | "portfolio" | "settings" | "market-data" | "news-enhanced";
 type Props = { keycloak: Keycloak };
 
 export default function App({ keycloak }: Props) {
-    const [tab, setTab] = useState<Tab>("news-enhanced");
+    const location = useLocation();
     const [portfolioKey, setPortfolioKey] = useState(0);
     const [theme, setTheme] = useState<Theme>(getStoredTheme);
     const [showAlertModal, setShowAlertModal] = useState(false);
@@ -32,36 +33,46 @@ export default function App({ keycloak }: Props) {
         return parsed?.preferred_username ?? parsed?.name ?? parsed?.email ?? "unknown";
     }, [keycloak.tokenParsed]);
 
-    const titles: Record<Tab, string> = {
-        market: "Hisse Fiyatları",
-        portfolio: "Yatırımlarım",
-        settings: "Ayarlar",
-        "market-data": "Piyasa Verileri",
-        "news-enhanced": "Finans Haberleri",
+    // Map routes to titles and subtitles
+    const pageInfo: Record<string, { title: string; subtitle: string; hideTopbar?: boolean }> = {
+        "/news": {
+            title: "Finans Haberleri",
+            subtitle: "Kategorize edilmiş finans haberleri ve analiz.",
+        },
+        "/market": {
+            title: "Hisse Fiyatları",
+            subtitle: "Gerçek zamanlı hisse fiyatları ve piyasa performansı.",
+            hideTopbar: true,
+        },
+        "/market-data": {
+            title: "Piyasa Verileri",
+            subtitle: "Döviz kurları, yatırım fonları ve piyasa verileri.",
+        },
+        "/portfolio": {
+            title: "Yatırımlarım",
+            subtitle: "Portföy değeri, dağılım ve pozisyonlar.",
+        },
+        "/settings": {
+            title: "Ayarlar",
+            subtitle: "Hesap ayarlarınızı ve tercihlerinizi yönetin.",
+        },
+        "/admin": {
+            title: "Yönetim Paneli",
+            subtitle: "Sistem yönetimi ve veri yönetimi işlemleri.",
+        },
     };
-    const subtitles: Record<Tab, string> = {
-        market: "Gerçek zamanlı hisse fiyatları ve piyasa performansı.",
-        portfolio: "Portföy değeri, dağılım ve pozisyonlar.",
-        settings: "Hesap ayarlarınızı ve tercihlerinizi yönetin.",
-        "market-data": "Döviz kurları, yatırım fonları ve piyasa verileri.",
-        "news-enhanced": "Kategorize edilmiş finans haberleri ve analiz.",
-    };
+
+    const currentPage = pageInfo[location.pathname] || pageInfo["/news"];
 
     return (
         <ThemeProvider>
             <Layout
-                sidebar={
-                    <Sidebar
-                        tab={tab}
-                        onTabChange={(t) => setTab(t as Tab)}
-                        keycloak={keycloak}
-                    />
-                }
+                sidebar={<Sidebar keycloak={keycloak} />}
                 topbar={
-                    tab !== "market" ? (
+                    !currentPage.hideTopbar ? (
                         <Topbar
-                            title={titles[tab]}
-                            subtitle={subtitles[tab]}
+                            title={currentPage.title}
+                            subtitle={currentPage.subtitle}
                             username={username}
                             theme={theme}
                             onThemeToggle={toggleTheme}
@@ -72,25 +83,34 @@ export default function App({ keycloak }: Props) {
                     ) : undefined
                 }
             >
-                {tab === "news-enhanced" && <News />}
-                {tab === "market" && (
-                    <FinexStyleMarket
-                        keycloak={keycloak}
-                        onAdded={() => setPortfolioKey((k) => k + 1)}
-                        theme={theme}
-                        onThemeToggle={toggleTheme}
-                        onLogout={() => keycloak.logout({ redirectUri: window.location.origin })}
-                        onAlertsClick={() => setShowAlertModal(true)}
+                <Routes>
+                    <Route path="/" element={<Navigate to="/news" replace />} />
+                    <Route path="/news" element={<News />} />
+                    <Route
+                        path="/market"
+                        element={
+                            <FinexStyleMarket
+                                keycloak={keycloak}
+                                onAdded={() => setPortfolioKey((k) => k + 1)}
+                                theme={theme}
+                                onThemeToggle={toggleTheme}
+                                onLogout={() => keycloak.logout({ redirectUri: window.location.origin })}
+                                onAlertsClick={() => setShowAlertModal(true)}
+                            />
+                        }
                     />
-                )}
-                {tab === "market-data" && <MarketData />}
-                {tab === "portfolio" && (
-                    <Portfolio key={portfolioKey} keycloak={keycloak} />
-                )}
-                {tab === "settings" && (
-                    <Settings keycloak={keycloak} theme={theme} onThemeChange={setTheme} />
-                )}
-                
+                    <Route path="/market-data" element={<MarketData />} />
+                    <Route
+                        path="/portfolio"
+                        element={<Portfolio key={portfolioKey} keycloak={keycloak} />}
+                    />
+                    <Route
+                        path="/settings"
+                        element={<Settings keycloak={keycloak} theme={theme} onThemeChange={setTheme} />}
+                    />
+                    <Route path="/admin" element={<Admin keycloak={keycloak} />} />
+                </Routes>
+
                 {/* Global Price Alert Modal */}
                 {showAlertModal && (
                     <PriceAlertModal

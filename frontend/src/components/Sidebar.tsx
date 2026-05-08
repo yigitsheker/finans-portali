@@ -1,26 +1,33 @@
 ﻿import type Keycloak from "keycloak-js";
 import { useMemo } from "react";
+import { useNavigate, useLocation } from "react-router-dom";
+import { isAdmin } from "../utils/roleUtils";
 
-type Tab = "market" | "portfolio" | "settings" | "market-data" | "news-enhanced";
+type Tab = "market" | "portfolio" | "settings" | "market-data" | "news" | "admin";
 
 type Props = {
-    tab: Tab;
-    onTabChange: (t: Tab) => void;
     keycloak: Keycloak;
 };
 
-const NAV_ITEMS: { id: Tab; label: string; icon: string }[] = [
-    { id: "news-enhanced", label: "Finans Haberleri", icon: "📊" },
-    { id: "market",       label: "Hisseler",      icon: "📈" },
-    { id: "market-data",  label: "Piyasa Verileri", icon: "💱" },
-    { id: "portfolio",    label: "Yatırımlar",    icon: "💼" },
+const NAV_ITEMS: { id: Tab; label: string; icon: string; path: string }[] = [
+    { id: "news", label: "Finans Haberleri", icon: "📊", path: "/news" },
+    { id: "market", label: "Hisseler", icon: "📈", path: "/market" },
+    { id: "market-data", label: "Piyasa Verileri", icon: "💱", path: "/market-data" },
+    { id: "portfolio", label: "Yatırımlar", icon: "💼", path: "/portfolio" },
 ];
 
-const PREF_ITEMS: { id: Tab; label: string; icon: string }[] = [
-    { id: "settings", label: "Ayarlar", icon: "⚙️" },
+const ADMIN_ITEMS: { id: Tab; label: string; icon: string; path: string }[] = [
+    { id: "admin", label: "Yönetim", icon: "🔧", path: "/admin" },
 ];
 
-export default function Sidebar({ tab, onTabChange, keycloak }: Props) {
+const PREF_ITEMS: { id: Tab; label: string; icon: string; path: string }[] = [
+    { id: "settings", label: "Ayarlar", icon: "⚙️", path: "/settings" },
+];
+
+export default function Sidebar({ keycloak }: Props) {
+    const navigate = useNavigate();
+    const location = useLocation();
+
     const username = useMemo(() => {
         const p: any = keycloak.tokenParsed;
         return p?.preferred_username ?? p?.name ?? p?.email ?? "Kullanıcı";
@@ -31,7 +38,11 @@ export default function Sidebar({ tab, onTabChange, keycloak }: Props) {
         return p?.email ?? "";
     }, [keycloak.tokenParsed]);
 
+    const userIsAdmin = useMemo(() => isAdmin(keycloak), [keycloak.tokenParsed]);
+
     const initials = username.slice(0, 2).toUpperCase();
+
+    const isActive = (path: string) => location.pathname === path;
 
     return (
         <div style={s.wrap}>
@@ -51,13 +62,30 @@ export default function Sidebar({ tab, onTabChange, keycloak }: Props) {
             {NAV_ITEMS.map((item) => (
                 <button
                     key={item.id}
-                    style={tab === item.id ? s.itemActive : s.item}
-                    onClick={() => onTabChange(item.id)}
+                    style={isActive(item.path) ? s.itemActive : s.item}
+                    onClick={() => navigate(item.path)}
                 >
                     <span style={s.icon}>{item.icon}</span>
                     {item.label}
                 </button>
             ))}
+
+            {/* Admin Section - Only visible for admins */}
+            {userIsAdmin && (
+                <>
+                    <div style={s.sectionLabel}>ADMIN</div>
+                    {ADMIN_ITEMS.map((item) => (
+                        <button
+                            key={item.id}
+                            style={isActive(item.path) ? s.itemActive : s.item}
+                            onClick={() => navigate(item.path)}
+                        >
+                            <span style={s.icon}>{item.icon}</span>
+                            {item.label}
+                        </button>
+                    ))}
+                </>
+            )}
 
             <div style={{ flex: 1 }} />
 
@@ -66,8 +94,8 @@ export default function Sidebar({ tab, onTabChange, keycloak }: Props) {
             {PREF_ITEMS.map((item) => (
                 <button
                     key={item.id}
-                    style={tab === item.id ? s.itemActive : s.item}
-                    onClick={() => onTabChange(item.id)}
+                    style={isActive(item.path) ? s.itemActive : s.item}
+                    onClick={() => navigate(item.path)}
                 >
                     <span style={s.icon}>{item.icon}</span>
                     {item.label}
@@ -80,6 +108,7 @@ export default function Sidebar({ tab, onTabChange, keycloak }: Props) {
                 <div style={s.userInfo}>
                     <div style={s.userName}>{username}</div>
                     {email && <div style={s.userEmail}>{email}</div>}
+                    {userIsAdmin && <div style={s.userBadge}>👑 Admin</div>}
                 </div>
             </div>
         </div>
@@ -197,5 +226,11 @@ const s: Record<string, React.CSSProperties> = {
         whiteSpace: "nowrap",
         overflow: "hidden",
         textOverflow: "ellipsis",
+    },
+    userBadge: {
+        fontSize: 9,
+        fontWeight: 600,
+        color: "#22c55e",
+        marginTop: 2,
     },
 };
