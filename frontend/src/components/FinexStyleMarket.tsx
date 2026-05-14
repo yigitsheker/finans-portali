@@ -11,13 +11,69 @@ import InstrumentChartModal from "./InstrumentChartModal";
 import CompareInstrumentsModal from "./CompareInstrumentsModal";
 import { LWSparkline, type SparklinePoint } from "./common/LWSparkline";
 
+// SVG Icon Components
+const AllIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="3" width="7" height="7" rx="1" fill="currentColor"/>
+        <rect x="14" y="3" width="7" height="7" rx="1" fill="currentColor"/>
+        <rect x="3" y="14" width="7" height="7" rx="1" fill="currentColor"/>
+        <rect x="14" y="14" width="7" height="7" rx="1" fill="currentColor"/>
+    </svg>
+);
+
+const BISTIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="10" fill="#e30a17"/>
+        <circle cx="12" cy="12" r="8" fill="#ffffff"/>
+        <path d="M12 6L14 10H10L12 6Z" fill="#e30a17"/>
+        <circle cx="12" cy="12" r="3" fill="#e30a17"/>
+    </svg>
+);
+
+const GlobalIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+        <path d="M2 12H22M12 2C14.5 4.5 16 8 16 12C16 16 14.5 19.5 12 22M12 2C9.5 4.5 8 8 8 12C8 16 9.5 19.5 12 22" stroke="currentColor" strokeWidth="2"/>
+    </svg>
+);
+
+const ChartIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 17L9 11L13 15L21 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M16 7H21V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+);
+
+const CheckIcon = () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M5 13L9 17L19 7" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+);
+
+const UpArrowIcon = () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 19V5M5 12L12 5L19 12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+);
+
+const DownArrowIcon = () => (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 5V19M5 12L12 19L19 12" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+);
+
 type Props = { 
-    keycloak: Keycloak; 
-    onAdded: () => void;
+    keycloak?: Keycloak; 
+    onAdded?: () => void;
     theme?: string;
     onThemeToggle?: () => void;
     onLogout?: () => void;
     onAlertsClick?: () => void;
+    filterType?: string; // "STOCK", "CRYPTO", "FUND", etc.
+    instruments?: MarketSummaryItem[]; // For watchlist mode
+    onAddToWatchlist?: (symbol: string) => void;
+    onRemoveFromWatchlist?: (symbol: string) => void;
+    watchlistSymbols?: string[];
 };
 
 // BIST Index Compositions
@@ -45,10 +101,21 @@ const BIST100_STOCKS = [
     "BANVT", "BARMA", "BASGZ", "BAYRK", "BEGYO", "BERA", "BEYAZ", "BFREN"
 ];
 
-export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeToggle, onLogout, onAlertsClick }: Props) {
+export default function FinexStyleMarket({ 
+    keycloak, 
+    onAdded, 
+    theme, 
+    onThemeToggle, 
+    onLogout, 
+    onAlertsClick, 
+    filterType,
+    instruments: externalInstruments,
+    onAddToWatchlist,
+    onRemoveFromWatchlist,
+    watchlistSymbols = []
+}: Props) {
     const [items, setItems] = useState<MarketSummaryItem[]>([]);
     const [loading, setLoading] = useState(true);
-    const [filter, setFilter] = useState<string>("ALL");
     const [search, setSearch] = useState("");
     const [err, setErr] = useState<string | null>(null);
     const [selected, setSelected] = useState<MarketSummaryItem | null>(null);
@@ -58,32 +125,50 @@ export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeTogg
     const [addErr, setAddErr] = useState<string | null>(null);
     const [compareTarget, setCompareTarget] = useState<MarketSummaryItem | null>(null);
     const [indexFilter, setIndexFilter] = useState<string | null>(null);
+    const [categoryFilter, setCategoryFilter] = useState<string | null>(null); // "BIST" or "STOCK" or null for all
 
     // Sparkline data: symbol → last 30 daily closes
     const [sparklines, setSparklines] = useState<Record<string, SparklinePoint[]>>({});
 
     useEffect(() => {
+        // If external instruments are provided (watchlist mode), use them directly
+        if (externalInstruments) {
+            setItems(externalInstruments);
+            setLoading(false);
+            return;
+        }
+        
+        // Otherwise, fetch from API
         getMarketSummary()
             .then((data) => {
                 setItems(data);
             })
             .catch((e) => setErr(e?.message ?? "Fetch error"))
             .finally(() => setLoading(false));
-    }, []);
+    }, [externalInstruments]);
 
     const indices = useMemo(
         () => items.filter((i) => i.type === "INDEX"),
         [items]
     );
 
-    const types = useMemo(
-        () => ["ALL", ...Array.from(new Set(items.filter((i) => i.type !== "INDEX").map((i) => i.type))).sort()],
-        [items]
-    );
-
     const filtered = useMemo(() => {
         let list = items.filter((i) => i.type !== "INDEX");
-        if (filter !== "ALL") list = list.filter((i) => i.type === filter);
+        
+        // Apply filterType prop if provided (for dedicated pages)
+        if (filterType) {
+            if (filterType === "STOCK") {
+                // For stocks page, show both STOCK and BIST types
+                list = list.filter((i) => i.type === "STOCK" || i.type === "BIST");
+            } else {
+                list = list.filter((i) => i.type === filterType);
+            }
+        }
+        
+        // Apply category filter (BIST vs STOCK)
+        if (categoryFilter) {
+            list = list.filter((i) => i.type === categoryFilter);
+        }
         
         // Apply BIST index filter
         if (indexFilter === "XU030") {
@@ -99,7 +184,22 @@ export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeTogg
             list = list.filter((i) => i.symbol.includes(q) || i.name.toUpperCase().includes(q));
         }
         return list;
-    }, [items, filter, search, indexFilter]);
+    }, [items, search, indexFilter, categoryFilter, filterType]);
+
+    // Group stocks by category (BIST vs STOCK) - only when no filters are active
+    const groupedStocks = useMemo(() => {
+        if (filterType !== "STOCK" || categoryFilter || indexFilter) return null;
+        
+        const groups: Record<string, MarketSummaryItem[]> = {};
+        filtered.forEach(item => {
+            const category = item.type === "BIST" ? "BIST Hisseleri" : "Uluslararası Hisseler";
+            if (!groups[category]) {
+                groups[category] = [];
+            }
+            groups[category].push(item);
+        });
+        return groups;
+    }, [filtered, filterType, categoryFilter, indexFilter]);
 
     // Fetch sparkline history for visible items (batched, low priority)
     useEffect(() => {
@@ -137,7 +237,7 @@ export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeTogg
         fetchBatch();
         return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [filtered, filter]);
+    }, [filtered]);
 
     const addTotal = useMemo(() => {
         if (!addTarget || !addQty || addQty <= 0) return 0;
@@ -146,6 +246,7 @@ export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeTogg
 
     async function onConfirmAdd() {
         if (!addTarget) return;
+        if (!keycloak) return;
         if (!addQty || addQty <= 0) return setAddErr("Adet 1 veya daha büyük olmalı");
         try {
             setAddSaving(true);
@@ -156,7 +257,7 @@ export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeTogg
                 avgCost: addTarget.last,
             });
             setAddTarget(null);
-            onAdded();
+            onAdded?.();
         } catch (e: any) {
             setAddErr(e?.message ?? "Add error");
         } finally {
@@ -189,8 +290,16 @@ export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeTogg
             <div style={s.headerSection}>
                 <div style={s.titleRow}>
                     <div style={s.titleArea}>
-                        <h1 style={s.pageTitle}>Hisse Fiyatları</h1>
-                        <p style={s.pageSubtitle}>Gerçek zamanlı hisse fiyatları ve piyasa performansı</p>
+                        <h1 style={s.pageTitle}>
+                            {filterType === "CRYPTO" ? "Kripto Paralar" : 
+                             filterType === "STOCK" ? "Hisse Senetleri" : 
+                             "Hisse Fiyatları"}
+                        </h1>
+                        <p style={s.pageSubtitle}>
+                            {filterType === "CRYPTO" ? "Kripto para fiyatları ve piyasa verileri" :
+                             filterType === "STOCK" ? "Gerçek zamanlı hisse fiyatları ve piyasa performansı" :
+                             "Gerçek zamanlı hisse fiyatları ve piyasa performansı"}
+                        </p>
                     </div>
                     
                     {/* User Controls */}
@@ -221,59 +330,119 @@ export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeTogg
                     </div>
                 </div>
                 
-                {/* Index Cards */}
-                {indices.length > 0 && (
-                    <div style={s.indexGrid}>
-                        {indices.map((idx) => {
-                            const pos = idx.changePct >= 0;
-                            const color = pos ? "#10b981" : "#ef4444";
-                            const isActive = indexFilter === idx.symbol;
-                            return (
-                                <div 
-                                    key={idx.symbol} 
-                                    style={{
-                                        ...s.indexCard,
-                                        ...(isActive ? s.indexCardActive : {}),
-                                        cursor: "pointer",
-                                    }}
-                                    onClick={() => {
-                                        if (indexFilter === idx.symbol) {
-                                            setIndexFilter(null);
-                                        } else {
-                                            setIndexFilter(idx.symbol);
-                                        }
-                                    }}
-                                >
-                                    <div style={s.indexLabel}>
-                                        {idx.symbol}
-                                        {isActive && <span style={{ marginLeft: 8, color: "#22c55e", fontSize: 10 }}>✓</span>}
+                {/* Index Cards - Only show for STOCK type */}
+                {filterType === "STOCK" && indices.length > 0 && (
+                    <>
+                        <div style={s.indexGrid}>
+                            {indices.map((idx) => {
+                                const pos = idx.changePct >= 0;
+                                const color = pos ? "#10b981" : "#ef4444";
+                                const isActive = indexFilter === idx.symbol;
+                                return (
+                                    <div 
+                                        key={idx.symbol} 
+                                        style={{
+                                            ...s.indexCard,
+                                            ...(isActive ? s.indexCardActive : {}),
+                                            cursor: "pointer",
+                                        }}
+                                        onClick={() => {
+                                            if (indexFilter === idx.symbol) {
+                                                setIndexFilter(null);
+                                            } else {
+                                                setIndexFilter(idx.symbol);
+                                                setCategoryFilter(null); // Clear category filter when index is selected
+                                            }
+                                        }}
+                                    >
+                                        <div style={s.indexLabel}>
+                                            {idx.symbol}
+                                            {isActive && <span style={{ marginLeft: 8, color: "#00ff00", fontSize: 10 }}><CheckIcon /></span>}
+                                        </div>
+                                        <div style={s.indexPrice}>
+                                            {idx.last?.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                        </div>
+                                        <div style={{ color, fontSize: 13, fontWeight: 600, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
+                                            <span>{pos ? <UpArrowIcon /> : <DownArrowIcon />}</span>
+                                            <span>{pos ? "+" : ""}{idx.changePct?.toFixed(2)}%</span>
+                                        </div>
                                     </div>
-                                    <div style={s.indexPrice}>
-                                        {idx.last?.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                    </div>
-                                    <div style={{ color, fontSize: 13, fontWeight: 600, marginTop: 6, display: "flex", alignItems: "center", gap: 4 }}>
-                                        <span>{pos ? "▲" : "▼"}</span>
-                                        <span>{pos ? "+" : ""}{idx.changePct?.toFixed(2)}%</span>
-                                    </div>
-                                </div>
-                            );
-                        })}
-                    </div>
+                                );
+                            })}
+                        </div>
+                        
+                        {/* Category Filter Buttons */}
+                        <div style={s.categoryFilterContainer}>
+                            <button
+                                style={{
+                                    ...s.categoryFilterBtn,
+                                    ...(categoryFilter === null && indexFilter === null ? s.categoryFilterActive : {}),
+                                }}
+                                onClick={() => {
+                                    setCategoryFilter(null);
+                                    setIndexFilter(null);
+                                }}
+                            >
+                                <AllIcon /> Tümü
+                            </button>
+                            <button
+                                style={{
+                                    ...s.categoryFilterBtn,
+                                    ...(categoryFilter === "BIST" ? s.categoryFilterActive : {}),
+                                }}
+                                onClick={() => {
+                                    setCategoryFilter("BIST");
+                                    setIndexFilter(null);
+                                }}
+                            >
+                                <BISTIcon /> BIST Hisseleri
+                            </button>
+                            <button
+                                style={{
+                                    ...s.categoryFilterBtn,
+                                    ...(categoryFilter === "STOCK" ? s.categoryFilterActive : {}),
+                                }}
+                                onClick={() => {
+                                    setCategoryFilter("STOCK");
+                                    setIndexFilter(null);
+                                }}
+                            >
+                                <GlobalIcon /> Uluslararası Hisseler
+                            </button>
+                        </div>
+                    </>
                 )}
             </div>
 
-            {/* Filter Banner */}
-            {indexFilter && (
+            {/* Filter Banner - Only show for STOCK type */}
+            {filterType === "STOCK" && (indexFilter || categoryFilter) && (
                 <div style={s.filterBanner}>
-                    <span style={{ fontSize: 13, color: "var(--text-primary)" }}>
-                        📊 <strong>{indexFilter}</strong> endeksi hisseleri gösteriliyor
-                    </span>
-                    <button
-                        style={s.clearFilterBtn}
-                        onClick={() => setIndexFilter(null)}
-                    >
-                        ✕ Filtreyi Kaldır
-                    </button>
+                    {indexFilter && (
+                        <>
+                            <span style={{ fontSize: 13, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                                <ChartIcon /> <strong>{indexFilter}</strong> endeksi hisseleri gösteriliyor
+                            </span>
+                            <button
+                                style={s.clearFilterBtn}
+                                onClick={() => setIndexFilter(null)}
+                            >
+                                ✕ Filtreyi Kaldır
+                            </button>
+                        </>
+                    )}
+                    {categoryFilter && !indexFilter && (
+                        <>
+                            <span style={{ fontSize: 13, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                                {categoryFilter === "BIST" ? <><BISTIcon /> BIST Hisseleri</> : <><GlobalIcon /> Uluslararası Hisseler</>} gösteriliyor
+                            </span>
+                            <button
+                                style={s.clearFilterBtn}
+                                onClick={() => setCategoryFilter(null)}
+                            >
+                                ✕ Filtreyi Kaldır
+                            </button>
+                        </>
+                    )}
                 </div>
             )}
 
@@ -284,23 +453,9 @@ export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeTogg
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder="Hisse ara..."
+                        placeholder={filterType === "CRYPTO" ? "Kripto ara..." : "Hisse ara..."}
                         style={s.searchInput}
                     />
-                </div>
-                <div style={s.filterRow}>
-                    {types.map((t) => (
-                        <button
-                            key={t}
-                            style={{
-                                ...s.filterBtn,
-                                ...(filter === t ? s.filterActive : {}),
-                            }}
-                            onClick={() => setFilter(t)}
-                        >
-                            {t === "ALL" ? "Tümü" : t}
-                        </button>
-                    ))}
                 </div>
             </div>
 
@@ -319,59 +474,211 @@ export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeTogg
 
                     {/* Table Body */}
                     <div style={s.tableBody}>
-                        {filtered.map((item) => {
-                            const pos = item.changePct >= 0;
-                            const color = pos ? "#10b981" : "#ef4444";
-                            return (
-                                <div
-                                    key={item.symbol}
-                                    style={s.tableRow}
-                                    onClick={() => setSelected(item)}
-                                >
-                                    <div style={s.colHisse}>
-                                        <div style={s.stockSymbol}>{item.symbol}</div>
-                                        <div style={s.stockName}>{item.name}</div>
+                        {groupedStocks ? (
+                            // Grouped view for stocks page
+                            Object.entries(groupedStocks).map(([category, categoryItems]) => (
+                                <div key={category}>
+                                    {/* Category Header */}
+                                    <div style={s.categoryHeader}>
+                                        <span style={s.categoryTitle}>{category}</span>
+                                        <span style={s.categoryCount}>({categoryItems.length} hisse)</span>
                                     </div>
-                                    <div style={s.colFiyat}>
-                                        <div style={s.stockPrice}>
-                                            ₺{item.last?.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                        </div>
-                                    </div>
-                                    <div style={s.colDegisim}>
-                                        <div style={{ color, fontSize: 13, fontWeight: 600 }}>
-                                            {pos ? "▲" : "▼"} {pos ? "+" : ""}
-                                            {item.changePct?.toFixed(2)}%
-                                        </div>
-                                    </div>
-                                    <div style={s.colHacim}>
-                                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                                            {(Math.random() * 100).toFixed(1)}M
-                                        </div>
-                                    </div>
-                                    <div style={s.colGrafik}>
-                                        <LWSparkline
-                                            data={sparklines[item.symbol] ?? []}
-                                            positive={pos}
-                                            width={100}
-                                            height={36}
-                                        />
-                                    </div>
-                                    <div style={s.colIslem}>
-                                        <button
-                                            style={s.actionBtn}
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setAddTarget(item);
-                                                setAddQty(1);
-                                                setAddErr(null);
-                                            }}
-                                        >
-                                            Al/Sat
-                                        </button>
-                                    </div>
+                                    {/* Category Items */}
+                                    {categoryItems.map((item) => {
+                                        const pos = item.changePct >= 0;
+                                        const color = pos ? "#10b981" : "#ef4444";
+                                        const currency = item.type === "BIST" ? "₺" : "$";
+                                        return (
+                                            <div
+                                                key={item.symbol}
+                                                style={s.tableRow}
+                                                onClick={() => setSelected(item)}
+                                            >
+                                                <div style={s.colHisse}>
+                                                    <div style={s.stockSymbol}>{item.symbol}</div>
+                                                    <div style={s.stockName}>{item.name}</div>
+                                                </div>
+                                                <div style={s.colFiyat}>
+                                                    <div style={s.stockPrice}>
+                                                        {currency}{item.last?.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                    </div>
+                                                </div>
+                                                <div style={s.colDegisim}>
+                                                    <div style={{ color, fontSize: 13, fontWeight: 600 }}>
+                                                        {pos ? "▲" : "▼"} {pos ? "+" : ""}
+                                                        {item.changePct?.toFixed(2)}%
+                                                    </div>
+                                                </div>
+                                                <div style={s.colHacim}>
+                                                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                                                        {(Math.random() * 100).toFixed(1)}M
+                                                    </div>
+                                                </div>
+                                                <div style={s.colGrafik}>
+                                                    <LWSparkline
+                                                        data={sparklines[item.symbol] ?? []}
+                                                        positive={pos}
+                                                        width={100}
+                                                        height={36}
+                                                    />
+                                                </div>
+                                                <div style={s.colIslem}>
+                                                    {onAddToWatchlist && onRemoveFromWatchlist ? (
+                                                        <div style={{ display: 'flex', gap: '5px' }}>
+                                                            {watchlistSymbols.includes(item.symbol) ? (
+                                                                <button
+                                                                    style={{...s.actionBtn, background: 'var(--red)', borderColor: 'var(--red)'}}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onRemoveFromWatchlist(item.symbol);
+                                                                    }}
+                                                                    title="Listeden Çıkar"
+                                                                >
+                                                                    ★
+                                                                </button>
+                                                            ) : (
+                                                                <button
+                                                                    style={{...s.actionBtn, background: 'var(--warning)', borderColor: 'var(--warning)'}}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        onAddToWatchlist(item.symbol);
+                                                                    }}
+                                                                    title="Listeye Ekle"
+                                                                >
+                                                                    ☆
+                                                                </button>
+                                                            )}
+                                                            {keycloak && (
+                                                                <button
+                                                                    style={s.actionBtn}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        setAddTarget(item);
+                                                                        setAddQty(1);
+                                                                        setAddErr(null);
+                                                                    }}
+                                                                >
+                                                                    Al/Sat
+                                                                </button>
+                                                            )}
+                                                        </div>
+                                                    ) : (
+                                                        <button
+                                                            style={s.actionBtn}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setAddTarget(item);
+                                                                setAddQty(1);
+                                                                setAddErr(null);
+                                                            }}
+                                                        >
+                                                            Al/Sat
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        );
+                                    })}
                                 </div>
-                            );
-                        })}
+                            ))
+                        ) : (
+                            // Regular view for other pages
+                            filtered.map((item) => {
+                                const pos = item.changePct >= 0;
+                                const color = pos ? "#10b981" : "#ef4444";
+                                const currency = item.type === "BIST" ? "₺" : "$";
+                                return (
+                                    <div
+                                        key={item.symbol}
+                                        style={s.tableRow}
+                                        onClick={() => setSelected(item)}
+                                    >
+                                        <div style={s.colHisse}>
+                                            <div style={s.stockSymbol}>{item.symbol}</div>
+                                            <div style={s.stockName}>{item.name}</div>
+                                        </div>
+                                        <div style={s.colFiyat}>
+                                            <div style={s.stockPrice}>
+                                                {currency}{item.last?.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                            </div>
+                                        </div>
+                                        <div style={s.colDegisim}>
+                                            <div style={{ color, fontSize: 13, fontWeight: 600 }}>
+                                                {pos ? "▲" : "▼"} {pos ? "+" : ""}
+                                                {item.changePct?.toFixed(2)}%
+                                            </div>
+                                        </div>
+                                        <div style={s.colHacim}>
+                                            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
+                                                {(Math.random() * 100).toFixed(1)}M
+                                            </div>
+                                        </div>
+                                        <div style={s.colGrafik}>
+                                            <LWSparkline
+                                                data={sparklines[item.symbol] ?? []}
+                                                positive={pos}
+                                                width={100}
+                                                height={36}
+                                            />
+                                        </div>
+                                        <div style={s.colIslem}>
+                                            {onAddToWatchlist && onRemoveFromWatchlist ? (
+                                                <div style={{ display: 'flex', gap: '5px' }}>
+                                                    {watchlistSymbols.includes(item.symbol) ? (
+                                                        <button
+                                                            style={{...s.actionBtn, background: 'var(--red)', borderColor: 'var(--red)'}}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onRemoveFromWatchlist(item.symbol);
+                                                            }}
+                                                            title="Listeden Çıkar"
+                                                        >
+                                                            ★
+                                                        </button>
+                                                    ) : (
+                                                        <button
+                                                            style={{...s.actionBtn, background: 'var(--warning)', borderColor: 'var(--warning)'}}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                onAddToWatchlist(item.symbol);
+                                                            }}
+                                                            title="Listeye Ekle"
+                                                        >
+                                                            ☆
+                                                        </button>
+                                                    )}
+                                                    {keycloak && (
+                                                        <button
+                                                            style={s.actionBtn}
+                                                            onClick={(e) => {
+                                                                e.stopPropagation();
+                                                                setAddTarget(item);
+                                                                setAddQty(1);
+                                                                setAddErr(null);
+                                                            }}
+                                                        >
+                                                            Al/Sat
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <button
+                                                    style={s.actionBtn}
+                                                    onClick={(e) => {
+                                                        e.stopPropagation();
+                                                        setAddTarget(item);
+                                                        setAddQty(1);
+                                                        setAddErr(null);
+                                                    }}
+                                                >
+                                                    Al/Sat
+                                                </button>
+                                            )}
+                                        </div>
+                                    </div>
+                                );
+                            })
+                        )}
                     </div>
                 </div>
             </div>
@@ -419,7 +726,7 @@ export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeTogg
                             <div style={s.infoRow}>
                                 <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Güncel Fiyat</span>
                                 <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 18 }}>
-                                    ₺{addTarget.last?.toLocaleString("tr-TR")}
+                                    {addTarget.type === "BIST" ? "₺" : "$"}{addTarget.last?.toLocaleString("tr-TR")}
                                 </span>
                             </div>
                         </div>
@@ -438,7 +745,7 @@ export default function FinexStyleMarket({ keycloak, onAdded, theme, onThemeTogg
                             <div style={s.infoRow}>
                                 <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Tahmini Tutar</span>
                                 <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 16 }}>
-                                    ₺{addTotal > 0 ? addTotal.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}
+                                    {addTarget.type === "BIST" ? "₺" : "$"}{addTotal > 0 ? addTotal.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}
                                 </span>
                             </div>
                         </div>
@@ -565,6 +872,54 @@ const s: Record<string, React.CSSProperties> = {
         marginBottom: 4,
         letterSpacing: "-0.5px",
     },
+    categoryFilterContainer: {
+        display: "flex",
+        gap: 12,
+        marginTop: 16,
+    },
+    categoryFilterBtn: {
+        flex: 1,
+        padding: "12px 20px",
+        borderRadius: 8,
+        border: "1px solid var(--border-card)",
+        background: "var(--bg-card)",
+        color: "var(--text-muted)",
+        fontSize: 14,
+        fontWeight: 600,
+        cursor: "pointer",
+        transition: "all 0.2s",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 8,
+    },
+    categoryFilterActive: {
+        border: "2px solid #00ff00",
+        background: "rgba(0, 255, 0, 0.15)",
+        color: "#00ff00",
+        boxShadow: "0 0 0 3px rgba(0, 255, 0, 0.1)",
+    },
+    filterBanner: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "12px 20px",
+        background: "rgba(0, 255, 0, 0.1)",
+        border: "1px solid rgba(0, 255, 0, 0.3)",
+        borderRadius: 8,
+        marginBottom: 16,
+    },
+    clearFilterBtn: {
+        padding: "6px 12px",
+        borderRadius: 6,
+        border: "1px solid rgba(59, 130, 246, 0.5)",
+        background: "transparent",
+        color: "#3b82f6",
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: "pointer",
+        transition: "all 0.2s",
+    },
     controls: {
         display: "flex",
         gap: 12,
@@ -632,6 +987,29 @@ const s: Record<string, React.CSSProperties> = {
     tableBody: {
         display: "flex",
         flexDirection: "column",
+    },
+    categoryHeader: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "16px 20px",
+        background: "rgba(59, 130, 246, 0.1)",
+        borderBottom: "2px solid rgba(59, 130, 246, 0.3)",
+        position: "sticky",
+        top: 0,
+        zIndex: 1,
+    },
+    categoryTitle: {
+        fontSize: 14,
+        fontWeight: 700,
+        color: "#3b82f6",
+        textTransform: "uppercase",
+        letterSpacing: "0.5px",
+    },
+    categoryCount: {
+        fontSize: 12,
+        color: "var(--text-muted)",
+        fontWeight: 500,
     },
     tableRow: {
         display: "grid",
@@ -829,26 +1207,6 @@ const s: Record<string, React.CSSProperties> = {
         cursor: "pointer",
         fontWeight: 600,
         fontSize: 14,
-        transition: "all 0.2s",
-    },
-    filterBanner: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "12px 16px",
-        background: "rgba(34, 197, 94, 0.1)",
-        border: "1px solid #22c55e",
-        borderRadius: 8,
-    },
-    clearFilterBtn: {
-        padding: "6px 12px",
-        borderRadius: 6,
-        border: "1px solid #22c55e",
-        background: "transparent",
-        color: "#22c55e",
-        cursor: "pointer",
-        fontSize: 12,
-        fontWeight: 600,
         transition: "all 0.2s",
     },
 };

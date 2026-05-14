@@ -1,15 +1,48 @@
 import React, { useState, useEffect } from 'react';
-import { getNews, getNewsCategories, getNewsCategoryCounts, getMarketSummary, type NewsArticle, type MarketSummaryItem } from '../api/portfolioApi';
-import NewsDetail from './NewsDetail';
+import { useNavigate } from 'react-router-dom';
+import type Keycloak from 'keycloak-js';
+import {
+    getNews,
+    getNewsCategories,
+    getNewsCategoryCounts,
+    getMarketSummary,
+    type NewsArticle,
+    type MarketSummaryItem,
+} from '../api/portfolioApi';
 
-const News: React.FC = () => {
+interface NewsProps {
+    keycloak?: Keycloak;
+}
+
+const CATEGORY_LABELS: Record<string, string> = {
+    'genel-ekonomi': 'Genel Ekonomi',
+    'hisse': 'Hisse Senetleri',
+    'doviz': 'Döviz',
+    'tahvil': 'Tahvil & Bono',
+    'kripto': 'Kripto Para',
+    'emtia': 'Emtia',
+    'fonlar': 'Yatırım Fonları',
+    'borsa': 'Borsa Haberleri',
+    'tcmb': 'TCMB Kararları',
+    'uluslararasi': 'Uluslararası Piyasalar',
+};
+
+const QUICK_LINKS = [
+    { path: '/stocks', label: 'Hisse Senetleri', emoji: '📈', desc: 'BIST + uluslararası hisseler' },
+    { path: '/crypto', label: 'Kripto Paralar', emoji: '🪙', desc: 'Anlık kripto fiyatları' },
+    { path: '/funds', label: 'Yatırım Fonları', emoji: '💼', desc: 'TEFAS fon performansı' },
+    { path: '/bonds', label: 'Tahvil ve Bono', emoji: '🏛️', desc: 'TCMB DİBS ve eurobondlar' },
+    { path: '/market-data', label: 'Döviz Kurları', emoji: '💱', desc: 'TCMB güncel kurlar' },
+];
+
+const News: React.FC<NewsProps> = ({ keycloak }) => {
+    const navigate = useNavigate();
     const [news, setNews] = useState<NewsArticle[]>([]);
     const [categories, setCategories] = useState<string[]>([]);
     const [categoryCounts, setCategoryCounts] = useState<Record<string, number>>({});
     const [selectedCategory, setSelectedCategory] = useState<string>('');
     const [loading, setLoading] = useState(true);
     const [topMovers, setTopMovers] = useState<MarketSummaryItem[]>([]);
-    const [selectedArticle, setSelectedArticle] = useState<NewsArticle | null>(null);
     const [showScrollTop, setShowScrollTop] = useState(false);
 
     useEffect(() => {
@@ -20,244 +53,306 @@ const News: React.FC = () => {
         loadNews();
     }, [selectedCategory]);
 
-    // Scroll listener for scroll-to-top button
     useEffect(() => {
-        const handleScroll = () => {
-            setShowScrollTop(window.scrollY > 400);
-        };
-
-        window.addEventListener('scroll', handleScroll);
-        return () => window.removeEventListener('scroll', handleScroll);
+        const onScroll = () => setShowScrollTop(window.scrollY > 400);
+        window.addEventListener('scroll', onScroll);
+        return () => window.removeEventListener('scroll', onScroll);
     }, []);
 
     const loadData = async () => {
         try {
-            const [categoriesData, countsData, marketData] = await Promise.all([
+            const [cats, counts, market] = await Promise.all([
                 getNewsCategories(),
                 getNewsCategoryCounts(),
-                getMarketSummary()
+                getMarketSummary(),
             ]);
-            setCategories(categoriesData);
-            setCategoryCounts(countsData);
-            
-            // Get top 5 movers (by absolute change percentage)
-            const movers = marketData
-                .filter(item => item.type !== 'INDEX')
+            setCategories(cats);
+            setCategoryCounts(counts);
+            const movers = market
+                .filter((i) => i.type !== 'INDEX')
                 .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
-                .slice(0, 5);
+                .slice(0, 6);
             setTopMovers(movers);
         } catch (error) {
-            console.error('Error loading categories:', error);
+            console.error('[News] loadData error:', error);
         }
     };
 
     const loadNews = async () => {
         try {
             setLoading(true);
-            const newsData = await getNews(selectedCategory || undefined);
-            setNews(newsData);
+            const data = await getNews(selectedCategory || undefined);
+            setNews(data);
         } catch (error) {
-            console.error('Error loading news:', error);
+            console.error('[News] loadNews error:', error);
         } finally {
             setLoading(false);
         }
     };
 
-    const formatDate = (dateString: string) => {
+    const formatRelativeTime = (dateString: string) => {
         const date = new Date(dateString);
-        const now = new Date();
-        const diffMs = now.getTime() - date.getTime();
-        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
-        
-        if (diffHours < 1) {
-            const diffMins = Math.floor(diffMs / (1000 * 60));
-            return `${diffMins} dakika önce`;
-        } else if (diffHours < 24) {
-            return `${diffHours} saat önce`;
-        } else {
-            const diffDays = Math.floor(diffHours / 24);
-            return `${diffDays} gün önce`;
-        }
+        const diffMs = Date.now() - date.getTime();
+        const diffMin = Math.floor(diffMs / 60_000);
+        if (diffMin < 1) return 'Az önce';
+        if (diffMin < 60) return `${diffMin} dakika önce`;
+        const diffH = Math.floor(diffMin / 60);
+        if (diffH < 24) return `${diffH} saat önce`;
+        const diffD = Math.floor(diffH / 24);
+        if (diffD < 30) return `${diffD} gün önce`;
+        return date.toLocaleDateString('tr-TR');
     };
 
-    const getCategoryDisplayName = (category: string) => {
-        const categoryMap: { [key: string]: string } = {
-            'genel-ekonomi': 'Genel Ekonomi',
-            'hisse': 'Hisse Senetleri',
-            'doviz': 'Döviz',
-            'tahvil': 'Tahvil & Bono',
-            'kripto': 'Kripto Para',
-            'emtia': 'Emtia',
-            'fonlar': 'Yatırım Fonları',
-            'borsa': 'Borsa Haberleri',
-            'tcmb': 'TCMB Kararları',
-            'uluslararasi': 'Uluslararası Piyasalar'
-        };
-        return categoryMap[category] || category;
-    };
+    const openArticle = (article: NewsArticle) => navigate(`/news/${article.id}`);
 
-    const getCategoryCount = (category: string) => {
-        return categoryCounts[category] || 0;
-    };
-
-    const scrollToTop = () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    };
-
-    // Show detail view if an article is selected
-    if (selectedArticle) {
-        return (
-            <NewsDetail
-                article={selectedArticle}
-                onBack={() => setSelectedArticle(null)}
-            />
-        );
-    }
-
-    if (loading && news.length === 0) {
-        return (
-            <div style={s.loading}>
-                <div style={s.spinner}></div>
-                <div style={{ color: "var(--text-muted)", marginTop: 12 }}>Haberler yükleniyor...</div>
-            </div>
-        );
-    }
-
-    const featuredNews = news[0];
-    const otherNews = news.slice(1);
+    const featured = news[0];
+    const rest = news.slice(1);
 
     return (
-        <div style={s.root}>
-            <div style={s.header}>
-                <h1 style={s.title}>Finans Haberleri</h1>
-                <p style={s.subtitle}>Piyasalar, ekonomi ve yatırım dünyasından son haberler</p>
-            </div>
-
-            <div style={s.mainLayout}>
-                {/* Left: News Feed */}
-                <div style={s.leftPanel}>
-                    {/* Featured News */}
-                    {featuredNews && (
-                        <div style={s.featuredCard}>
-                            <div style={s.featuredImagePlaceholder}>
-                                <span style={{ fontSize: 48 }}>📰</span>
-                            </div>
-                            <div style={s.featuredContent}>
-                                <div style={s.featuredMeta}>
-                                    <span style={s.featuredSource}>{featuredNews.sourceName || 'Piyasalar'}</span>
-                                    <span style={s.featuredDot}>•</span>
-                                    <span style={s.featuredTime}>{formatDate(featuredNews.publishedAt)}</span>
-                                </div>
-                                <h2 style={s.featuredTitle}>{featuredNews.title}</h2>
-                                <p style={s.featuredSummary}>{featuredNews.summary}</p>
-                                <button
-                                    onClick={() => setSelectedArticle(featuredNews)}
-                                    style={s.readMore}
-                                >
-                                    <span>Devamını Oku</span>
-                                    <span className="news-read-more-arrow" style={s.readMoreArrow}>→</span>
-                                </button>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Other News */}
-                    <div style={s.newsGrid}>
-                        {otherNews.map((article) => (
-                            <div key={article.id} style={s.newsCard}>
-                                <div style={s.newsImagePlaceholder}>
-                                    <span style={{ fontSize: 32 }}>📄</span>
-                                </div>
-                                <div style={s.newsContent}>
-                                    <div style={s.newsMeta}>
-                                        <span style={s.newsSource}>{article.sourceName || 'Piyasalar'}</span>
-                                        <span style={s.newsDot}>•</span>
-                                        <span style={s.newsTime}>{formatDate(article.publishedAt)}</span>
-                                    </div>
-                                    <h3 style={s.newsTitle}>{article.title}</h3>
-                                    <p style={s.newsSummary}>{article.summary}</p>
-                                    <button
-                                        onClick={() => setSelectedArticle(article)}
-                                        style={s.newsLink}
-                                    >
-                                        <span>Devamını Oku</span>
-                                        <span className="news-read-more-arrow" style={s.newsLinkArrow}>→</span>
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+        <div style={s.root} className="home-page">
+            {/* Hero / Welcome */}
+            <section style={s.hero} className="home-hero">
+                <div style={s.heroLeft}>
+                    <div style={s.heroBadge}>FİNANS PORTALI</div>
+                    <h1 style={s.heroTitle}>Yatırım dünyası tek bir ekranda</h1>
+                    <p style={s.heroText}>
+                        Hisse, kripto, fon, tahvil, döviz — Türkiye ve dünya piyasalarını
+                        canlı verilerle takip edin, haberleri okuyun, portföyünüzü yönetin.
+                    </p>
+                    <div style={s.heroCtas}>
+                        <button style={s.ctaPrimary} onClick={() => navigate('/stocks')}>
+                            Piyasaları Keşfet
+                        </button>
+                        {!keycloak?.authenticated && (
+                            <button
+                                style={s.ctaSecondary}
+                                onClick={() =>
+                                    keycloak?.register({ redirectUri: window.location.href })
+                                }
+                            >
+                                Ücretsiz Hesap Oluştur
+                            </button>
+                        )}
+                        {keycloak?.authenticated && (
+                            <button
+                                style={s.ctaSecondary}
+                                onClick={() => navigate('/portfolio')}
+                            >
+                                Portföyümü Görüntüle
+                            </button>
+                        )}
                     </div>
                 </div>
-
-                {/* Right: Sidebar */}
-                <div style={s.rightPanel}>
-                    {/* Top Movers */}
-                    <div style={s.sidebarCard}>
-                        <h3 style={s.sidebarTitle}>Günün En Çok Değişenleri</h3>
-                        <div style={s.moversList}>
-                            {topMovers.map((mover) => {
-                                const positive = mover.changePct >= 0;
-                                const color = positive ? "#10b981" : "#ef4444";
+                <div style={s.heroRight}>
+                    <div style={s.heroStatsTitle}>Günün Hareketlileri</div>
+                    {topMovers.length === 0 ? (
+                        <div style={s.heroStatsEmpty}>Yükleniyor...</div>
+                    ) : (
+                        <div style={s.heroStatsList}>
+                            {topMovers.slice(0, 4).map((m) => {
+                                const positive = m.changePct >= 0;
                                 return (
-                                    <div key={mover.symbol} style={s.moverItem}>
-                                        <div style={s.moverLeft}>
-                                            <div style={s.moverSymbol}>{mover.symbol}</div>
-                                            <div style={s.moverName}>{mover.name}</div>
-                                        </div>
-                                        <div style={{ ...s.moverChange, color }}>
-                                            {positive ? "▲" : "▼"} {positive ? "+" : ""}
-                                            {mover.changePct.toFixed(2)}%
+                                    <div key={m.symbol} style={s.heroStatRow}>
+                                        <div style={s.heroStatSymbol}>{m.symbol}</div>
+                                        <div
+                                            style={{
+                                                ...s.heroStatChange,
+                                                color: positive ? '#10b981' : '#ef4444',
+                                            }}
+                                        >
+                                            {positive ? '▲' : '▼'} {positive ? '+' : ''}
+                                            {m.changePct.toFixed(2)}%
                                         </div>
                                     </div>
                                 );
                             })}
+                        </div>
+                    )}
+                </div>
+            </section>
+
+            {/* Quick links */}
+            <section style={s.quickGrid} className="home-quick-grid">
+                {QUICK_LINKS.map((link) => (
+                    <button
+                        key={link.path}
+                        style={s.quickCard}
+                        onClick={() => navigate(link.path)}
+                    >
+                        <div style={s.quickEmoji}>{link.emoji}</div>
+                        <div style={s.quickLabel}>{link.label}</div>
+                        <div style={s.quickDesc}>{link.desc}</div>
+                    </button>
+                ))}
+            </section>
+
+            {/* Main grid: news + sidebar */}
+            <section style={s.mainGrid} className="home-main-grid">
+                {/* Left: news feed */}
+                <div style={s.newsCol}>
+                    <div style={s.sectionHeader}>
+                        <h2 style={s.sectionTitle}>Finans Haberleri</h2>
+                        <span style={s.sectionMeta}>
+                            {selectedCategory
+                                ? CATEGORY_LABELS[selectedCategory] ?? selectedCategory
+                                : 'Tüm haberler'}
+                        </span>
+                    </div>
+
+                    {loading && news.length === 0 ? (
+                        <div style={s.loadingState}>
+                            <div style={s.spinner} />
+                            <span>Haberler yükleniyor...</span>
+                        </div>
+                    ) : news.length === 0 ? (
+                        <div style={s.emptyState}>Bu kategoride henüz haber yok.</div>
+                    ) : (
+                        <>
+                            {/* Featured news card */}
+                            {featured && (
+                                <article
+                                    style={s.featured}
+                                    onClick={() => openArticle(featured)}
+                                    role="link"
+                                    tabIndex={0}
+                                    onKeyDown={(e) => { if (e.key === 'Enter') openArticle(featured); }}
+                                >
+                                    <div style={s.featuredMeta}>
+                                        <span style={s.featuredCategory}>
+                                            {CATEGORY_LABELS[featured.category] ?? featured.category}
+                                        </span>
+                                        <span style={s.dot}>•</span>
+                                        <span style={s.muted}>{featured.sourceName || 'Piyasalar'}</span>
+                                        <span style={s.dot}>•</span>
+                                        <span style={s.muted}>{formatRelativeTime(featured.publishedAt)}</span>
+                                    </div>
+                                    <h3 style={s.featuredTitle}>{featured.title}</h3>
+                                    <p style={s.featuredSummary}>{featured.summary}</p>
+                                    <span style={s.readMore}>Devamını Oku →</span>
+                                </article>
+                            )}
+
+                            {/* Other news */}
+                            <div style={s.list}>
+                                {rest.map((a) => (
+                                    <article
+                                        key={a.id}
+                                        style={s.listItem}
+                                        onClick={() => openArticle(a)}
+                                        role="link"
+                                        tabIndex={0}
+                                        onKeyDown={(e) => { if (e.key === 'Enter') openArticle(a); }}
+                                    >
+                                        <div style={s.listMeta}>
+                                            <span style={s.listCategory}>
+                                                {CATEGORY_LABELS[a.category] ?? a.category}
+                                            </span>
+                                            <span style={s.dot}>•</span>
+                                            <span style={s.muted}>{a.sourceName || 'Piyasalar'}</span>
+                                            <span style={s.dot}>•</span>
+                                            <span style={s.muted}>{formatRelativeTime(a.publishedAt)}</span>
+                                        </div>
+                                        <h4 style={s.listTitle}>{a.title}</h4>
+                                        <p style={s.listSummary}>{a.summary}</p>
+                                    </article>
+                                ))}
+                            </div>
+                        </>
+                    )}
+                </div>
+
+                {/* Right: sidebar */}
+                <aside style={s.sidebar} className="home-sidebar">
+                    {/* Top movers */}
+                    <div style={s.sideCard}>
+                        <h3 style={s.sideTitle}>📊 Günün En Çok Değişenleri</h3>
+                        <div style={s.sideList}>
+                            {topMovers.length === 0 ? (
+                                <div style={s.muted}>Yükleniyor...</div>
+                            ) : (
+                                topMovers.map((m) => {
+                                    const positive = m.changePct >= 0;
+                                    return (
+                                        <div key={m.symbol} style={s.moverRow}>
+                                            <div>
+                                                <div style={s.moverSymbol}>{m.symbol}</div>
+                                                <div style={s.moverName}>{m.name}</div>
+                                            </div>
+                                            <div
+                                                style={{
+                                                    ...s.moverChange,
+                                                    color: positive ? '#10b981' : '#ef4444',
+                                                }}
+                                            >
+                                                {positive ? '▲' : '▼'} {positive ? '+' : ''}
+                                                {m.changePct.toFixed(2)}%
+                                            </div>
+                                        </div>
+                                    );
+                                })
+                            )}
                         </div>
                     </div>
 
                     {/* Categories */}
-                    <div style={s.sidebarCard}>
-                        <h3 style={s.sidebarTitle}>Kategoriler</h3>
-                        <div style={s.categoriesList}>
+                    <div style={s.sideCard}>
+                        <h3 style={s.sideTitle}>📰 Kategoriler</h3>
+                        <div style={s.categoryList}>
                             <button
                                 style={{
-                                    ...s.categoryItem,
-                                    ...(selectedCategory === '' ? s.categoryActive : {})
+                                    ...s.categoryBtn,
+                                    ...(selectedCategory === '' ? s.categoryBtnActive : {}),
                                 }}
                                 onClick={() => setSelectedCategory('')}
                             >
                                 <span>Tüm Haberler</span>
-                                <span style={s.categoryCount}>{categoryCounts['all'] || 0}</span>
+                                <span style={s.catCount}>{categoryCounts['all'] || 0}</span>
                             </button>
-                            {categories.map((category) => {
-                                const count = getCategoryCount(category);
-                                return (
-                                    <button
-                                        key={category}
-                                        style={{
-                                            ...s.categoryItem,
-                                            ...(selectedCategory === category ? s.categoryActive : {})
-                                        }}
-                                        onClick={() => setSelectedCategory(category)}
-                                    >
-                                        <span>{getCategoryDisplayName(category)}</span>
-                                        <span style={s.categoryCount}>{count}</span>
-                                    </button>
-                                );
-                            })}
+                            {categories.map((cat) => (
+                                <button
+                                    key={cat}
+                                    style={{
+                                        ...s.categoryBtn,
+                                        ...(selectedCategory === cat ? s.categoryBtnActive : {}),
+                                    }}
+                                    onClick={() => setSelectedCategory(cat)}
+                                >
+                                    <span>{CATEGORY_LABELS[cat] ?? cat}</span>
+                                    <span style={s.catCount}>{categoryCounts[cat] || 0}</span>
+                                </button>
+                            ))}
                         </div>
                     </div>
-                </div>
-            </div>
 
-            {/* Scroll to Top Button */}
+                    {/* CTA card for non-authenticated */}
+                    {!keycloak?.authenticated && (
+                        <div style={s.ctaCard}>
+                            <div style={s.ctaIcon}>🔐</div>
+                            <h3 style={s.ctaTitle}>Yatırımcı Hesabı</h3>
+                            <p style={s.ctaText}>
+                                Portföyünüzü takip edin, fiyat alarmları kurun, teknik analiz
+                                araçlarını kullanın.
+                            </p>
+                            <button
+                                style={s.ctaCardBtn}
+                                onClick={() =>
+                                    keycloak?.register({ redirectUri: window.location.href })
+                                }
+                            >
+                                Ücretsiz Kayıt Ol
+                            </button>
+                        </div>
+                    )}
+                </aside>
+            </section>
+
             {showScrollTop && (
-                <button 
-                    onClick={scrollToTop} 
-                    style={s.scrollTopButton} 
-                    className="news-scroll-top-button"
+                <button
+                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+                    style={s.scrollTopBtn}
                     aria-label="Yukarı çık"
                 >
-                    <span style={s.scrollTopIcon}>↑</span>
+                    ↑
                 </button>
             )}
         </div>
@@ -265,177 +360,348 @@ const News: React.FC = () => {
 };
 
 const s: Record<string, React.CSSProperties> = {
-    root: { display: "flex", flexDirection: "column", gap: 20 },
-    loading: {
-        display: "flex",
-        flexDirection: "column",
-        alignItems: "center",
-        justifyContent: "center",
-        height: 400,
+    root: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 24,
+        paddingBottom: 32,
     },
-    spinner: {
-        width: 40,
-        height: 40,
-        border: "3px solid var(--border)",
-        borderTop: "3px solid #3b82f6",
-        borderRadius: "50%",
-        animation: "spin 0.8s linear infinite",
+
+    // Hero
+    hero: {
+        display: 'grid',
+        gridTemplateColumns: '1.5fr 1fr',
+        gap: 24,
+        padding: 32,
+        background:
+            'linear-gradient(135deg, var(--accent-hover-bg) 0%, var(--bg-card) 60%)',
+        border: '1px solid var(--border-card)',
+        borderRadius: 18,
+        position: 'relative',
+        overflow: 'hidden',
     },
-    header: { marginBottom: 8 },
-    title: { fontSize: 28, fontWeight: 700, color: "var(--text-primary)", marginBottom: 4 },
-    subtitle: { fontSize: 14, color: "var(--text-muted)" },
-    mainLayout: {
-        display: "grid",
-        gridTemplateColumns: "1fr 320px",
-        gap: 20,
+    heroLeft: { display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 },
+    heroBadge: {
+        alignSelf: 'flex-start',
+        padding: '4px 12px',
+        background: 'var(--accent-solid)',
+        color: '#000',
+        borderRadius: 999,
+        fontSize: 11,
+        fontWeight: 800,
+        letterSpacing: 1,
     },
-    leftPanel: { display: "flex", flexDirection: "column", gap: 16 },
-    featuredCard: {
-        background: "var(--bg-card)",
-        border: "1px solid var(--border-card)",
-        borderRadius: 12,
-        overflow: "hidden",
+    heroTitle: {
+        margin: 0,
+        fontSize: 32,
+        fontWeight: 800,
+        color: 'var(--text-primary)',
+        letterSpacing: '-0.02em',
+        lineHeight: 1.15,
     },
-    featuredImagePlaceholder: {
-        height: 280,
-        background: "linear-gradient(135deg, #1a1f2e 0%, #2d3548 100%)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+    heroText: {
+        margin: 0,
+        fontSize: 15,
+        color: 'var(--text-muted)',
+        lineHeight: 1.6,
+        maxWidth: 540,
     },
-    featuredContent: { padding: 24 },
-    featuredMeta: { display: "flex", alignItems: "center", gap: 8, marginBottom: 12 },
-    featuredSource: { fontSize: 12, color: "#10b981", fontWeight: 600 },
-    featuredDot: { fontSize: 12, color: "var(--text-muted)" },
-    featuredTime: { fontSize: 12, color: "var(--text-muted)" },
-    featuredTitle: { fontSize: 24, fontWeight: 700, color: "var(--text-primary)", marginBottom: 12, lineHeight: 1.3 },
-    featuredSummary: { fontSize: 14, color: "var(--text-muted)", lineHeight: 1.6, marginBottom: 16 },
-    readMore: {
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
+    heroCtas: { display: 'flex', gap: 10, marginTop: 8, flexWrap: 'wrap' },
+    ctaPrimary: {
+        padding: '11px 22px',
+        background: 'var(--accent-solid)',
+        color: '#000',
+        border: 'none',
+        borderRadius: 10,
+        fontSize: 14,
+        fontWeight: 700,
+        cursor: 'pointer',
+        transition: 'transform 0.15s, box-shadow 0.15s',
+    },
+    ctaSecondary: {
+        padding: '11px 22px',
+        background: 'transparent',
+        color: 'var(--text-primary)',
+        border: '1px solid var(--border-card)',
+        borderRadius: 10,
         fontSize: 14,
         fontWeight: 600,
-        color: "#3b82f6",
-        background: "transparent",
-        border: "none",
-        padding: 0,
-        cursor: "pointer",
-        textDecoration: "none",
-        transition: "gap 0.2s",
+        cursor: 'pointer',
     },
-    readMoreArrow: {
-        transition: "transform 0.2s",
-    },
-    newsGrid: { display: "flex", flexDirection: "column", gap: 12 },
-    newsCard: {
-        display: "grid",
-        gridTemplateColumns: "120px 1fr",
-        gap: 16,
-        background: "var(--bg-card)",
-        border: "1px solid var(--border-card)",
-        borderRadius: 10,
+    heroRight: {
+        background: 'var(--bg-panel)',
+        border: '1px solid var(--border-card)',
+        borderRadius: 12,
         padding: 16,
-        cursor: "pointer",
-        transition: "border-color 0.2s",
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
     },
-    newsImagePlaceholder: {
-        width: 120,
-        height: 90,
-        background: "linear-gradient(135deg, #1a1f2e 0%, #2d3548 100%)",
-        borderRadius: 8,
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+    heroStatsTitle: { fontSize: 12, fontWeight: 700, color: 'var(--text-muted)', letterSpacing: 0.5 },
+    heroStatsList: { display: 'flex', flexDirection: 'column', gap: 8 },
+    heroStatsEmpty: { color: 'var(--text-muted)', fontSize: 12 },
+    heroStatRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '6px 0',
+        borderBottom: '1px solid var(--border-card)',
     },
-    newsContent: { display: "flex", flexDirection: "column", gap: 6 },
-    newsMeta: { display: "flex", alignItems: "center", gap: 6 },
-    newsSource: { fontSize: 11, color: "#10b981", fontWeight: 600 },
-    newsDot: { fontSize: 11, color: "var(--text-muted)" },
-    newsTime: { fontSize: 11, color: "var(--text-muted)" },
-    newsTitle: { fontSize: 15, fontWeight: 600, color: "var(--text-primary)", lineHeight: 1.4 },
-    newsSummary: { fontSize: 13, color: "var(--text-muted)", lineHeight: 1.5, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" },
-    newsLink: { 
-        fontSize: 12, 
-        fontWeight: 600, 
-        color: "#3b82f6", 
-        background: "transparent",
-        border: "none",
-        padding: 0,
-        cursor: "pointer",
-        textDecoration: "none", 
-        marginTop: 4,
-        textAlign: "left",
-        display: "inline-flex",
-        alignItems: "center",
-        gap: 4,
+    heroStatSymbol: { fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' },
+    heroStatChange: { fontSize: 13, fontWeight: 700 },
+
+    // Quick grid
+    quickGrid: {
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+        gap: 12,
     },
-    newsLinkArrow: {
-        transition: "transform 0.2s",
+    quickCard: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: 8,
+        padding: 18,
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-card)',
+        borderRadius: 12,
+        cursor: 'pointer',
+        textAlign: 'left',
+        transition: 'border-color 0.15s, transform 0.15s',
     },
-    rightPanel: { display: "flex", flexDirection: "column", gap: 16 },
-    sidebarCard: {
-        background: "var(--bg-card)",
-        border: "1px solid var(--border-card)",
-        borderRadius: 10,
-        padding: 20,
+    quickEmoji: { fontSize: 28 },
+    quickLabel: {
+        fontSize: 15,
+        fontWeight: 700,
+        color: 'var(--text-primary)',
     },
-    sidebarTitle: { fontSize: 16, fontWeight: 700, color: "var(--text-primary)", marginBottom: 16 },
-    moversList: { display: "flex", flexDirection: "column", gap: 12 },
-    moverItem: { display: "flex", justifyContent: "space-between", alignItems: "center" },
-    moverLeft: { display: "flex", flexDirection: "column", gap: 2 },
-    moverSymbol: { fontSize: 13, fontWeight: 700, color: "var(--text-primary)" },
-    moverName: { fontSize: 11, color: "var(--text-muted)" },
-    moverChange: { fontSize: 13, fontWeight: 700 },
-    categoriesList: { display: "flex", flexDirection: "column", gap: 6 },
-    categoryItem: {
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-        padding: "10px 12px",
-        background: "transparent",
-        border: "1px solid var(--border-card)",
-        borderRadius: 8,
-        color: "var(--text-primary)",
-        fontSize: 13,
-        fontWeight: 500,
-        cursor: "pointer",
-        transition: "all 0.2s",
-        textAlign: "left",
+    quickDesc: {
+        fontSize: 12,
+        color: 'var(--text-muted)',
+        lineHeight: 1.4,
     },
-    categoryActive: {
-        background: "rgba(59, 130, 246, 0.15)",
-        borderColor: "#3b82f6",
+
+    // Main grid
+    mainGrid: {
+        display: 'grid',
+        gridTemplateColumns: '1fr 320px',
+        gap: 20,
+        alignItems: 'flex-start',
     },
-    categoryCount: {
+    newsCol: { display: 'flex', flexDirection: 'column', gap: 14, minWidth: 0 },
+
+    sectionHeader: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'baseline',
+        marginBottom: 4,
+    },
+    sectionTitle: { margin: 0, fontSize: 20, fontWeight: 700, color: 'var(--text-primary)' },
+    sectionMeta: { fontSize: 12, color: 'var(--text-muted)' },
+
+    featured: {
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-card)',
+        borderRadius: 14,
+        padding: 22,
+        cursor: 'pointer',
+        transition: 'border-color 0.15s',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 10,
+    },
+    featuredMeta: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
+    featuredCategory: {
         fontSize: 11,
+        fontWeight: 700,
+        color: 'var(--accent-solid)',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    featuredTitle: {
+        margin: 0,
+        fontSize: 22,
+        fontWeight: 700,
+        color: 'var(--text-primary)',
+        lineHeight: 1.3,
+    },
+    featuredSummary: {
+        margin: 0,
+        fontSize: 14,
+        color: 'var(--text-muted)',
+        lineHeight: 1.6,
+    },
+    readMore: {
+        fontSize: 13,
         fontWeight: 600,
-        color: "var(--text-muted)",
-        background: "var(--bg-panel)",
-        padding: "2px 8px",
+        color: '#3b82f6',
+    },
+
+    list: { display: 'flex', flexDirection: 'column', gap: 10 },
+    listItem: {
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-card)',
+        borderRadius: 12,
+        padding: 16,
+        cursor: 'pointer',
+        transition: 'border-color 0.15s',
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 6,
+    },
+    listMeta: { display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' },
+    listCategory: {
+        fontSize: 10,
+        fontWeight: 700,
+        color: 'var(--accent-solid)',
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
+    },
+    listTitle: { margin: 0, fontSize: 15, fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.4 },
+    listSummary: {
+        margin: 0,
+        fontSize: 13,
+        color: 'var(--text-muted)',
+        lineHeight: 1.5,
+        display: '-webkit-box',
+        WebkitLineClamp: 2,
+        WebkitBoxOrient: 'vertical',
+        overflow: 'hidden',
+    },
+
+    // Sidebar
+    sidebar: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 14,
+        position: 'sticky',
+        top: 12,
+    },
+    sideCard: {
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-card)',
+        borderRadius: 12,
+        padding: 18,
+    },
+    sideTitle: {
+        margin: 0,
+        marginBottom: 12,
+        fontSize: 14,
+        fontWeight: 700,
+        color: 'var(--text-primary)',
+    },
+    sideList: { display: 'flex', flexDirection: 'column', gap: 10 },
+    moverRow: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 6,
+    },
+    moverSymbol: { fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' },
+    moverName: { fontSize: 11, color: 'var(--text-muted)', marginTop: 1 },
+    moverChange: { fontSize: 13, fontWeight: 700 },
+
+    categoryList: { display: 'flex', flexDirection: 'column', gap: 5 },
+    categoryBtn: {
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        padding: '9px 12px',
+        background: 'transparent',
+        border: '1px solid var(--border-card)',
+        borderRadius: 8,
+        color: 'var(--text-primary)',
+        fontSize: 12,
+        fontWeight: 500,
+        cursor: 'pointer',
+        textAlign: 'left',
+        transition: 'all 0.15s',
+    },
+    categoryBtnActive: {
+        background: 'var(--accent-hover-bg)',
+        borderColor: 'var(--accent-solid)',
+        color: 'var(--accent-solid)',
+    },
+    catCount: {
+        fontSize: 10,
+        fontWeight: 600,
+        color: 'var(--text-muted)',
+        background: 'var(--bg-panel)',
+        padding: '2px 8px',
+        borderRadius: 999,
+    },
+
+    ctaCard: {
+        background:
+            'linear-gradient(135deg, var(--accent-hover-bg) 0%, var(--bg-card) 100%)',
+        border: '1px solid var(--accent-solid)',
+        borderRadius: 12,
+        padding: 18,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 8,
+    },
+    ctaIcon: { fontSize: 28 },
+    ctaTitle: { margin: 0, fontSize: 15, fontWeight: 700, color: 'var(--text-primary)' },
+    ctaText: { margin: 0, fontSize: 12, color: 'var(--text-muted)', lineHeight: 1.5 },
+    ctaCardBtn: {
+        marginTop: 6,
+        padding: '10px 14px',
+        background: 'var(--accent-solid)',
+        color: '#000',
+        border: 'none',
+        borderRadius: 8,
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: 'pointer',
+    },
+
+    // Shared
+    dot: { fontSize: 12, color: 'var(--text-muted)' },
+    muted: { fontSize: 12, color: 'var(--text-muted)' },
+
+    loadingState: {
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        padding: 60,
+        color: 'var(--text-muted)',
+        fontSize: 13,
+    },
+    spinner: {
+        width: 36,
+        height: 36,
+        border: '3px solid var(--border-card)',
+        borderTopColor: 'var(--accent-solid)',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+    },
+    emptyState: {
+        padding: 40,
+        textAlign: 'center',
+        color: 'var(--text-muted)',
+        fontSize: 13,
+        background: 'var(--bg-card)',
+        border: '1px solid var(--border-card)',
         borderRadius: 12,
     },
-    scrollTopButton: {
-        position: "fixed",
+    scrollTopBtn: {
+        position: 'fixed',
         bottom: 32,
         right: 32,
-        width: 56,
-        height: 56,
-        borderRadius: "50%",
-        background: "#22c55e",
-        border: "none",
-        boxShadow: "0 4px 12px rgba(34, 197, 94, 0.4)",
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
-        transition: "all 0.3s",
-        zIndex: 1000,
-    },
-    scrollTopIcon: {
-        fontSize: 24,
+        width: 50,
+        height: 50,
+        borderRadius: '50%',
+        background: 'var(--accent-solid)',
+        color: '#000',
+        border: 'none',
+        fontSize: 22,
         fontWeight: 700,
-        color: "white",
+        cursor: 'pointer',
+        boxShadow: '0 4px 16px rgba(0,0,0,0.3)',
+        zIndex: 1000,
     },
 };
 

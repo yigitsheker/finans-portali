@@ -1,6 +1,6 @@
 package com.finansportali.backend.service;
 
-import com.finansportali.backend.domain.PriceAlert;
+import com.finansportali.backend.entity.PriceAlert;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;

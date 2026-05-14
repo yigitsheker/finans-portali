@@ -1,34 +1,69 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import type { NewsArticle } from '../api/portfolioApi';
-import { fetchNewsContent } from '../api/portfolioApi';
+import { fetchNewsContent, getNewsById } from '../api/portfolioApi';
 
-interface NewsDetailProps {
-    article: NewsArticle;
-    onBack: () => void;
-}
-
-const NewsDetail: React.FC<NewsDetailProps> = ({ article: initialArticle, onBack }) => {
-    const [article, setArticle] = useState<NewsArticle>(initialArticle);
-    const [loading, setLoading] = useState(false);
+const NewsDetail: React.FC = () => {
+    const { id } = useParams<{ id: string }>();
+    const navigate = useNavigate();
+    const [article, setArticle] = useState<NewsArticle | null>(null);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
 
     useEffect(() => {
-        // If content is missing or same as summary, try to fetch it
-        const needsContent = !article.content || article.content === article.summary || article.content.length < 200;
-        
-        if (needsContent && article.sourceUrl) {
-            setLoading(true);
-            fetchNewsContent(article.id)
-                .then(updatedArticle => {
-                    setArticle(updatedArticle);
-                })
-                .catch(error => {
-                    console.error('Failed to fetch article content:', error);
-                })
-                .finally(() => {
-                    setLoading(false);
-                });
+        if (!id) {
+            setError('Geçersiz haber kimliği');
+            setLoading(false);
+            return;
         }
-    }, [article.id]);
+        const numericId = Number(id);
+        if (!Number.isFinite(numericId)) {
+            setError('Geçersiz haber kimliği');
+            setLoading(false);
+            return;
+        }
+
+        let cancelled = false;
+        setLoading(true);
+        setError(null);
+
+        getNewsById(numericId)
+            .then(async (fetched) => {
+                if (cancelled) return;
+                // Stale or thin content? Try to enrich from source.
+                const needsContent = !fetched.content
+                    || fetched.content === fetched.summary
+                    || fetched.content.length < 200;
+                if (needsContent && fetched.sourceUrl) {
+                    try {
+                        const enriched = await fetchNewsContent(fetched.id);
+                        if (!cancelled) setArticle(enriched);
+                        return;
+                    } catch (e) {
+                        console.error('Failed to enrich article content:', e);
+                    }
+                }
+                if (!cancelled) setArticle(fetched);
+            })
+            .catch((e) => {
+                console.error('Failed to load article:', e);
+                if (!cancelled) setError('Haber yüklenemedi');
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => {
+            cancelled = true;
+        };
+    }, [id]);
+
+    const handleBack = () => {
+        // Prefer history back so the user lands on the news list with scroll preserved;
+        // fall back to /news if there's no history.
+        if (window.history.length > 1) navigate(-1);
+        else navigate('/news');
+    };
 
     const formatDate = (dateString: string) => {
         const date = new Date(dateString);
@@ -57,10 +92,39 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ article: initialArticle, onBack
         return categoryMap[category] || category;
     };
 
+    if (loading) {
+        return (
+            <div style={s.root}>
+                <button onClick={handleBack} style={s.backButton}>
+                    <span style={s.backIcon} className="news-back-arrow">←</span>
+                    <span>Haberlere Dön</span>
+                </button>
+                <div style={s.loadingContainer}>
+                    <div style={s.spinner}></div>
+                    <p style={s.loadingText}>Haber yükleniyor...</p>
+                </div>
+            </div>
+        );
+    }
+
+    if (error || !article) {
+        return (
+            <div style={s.root}>
+                <button onClick={handleBack} style={s.backButton}>
+                    <span style={s.backIcon} className="news-back-arrow">←</span>
+                    <span>Haberlere Dön</span>
+                </button>
+                <div style={s.articleContainer}>
+                    <p style={{ color: 'var(--text-muted)' }}>{error ?? 'Haber bulunamadı'}</p>
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div style={s.root}>
             {/* Back Button */}
-            <button onClick={onBack} style={s.backButton}>
+            <button onClick={handleBack} style={s.backButton}>
                 <span style={s.backIcon} className="news-back-arrow">←</span>
                 <span>Haberlere Dön</span>
             </button>
@@ -82,11 +146,6 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ article: initialArticle, onBack
                     <span style={s.date}>{formatDate(article.publishedAt)}</span>
                 </div>
 
-                {/* Featured Image Placeholder */}
-                <div style={s.featuredImage}>
-                    <span style={{ fontSize: 64 }}>📰</span>
-                </div>
-
                 {/* Content */}
                 <div style={s.content}>
                     {/* Summary Section */}
@@ -94,37 +153,28 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ article: initialArticle, onBack
                         <h2 style={s.sectionTitle}>Özet</h2>
                         <p style={s.summary}>{article.summary}</p>
                     </div>
-                    
+
                     {/* Detail Section */}
                     <div style={s.detailSection}>
                         <h2 style={s.sectionTitle}>Haber Detayı</h2>
-                        {loading ? (
-                            <div style={s.loadingContainer}>
-                                <div style={s.spinner}></div>
-                                <p style={s.loadingText}>Haber içeriği yükleniyor...</p>
-                            </div>
-                        ) : (
-                            <div style={s.fullContent}>
-                                {article.content && article.content !== article.summary && article.content.length > 200 ? (
-                                    <>
-                                        {article.content.split('\n\n').map((paragraph, index) => (
-                                            <p key={index} style={s.contentParagraph}>
-                                                {paragraph}
-                                            </p>
-                                        ))}
-                                    </>
-                                ) : (
-                                    <>
-                                        <p style={s.contentParagraph}>
-                                            {article.summary}
-                                        </p>
-                                        <p style={s.contentNote}>
-                                            <strong>Not:</strong> Haberin tam içeriği için aşağıdaki "Kaynağa Git" butonunu kullanabilirsiniz.
-                                        </p>
-                                    </>
-                                )}
-                            </div>
-                        )}
+                        <div style={s.fullContent}>
+                            {article.content && article.content !== article.summary && article.content.length > 200 ? (
+                                article.content.split('\n\n').map((paragraph, index) => (
+                                    <p key={index} style={s.contentParagraph}>
+                                        {paragraph}
+                                    </p>
+                                ))
+                            ) : (
+                                <>
+                                    <p style={s.contentParagraph}>
+                                        {article.summary}
+                                    </p>
+                                    <p style={s.contentNote}>
+                                        <strong>Not:</strong> Haberin tam içeriği için aşağıdaki "Kaynağa Git" butonunu kullanabilirsiniz.
+                                    </p>
+                                </>
+                            )}
+                        </div>
                     </div>
                 </div>
 
@@ -141,7 +191,7 @@ const NewsDetail: React.FC<NewsDetailProps> = ({ article: initialArticle, onBack
                             <span style={s.externalIcon} className="news-external-icon">↗</span>
                         </a>
                     )}
-                    <button onClick={onBack} style={s.secondaryButton}>
+                    <button onClick={handleBack} style={s.secondaryButton}>
                         Geri Dön
                     </button>
                 </div>
@@ -225,15 +275,6 @@ const s: Record<string, React.CSSProperties> = {
     date: {
         fontSize: 14,
         color: 'var(--text-muted)',
-    },
-    featuredImage: {
-        width: '100%',
-        height: 400,
-        background: 'linear-gradient(135deg, #1a1f2e 0%, #2d3548 100%)',
-        borderRadius: 12,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
     },
     content: {
         display: 'flex',

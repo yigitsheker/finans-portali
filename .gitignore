@@ -25,3 +25,5 @@ docker-compose.override.yml
 
 # Backups
 backup_*.sql
+
+.fake

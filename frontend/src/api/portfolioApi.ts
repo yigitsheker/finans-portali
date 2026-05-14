@@ -212,7 +212,7 @@ export async function togglePriceAlert(keycloak: Keycloak, alertId: number): Pro
 
 export async function triggerAlertManually(keycloak: Keycloak, alertId: number): Promise<{ success: boolean; message: string }> {
     const headers = await authHeader(keycloak);
-    const res = await axios.post(`${API_BASE}/api/v1/alerts/${alertId}/trigger-test`, {}, { headers });
+    const res = await axios.post(`${API_BASE}/api/v1/alerts/${alertId}/test`, {}, { headers });
     return res.data;
 }
 
@@ -245,6 +245,8 @@ export async function getPortfolioAllocationByType(keycloak: Keycloak): Promise<
 export type PortfolioPositionDetail = {
     symbol: string;
     name: string;
+    type: string;  // InstrumentType: BIST, STOCK, CRYPTO, etc.
+    currency: string;  // TRY, USD, EUR - instrument trading currency
     quantity: number;
     buyDate: string;
     buyPrice: number;
@@ -407,6 +409,24 @@ export async function searchFunds(query: string): Promise<InvestmentFund[]> {
     return res.data;
 }
 
+export type RefreshFundsResponse = {
+    success: boolean;
+    message: string;
+    fundsBefore: number;
+    fundsAfter: number;
+    fundsAdded: number;
+    timestamp: string;
+};
+
+export async function refreshInvestmentFunds(token: string): Promise<RefreshFundsResponse> {
+    const res = await axios.post(
+        `${API_BASE}/api/v1/investment-funds/admin/refresh`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+    );
+    return res.data;
+}
+
 /** TECHNICAL ANALYSIS */
 export type TechnicalAnalysis = {
     symbol: string;
@@ -427,5 +447,48 @@ export async function getTrendAnalysis(symbol: string): Promise<TechnicalAnalysi
 
 export async function getSupportResistance(symbol: string): Promise<TechnicalAnalysis> {
     const res = await axios.get(`${API_BASE}/api/v1/technical-analysis/${symbol}/support-resistance`);
+    return res.data;
+}
+
+
+/** TECHNICAL ANALYSIS */
+export type TechnicalAnalysisResponse = {
+    symbol: string;
+    from: string;
+    to: string;
+    trend: {
+        direction: string; // UPWARD, DOWNWARD, SIDEWAYS, INSUFFICIENT_DATA
+        slope: number;
+        changePercent: number;
+        description: string;
+    };
+    summary: {
+        latestClose: number;
+        highestClose: number;
+        lowestClose: number;
+        averageClose: number;
+        volatilityPercent: number;
+    };
+    series: Array<{
+        date: string;
+        close: number;
+        sma7: number | null;
+        sma20: number | null;
+        sma50: number | null;
+    }>;
+};
+
+export async function getTechnicalAnalysis(
+    symbol: string,
+    from?: string,
+    to?: string
+): Promise<TechnicalAnalysisResponse> {
+    const params: any = {};
+    if (from) params.from = from;
+    if (to) params.to = to;
+    
+    const res = await axios.get(`${API_BASE}/api/v1/technical-analysis/${encodeURIComponent(symbol)}`, {
+        params
+    });
     return res.data;
 }

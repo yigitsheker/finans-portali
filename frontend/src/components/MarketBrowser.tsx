@@ -104,6 +104,10 @@ export default function MarketBrowser({ keycloak, onAdded }: Props) {
             const q = search.trim().toUpperCase();
             list = list.filter((i) => i.symbol.includes(q) || i.name.toUpperCase().includes(q));
         }
+        
+        // Shuffle the list randomly
+        list = list.sort(() => Math.random() - 0.5);
+        
         return list;
     }, [items, filter, indexFilter, search]);
 

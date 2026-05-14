@@ -34,6 +34,13 @@
   "actionTokenGeneratedByUserLifespan": 300,
   "oauth2DeviceCodeLifespan": 600,
   "oauth2DevicePollingInterval": 5,
+  "loginTheme": "finance-theme",
+  "accountTheme": "keycloak.v2",
+  "adminTheme": "keycloak.v2",
+  "emailTheme": "keycloak",
+  "internationalizationEnabled": true,
+  "supportedLocales": ["en", "tr"],
+  "defaultLocale": "tr",
   "clients": [
     {
       "clientId": "finans-frontend",

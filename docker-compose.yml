@@ -140,6 +140,10 @@ services:
       KC_HOSTNAME_STRICT: false
       KC_HTTP_ENABLED: true
       KC_HEALTH_ENABLED: true
+      # Development: Disable theme caching for easier development
+      KC_SPI_THEME_STATIC_MAX_AGE: -1
+      KC_SPI_THEME_CACHE_THEMES: false
+      KC_SPI_THEME_CACHE_TEMPLATES: false
     ports:
       - "8090:8080"
     depends_on:
@@ -147,6 +151,8 @@ services:
         condition: service_healthy
       openldap:
         condition: service_healthy
+    volumes:
+      - ./keycloak-themes:/opt/keycloak/themes
     networks:
       - finans-network
     command: start-dev
@@ -174,15 +180,23 @@ services:
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8090/realms/finans
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/finans/protocol/openid-connect/certs
       
-      # Email (optional - set these if you want email notifications)
-      MAIL_USERNAME: ${MAIL_USERNAME:-}
-      MAIL_PASSWORD: ${MAIL_PASSWORD:-}
-      MAIL_HOST: ${MAIL_HOST:-smtp.gmail.com}
-      MAIL_PORT: ${MAIL_PORT:-587}
+      # Email (Mailpit for development)
+      SPRING_MAIL_HOST: mailpit
+      SPRING_MAIL_PORT: 1025
+      SPRING_MAIL_USERNAME: ""
+      SPRING_MAIL_PASSWORD: ""
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "false"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "false"
+      APP_BASE_URL: http://localhost
       
       # Application
       SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: 8080
+
+      # TCMB EVDS3 session cookies (manual login required; expire periodically)
+      # Get from evds3.tcmb.gov.tr after login via DevTools → Application → Cookies
+      TCMB_EVDS3_JSESSIONID: 3D01028EDC2AD18BEFF7EB88E45660C8
+      TCMB_EVDS3_TS_COOKIE: 015d31d691b74c251071a893c6b15a3e2de5aafc2acea2b3ffceca29b5111050d4d6894a8ff27aaacf5ccff76315563c5b9f51395fd1be12822e450595fa0050f550da3a312a8ffe664b96d748da2a877f056116a7
       
       # Logging
       LOGGING_LEVEL_ROOT: INFO
@@ -214,6 +228,7 @@ services:
       - keycloak
       - jaeger
       - kafka
+      - mailpit
     networks:
       - finans-network
     volumes:
@@ -444,6 +459,23 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
+
+  # Mailpit - Email Testing Tool (Development Only)
+  mailpit:
+    image: axllent/mailpit:latest
+    container_name: finans-mailpit
+    restart: unless-stopped
+    ports:
+      - "1025:1025"  # SMTP server
+      - "8025:8025"  # Web UI
+    networks:
+      - finans-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8025/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
 networks:
   finans-network:

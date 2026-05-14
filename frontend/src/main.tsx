@@ -21,7 +21,10 @@ function AuthGate() {
 
         keycloak
             .init({
-                onLoad: "login-required",  // Otomatik Keycloak'a yönlendir
+                // onLoad parametresi YOK: Keycloak init sırasında hiçbir redirect/iframe
+                // kontrolü yapmaz. Kullanıcı tamamen anonim başlar; "Giriş Yap" butonuna
+                // basınca Keycloak'a yönlendirilir. Önceki oturum varsa redirect sonrası
+                // otomatik authenticate olur.
                 pkceMethod: "S256",
                 checkLoginIframe: false,
             })

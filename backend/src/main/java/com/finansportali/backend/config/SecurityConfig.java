@@ -38,6 +38,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/funds/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/investment-funds/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/exchange-rates/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/bonds/**").permitAll()
 
                         // Portfolio requires authentication (any authenticated user)
                         .requestMatchers("/api/v1/portfolio/**").authenticated()
@@ -45,8 +46,8 @@ public class SecurityConfig {
                         // Price alerts require authentication
                         .requestMatchers("/api/v1/alerts/**").authenticated()
 
-                        // Technical analysis requires authentication
-                        .requestMatchers("/api/v1/technical/**").authenticated()
+                        // Technical analysis - public GET access
+                        .requestMatchers(HttpMethod.GET, "/api/v1/technical-analysis/**").permitAll()
 
                         // Everything else - deny by default for security
                         .anyRequest().authenticated()

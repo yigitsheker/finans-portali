@@ -6,11 +6,27 @@ import {
   ColorType,
   CrosshairMode,
   AreaSeries,
+  TickMarkType,
 } from "lightweight-charts";
 
 export interface ChartPoint {
   time: string;   // 'YYYY-MM-DD' or ISO datetime string
   value: number;
+}
+
+// Lightweight-charts may invoke formatters with UTCTimestamp (number),
+// BusinessDay ({year,month,day}), or a 'YYYY-MM-DD' string.
+function toDate(time: any): Date {
+  if (typeof time === "number") return new Date(time * 1000);
+  if (typeof time === "string") {
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(time);
+    if (m) return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
+    return new Date(time);
+  }
+  if (time && typeof time === "object" && "year" in time) {
+    return new Date(Date.UTC(time.year, time.month - 1, time.day));
+  }
+  return new Date(NaN);
 }
 
 interface PortfolioAreaChartProps {
@@ -69,8 +85,13 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200 }: P
         timeVisible: isIntraday,
         secondsVisible: false,
         tickMarkFormatter: isIntraday
-          ? (time: number) => {
-              const d = new Date(time * 1000);
+          ? (time: any, tickMarkType: TickMarkType) => {
+              const d = toDate(time);
+              // Day-level ticks: show "D MMM" so multi-day intraday charts are readable.
+              // Time-level ticks: show "HH:MM".
+              if (tickMarkType === TickMarkType.Year || tickMarkType === TickMarkType.Month || tickMarkType === TickMarkType.DayOfMonth) {
+                return d.toLocaleDateString("tr-TR", { day: "numeric", month: "short" });
+              }
               return d.toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
             }
           : undefined,
@@ -80,15 +101,15 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200 }: P
         priceFormatter: (price: number) =>
           "₺" + price.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 }),
         timeFormatter: isIntraday
-          ? (time: number) => {
-              const d = new Date(time * 1000);
+          ? (time: any) => {
+              const d = toDate(time);
               return d.toLocaleString("tr-TR", {
                 month: "short", day: "numeric",
                 hour: "2-digit", minute: "2-digit",
               });
             }
-          : (time: number) => {
-              const d = new Date(time * 1000);
+          : (time: any) => {
+              const d = toDate(time);
               return d.toLocaleDateString("tr-TR", { year: "numeric", month: "short", day: "numeric" });
             },
       },

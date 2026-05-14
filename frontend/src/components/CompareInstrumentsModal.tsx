@@ -17,7 +17,9 @@ const PERIODS: { label: string; value: Period }[] = [
     { label: "1Y", value: "1Y" },
 ];
 
-const COLORS = ["#3b82f6", "#ef4444", "#22c55e", "#f59e0b", "#8b5cf6"];
+// Visually distinct, high-contrast palette for dark backgrounds.
+// First slot stays green to match the app accent (covers the base instrument).
+const COLORS = ["#22c55e", "#3b82f6", "#f97316", "#ec4899", "#a855f7"];
 
 // ── Pure SVG multi-line chart ──────────────────────────────────────────────
 interface SeriesData {
@@ -31,9 +33,13 @@ interface SVGChartProps {
     xLabels: string[];
     yLabel: string;
     mode: ComparisonMode;
+    // When true (intraday cross-market case), each series is laid out across the
+    // full chart width by its own index so non-overlapping sessions are still
+    // visually comparable instead of rendering as two disjoint segments.
+    independentX?: boolean;
 }
 
-function SVGChart({ series, xLabels, yLabel, mode }: SVGChartProps) {
+function SVGChart({ series, xLabels, yLabel, mode, independentX = false }: SVGChartProps) {
     const [tooltip, setTooltip] = useState<{ x: number; y: number; label: string; values: { symbol: string; color: string; value: number }[] } | null>(null);
     const svgRef = useRef<SVGSVGElement>(null);
 
@@ -55,6 +61,11 @@ function SVGChart({ series, xLabels, yLabel, mode }: SVGChartProps) {
     const toX = (i: number) => PAD.left + (i / Math.max(xLabels.length - 1, 1)) * chartW;
     const toY = (v: number) => PAD.top + chartH - ((v - yMin) / (yMax - yMin)) * chartH;
 
+    // For independentX (1D cross-market), each series spans the full chart width
+    // by its own index rather than via xLabels lookup.
+    const seriesXAt = (s: SeriesData, i: number) =>
+        PAD.left + (i / Math.max(s.points.length - 1, 1)) * chartW;
+
     // Y axis ticks
     const yTicks = useMemo(() => {
         const count = 6;
@@ -71,6 +82,15 @@ function SVGChart({ series, xLabels, yLabel, mode }: SVGChartProps) {
         return indices;
     }, [xLabels]);
 
+    // For independentX, x axis is session-progress (0..100%) instead of a real time line.
+    const independentTicks = useMemo(() => {
+        if (!independentX) return [];
+        return [0, 0.25, 0.5, 0.75, 1].map(r => ({
+            ratio: r,
+            label: `%${Math.round(r * 100)}`,
+        }));
+    }, [independentX]);
+
     const formatValue = (v: number) => {
         if (mode === "percentage") return `${v.toFixed(2)}%`;
         if (mode === "usd") return `$${v.toFixed(2)}`;
@@ -78,9 +98,33 @@ function SVGChart({ series, xLabels, yLabel, mode }: SVGChartProps) {
     };
 
     const handleMouseMove = useCallback((e: React.MouseEvent<SVGSVGElement>) => {
-        if (!svgRef.current || xLabels.length === 0) return;
+        if (!svgRef.current) return;
         const rect = svgRef.current.getBoundingClientRect();
         const mouseX = (e.clientX - rect.left) * (W / rect.width) - PAD.left;
+
+        if (independentX) {
+            // Cross-market intraday: align each series by its own progress (0..1).
+            const ratio = Math.max(0, Math.min(1, mouseX / chartW));
+            const perSeries = series
+                .map(s => {
+                    if (s.points.length === 0) return null;
+                    const idx = Math.round(ratio * (s.points.length - 1));
+                    const pt = s.points[idx];
+                    return { symbol: s.symbol, color: s.color, value: pt.value, label: pt.label };
+                })
+                .filter(Boolean) as { symbol: string; color: string; value: number; label: string }[];
+            if (perSeries.length > 0) {
+                setTooltip({
+                    x: PAD.left + ratio * chartW,
+                    y: e.clientY - rect.top,
+                    label: perSeries.map(v => `${v.symbol} • ${v.label}`).join("  |  "),
+                    values: perSeries.map(({ symbol, color, value }) => ({ symbol, color, value })),
+                });
+            }
+            return;
+        }
+
+        if (xLabels.length === 0) return;
         const idx = Math.round((mouseX / chartW) * (xLabels.length - 1));
         const clampedIdx = Math.max(0, Math.min(xLabels.length - 1, idx));
 
@@ -99,7 +143,7 @@ function SVGChart({ series, xLabels, yLabel, mode }: SVGChartProps) {
                 values,
             });
         }
-    }, [series, xLabels, chartW]);
+    }, [series, xLabels, chartW, independentX]);
 
     return (
         <div style={{ position: "relative", width: "100%" }}>
@@ -148,19 +192,32 @@ function SVGChart({ series, xLabels, yLabel, mode }: SVGChartProps) {
                     {yLabel}
                 </text>
 
-                {/* X axis labels */}
-                {xTickIndices.map(i => (
-                    <text
-                        key={i}
-                        x={toX(i)}
-                        y={H - 8}
-                        textAnchor="middle"
-                        fontSize={10}
-                        fill="var(--text-muted)"
-                    >
-                        {xLabels[i]}
-                    </text>
-                ))}
+                {/* X axis labels — session-progress in independentX mode, real labels otherwise */}
+                {independentX
+                    ? independentTicks.map((t, i) => (
+                        <text
+                            key={i}
+                            x={PAD.left + t.ratio * chartW}
+                            y={H - 8}
+                            textAnchor="middle"
+                            fontSize={10}
+                            fill="var(--text-muted)"
+                        >
+                            {t.label}
+                        </text>
+                    ))
+                    : xTickIndices.map(i => (
+                        <text
+                            key={i}
+                            x={toX(i)}
+                            y={H - 8}
+                            textAnchor="middle"
+                            fontSize={10}
+                            fill="var(--text-muted)"
+                        >
+                            {xLabels[i]}
+                        </text>
+                    ))}
 
                 {/* Zero line for percentage mode */}
                 {mode === "percentage" && yMin < 0 && yMax > 0 && (
@@ -173,21 +230,26 @@ function SVGChart({ series, xLabels, yLabel, mode }: SVGChartProps) {
                     />
                 )}
 
-                {/* Series lines */}
+                {/* Series lines — connect every available point. Earlier code broke the
+                    line whenever a series skipped a label (e.g. BIST holidays vs Nasdaq),
+                    leaving visible gaps. For intraday cross-market comparison (independentX)
+                    each series spans the full chart width by its own index. */}
                 {series.map(s => {
-                    if (s.points.length < 2) return null;
-                    // Map each point to its x position using its label's index in xLabels
-                    const d = s.points.reduce((acc, pt, i) => {
-                        const labelIdx = xLabels.indexOf(pt.label);
-                        if (labelIdx === -1) return acc;
-                        const x = toX(labelIdx);
-                        const y = toY(pt.value);
-                        // Use M (move) for first point or after a gap, L (line) otherwise
-                        const prevPt = i > 0 ? s.points[i - 1] : null;
-                        const prevIdx = prevPt ? xLabels.indexOf(prevPt.label) : -1;
-                        const isGap = prevIdx === -1 || labelIdx !== prevIdx + 1;
-                        return acc + (acc === "" || isGap ? `M ${x} ${y}` : ` L ${x} ${y}`);
-                    }, "");
+                    const segments = s.points
+                        .map((pt, i) => {
+                            if (independentX) {
+                                return { x: seriesXAt(s, i), y: toY(pt.value) };
+                            }
+                            const labelIdx = xLabels.indexOf(pt.label);
+                            if (labelIdx === -1) return null;
+                            return { x: toX(labelIdx), y: toY(pt.value) };
+                        })
+                        .filter((p): p is { x: number; y: number } => p !== null);
+
+                    if (segments.length < 2) return null;
+                    const d = segments
+                        .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
+                        .join(" ");
                     return (
                         <path
                             key={s.symbol}
@@ -215,6 +277,23 @@ function SVGChart({ series, xLabels, yLabel, mode }: SVGChartProps) {
 
                 {/* Crosshair dots */}
                 {tooltip && series.map(s => {
+                    if (independentX) {
+                        if (s.points.length === 0) return null;
+                        const ratio = (tooltip.x - PAD.left) / chartW;
+                        const idx = Math.max(0, Math.min(s.points.length - 1, Math.round(ratio * (s.points.length - 1))));
+                        const pt = s.points[idx];
+                        return (
+                            <circle
+                                key={s.symbol}
+                                cx={seriesXAt(s, idx)}
+                                cy={toY(pt.value)}
+                                r={4}
+                                fill={s.color}
+                                stroke="var(--bg-panel)"
+                                strokeWidth={2}
+                            />
+                        );
+                    }
                     const pt = s.points.find(p => p.label === tooltip.label);
                     if (!pt) return null;
                     return (
@@ -258,14 +337,23 @@ function SVGChart({ series, xLabels, yLabel, mode }: SVGChartProps) {
                 </div>
             )}
 
-            {/* Legend */}
+            {/* Legend — in independentX mode also annotate each series's actual session range
+                since the X axis no longer carries real timestamps. */}
             <div style={{ display: "flex", gap: 16, justifyContent: "center", marginTop: 8, flexWrap: "wrap" }}>
-                {series.map(s => (
-                    <div key={s.symbol} style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <div style={{ width: 20, height: 2, background: s.color, borderRadius: 1 }} />
-                        <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{s.symbol}</span>
-                    </div>
-                ))}
+                {series.map(s => {
+                    const range = independentX && s.points.length > 0
+                        ? `${s.points[0].label} → ${s.points[s.points.length - 1].label}`
+                        : null;
+                    return (
+                        <div key={s.symbol} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <div style={{ width: 20, height: 2, background: s.color, borderRadius: 1 }} />
+                            <span style={{ fontSize: 12, color: "var(--text-muted)" }}>{s.symbol}</span>
+                            {range && (
+                                <span style={{ fontSize: 10, color: "var(--text-muted)", opacity: 0.7 }}>({range})</span>
+                            )}
+                        </div>
+                    );
+                })}
             </div>
         </div>
     );
@@ -449,6 +537,7 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }: Pro
                             xLabels={xLabels}
                             yLabel={getYAxisLabel()}
                             mode={mode}
+                            independentX={period === "1D"}
                         />
                     )}
                 </div>
@@ -550,6 +639,6 @@ const s: Record<string, React.CSSProperties> = {
     searchName: { fontSize: 11, color: "var(--text-muted)", marginTop: 2 },
     searchAdd: {
         width: 24, height: 24, borderRadius: "50%", background: "var(--accent-solid)",
-        color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 600,
+        color: "#000", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, fontWeight: 600,
     },
 };

@@ -1,10 +1,11 @@
 package com.finansportali.backend.service;
 
-import com.finansportali.backend.domain.HistoricalPrice;
-import com.finansportali.backend.domain.InstrumentType;
-import com.finansportali.backend.domain.MarketInstrument;
-import com.finansportali.backend.repo.HistoricalPriceRepository;
-import com.finansportali.backend.repo.MarketInstrumentRepository;
+import com.finansportali.backend.entity.HistoricalPrice;
+import com.finansportali.backend.entity.InstrumentType;
+import com.finansportali.backend.entity.MarketInstrument;
+import com.finansportali.backend.repository.HistoricalPriceRepository;
+import com.finansportali.backend.repository.MarketInstrumentRepository;
+import com.finansportali.backend.service.client.market.YahooPriceFetcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;

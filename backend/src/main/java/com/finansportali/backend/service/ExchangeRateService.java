@@ -1,7 +1,7 @@
 package com.finansportali.backend.service;
 
-import com.finansportali.backend.domain.ExchangeRate;
-import com.finansportali.backend.repo.ExchangeRateRepository;
+import com.finansportali.backend.entity.ExchangeRate;
+import com.finansportali.backend.repository.ExchangeRateRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;

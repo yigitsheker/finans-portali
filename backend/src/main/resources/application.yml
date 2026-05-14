@@ -21,21 +21,47 @@ spring:
     baseline-on-migrate: true
     clean-disabled: false
   mail:
-    host: smtp.gmail.com
-    port: 587
-    username: ${MAIL_USERNAME:your-email@gmail.com}
-    password: ${MAIL_PASSWORD:your-app-password}
+    host: ${SPRING_MAIL_HOST:smtp.gmail.com}
+    port: ${SPRING_MAIL_PORT:587}
+    username: ${SPRING_MAIL_USERNAME:}
+    password: ${SPRING_MAIL_PASSWORD:}
     properties:
       mail:
         smtp:
-          auth: true
+          auth: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:true}
           starttls:
-            enable: true
-            required: true
+            enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:true}
+            required: false
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
     default-encoding: UTF-8
+
+app:
+  base-url: ${APP_BASE_URL:http://localhost}
+  bonds:
+    provider: ${BONDS_PROVIDER:TCMB}  # TCMB (real: politika faizi + Bigpara scrape), DEMO
+    scheduler-enabled: ${BONDS_SCHEDULER_ENABLED:true}
+    refresh-cron: ${BONDS_REFRESH_CRON:0 0 0/2 * * ?}  # Every 2 hours
+    fallback-enabled: ${BONDS_FALLBACK_ENABLED:true}
+    tcmb:
+      # EVDS3 session-based auth (EVDS2 REST API is deprecated/redirects to EVDS3 SPA)
+      base-url: https://evds3.tcmb.gov.tr/igmevdsms-dis/
+      evds3-jsessionid: ${TCMB_EVDS3_JSESSIONID:}
+      evds3-ts-cookie: ${TCMB_EVDS3_TS_COOKIE:}
+    bist:
+      base-url: https://www.borsaistanbul.com/
+  funds:
+    provider: ${FUNDS_PROVIDER:TEFAS}  # TEFAS (real data source via JSON API)
+    scheduler-enabled: ${FUNDS_SCHEDULER_ENABLED:true}
+    refresh-cron: ${FUNDS_REFRESH_CRON:0 30 10,14,18 * * MON-FRI}  # 10:30, 14:30, 18:30 on weekdays
+    max-funds-to-fetch: ${FUNDS_MAX_FETCH:100}  # Increased limit for API (faster than web scraping)
+    rate-limit-delay-ms: ${FUNDS_RATE_LIMIT_DELAY:200}  # Reduced delay for API (faster than web scraping)
+    retry-max-attempts: ${FUNDS_RETRY_MAX_ATTEMPTS:3}  # Max retry attempts for failed requests
+    retry-initial-delay-ms: ${FUNDS_RETRY_INITIAL_DELAY:1000}  # Initial retry delay (ms)
+    fallback-enabled: ${FUNDS_FALLBACK_ENABLED:false}  # Do not use sample data in production
+    tefas:
+      base-url: https://www.tefas.gov.tr
 
 management:
   endpoints:

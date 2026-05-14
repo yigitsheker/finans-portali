@@ -1,7 +1,8 @@
 package com.finansportali.backend.service;
 
-import com.finansportali.backend.domain.NewsArticle;
-import com.finansportali.backend.repo.NewsArticleRepository;
+import com.finansportali.backend.entity.NewsArticle;
+import com.finansportali.backend.repository.NewsArticleRepository;
+import com.finansportali.backend.service.client.news.NewsContentFetcher;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
