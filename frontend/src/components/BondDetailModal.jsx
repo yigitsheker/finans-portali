@@ -1,0 +1,271 @@
+import { useEffect, useState } from "react";
+import Modal from "./Modal";
+import { getBondDetail, getBondHistory } from "../api/bondApi";
+import { LWAreaChart } from "./common/LWAreaChart";
+
+const TYPE_LABELS = {
+    GOVERNMENT_BOND: "Devlet Tahvili",
+    TREASURY_BILL: "Hazine Bonosu",
+    LEASE_CERTIFICATE: "Kira Sertifikası",
+    EUROBOND: "Eurobond",
+    CORPORATE_BOND: "Özel Sektör Tahvili",
+    OTHER: "Diğer",
+};
+
+export default function BondDetailModal({ bondId, onClose }) {
+    const [bond, setBond] = useState(null);
+    const [history, setHistory] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [historyLoading, setHistoryLoading] = useState(false);
+    const [error, setError] = useState(null);
+    const [period, setPeriod] = useState("30D");
+
+    useEffect(() => {
+        loadBondDetail();
+    }, [bondId]);
+
+    useEffect(() => {
+        if (bond) {
+            loadHistory();
+        }
+    }, [bond, period]);
+
+    async function loadBondDetail() {
+        try {
+            setLoading(true);
+            setError(null);
+            const data = await getBondDetail(bondId);
+            setBond(data);
+        } catch (e) {
+            setError(e?.message ?? "Veri yüklenirken hata oluştu");
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function loadHistory() {
+        if (!bond) return;
+
+        try {
+            setHistoryLoading(true);
+            const to = new Date().toISOString().split("T")[0];
+            const from = new Date();
+
+            if (period === "30D") from.setDate(from.getDate() - 30);
+            else if (period === "90D") from.setDate(from.getDate() - 90);
+            else from.setFullYear(from.getFullYear() - 1);
+
+            const fromStr = from.toISOString().split("T")[0];
+            const data = await getBondHistory(bondId, fromStr, to);
+            setHistory(data);
+        } catch (e) {
+            console.error("Failed to load history:", e);
+            setHistory([]);
+        } finally {
+            setHistoryLoading(false);
+        }
+    }
+
+    if (loading) {
+        return (
+            <Modal open={true} title="Yükleniyor..." onClose={onClose}>
+                <div style={s.loading}>Yükleniyor...</div>
+            </Modal>
+        );
+    }
+
+    if (error || !bond) {
+        return (
+            <Modal open={true} title="Hata" onClose={onClose}>
+                <div style={s.error}>{error || "Veri bulunamadı"}</div>
+            </Modal>
+        );
+    }
+
+    const positive = bond.changeRate >= 0;
+    const changeColor = positive ? "var(--green)" : "var(--red)";
+
+    return (
+        <Modal
+            open={true}
+            title={`${bond.symbol} — ${bond.name}`}
+            onClose={onClose}
+            maxWidth={900}
+        >
+            <div style={s.content}>
+                {/* Header Info */}
+                <div style={s.headerRow}>
+                    <div>
+                        <div style={s.yieldLabel}>Getiri Oranı</div>
+                        <div style={s.yieldValue}>
+                            {bond.latestYieldRate ? `${bond.latestYieldRate.toFixed(2)}%` : "-"}
+                        </div>
+                    </div>
+                    <div style={{ textAlign: "right" }}>
+                        <div style={s.changeLabel}>Değişim</div>
+                        <div style={{ ...s.changeValue, color: changeColor }}>
+                            {bond.changeRate
+                                ? `${positive ? "+" : ""}${bond.changeRate.toFixed(2)}%`
+                                : "-"}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Details Grid */}
+                <div style={s.detailsGrid}>
+                    <div style={s.detailCard}>
+                        <div style={s.detailLabel}>Tür</div>
+                        <div style={s.detailValue}>{TYPE_LABELS[bond.type] || bond.type}</div>
+                    </div>
+                    <div style={s.detailCard}>
+                        <div style={s.detailLabel}>ISIN</div>
+                        <div style={s.detailValue}>{bond.isin || "-"}</div>
+                    </div>
+                    <div style={s.detailCard}>
+                        <div style={s.detailLabel}>İhraççı</div>
+                        <div style={s.detailValue}>{bond.issuer || "-"}</div>
+                    </div>
+                    <div style={s.detailCard}>
+                        <div style={s.detailLabel}>Para Birimi</div>
+                        <div style={s.detailValue}>{bond.currency || "-"}</div>
+                    </div>
+                    <div style={s.detailCard}>
+                        <div style={s.detailLabel}>Vade Tarihi</div>
+                        <div style={s.detailValue}>
+                            {bond.maturityDate
+                                ? new Date(bond.maturityDate).toLocaleDateString("tr-TR")
+                                : "-"}
+                        </div>
+                    </div>
+                    <div style={s.detailCard}>
+                        <div style={s.detailLabel}>Vadeye Kalan Gün</div>
+                        <div style={s.detailValue}>{bond.daysToMaturity || "-"}</div>
+                    </div>
+                    <div style={s.detailCard}>
+                        <div style={s.detailLabel}>Kupon Oranı</div>
+                        <div style={s.detailValue}>
+                            {bond.couponRate ? `${bond.couponRate.toFixed(2)}%` : "-"}
+                        </div>
+                    </div>
+                    <div style={s.detailCard}>
+                        <div style={s.detailLabel}>Kupon Tipi</div>
+                        <div style={s.detailValue}>{bond.couponType || "-"}</div>
+                    </div>
+                    <div style={s.detailCard}>
+                        <div style={s.detailLabel}>Fiyat</div>
+                        <div style={s.detailValue}>
+                            {bond.latestPrice ? bond.latestPrice.toFixed(2) : "-"}
+                        </div>
+                    </div>
+                    <div style={s.detailCard}>
+                        <div style={s.detailLabel}>Temiz Fiyat</div>
+                        <div style={s.detailValue}>
+                            {bond.cleanPrice ? bond.cleanPrice.toFixed(2) : "-"}
+                        </div>
+                    </div>
+                    <div style={s.detailCard}>
+                        <div style={s.detailLabel}>Kirli Fiyat</div>
+                        <div style={s.detailValue}>
+                            {bond.dirtyPrice ? bond.dirtyPrice.toFixed(2) : "-"}
+                        </div>
+                    </div>
+                    <div style={s.detailCard}>
+                        <div style={s.detailLabel}>Hacim</div>
+                        <div style={s.detailValue}>
+                            {bond.volume ? bond.volume.toLocaleString("tr-TR") : "-"}
+                        </div>
+                    </div>
+                </div>
+
+                {/* Chart Section */}
+                <div style={s.chartSection}>
+                    <div style={s.chartHeader}>
+                        <h3 style={s.chartTitle}>Getiri Grafiği</h3>
+                        <div style={s.periodButtons}>
+                            {["30D", "90D", "1Y"].map((p) => (
+                                <button
+                                    key={p}
+                                    style={{
+                                        ...s.periodBtn,
+                                        ...(period === p ? s.periodBtnActive : {}),
+                                    }}
+                                    onClick={() => setPeriod(p)}
+                                >
+                                    {p}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
+                    {historyLoading ? (
+                        <div style={s.chartLoading}>Yükleniyor...</div>
+                    ) : history.length === 0 ? (
+                        <div style={s.chartEmpty}>Tarihsel veri bulunamadı</div>
+                    ) : (
+                        <div style={s.chartWrapper}>
+                            <LWAreaChart
+                                data={history.map((h) => ({
+                                    time: new Date(h.date).getTime() / 1000,
+                                    value: h.yieldRate || 0,
+                                }))}
+                                color="var(--accent-solid)"
+                                height={250}
+                            />
+                        </div>
+                    )}
+                </div>
+
+                {/* Footer */}
+                <div style={s.footer}>
+                    <span style={s.footerText}>
+                        Kaynak: {bond.source}
+                    </span>
+                    <span style={s.footerText}>
+                        Son Güncelleme: {bond.lastUpdatedAt
+                            ? new Date(bond.lastUpdatedAt).toLocaleString("tr-TR")
+                            : "-"}
+                    </span>
+                </div>
+            </div>
+        </Modal>
+    );
+}
+
+const s = {
+    content: { display: "flex", flexDirection: "column", gap: 20 },
+    loading: { padding: "40px", textAlign: "center", color: "var(--text-muted)" },
+    error: { padding: "20px", color: "var(--danger-text)", background: "var(--danger-bg)", borderRadius: 8 },
+    headerRow: { display: "flex", justifyContent: "space-between", padding: "16px 20px", background: "var(--bg-panel)", borderRadius: 10 },
+    yieldLabel: { fontSize: 12, color: "var(--text-muted)", marginBottom: 4 },
+    yieldValue: { fontSize: 28, fontWeight: 800, color: "var(--text-primary)" },
+    changeLabel: { fontSize: 12, color: "var(--text-muted)", marginBottom: 4 },
+    changeValue: { fontSize: 18, fontWeight: 700 },
+    detailsGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 12 },
+    detailCard: { padding: "12px 16px", background: "var(--bg-panel)", borderRadius: 8, border: "1px solid var(--border-card)" },
+    detailLabel: { fontSize: 11, color: "var(--text-muted)", marginBottom: 4 },
+    detailValue: { fontSize: 14, fontWeight: 600, color: "var(--text-primary)" },
+    chartSection: { marginTop: 8 },
+    chartHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 },
+    chartTitle: { margin: 0, fontSize: 16, fontWeight: 600, color: "var(--text-primary)" },
+    periodButtons: { display: "flex", gap: 6 },
+    periodBtn: {
+        padding: "6px 12px",
+        borderRadius: 6,
+        border: "1px solid var(--border-card)",
+        background: "var(--input-bg)",
+        color: "var(--text-muted)",
+        fontSize: 12,
+        fontWeight: 500,
+        cursor: "pointer",
+    },
+    periodBtnActive: {
+        border: "1px solid var(--accent-solid)",
+        background: "var(--accent)",
+        color: "var(--accent-solid)",
+    },
+    chartWrapper: { borderRadius: 10, border: "1px solid var(--border-card)", background: "var(--bg-panel)", padding: 16 },
+    chartLoading: { padding: "60px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 },
+    chartEmpty: { padding: "60px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 },
+    footer: { display: "flex", justifyContent: "space-between", paddingTop: 16, borderTop: "1px solid var(--border-card)" },
+    footerText: { fontSize: 11, color: "var(--text-muted)" },
+};

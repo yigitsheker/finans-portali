@@ -5,7 +5,7 @@
   "displayNameHtml": "<div class=\"kc-logo-text\"><span>Finance Portal</span></div>",
   "enabled": true,
   "sslRequired": "external",
-  "registrationAllowed": false,
+  "registrationAllowed": true,
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
