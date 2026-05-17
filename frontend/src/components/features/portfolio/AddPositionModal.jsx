@@ -18,7 +18,26 @@ export function AddPositionModal({
   onPickSuggestion,
   onSave,
   onClose,
+  // New: amount-based purchase ("budget mode") props
+  inputMode = "quantity",          // "quantity" | "amount"
+  amount = 0,
+  effectiveQty = 0,
+  amountLeftover = 0,
+  setInputMode = () => {},
+  setAmount = () => {},
 }) {
+  const tabBtn = (active) => ({
+    flex: 1,
+    padding: "8px 12px",
+    border: "1px solid var(--border-card)",
+    background: active ? "var(--accent)" : "var(--input-bg)",
+    color: active ? "var(--accent-solid)" : "var(--text-muted)",
+    fontSize: 12,
+    fontWeight: 600,
+    cursor: "pointer",
+    borderRadius: 6,
+    transition: "all 0.15s",
+  });
   return (
     <Modal
       open={open}
@@ -61,17 +80,74 @@ export function AddPositionModal({
             )}
           </div>
         </div>
-        <div style={{ display: "grid", gap: 6 }}>
-          <label style={s.label}>Adet</label>
-          <input type="number" value={quantity} min={1} onChange={(event) => setQuantity(Number(event.target.value))} style={s.input} />
+        {/* Mode toggle: Adet (lot count) vs Tutar (budget) */}
+        <div style={{ gridColumn: "span 2", display: "flex", gap: 6 }}>
+          <button type="button" style={tabBtn(inputMode === "quantity")} onClick={() => setInputMode("quantity")}>
+            Adet
+          </button>
+          <button type="button" style={tabBtn(inputMode === "amount")} onClick={() => setInputMode("amount")}>
+            Tutar
+          </button>
         </div>
-        <div style={{ display: "grid", gap: 6 }}>
-          <label style={s.label}>Guncel Fiyat</label>
-          <input value={priceLoading ? "Yukleniyor..." : price > 0 ? price.toLocaleString("tr-TR") : "-"} readOnly style={{ ...s.input, opacity: 0.75 }} />
-        </div>
+
+        {inputMode === "quantity" ? (
+          <>
+            <div style={{ display: "grid", gap: 6 }}>
+              <label style={s.label}>Adet</label>
+              <input type="number" value={quantity} min={1} onChange={(event) => setQuantity(Number(event.target.value))} style={s.input} />
+            </div>
+            <div style={{ display: "grid", gap: 6 }}>
+              <label style={s.label}>Guncel Fiyat</label>
+              <input value={priceLoading ? "Yukleniyor..." : price > 0 ? price.toLocaleString("tr-TR") : "-"} readOnly style={{ ...s.input, opacity: 0.75 }} />
+            </div>
+          </>
+        ) : (
+          <>
+            <div style={{ display: "grid", gap: 6 }}>
+              <label style={s.label}>Tutar</label>
+              <input
+                type="number"
+                value={amount || ""}
+                min={0}
+                step="any"
+                onChange={(event) => setAmount(Number(event.target.value))}
+                placeholder="örn. 5000"
+                style={s.input}
+              />
+            </div>
+            <div style={{ display: "grid", gap: 6 }}>
+              <label style={s.label}>Guncel Fiyat</label>
+              <input value={priceLoading ? "Yukleniyor..." : price > 0 ? price.toLocaleString("tr-TR") : "-"} readOnly style={{ ...s.input, opacity: 0.75 }} />
+            </div>
+            <div style={{ gridColumn: "span 2", display: "grid", gap: 6 }}>
+              <div style={{
+                padding: "10px 12px",
+                borderRadius: 8,
+                border: "1px solid var(--border-soft)",
+                background: "var(--bg-panel)",
+                fontSize: 12,
+                color: "var(--text-muted)",
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+              }}>
+                <span>📊 Alınacak miktar:</span>
+                <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>
+                  {effectiveQty > 0 ? effectiveQty.toLocaleString("tr-TR") + " adet" : "—"}
+                </span>
+              </div>
+              {amountLeftover > 0 && effectiveQty > 0 && (
+                <div style={{ fontSize: 11, color: "var(--text-muted)", paddingLeft: 4 }}>
+                  Kalan: {amountLeftover.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} (artık para — alımda kullanılmaz)
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
         <div style={{ gridColumn: "span 2", display: "grid", gap: 6 }}>
           <label style={s.label}>Toplam Tutar</label>
-          <input value={total > 0 ? "$" + total.toLocaleString("tr-TR") : "-"} readOnly style={{ ...s.input, opacity: 0.75, fontWeight: 600 }} />
+          <input value={total > 0 ? total.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"} readOnly style={{ ...s.input, opacity: 0.75, fontWeight: 600 }} />
         </div>
       </div>
       {error && <div style={{ color: "var(--danger-text)", marginTop: 8, fontSize: 13 }}>{error}</div>}

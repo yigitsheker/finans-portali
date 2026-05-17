@@ -1,5 +1,16 @@
 import { portfolioStyles as s } from "./portfolioStyles";
+import { usePriceDisplay } from "../../../contexts/CurrencyDisplayContext";
 
+/**
+ * Two render paths exist for historical reasons:
+ *   1) summaryDetail present  → backend returns rich per-position figures
+ *      (buyPrice, currentPrice, currentValue, dailyChangePercent, totalChangePercent,
+ *       currency). Use these directly.
+ *   2) Fallback  → only have items[] + spot prices[]; compute change locally.
+ *
+ * Either way every monetary value is fed through usePriceDisplay.format()
+ * so the currency-mode toggle in the topbar drives the entire table.
+ */
 export function PositionsTable({
   loading,
   items,
@@ -9,6 +20,13 @@ export function PositionsTable({
   openAdd,
   openSell,
 }) {
+  const { format: formatPrice } = usePriceDisplay();
+
+  // Helper: look up the InstrumentType for a symbol from the loaded market data.
+  // Used in the fallback path where positions don't carry currency.
+  const typeOf = (symbol) =>
+    marketData.find((m) => m.symbol === symbol)?.type;
+
   return (
     <div style={s.holdingsCard}>
       <div style={s.holdingsHeader}>
@@ -48,12 +66,8 @@ export function PositionsTable({
                   const totalChangePos = position.totalChangePercent >= 0;
                   const dailyChangePos = position.dailyChangePercent >= 0;
                   const purchaseDate = position.buyDate ? new Date(position.buyDate).toLocaleDateString("tr-TR") : "-";
-                  const currencySymbol = position.currency === "USD" ? "$" : "₺";
-                  const buyPriceFormatted = position.buyPrice > 0 ? currencySymbol + position.buyPrice.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-";
-                  const currentPriceFormatted = position.currentPrice > 0 ? currencySymbol + position.currentPrice.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-";
-                  const usdtry = marketData.find((item) => item.symbol === "USDTRY");
-                  const usdRate = usdtry?.last ?? 35.0;
-                  const currentValueInTRY = position.currency === "USD" ? position.currentValue * usdRate : position.currentValue;
+                  // position.currency is the authoritative native currency on this path.
+                  const cur = position.currency;
 
                   return (
                     <tr key={position.symbol} style={s.tr}>
@@ -61,9 +75,9 @@ export function PositionsTable({
                       <td style={{ ...s.td, color: "var(--text-muted)" }}>{position.name ?? "-"}</td>
                       <td style={s.td}>{position.quantity.toLocaleString("tr-TR")}</td>
                       <td style={{ ...s.td, color: "var(--text-muted)", fontSize: 12 }}>{purchaseDate}</td>
-                      <td style={s.td}>{buyPriceFormatted}</td>
-                      <td style={s.td}>{currentPriceFormatted}</td>
-                      <td style={{ ...s.td, fontWeight: 600 }}>{"₺" + currentValueInTRY.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}</td>
+                      <td style={s.td}>{formatPrice(position.buyPrice, null, { currency: cur })}</td>
+                      <td style={s.td}>{formatPrice(position.currentPrice, null, { currency: cur })}</td>
+                      <td style={{ ...s.td, fontWeight: 600 }}>{formatPrice(position.currentValue, null, { currency: cur })}</td>
                       <td style={{ ...s.td, color: totalChangePos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
                         {totalChangePos ? "+" : ""}{position.totalChangePercent.toFixed(2)}%
                       </td>
@@ -87,6 +101,7 @@ export function PositionsTable({
                   const dailyChangePct = market?.changePct ?? 0;
                   const dailyChangePos = dailyChangePct >= 0;
                   const purchaseDate = position.purchaseDate ? new Date(position.purchaseDate).toLocaleDateString("tr-TR") : "-";
+                  const type = typeOf(position.symbol);
 
                   return (
                     <tr key={position.symbol} style={s.tr}>
@@ -94,9 +109,9 @@ export function PositionsTable({
                       <td style={{ ...s.td, color: "var(--text-muted)" }}>{market?.name ?? "-"}</td>
                       <td style={s.td}>{qty.toLocaleString("tr-TR")}</td>
                       <td style={{ ...s.td, color: "var(--text-muted)", fontSize: 12 }}>{purchaseDate}</td>
-                      <td style={s.td}>{cost > 0 ? "₺" + cost.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
-                      <td style={s.td}>{current > 0 ? "₺" + current.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
-                      <td style={{ ...s.td, fontWeight: 600 }}>{value > 0 ? "₺" + value.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}</td>
+                      <td style={s.td}>{formatPrice(cost, type, { symbol: position.symbol })}</td>
+                      <td style={s.td}>{formatPrice(current, type, { symbol: position.symbol })}</td>
+                      <td style={{ ...s.td, fontWeight: 600 }}>{formatPrice(value, type, { symbol: position.symbol })}</td>
                       <td style={{ ...s.td, color: totalChangePos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
                         {totalChangePos ? "+" : ""}{change.toFixed(2)}%
                       </td>

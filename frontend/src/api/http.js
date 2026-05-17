@@ -2,7 +2,7 @@ import axios from "axios";
 
 export function createApi(keycloak) {
     const api = axios.create({
-        baseURL: "http://localhost:8080",
+        baseURL: "",
         timeout: 15000,
     });
 

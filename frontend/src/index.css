@@ -1,4 +1,4 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 @theme {
   /* Dark mode colors — pure black base */
@@ -6,7 +6,7 @@
   --color-dark-surface: #0a0a0a;
   --color-dark-border: #1a4d1a;
   --color-dark-hover: #0d0d0d;
-  
+
   /* Primary = bright green */
   --color-primary-50: #e6ffe6;
   --color-primary-100: #ccffcc;
@@ -18,16 +18,16 @@
   --color-primary-700: #1a4d1a;
   --color-primary-800: #006600;
   --color-primary-900: #004d00;
-  
+
   /* Semantic colors */
   --color-success: #00ff00;
   --color-error: #f85149;
   --color-warning: #ffaa00;
-  
+
   /* Text colors */
   --color-text-primary: #ffffff;
   --color-text-muted: #7a7a7a;
-  
+
   /* Animations */
   --animate-flash-green: flash-green 800ms ease-out;
   --animate-flash-red: flash-red 800ms ease-out;
@@ -35,95 +35,175 @@
 }
 
 @keyframes flash-green {
-  0% { background-color: rgba(0, 255, 0, 0.3); }
+  0%   { background-color: rgba(0, 255, 0, 0.3); }
   100% { background-color: transparent; }
 }
-
 @keyframes flash-red {
-  0% { background-color: rgba(248, 81, 73, 0.3); }
+  0%   { background-color: rgba(248, 81, 73, 0.3); }
   100% { background-color: transparent; }
 }
-
 @keyframes shimmer {
-  0% { background-position: -1000px 0; }
+  0%   { background-position: -1000px 0; }
   100% { background-position: 1000px 0; }
 }
 
-/* ── Design tokens ─────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────────
+   DESIGN TOKENS — single source of truth for color/spacing/typography
+   Two themes share the same token names; only values differ.
+   ────────────────────────────────────────────────────────────────────────── */
 :root {
-  /* Dark theme — refined deep slate + emerald accent (softer than pure black) */
-  --bg-page:        #07090c;
-  --bg-sidebar:     #0b0e13;
-  --bg-content:     #07090c;
-  --bg-panel:       #0f141b;
-  --bg-panel2:      #131a23;
-  --bg-card:        #11161f;
-  --bg-topbar:      #0b0e13;
-  --bg-grad:        linear-gradient(180deg, #07090c 0%, #0a0d12 100%);
-  --border:         rgba(34, 197, 94, 0.18);
-  --border-soft:    rgba(255, 255, 255, 0.06);
-  --border-card:    rgba(255, 255, 255, 0.08);
-  --text-primary:   #f1f5f9;
-  --text-secondary: #cbd5e1;
-  --text-muted:     #94a3b8;
-  --accent:         rgba(34, 197, 94, 0.14);
-  --accent-solid:   #22c55e;
-  --accent-border:  rgba(34, 197, 94, 0.50);
-  --accent-hover-bg: rgba(34, 197, 94, 0.10);
-  --card-hover-border: rgba(34, 197, 94, 0.45);
-  --input-bg:       #0f141b;
+  /* Surfaces */
+  --bg-page:        #0a0e14;
+  --bg-sidebar:     #0d1218;
+  --bg-content:     #0a0e14;
+  --bg-panel:       #11171f;
+  --bg-panel2:      #161d27;
+  --bg-card:        #131a23;
+  --bg-card-hover:  #181f2a;
+  --bg-topbar:      #0d1218;
+  --bg-elev:        #1a2230;
+  --bg-grad:        linear-gradient(180deg, #0a0e14 0%, #0c1117 100%);
+
+  /* Borders */
+  --border:         rgba(34, 197, 94, 0.16);
+  --border-soft:    rgba(255, 255, 255, 0.05);
+  --border-card:    rgba(255, 255, 255, 0.07);
+  --border-strong:  rgba(255, 255, 255, 0.12);
+
+  /* Text */
+  --text-primary:   #e8eef5;
+  --text-secondary: #b8c4d4;
+  --text-muted:     #7d8a9c;
+  --text-faint:     #56627a;
+
+  /* Accent (emerald — finance growth) */
+  --accent:           rgba(34, 197, 94, 0.14);
+  --accent-solid:     #22c55e;
+  --accent-strong:    #16a34a;
+  --accent-border:    rgba(34, 197, 94, 0.45);
+  --accent-hover-bg:  rgba(34, 197, 94, 0.08);
+  --card-hover-border: rgba(34, 197, 94, 0.40);
+
+  /* Inputs */
+  --input-bg:       #131a23;
+  --input-bg-hover: #181f2a;
   --input-border:   rgba(255, 255, 255, 0.10);
-  --shadow:         0 12px 40px rgba(0, 0, 0, 0.55);
-  --shadow-sm:      0 4px 12px rgba(0, 0, 0, 0.35);
-  --danger-bg:      rgba(239, 68, 68, 0.12);
-  --danger-border:  rgba(239, 68, 68, 0.50);
-  --danger-text:    #fca5a5;
-  --dropdown-bg:    #11161f;
-  --skeleton-bg:    rgba(148, 163, 184, 0.10);
-  --green:          #22c55e;
-  --red:            #ef4444;
-  --notification:   #f59e0b;
-  --radius-sm:      6px;
-  --radius-md:      10px;
-  --radius-lg:      14px;
+  --input-border-focus: rgba(34, 197, 94, 0.55);
+
+  /* Shadows */
+  --shadow:    0 16px 48px rgba(0, 0, 0, 0.55);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.42);
+  --shadow-sm: 0 2px 8px  rgba(0, 0, 0, 0.30);
+  --ring:      0 0 0 3px rgba(34, 197, 94, 0.22);
+
+  /* Status */
+  --danger-bg:     rgba(239, 68, 68, 0.12);
+  --danger-border: rgba(239, 68, 68, 0.45);
+  --danger-text:   #fca5a5;
+
+  --dropdown-bg:   #11171f;
+  --skeleton-bg:   rgba(148, 163, 184, 0.10);
+  --green:         #22c55e;
+  --red:           #ef4444;
+  --amber:         #f59e0b;
+  --blue:          #3b82f6;
+  --notification:  #f59e0b;
+
+  /* Radius scale */
+  --radius-xs: 4px;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  /* Spacing scale (4px base) */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* Typography scale */
+  --font-xs:  11px;
+  --font-sm:  12px;
+  --font-md:  13px;
+  --font-base: 14px;
+  --font-lg:  16px;
+  --font-xl:  18px;
+  --font-2xl: 22px;
+  --font-3xl: 28px;
+  --font-4xl: 34px;
+
+  /* Layout */
+  --sidebar-rail:     68px;      /* default narrow rail (icon-only) */
+  --sidebar-expanded: 240px;     /* full width on hover / mobile drawer */
+  --sidebar-width: var(--sidebar-rail);   /* grid track width — reserves space; sidebar overlays when expanded */
+  --topbar-height: 64px;
+  --ticker-height: 38px;
+  --content-max:   1440px;
 }
 
-/* Light theme — soft neutral with same emerald accent */
+/* Light theme — clean neutral with same emerald accent */
 [data-theme="light"] {
-  --bg-page:        #f8fafc;
+  --bg-page:        #f7f9fc;
   --bg-sidebar:     #ffffff;
-  --bg-content:     #f8fafc;
+  --bg-content:     #f7f9fc;
   --bg-panel:       #ffffff;
-  --bg-panel2:      #f1f5f9;
+  --bg-panel2:      #eef2f7;
   --bg-card:        #ffffff;
+  --bg-card-hover:  #f7f9fc;
   --bg-topbar:      #ffffff;
-  --bg-grad:        linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+  --bg-elev:        #eef2f7;
+  --bg-grad:        linear-gradient(180deg, #f7f9fc 0%, #eef2f7 100%);
+
   --border:         #e2e8f0;
   --border-soft:    #eef2f7;
   --border-card:    #e5e7eb;
-  --text-primary:   #0f172a;
+  --border-strong:  #cbd5e1;
+
+  --text-primary:   #0b1220;
   --text-secondary: #334155;
   --text-muted:     #64748b;
-  --accent:         rgba(16, 185, 129, 0.12);
-  --accent-solid:   #10b981;
-  --accent-border:  rgba(16, 185, 129, 0.45);
-  --accent-hover-bg: rgba(16, 185, 129, 0.08);
+  --text-faint:     #94a3b8;
+
+  --accent:           rgba(16, 185, 129, 0.10);
+  --accent-solid:     #10b981;
+  --accent-strong:    #059669;
+  --accent-border:    rgba(16, 185, 129, 0.45);
+  --accent-hover-bg:  rgba(16, 185, 129, 0.06);
   --card-hover-border: rgba(16, 185, 129, 0.45);
+
   --input-bg:       #ffffff;
+  --input-bg-hover: #f7f9fc;
   --input-border:   #cbd5e1;
-  --shadow:         0 4px 16px rgba(15, 23, 42, 0.06);
-  --shadow-sm:      0 1px 4px rgba(15, 23, 42, 0.04);
-  --danger-bg:      rgba(220, 38, 38, 0.08);
-  --danger-border:  rgba(220, 38, 38, 0.35);
-  --danger-text:    #b91c1c;
-  --dropdown-bg:    #ffffff;
-  --skeleton-bg:    rgba(15, 23, 42, 0.06);
-  --green:          #10b981;
-  --red:            #dc2626;
-  --notification:   #f59e0b;
+  --input-border-focus: rgba(16, 185, 129, 0.55);
+
+  --shadow:    0 12px 40px rgba(15, 23, 42, 0.08);
+  --shadow-md: 0 6px 18px rgba(15, 23, 42, 0.06);
+  --shadow-sm: 0 1px 4px  rgba(15, 23, 42, 0.04);
+  --ring:      0 0 0 3px rgba(16, 185, 129, 0.18);
+
+  --danger-bg:     rgba(220, 38, 38, 0.08);
+  --danger-border: rgba(220, 38, 38, 0.35);
+  --danger-text:   #b91c1c;
+
+  --dropdown-bg:   #ffffff;
+  --skeleton-bg:   rgba(15, 23, 42, 0.06);
+  --green:         #10b981;
+  --red:           #dc2626;
+  --amber:         #d97706;
+  --blue:          #2563eb;
+  --notification:  #f59e0b;
 }
 
-/* ── Base ──────────────────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────────
+   BASE
+   ────────────────────────────────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; }
 
 html, body, #root {
@@ -134,66 +214,122 @@ html, body, #root {
 }
 
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Noto Sans", Helvetica, Arial, sans-serif;
-  font-size: 14px;
+  font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto",
+               "Noto Sans", Helvetica, Arial, sans-serif;
+  font-size: var(--font-base);
   line-height: 1.5;
   color: var(--text-primary);
   background: var(--bg-page);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "tnum" 1, "ss01" 1;  /* tabular nums for money */
   transition: background 0.2s ease, color 0.2s ease;
+}
+
+h1, h2, h3, h4, h5 {
+  margin: 0;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
 }
 
 button {
   font-family: inherit;
   cursor: pointer;
-  transition: border-color 0.15s, background 0.15s, opacity 0.15s;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, opacity 0.15s,
+              transform 0.10s ease, box-shadow 0.15s ease;
 }
 button:disabled { opacity: 0.50; cursor: not-allowed; }
+button:focus-visible { outline: none; box-shadow: var(--ring); }
 
-/* ── Card hover ────────────────────────────────────────────── */
-.market-card {
-  transition: border-color 0.15s ease, background 0.15s ease;
+input, select, textarea {
+  font-family: inherit;
 }
-.market-card:hover {
-  border-color: var(--card-hover-border) !important;
-  background: var(--accent-hover-bg) !important;
-}
-
-/* ── News hover effects ────────────────────────────────────── */
-button:hover .news-read-more-arrow {
-  transform: translateX(4px);
+input:focus-visible, select:focus-visible, textarea:focus-visible {
+  outline: none;
+  border-color: var(--input-border-focus) !important;
+  box-shadow: var(--ring);
 }
 
-button:hover .news-back-arrow {
-  transform: translateX(-4px);
-}
+a { color: var(--accent-solid); text-decoration: none; }
+a:hover { text-decoration: underline; }
 
-button:hover .news-external-icon {
-  transform: translate(2px, -2px);
-}
+/* Numeric values: tabular figures so prices align in columns */
+.num, td, .price, .pct { font-variant-numeric: tabular-nums; }
 
-/* ── Scroll to top button hover ────────────────────────────── */
-.news-scroll-top-button:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);
-}
-
-/* ── Full-screen layout ────────────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────────
+   LAYOUT SHELL — sidebar rail + content. Sidebar is FIXED-positioned so its
+   grow-on-hover expansion overlays the content instead of pushing it right.
+   The grid column reserves the rail width so initial layout still works.
+   ────────────────────────────────────────────────────────────────────────── */
 .fp-shell {
   display: grid;
-  grid-template-columns: 220px 1fr;
+  grid-template-columns: var(--sidebar-rail) 1fr;
   min-height: 100vh;
+  position: relative;
 }
 
+/* The "outer" sidebar is an empty grid track; the real visual lives in
+   .fp-sidebar-shell which is fixed-position. */
 .fp-sidebar {
-  background: var(--bg-sidebar);
-  border-right: 1px solid var(--border);
-  position: sticky;
+  /* keep as a layout anchor — no visible content of its own */
+  position: relative;
+}
+
+.fp-sidebar-shell {
+  position: fixed;
   top: 0;
-  height: 100vh;
+  left: 0;
+  bottom: 0;
+  width: var(--sidebar-rail);
+  background: var(--bg-sidebar);
+  border-right: 1px solid var(--border-card);
+  z-index: 60;
+  transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.22s ease;
   overflow-y: auto;
   overflow-x: hidden;
+}
+
+/* Hover-to-expand on desktop only (devices with a fine pointer). */
+@media (hover: hover) and (min-width: 1025px) {
+  .fp-sidebar-shell:hover {
+    width: var(--sidebar-expanded);
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.35);
+  }
+}
+
+/* Hide text-only elements in the collapsed rail using `display: none` so they
+   don't leave block-level gaps. `.fp-sidebar-text` is attached to every
+   label-only element (brand text, section headers, nav item labels, etc).
+   Icons live in separate spans and stay visible. */
+.fp-sidebar-shell .fp-sidebar-text {
+  white-space: nowrap;
+}
+@media (hover: hover) and (min-width: 1025px) {
+  .fp-sidebar-shell:not(:hover) .fp-sidebar-text {
+    display: none;
+  }
+}
+
+/* Nav items: when collapsed, center the icon and zero out horizontal padding
+   so the icon sits dead-center of the rail. */
+.fp-sidebar-shell .fp-nav-item {
+  overflow: hidden;
+}
+@media (hover: hover) and (min-width: 1025px) {
+  .fp-sidebar-shell:not(:hover) .fp-nav-item {
+    justify-content: center;
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    /* Hide the active-state left border in collapsed mode (it would offset
+       the icon and look ragged). The accent background still hints at active. */
+    border-left-color: transparent !important;
+  }
+  /* Brand row: center the logo when collapsed */
+  .fp-sidebar-shell:not(:hover) .fp-sidebar-brand {
+    justify-content: center;
+    padding: 0 !important;
+  }
 }
 
 .fp-content {
@@ -202,86 +338,194 @@ button:hover .news-external-icon {
   flex-direction: column;
   min-height: 100vh;
   overflow: hidden;
+  min-width: 0;
 }
 
-/* ── Responsive ────────────────────────────────────────────── */
-/* Tablet — collapse sidebar */
-@media (max-width: 1024px) {
-  .fp-shell { grid-template-columns: 1fr; }
-  .fp-sidebar {
-    position: relative;
-    height: auto;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-
-  /* Home page main grid: stack sidebar below */
-  .home-main-grid { grid-template-columns: 1fr !important; }
-  .home-sidebar { position: static !important; }
-
-  /* Hero: stack vertical */
-  .home-hero { grid-template-columns: 1fr !important; padding: 24px !important; }
+/* Mobile hamburger button — hidden on desktop, fixed top-left on small screens */
+.fp-mobile-hamburger {
+  display: none;
+  position: fixed;
+  top: 12px;
+  left: 12px;
+  z-index: 70;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  place-items: center;
+  box-shadow: var(--shadow-sm);
 }
 
-/* Mobile — tighter layout */
-@media (max-width: 640px) {
-  .home-hero { padding: 20px !important; }
-  .home-hero h1 { font-size: 24px !important; }
-  .home-quick-grid {
-    grid-template-columns: repeat(2, 1fr) !important;
-  }
-  .topbar {
-    flex-direction: column;
-    align-items: stretch !important;
-  }
-  .topbar > div:last-child { justify-content: flex-end; }
+/* Mobile backdrop — covers content while drawer is open */
+.fp-mobile-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 55;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.fp-mobile-backdrop.is-visible {
+  display: block;
+  opacity: 1;
 }
 
-@media (max-width: 480px) {
-  .home-quick-grid { grid-template-columns: 1fr !important; }
+/* ──────────────────────────────────────────────────────────────────────────
+   CARD / SURFACE PATTERNS — used app-wide via inline styles
+   ────────────────────────────────────────────────────────────────────────── */
+.market-card {
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
+}
+.market-card:hover {
+  border-color: var(--card-hover-border) !important;
+  background: var(--accent-hover-bg) !important;
 }
 
-/* ── Table row hover ───────────────────────────────────────── */
-tbody tr:hover { background: var(--accent-hover-bg); }
-
-/* ── Card hover (refined) ──────────────────────────────────── */
+/* Generic surface hover for clickable cards */
 .home-page article:hover,
 .home-page button[role="link"]:hover {
   border-color: var(--card-hover-border) !important;
   transform: translateY(-1px);
 }
-
 .home-page .home-quick-grid button:hover {
   border-color: var(--card-hover-border) !important;
   transform: translateY(-2px);
   box-shadow: var(--shadow-sm);
 }
 
-/* ── Toggle button reset ───────────────────────────────────── */
+/* Tablo: zebra + hover */
+table { border-collapse: collapse; width: 100%; }
+tbody tr { transition: background 0.10s ease; }
+tbody tr:hover { background: var(--accent-hover-bg); }
+th  { font-weight: 600; letter-spacing: 0.04em; text-transform: uppercase;
+      color: var(--text-muted); font-size: var(--font-xs); }
+
+/* Mini hover effects */
+button:hover .news-read-more-arrow { transform: translateX(4px); }
+button:hover .news-back-arrow      { transform: translateX(-4px); }
+button:hover .news-external-icon   { transform: translate(2px, -2px); }
+.news-scroll-top-button:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 6px 16px rgba(34, 197, 94, 0.4);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   SCROLLBAR — slim, accent-tinted on hover
+   ────────────────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar       { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.18); border-radius: 5px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(34, 197, 94, 0.35); }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   ANIMATIONS
+   ────────────────────────────────────────────────────────────────────────── */
+@keyframes spin     { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+@keyframes fade-in  { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes slide-in { from { opacity: 0; transform: translateX(-12px); } to { opacity: 1; transform: translateX(0); } }
+@keyframes ticker-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
+@keyframes ticker-pulse  { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
+
+.ticker-track {
+  animation-name: ticker-scroll;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+.ticker-bar:hover .ticker-track { animation-play-state: paused; }
+
+@media (prefers-reduced-motion: reduce) {
+  .ticker-track,
+  .fade-in,
+  .slide-in {
+    animation: none !important;
+  }
+}
+
+.fade-in  { animation: fade-in 220ms ease both; }
+.slide-in { animation: slide-in 240ms ease both; }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   RESPONSIVE
+   ────────────────────────────────────────────────────────────────────────── */
+/* Tablet / Mobile — sidebar becomes an off-canvas drawer. Hamburger shows up,
+   content stretches to full width, sidebar slides in from the left when open. */
+@media (max-width: 1024px) {
+  .fp-shell { grid-template-columns: 1fr; }
+
+  /* Keep aside in DOM (its child renders the hamburger + drawer); just zero
+     out the grid track size. `display: none` would kill the fixed children. */
+  .fp-sidebar {
+    width: 0;
+    height: 0;
+    overflow: visible;
+    position: absolute;
+  }
+
+  .fp-sidebar-shell {
+    width: var(--sidebar-expanded);
+    transform: translateX(-100%);
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  .fp-sidebar-shell.is-mobile-open {
+    transform: translateX(0);
+    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
+  }
+
+  /* Labels are always visible inside the mobile drawer */
+  .fp-sidebar-shell .fp-sidebar-text {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+  }
+
+  .fp-mobile-hamburger { display: grid; }
+
+  /* Topbar slides right to leave room for the hamburger button overlay */
+  .topbar { padding-left: 64px !important; }
+
+  /* Home page: stack */
+  .home-main-grid { grid-template-columns: 1fr !important; }
+  .home-sidebar { position: static !important; }
+  .home-hero { grid-template-columns: 1fr !important; padding: 24px !important; }
+}
+
+/* Mobile */
+@media (max-width: 640px) {
+  .home-hero h1 { font-size: var(--font-2xl) !important; }
+  .home-hero    { padding: 20px !important; }
+  .home-quick-grid { grid-template-columns: repeat(2, 1fr) !important; }
+  .topbar {
+    flex-wrap: wrap;
+    gap: 12px !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .home-quick-grid { grid-template-columns: 1fr !important; }
+  :root {
+    --font-base: 13px;
+    --font-md:   12px;
+  }
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   FOCUS / A11Y
+   ────────────────────────────────────────────────────────────────────────── */
 button[role="switch"] { outline: none; }
 button[role="switch"]:focus-visible { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
 
-/* ── Scrollbar ─────────────────────────────────────────────── */
-::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: rgba(148, 163, 184, 0.2); border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: rgba(148, 163, 184, 0.35); }
+/* Selection */
+::selection { background: rgba(34, 197, 94, 0.30); color: inherit; }
 
-/* ── Animations ────────────────────────────────────────────── */
-@keyframes spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* ── Tailwind Custom Utilities ─────────────────────────────── */
+/* ──────────────────────────────────────────────────────────────────────────
+   TAILWIND CUSTOM UTILITIES
+   ────────────────────────────────────────────────────────────────────────── */
 @layer utilities {
-  .transition-micro {
-    transition-duration: 150ms;
-  }
-  .transition-standard {
-    transition-duration: 200ms;
-  }
-  .transition-complex {
-    transition-duration: 300ms;
-  }
+  .transition-micro    { transition-duration: 150ms; }
+  .transition-standard { transition-duration: 200ms; }
+  .transition-complex  { transition-duration: 300ms; }
 }

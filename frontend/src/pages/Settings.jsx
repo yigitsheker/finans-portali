@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { applyTheme } from "../theme";
 
 const NOTIF_ITEMS = [
@@ -10,27 +10,109 @@ const NOTIF_ITEMS = [
   { key: "security",     label: "Guvenlik Uyarilari",      desc: "Supheli aktiviteler icin SMS uyarilari.",           defaultOn: true },
 ];
 
+const NOTIF_PREF_KEY = "notif-preferences";
+
+function loadNotifPrefs() {
+  try {
+    const raw = localStorage.getItem(NOTIF_PREF_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      // Merge with defaults so newly added items in the source list still appear.
+      const out = {};
+      NOTIF_ITEMS.forEach((item) => {
+        out[item.key] = typeof parsed[item.key] === "boolean" ? parsed[item.key] : item.defaultOn;
+      });
+      return out;
+    }
+  } catch { /* ignore corrupt storage */ }
+  const out = {};
+  NOTIF_ITEMS.forEach((item) => { out[item.key] = item.defaultOn; });
+  return out;
+}
+
 export default function Settings({ keycloak, theme, onThemeChange }) {
   const parsed = keycloak.tokenParsed;
+
+  // Profile fields — seeded from JWT (which is what Keycloak ships back after our
+  // PATCH call refreshes the token), so this stays in sync with what's persisted.
   const [firstName, setFirstName] = useState(parsed?.given_name ?? parsed?.name?.split(" ")[0] ?? "");
   const [lastName,  setLastName]  = useState(parsed?.family_name ?? parsed?.name?.split(" ").slice(1).join(" ") ?? "");
   const [email,     setEmail]     = useState(parsed?.email ?? "");
-  const [phone,     setPhone]     = useState("");
-  const [saved,     setSaved]     = useState(false);
-  const [notifs, setNotifs] = useState(() => {
-    const init = {};
-    NOTIF_ITEMS.forEach((n) => { init[n.key] = n.defaultOn; });
-    return init;
-  });
+  const [phone,     setPhone]     = useState(parsed?.phone ?? "");
+  const [saving,    setSaving]    = useState(false);
+  const [saveStatus, setSaveStatus] = useState(null); // null | "ok" | "error"
+  const [saveError, setSaveError]   = useState(null);
+
+  const [notifs, setNotifs] = useState(loadNotifPrefs);
+
+  // Persist notification toggles every time they change.
+  useEffect(() => {
+    try { localStorage.setItem(NOTIF_PREF_KEY, JSON.stringify(notifs)); } catch { /* ignore quota */ }
+  }, [notifs]);
 
   const initials = useMemo(() => {
     const name = (firstName + " " + lastName).trim();
     return name ? name.slice(0, 2).toUpperCase() : "JD";
   }, [firstName, lastName]);
 
-  function handleSave() { setSaved(true); setTimeout(() => setSaved(false), 2500); }
-  function toggleNotif(key) { setNotifs((prev) => ({ ...prev, [key]: !prev[key] })); }
-  function handleTheme(t) { onThemeChange(t); applyTheme(t); }
+  const otpConfigured = Boolean(parsed?.otp_enabled || parsed?.totp);
+
+  async function handleSave() {
+    setSaving(true);
+    setSaveStatus(null);
+    setSaveError(null);
+    try {
+      const r = await fetch("/api/v1/users/me", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${keycloak.token}`,
+        },
+        body: JSON.stringify({ firstName, lastName, email, phone }),
+      });
+      if (!r.ok) {
+        const text = await r.text();
+        throw new Error(text || `HTTP ${r.status}`);
+      }
+      // Refresh the JWT so its embedded claims match the new profile values.
+      try { await keycloak.updateToken(-1); } catch { /* token may already be fresh */ }
+      setSaveStatus("ok");
+      setTimeout(() => setSaveStatus(null), 2500);
+    } catch (e) {
+      console.error("Profil kaydedilemedi:", e);
+      setSaveStatus("error");
+      setSaveError(e?.message ?? "Bilinmeyen hata");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function toggleNotif(key) {
+    setNotifs((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function handleTheme(t) {
+    onThemeChange(t);
+    applyTheme(t);
+  }
+
+  const baseRedirect = window.location.href;
+  function setup2FA() {
+    keycloak.login({ action: "CONFIGURE_TOTP", redirectUri: baseRedirect });
+  }
+  function changePassword() {
+    keycloak.login({ action: "UPDATE_PASSWORD", redirectUri: baseRedirect });
+  }
+  function manageAccount() {
+    const url = keycloak.createAccountUrl({ redirectUri: baseRedirect });
+    window.location.href = url;
+  }
+
+  const THEME_OPTIONS = [
+    { key: "light",  label: "Acik",  icon: "☀️" },
+    { key: "dark",   label: "Koyu",  icon: "🌙" },
+    { key: "system", label: "Sistem", icon: "💻" },
+  ];
 
   return (
     <div style={s.root}>
@@ -64,9 +146,16 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
               <input value={phone} onChange={(e) => setPhone(e.target.value)} style={s.input} placeholder="+90 555 000 0000" type="tel" />
             </div>
           </div>
-          <button style={s.saveBtn} onClick={handleSave}>
-            {saved ? "Kaydedildi" : "Degisiklikleri Kaydet"}
-          </button>
+          <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <button style={{ ...s.saveBtn, opacity: saving ? 0.6 : 1 }} onClick={handleSave} disabled={saving}>
+              {saving ? "Kaydediliyor..." : saveStatus === "ok" ? "Kaydedildi ✓" : "Degisiklikleri Kaydet"}
+            </button>
+            {saveStatus === "error" && (
+              <span style={{ color: "var(--danger-text, #ef4444)", fontSize: 12 }}>
+                Hata: {saveError}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Right column */}
@@ -74,36 +163,70 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
           {/* Appearance */}
           <div style={s.card}>
             <div style={s.cardTitle}>Gorunum</div>
-            <div style={s.cardSub}>Uygulamanin gorunumunu ozellestirin.</div>
+            <div style={s.cardSub}>Uygulamanin gorunumunu ozellestirin. "Sistem" işletim sistemi ayarınızı takip eder.</div>
             <div style={s.themeRow}>
-              {["light", "dark"].map((t) => {
-                const labels = { light: "Acik", dark: "Koyu" };
-                const icons  = { light: "☀️",   dark: "🌙" };
-                return (
-                  <button key={t} style={{ ...s.themeBtn, ...(theme === t ? s.themeBtnActive : {}) }} onClick={() => handleTheme(t)}>
-                    <span style={{ fontSize: 22 }}>{icons[t]}</span>
-                    <span style={{ fontSize: 12, marginTop: 4 }}>{labels[t]}</span>
-                  </button>
-                );
-              })}
-              <button style={{ ...s.themeBtn }}>
-                <span style={{ fontSize: 22 }}>💻</span>
-                <span style={{ fontSize: 12, marginTop: 4 }}>Sistem</span>
+              {THEME_OPTIONS.map((opt) => (
+                <button
+                  key={opt.key}
+                  style={{ ...s.themeBtn, ...(theme === opt.key ? s.themeBtnActive : {}) }}
+                  onClick={() => handleTheme(opt.key)}
+                >
+                  <span style={{ fontSize: 22 }}>{opt.icon}</span>
+                  <span style={{ fontSize: 12, marginTop: 4 }}>{opt.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Security */}
+          <div style={s.card}>
+            <div style={s.cardTitle}>Güvenlik</div>
+            <div style={s.cardSub}>Hesap güvenliğinizi ve iki faktörlü doğrulamayı yönetin.</div>
+
+            <div style={s.secRow}>
+              <div style={{ flex: 1 }}>
+                <div style={s.secLabel}>İki Faktörlü Doğrulama (2FA)</div>
+                <div style={s.secDesc}>
+                  {otpConfigured
+                    ? "Hesabınızda TOTP doğrulayıcı aktif."
+                    : "Hesabınıza ek bir güvenlik katmanı ekleyin (Google Authenticator, Authy vb.)."}
+                </div>
+              </div>
+              <button style={s.secBtn} onClick={setup2FA}>
+                {otpConfigured ? "Yeniden Kur" : "Kur"}
               </button>
+            </div>
+
+            <div style={{ ...s.secRow, borderTop: "1px solid var(--border-soft)" }}>
+              <div style={{ flex: 1 }}>
+                <div style={s.secLabel}>Şifreyi Değiştir</div>
+                <div style={s.secDesc}>Hesap şifrenizi güncelleyin.</div>
+              </div>
+              <button style={s.secBtn} onClick={changePassword}>Değiştir</button>
+            </div>
+
+            <div style={{ ...s.secRow, borderTop: "1px solid var(--border-soft)" }}>
+              <div style={{ flex: 1 }}>
+                <div style={s.secLabel}>Keycloak Hesap Yönetimi</div>
+                <div style={s.secDesc}>
+                  Oturumları, cihazları ve OTP kimlik bilgilerinizi yönetin.
+                </div>
+              </div>
+              <button style={s.secBtnOutline} onClick={manageAccount}>Aç</button>
             </div>
           </div>
 
           {/* Notifications */}
           <div style={s.card}>
             <div style={s.cardTitle}>Bildirimler</div>
-            <div style={s.cardSub}>Bildirimleri ve uyarilari nasil alacaginizi yapilandirin.</div>
+            <div style={s.cardSub}>Bildirimleri ve uyarilari nasil alacaginizi yapilandirin. Tercihiniz tarayıcıda saklanır.</div>
             {NOTIF_ITEMS.map((item, i) => (
               <div key={item.key} style={{ ...s.notifRow, borderBottom: i < NOTIF_ITEMS.length - 1 ? "1px solid var(--border-soft)" : "none" }}>
                 <div style={{ flex: 1 }}>
                   <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", marginBottom: 2 }}>{item.label}</div>
                   <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{item.desc}</div>
                 </div>
-                <Toggle on={notifs[item.key]} onToggle={() => toggleNotif(item.key)} />
+                <Toggle on={!!notifs[item.key]} onToggle={() => toggleNotif(item.key)} />
               </div>
             ))}
           </div>
@@ -139,4 +262,17 @@ const s = {
   themeBtn: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "14px 8px", borderRadius: 8, border: "1px solid var(--border-card)", background: "transparent", color: "var(--text-muted)", cursor: "pointer", gap: 4 },
   themeBtnActive: { border: "1px solid var(--accent-border)", background: "rgba(37,99,235,0.12)", color: "var(--text-primary)" },
   notifRow: { display: "flex", alignItems: "center", gap: 14, padding: "11px 0" },
+  secRow: { display: "flex", alignItems: "center", gap: 14, padding: "12px 0" },
+  secLabel: { fontSize: 13, fontWeight: 600, color: "var(--text-primary)", marginBottom: 3 },
+  secDesc: { fontSize: 11, color: "var(--text-muted)", lineHeight: 1.5 },
+  secBtn: {
+    padding: "8px 14px", borderRadius: 7, border: "none",
+    background: "var(--accent-solid)", color: "#fff",
+    cursor: "pointer", fontWeight: 600, fontSize: 12, flexShrink: 0,
+  },
+  secBtnOutline: {
+    padding: "8px 14px", borderRadius: 7,
+    border: "1px solid var(--border-card)", background: "transparent",
+    color: "var(--text-primary)", cursor: "pointer", fontWeight: 600, fontSize: 12, flexShrink: 0,
+  },
 };

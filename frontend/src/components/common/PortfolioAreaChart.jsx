@@ -43,6 +43,7 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200 }) {
         textColor: "#7d8590",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         fontSize: 11,
+        attributionLogo: false,
       },
       grid: {
         vertLines: { color: "rgba(48,54,61,0.5)" },

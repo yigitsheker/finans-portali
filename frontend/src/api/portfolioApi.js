@@ -1,6 +1,6 @@
 import axios from "axios";
 
-const API_BASE = "http://localhost:8080";
+const API_BASE = "";
 
 async function authHeader(keycloak) {
     await keycloak.updateToken(30);

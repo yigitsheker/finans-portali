@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { isAdmin } from "../utils/roleUtils";
 
@@ -49,10 +50,8 @@ const BondsIcon = () => (
 
 const ExchangeIcon = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <path d="M7 10L3 6L7 2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M3 6H17C19.2 6 21 7.8 21 10V11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M17 14L21 18L17 22" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-        <path d="M21 18H7C4.8 18 3 16.2 3 14V13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M3 8H21M21 8L17 4M21 8L17 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M21 16H3M3 16L7 12M3 16L7 20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
     </svg>
 );
 
@@ -79,6 +78,22 @@ const AdminIcon = () => (
     </svg>
 );
 
+const CommodityIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="12" cy="12" r="8" stroke="currentColor" strokeWidth="2"/>
+        <path d="M12 6V12L16 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        <text x="12" y="20" fontSize="6" fontWeight="700" fill="currentColor" textAnchor="middle">Au</text>
+    </svg>
+);
+
+const InflationIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 17L9 11L13 15L21 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M3 21H21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+        <text x="12" y="11" fontSize="7" fontWeight="700" fill="currentColor" textAnchor="middle">%</text>
+    </svg>
+);
+
 const SettingsIcon = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
@@ -93,6 +108,8 @@ const PUBLIC_NAV_ITEMS = [
     { id: "funds", label: "Yatırım Fonları", icon: <FundsIcon />, path: "/funds" },
     { id: "bonds", label: "Tahvil ve Bono", icon: <BondsIcon />, path: "/bonds" },
     { id: "market-data", label: "Döviz Kurları", icon: <ExchangeIcon />, path: "/market-data" },
+    { id: "commodities", label: "Emtia", icon: <CommodityIcon />, path: "/commodities" },
+    { id: "inflation", label: "Enflasyon", icon: <InflationIcon />, path: "/inflation" },
 ];
 
 const PRIVATE_NAV_ITEMS = [
@@ -112,6 +129,23 @@ export default function Sidebar({ keycloak }) {
     const navigate = useNavigate();
     const location = useLocation();
 
+    // Mobile drawer state. Desktop hover-expand is pure CSS (see index.css).
+    const [mobileOpen, setMobileOpen] = useState(false);
+    const closeMobile = () => setMobileOpen(false);
+
+    // Close the drawer whenever the route changes (clicking a nav item
+    // shouldn't leave the drawer covering the page).
+    useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+
+    // Lock body scroll while the mobile drawer is open so the page behind
+    // the backdrop doesn't scroll on touch.
+    useEffect(() => {
+        if (!mobileOpen) return;
+        const prev = document.body.style.overflow;
+        document.body.style.overflow = "hidden";
+        return () => { document.body.style.overflow = prev; };
+    }, [mobileOpen]);
+
     const username = useMemo(() => {
         const p = keycloak.tokenParsed;
         return p?.preferred_username ?? p?.name ?? p?.email ?? "Kullanıcı";
@@ -128,47 +162,100 @@ export default function Sidebar({ keycloak }) {
 
     const isActive = (path) => location.pathname === path;
 
+    // Portal mobile-overlay pieces (hamburger button + backdrop) directly into
+    // <body>. Otherwise they live inside Layout's <aside class="fp-sidebar"> whose
+    // width:0/height:0 in mobile mode causes browsers to skip layouting fixed
+    // children — and the hamburger disappears entirely on small screens.
+    const mobileOverlay = createPortal(
+        <>
+            <button
+                type="button"
+                className="fp-mobile-hamburger"
+                onClick={() => setMobileOpen((v) => !v)}
+                aria-label={mobileOpen ? "Menüyü kapat" : "Menüyü aç"}
+                title="Menü"
+            >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+                     stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    {mobileOpen ? (
+                        <>
+                            <line x1="6" y1="6"  x2="18" y2="18" />
+                            <line x1="6" y1="18" x2="18" y2="6" />
+                        </>
+                    ) : (
+                        <>
+                            <line x1="3" y1="6"  x2="21" y2="6" />
+                            <line x1="3" y1="12" x2="21" y2="12" />
+                            <line x1="3" y1="18" x2="21" y2="18" />
+                        </>
+                    )}
+                </svg>
+            </button>
+
+            <div
+                className={`fp-mobile-backdrop ${mobileOpen ? "is-visible" : ""}`}
+                onClick={closeMobile}
+                aria-hidden="true"
+            />
+        </>,
+        document.body
+    );
+
     return (
-        <div style={s.wrap}>
+        <>
+            {mobileOverlay}
+
+            {/* Sidebar shell. Width is controlled by CSS:
+                 - desktop default: rail (icon-only, ~64px)
+                 - desktop hover: expanded (~232px)
+                 - mobile: off-canvas, slides in when `is-mobile-open`         */}
+            <div
+                className={`fp-sidebar-shell ${mobileOpen ? "is-mobile-open" : ""}`}
+                style={s.wrap}
+            >
             {/* Brand */}
-            <div style={s.brand}>
+            <div className="fp-sidebar-brand" style={s.brand}>
                 <div style={s.logo}>
-                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M12 2L4 8V14L12 20L20 14V8L12 2Z" fill="#00ff00"/>
-                        <path d="M12 8V16M8 12H16" stroke="#000000" strokeWidth="2" strokeLinecap="round"/>
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <polyline points="3 17 9 11 13 15 21 7" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
+                        <polyline points="14 7 21 7 21 14" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"/>
                     </svg>
                 </div>
-                <div>
-                    <div style={s.brandName}>Finans</div>
-                    <div style={s.brandSub}>Investment Portal</div>
+                <div className="fp-sidebar-text">
+                    <div style={s.brandName}>Finans Portal</div>
+                    <div style={s.brandSub}>Investment Hub</div>
                 </div>
             </div>
 
             {/* Navigation - public */}
-            <div style={s.sectionLabel}>PİYASALAR</div>
+            <div className="fp-sidebar-text" style={s.sectionLabel}>PİYASALAR</div>
             {PUBLIC_NAV_ITEMS.map((item) => (
                 <button
                     key={item.id}
+                    className="fp-nav-item"
                     style={isActive(item.path) ? s.itemActive : s.item}
                     onClick={() => navigate(item.path)}
+                    title={item.label}
                 >
                     <span style={s.icon}>{item.icon}</span>
-                    {item.label}
+                    <span className="fp-sidebar-text">{item.label}</span>
                 </button>
             ))}
 
             {/* Navigation - private (only when logged in) */}
             {keycloak.authenticated && (
                 <>
-                    <div style={s.sectionLabel}>HESABIM</div>
+                    <div className="fp-sidebar-text" style={s.sectionLabel}>HESABIM</div>
                     {PRIVATE_NAV_ITEMS.map((item) => (
                         <button
                             key={item.id}
+                            className="fp-nav-item"
                             style={isActive(item.path) ? s.itemActive : s.item}
                             onClick={() => navigate(item.path)}
+                            title={item.label}
                         >
                             <span style={s.icon}>{item.icon}</span>
-                            {item.label}
+                            <span className="fp-sidebar-text">{item.label}</span>
                         </button>
                     ))}
                 </>
@@ -177,15 +264,17 @@ export default function Sidebar({ keycloak }) {
             {/* Admin Section - Only visible for admins */}
             {userIsAdmin && (
                 <>
-                    <div style={s.sectionLabel}>ADMIN</div>
+                    <div className="fp-sidebar-text" style={s.sectionLabel}>ADMIN</div>
                     {ADMIN_ITEMS.map((item) => (
                         <button
                             key={item.id}
+                            className="fp-nav-item"
                             style={isActive(item.path) ? s.itemActive : s.item}
                             onClick={() => navigate(item.path)}
+                            title={item.label}
                         >
                             <span style={s.icon}>{item.icon}</span>
-                            {item.label}
+                            <span className="fp-sidebar-text">{item.label}</span>
                         </button>
                     ))}
                 </>
@@ -194,15 +283,17 @@ export default function Sidebar({ keycloak }) {
             <div style={{ flex: 1 }} />
 
             {/* Preferences */}
-            <div style={s.sectionLabel}>PREFERENCES</div>
+            <div className="fp-sidebar-text" style={s.sectionLabel}>PREFERENCES</div>
             {PREF_ITEMS.map((item) => (
                 <button
                     key={item.id}
+                    className="fp-nav-item"
                     style={isActive(item.path) ? s.itemActive : s.item}
                     onClick={() => navigate(item.path)}
+                    title={item.label}
                 >
                     <span style={s.icon}>{item.icon}</span>
-                    {item.label}
+                    <span className="fp-sidebar-text">{item.label}</span>
                 </button>
             ))}
 
@@ -210,14 +301,14 @@ export default function Sidebar({ keycloak }) {
             {keycloak.authenticated ? (
                 <div style={s.userRow}>
                     <div style={s.avatar}>{initials}</div>
-                    <div style={s.userInfo}>
+                    <div className="fp-sidebar-text" style={s.userInfo}>
                         <div style={s.userName}>{username}</div>
                         {email && <div style={s.userEmail}>{email}</div>}
                         {userIsAdmin && <div style={s.userBadge}>👑 Admin</div>}
                     </div>
                 </div>
             ) : (
-                <div style={s.guestRow}>
+                <div className="fp-sidebar-text" style={s.guestRow}>
                     <button
                         style={s.guestLoginBtn}
                         onClick={() =>
@@ -228,7 +319,8 @@ export default function Sidebar({ keycloak }) {
                     </button>
                 </div>
             )}
-        </div>
+            </div>
+        </>
     );
 }
 
@@ -238,14 +330,18 @@ const baseItem = {
     display: "flex",
     alignItems: "center",
     gap: 10,
-    padding: "8px 12px",
+    // 3px left border on every item — transparent when inactive — keeps text/icon
+    // position byte-identical across active/inactive states (otherwise the active
+    // border-left shifts the layout 1-3px depending on subpixel rendering).
+    padding: "8px 12px 8px 9px",
     borderRadius: 8,
     border: "none",
+    borderLeft: "3px solid transparent",
     cursor: "pointer",
     fontSize: 13,
     fontWeight: 500,
     marginBottom: 2,
-    transition: "background 0.12s ease, color 0.12s ease",
+    transition: "background 0.12s ease, color 0.12s ease, border-color 0.12s ease",
 };
 
 const s = {
@@ -263,33 +359,37 @@ const s = {
         padding: "0 4px",
     },
     logo: {
-        width: 36,
-        height: 36,
-        borderRadius: 8,
-        background: "#000000",
-        border: "2px solid #00ff00",
+        width: 38,
+        height: 38,
+        borderRadius: 10,
+        background: "linear-gradient(135deg, var(--accent-strong), var(--accent-solid))",
+        boxShadow: "0 4px 14px rgba(34, 197, 94, 0.30)",
         display: "grid",
         placeItems: "center",
         flexShrink: 0,
     },
     brandName: {
-        fontWeight: 700,
-        fontSize: 14,
+        fontWeight: 800,
+        fontSize: 15,
         color: "var(--text-primary)",
+        letterSpacing: "-0.01em",
     },
     brandSub: {
-        fontSize: 11,
+        fontSize: 10.5,
         color: "var(--text-muted)",
-        marginTop: 1,
+        marginTop: 2,
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
     },
     sectionLabel: {
         fontSize: 10,
-        fontWeight: 600,
-        letterSpacing: 1.0,
-        color: "var(--text-muted)",
-        padding: "0 4px",
-        marginBottom: 4,
-        marginTop: 4,
+        fontWeight: 700,
+        letterSpacing: "0.10em",
+        color: "var(--text-faint, var(--text-muted))",
+        padding: "0 12px",
+        marginBottom: 6,
+        marginTop: 14,
+        textTransform: "uppercase",
     },
     item: {
         ...baseItem,
@@ -301,7 +401,6 @@ const s = {
         background: "var(--accent-hover-bg)",
         color: "var(--text-primary)",
         borderLeft: "3px solid var(--accent-solid)",
-        paddingLeft: 9,
     },
     icon: {
         fontSize: 14,
@@ -321,16 +420,16 @@ const s = {
         marginTop: 8,
     },
     avatar: {
-        width: 30,
-        height: 30,
-        borderRadius: 6,
-        background: "#000000",
-        border: "2px solid #00ff00",
+        width: 32,
+        height: 32,
+        borderRadius: 8,
+        background: "linear-gradient(135deg, var(--accent-strong), var(--accent-solid))",
+        boxShadow: "0 2px 8px rgba(34, 197, 94, 0.25)",
         display: "grid",
         placeItems: "center",
         fontSize: 11,
         fontWeight: 700,
-        color: "#00ff00",
+        color: "#fff",
         flexShrink: 0,
     },
     userInfo: { overflow: "hidden", flex: 1 },
@@ -351,9 +450,10 @@ const s = {
     },
     userBadge: {
         fontSize: 9,
-        fontWeight: 600,
-        color: "#00ff00",
+        fontWeight: 700,
+        color: "var(--accent-solid)",
         marginTop: 2,
+        letterSpacing: "0.04em",
     },
     guestRow: {
         display: "flex",

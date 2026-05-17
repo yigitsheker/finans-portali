@@ -24,6 +24,10 @@ export function usePortfolioPage(keycloak) {
   const [addSymbol, setAddSymbol] = useState("");
   const [addQty, setAddQty] = useState(1);
   const [addPrice, setAddPrice] = useState(0);
+  // "quantity" → user types lot count; "amount" → user types a budget and the
+  // lot count is derived as floor(amount / price). Reset on every open.
+  const [addInputMode, setAddInputMode] = useState("quantity");
+  const [addAmount, setAddAmount] = useState(0);
   const [addPriceLoading, setAddPriceLoading] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
   const [showSugg, setShowSugg] = useState(false);
@@ -222,10 +226,29 @@ export function usePortfolioPage(keycloak) {
     return getFallbackAllocation(items, prices, instruments, allocView, usdRate);
   }, [summaryDetail, items, prices, instruments, marketData, allocView]);
 
+  // In "amount" mode, the effective lot count is derived from the budget;
+  // in "quantity" mode it's whatever the user typed. The save handler reads
+  // this value (not addQty) so the two paths stay consistent.
+  const addEffectiveQty = useMemo(() => {
+    if (addInputMode === "amount") {
+      if (!addAmount || !addPrice || addAmount <= 0 || addPrice <= 0) return 0;
+      return Math.floor(Number(addAmount) / Number(addPrice));
+    }
+    return Number(addQty) || 0;
+  }, [addInputMode, addAmount, addPrice, addQty]);
+
   const addTotal = useMemo(() => {
-    const quantity = Number(addQty);
-    return quantity > 0 && addPrice > 0 ? Number((addPrice * quantity).toFixed(4)) : 0;
-  }, [addPrice, addQty]);
+    const qty = addEffectiveQty;
+    return qty > 0 && addPrice > 0 ? Number((addPrice * qty).toFixed(4)) : 0;
+  }, [addPrice, addEffectiveQty]);
+
+  // In "amount" mode, surface the leftover budget so users see why the lot
+  // count rounded down (e.g. ₺1000 budget at ₺137/lot → 7 lots, ₺41 leftover).
+  const addAmountLeftover = useMemo(() => {
+    if (addInputMode !== "amount") return 0;
+    if (!addAmount || !addPrice || addEffectiveQty <= 0) return Number(addAmount) || 0;
+    return Number(addAmount) - addEffectiveQty * Number(addPrice);
+  }, [addInputMode, addAmount, addPrice, addEffectiveQty]);
 
   const sellCurrentPrice = sellTarget ? (prices[sellTarget.symbol] ?? Number(sellTarget.avgCost ?? 0)) : 0;
   const sellProceeds = sellCurrentPrice * Number(sellQty);
@@ -234,6 +257,8 @@ export function usePortfolioPage(keycloak) {
     setAddSymbol("");
     setAddQty(1);
     setAddPrice(0);
+    setAddInputMode("quantity");
+    setAddAmount(0);
     setErr(null);
     setAddOpen(true);
   }, []);
@@ -257,13 +282,21 @@ export function usePortfolioPage(keycloak) {
   const onAdd = useCallback(async () => {
     const symbol = addSymbol.trim().toUpperCase();
     if (!symbol) return setErr("Sembol zorunlu");
-    if (!addQty || addQty <= 0) return setErr("Adet 1 veya daha buyuk olmali");
     if (!addPrice || addPrice <= 0) return setErr("Gecerli bir sembol girin");
+    if (addInputMode === "amount" && (!addAmount || Number(addAmount) <= 0)) {
+      return setErr("Tutar 0'dan büyük olmalı");
+    }
+    const qty = addEffectiveQty;
+    if (!qty || qty <= 0) {
+      return setErr(addInputMode === "amount"
+        ? "Bu tutarla en az 1 adet alınamıyor — daha yüksek bir tutar girin"
+        : "Adet 1 veya daha büyük olmalı");
+    }
 
     try {
       setAddSaving(true);
       setErr(null);
-      await upsertPosition(keycloak, { symbol, quantity: addQty, avgCost: addPrice });
+      await upsertPosition(keycloak, { symbol, quantity: qty, avgCost: addPrice });
       setAddOpen(false);
       await refresh();
     } catch (error) {
@@ -271,7 +304,7 @@ export function usePortfolioPage(keycloak) {
     } finally {
       setAddSaving(false);
     }
-  }, [addSymbol, addQty, addPrice, keycloak, refresh]);
+  }, [addSymbol, addEffectiveQty, addPrice, addInputMode, addAmount, keycloak, refresh]);
 
   const onSell = useCallback(async () => {
     if (!sellTarget) return;
@@ -313,10 +346,16 @@ export function usePortfolioPage(keycloak) {
     addPriceLoading,
     addSaving,
     addTotal,
+    addInputMode,
+    addAmount,
+    addEffectiveQty,
+    addAmountLeftover,
     showSugg,
     suggestions,
     setAddSymbol,
     setAddQty,
+    setAddInputMode,
+    setAddAmount,
     setShowSugg,
     sellOpen,
     sellTarget,

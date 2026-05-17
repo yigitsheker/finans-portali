@@ -55,6 +55,12 @@ export default function Portfolio({ keycloak }) {
         onPickSuggestion={portfolio.pickSuggestion}
         onSave={portfolio.onAdd}
         onClose={portfolio.closeAddModal}
+        inputMode={portfolio.addInputMode}
+        amount={portfolio.addAmount}
+        effectiveQty={portfolio.addEffectiveQty}
+        amountLeftover={portfolio.addAmountLeftover}
+        setInputMode={portfolio.setAddInputMode}
+        setAmount={portfolio.setAddAmount}
       />
 
       <SellPositionModal

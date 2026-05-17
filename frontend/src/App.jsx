@@ -3,6 +3,7 @@ import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
+import Ticker from "./components/Ticker";
 import Stocks from "./pages/Stocks";
 import Crypto from "./pages/Crypto";
 import Funds from "./pages/Funds";
@@ -14,9 +15,12 @@ import MarketData from "./pages/MarketData";
 import News from "./pages/News";
 import NewsDetail from "./pages/NewsDetail";
 import Admin from "./pages/Admin";
+import Inflation from "./pages/Inflation";
+import Commodities from "./pages/Commodities";
 import PriceAlertModal from "./components/PriceAlertModal";
 import { applyTheme, getStoredTheme } from "./theme";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { CurrencyDisplayProvider } from "./contexts/CurrencyDisplayContext";
 
 /**
  * Login gerektiren sayfalar için sarmalayıcı. Auth yoksa kullanıcıyı login flow'una
@@ -124,6 +128,14 @@ export default function App({ keycloak }) {
             title: "Yönetim Paneli",
             subtitle: "Sistem yönetimi ve veri yönetimi işlemleri.",
         },
+        "/inflation": {
+            title: "Enflasyon",
+            subtitle: "TÜFE / TCMB EVDS3 — Türkiye enflasyon verileri ve tarihsel grafik.",
+        },
+        "/commodities": {
+            title: "Emtia",
+            subtitle: "Altın, gümüş, petrol, doğalgaz, bakır, platin — global emtia fiyatları.",
+        },
     };
 
     const isNewsDetail = location.pathname.startsWith("/news/");
@@ -133,11 +145,14 @@ export default function App({ keycloak }) {
 
     return (
         <ThemeProvider>
+            <CurrencyDisplayProvider>
             <Layout
                 sidebar={<Sidebar keycloak={keycloak} />}
+                ticker={<Ticker keycloak={keycloak} />}
                 topbar={
                     !currentPage.hideTopbar ? (
                         <Topbar
+                            keycloak={keycloak}
                             title={currentPage.title}
                             subtitle={currentPage.subtitle}
                             username={username}
@@ -193,6 +208,16 @@ export default function App({ keycloak }) {
                     />
                     <Route path="/bonds" element={<Bonds keycloak={keycloak} />} />
                     <Route path="/market-data" element={<MarketData />} />
+                    <Route path="/inflation" element={<Inflation />} />
+                    <Route
+                        path="/commodities"
+                        element={
+                            <Commodities
+                                keycloak={keycloak}
+                                onAdded={() => setPortfolioKey((k) => k + 1)}
+                            />
+                        }
+                    />
                     <Route
                         path="/portfolio"
                         element={
@@ -240,6 +265,7 @@ export default function App({ keycloak }) {
                     />
                 )}
             </Layout>
+            </CurrencyDisplayProvider>
         </ThemeProvider>
     );
 }

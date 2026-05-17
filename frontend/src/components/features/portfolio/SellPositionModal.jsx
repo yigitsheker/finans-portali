@@ -1,6 +1,7 @@
 import Modal from "../../Modal";
 import { InfoRow } from "./InfoRow";
 import { portfolioStyles as s } from "./portfolioStyles";
+import { usePriceDisplay } from "../../../contexts/CurrencyDisplayContext";
 
 export function SellPositionModal({
   open,
@@ -14,6 +15,10 @@ export function SellPositionModal({
   onSell,
   onClose,
 }) {
+  const { format: formatPrice } = usePriceDisplay();
+  // Price values are in the position's native currency (TRY for BIST, USD for AAPL...).
+  // Use symbol-based inference because PortfolioPosition doesn't carry an explicit type.
+  const fmt = (v) => formatPrice(v, null, { symbol: target?.symbol });
   return (
     <Modal
       open={open}
@@ -32,8 +37,8 @@ export function SellPositionModal({
         <div style={{ display: "grid", gap: 12 }}>
           <div style={s.infoBox}>
             <InfoRow label="Mevcut Adet" value={String(target.quantity)} />
-            <InfoRow label="Alis Fiyati" value={target.avgCost ? "$" + Number(target.avgCost).toLocaleString("tr-TR") : "-"} />
-            <InfoRow label="Guncel Fiyat" value={currentPrice > 0 ? "$" + currentPrice.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"} />
+            <InfoRow label="Alis Fiyati" value={fmt(target.avgCost)} />
+            <InfoRow label="Guncel Fiyat" value={fmt(currentPrice)} />
           </div>
           <div style={{ display: "grid", gap: 6 }}>
             <label style={s.label}>Satilacak Adet</label>
@@ -47,7 +52,7 @@ export function SellPositionModal({
             />
           </div>
           <div style={s.infoBox}>
-            <InfoRow label="Elde Edilecek" value={proceeds > 0 ? "$" + proceeds.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"} valueColor="var(--green)" />
+            <InfoRow label="Elde Edilecek" value={fmt(proceeds)} valueColor="var(--green)" />
           </div>
           {Number(quantity) >= Number(target.quantity) && (
             <div style={s.warnBox}>Tum pozisyon satilacak ve portfoyden kaldirilacak.</div>

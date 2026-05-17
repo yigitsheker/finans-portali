@@ -1,19 +1,36 @@
 import { SummaryCard } from "./InfoRow";
 import { portfolioStyles as s } from "./portfolioStyles";
+import { usePriceDisplay } from "../../../contexts/CurrencyDisplayContext";
 
+/**
+ * Stats coming in from usePortfolioPage are already summed in TRY
+ * (positions in USD are pre-multiplied by spot USDTRY there). We treat
+ * the figures as native-TRY and let formatPrice handle the display
+ * conversion based on the topbar toggle.
+ */
 export function SummaryCards({ stats, loading, error }) {
+  const { format: formatPrice, convert } = usePriceDisplay();
   const gainPos = stats.totalGain >= 0;
+
+  // Build a signed string for the gain card. `convert` does the math; we just
+  // attach the +/- prefix and the converted currency symbol.
+  const gainConverted = convert(Math.abs(stats.totalGain), null, undefined, "TRY");
+  const gainText = gainConverted.value == null
+    ? "—"
+    : (gainPos ? "+" : "-") +
+      gainConverted.symbol +
+      new Intl.NumberFormat("tr-TR", { maximumFractionDigits: 2 }).format(gainConverted.value);
 
   return (
     <div style={s.summaryGrid}>
       <SummaryCard
         label="Toplam Portfoy Degeri"
-        value={"₺" + stats.totalValue.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
-        sub={"Maliyet: ₺" + stats.totalCost.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
+        value={formatPrice(stats.totalValue, null, { currency: "TRY", maxDigits: 2 })}
+        sub={"Maliyet: " + formatPrice(stats.totalCost, null, { currency: "TRY", maxDigits: 2 })}
       />
       <SummaryCard
         label="Toplam Kazanc / Kayip"
-        value={(gainPos ? "+₺" : "-₺") + Math.abs(stats.totalGain).toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
+        value={gainText}
         sub={(gainPos ? "+" : "") + stats.totalGainPct.toFixed(2) + "% tum zamanlarda"}
         valueColor={gainPos ? "var(--green)" : "var(--red)"}
       />
