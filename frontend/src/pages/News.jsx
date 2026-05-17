@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom';
 import {
     getNews,
     getNewsCategories,
-    getNewsCategoryCounts,
     getMarketSummary,
 } from '../api/portfolioApi';
 
@@ -32,7 +31,6 @@ const News = ({ keycloak }) => {
     const navigate = useNavigate();
     const [news, setNews] = useState([]);
     const [categories, setCategories] = useState([]);
-    const [categoryCounts, setCategoryCounts] = useState({});
     const [selectedCategory, setSelectedCategory] = useState('');
     const [loading, setLoading] = useState(true);
     const [topMovers, setTopMovers] = useState([]);
@@ -54,13 +52,11 @@ const News = ({ keycloak }) => {
 
     const loadData = async () => {
         try {
-            const [cats, counts, market] = await Promise.all([
+            const [cats, market] = await Promise.all([
                 getNewsCategories(),
-                getNewsCategoryCounts(),
                 getMarketSummary(),
             ]);
             setCategories(cats);
-            setCategoryCounts(counts);
             const movers = market
                 .filter((i) => i.type !== 'INDEX')
                 .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
@@ -256,37 +252,6 @@ const News = ({ keycloak }) => {
 
                 {/* Right: sidebar */}
                 <aside style={s.sidebar} className="home-sidebar">
-                    {/* Top movers */}
-                    <div style={s.sideCard}>
-                        <h3 style={s.sideTitle}>📊 Günün En Çok Değişenleri</h3>
-                        <div style={s.sideList}>
-                            {topMovers.length === 0 ? (
-                                <div style={s.muted}>Yükleniyor...</div>
-                            ) : (
-                                topMovers.map((m) => {
-                                    const positive = m.changePct >= 0;
-                                    return (
-                                        <div key={m.symbol} style={s.moverRow}>
-                                            <div>
-                                                <div style={s.moverSymbol}>{m.symbol}</div>
-                                                <div style={s.moverName}>{m.name}</div>
-                                            </div>
-                                            <div
-                                                style={{
-                                                    ...s.moverChange,
-                                                    color: positive ? '#10b981' : '#ef4444',
-                                                }}
-                                            >
-                                                {positive ? '▲' : '▼'} {positive ? '+' : ''}
-                                                {m.changePct.toFixed(2)}%
-                                            </div>
-                                        </div>
-                                    );
-                                })
-                            )}
-                        </div>
-                    </div>
-
                     {/* Categories */}
                     <div style={s.sideCard}>
                         <h3 style={s.sideTitle}>📰 Kategoriler</h3>
@@ -298,8 +263,7 @@ const News = ({ keycloak }) => {
                                 }}
                                 onClick={() => setSelectedCategory('')}
                             >
-                                <span>Tüm Haberler</span>
-                                <span style={s.catCount}>{categoryCounts['all'] || 0}</span>
+                                Tüm Haberler
                             </button>
                             {categories.map((cat) => (
                                 <button
@@ -310,8 +274,7 @@ const News = ({ keycloak }) => {
                                     }}
                                     onClick={() => setSelectedCategory(cat)}
                                 >
-                                    <span>{CATEGORY_LABELS[cat] ?? cat}</span>
-                                    <span style={s.catCount}>{categoryCounts[cat] || 0}</span>
+                                    {CATEGORY_LABELS[cat] ?? cat}
                                 </button>
                             ))}
                         </div>

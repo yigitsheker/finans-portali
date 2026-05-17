@@ -1,6 +1,37 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchNewsContent, getNewsById } from '../api/portfolioApi';
+
+const CATEGORY_LABELS = {
+    'genel-ekonomi': 'Genel Ekonomi',
+    'hisse': 'Hisse Senetleri',
+    'doviz': 'Döviz',
+    'tahvil': 'Tahvil & Bono',
+    'kripto': 'Kripto Para',
+    'emtia': 'Emtia',
+    'fonlar': 'Yatırım Fonları',
+    'borsa': 'Borsa Haberleri',
+    'tcmb': 'TCMB Kararları',
+    'uluslararasi': 'Uluslararası Piyasalar',
+};
+
+const splitParagraphs = (text) => {
+    if (!text) return [];
+    // Prefer real blank-line breaks; fall back to single newlines if the
+    // source did not preserve paragraph structure.
+    const raw = text.includes('\n\n')
+        ? text.split(/\n{2,}/)
+        : text.split(/\n+/);
+    return raw
+        .map((p) => p.trim())
+        .filter((p) => p.length > 0);
+};
+
+const estimateReadingMinutes = (text) => {
+    if (!text) return 1;
+    const words = text.trim().split(/\s+/).length;
+    return Math.max(1, Math.round(words / 220));
+};
 
 const NewsDetail = () => {
     const { id } = useParams();
@@ -29,7 +60,6 @@ const NewsDetail = () => {
         getNewsById(numericId)
             .then(async (fetched) => {
                 if (cancelled) return;
-                // Stale or thin content? Try to enrich from source.
                 const needsContent = !fetched.content
                     || fetched.content === fetched.summary
                     || fetched.content.length < 200;
@@ -58,8 +88,6 @@ const NewsDetail = () => {
     }, [id]);
 
     const handleBack = () => {
-        // Prefer history back so the user lands on the news list with scroll preserved;
-        // fall back to /news if there's no history.
         if (window.history.length > 1) navigate(-1);
         else navigate('/news');
     };
@@ -71,258 +99,277 @@ const NewsDetail = () => {
             month: 'long',
             day: 'numeric',
             hour: '2-digit',
-            minute: '2-digit'
+            minute: '2-digit',
         });
     };
 
-    const getCategoryDisplayName = (category) => {
-        const categoryMap = {
-            'genel-ekonomi': 'Genel Ekonomi',
-            'hisse': 'Hisse Senetleri',
-            'doviz': 'Döviz',
-            'tahvil': 'Tahvil & Bono',
-            'kripto': 'Kripto Para',
-            'emtia': 'Emtia',
-            'fonlar': 'Yatırım Fonları',
-            'borsa': 'Borsa Haberleri',
-            'tcmb': 'TCMB Kararları',
-            'uluslararasi': 'Uluslararası Piyasalar'
-        };
-        return categoryMap[category] || category;
-    };
+    const paragraphs = useMemo(() => {
+        if (!article?.content) return [];
+        // If content just echoes summary, don't repeat it.
+        if (article.summary && article.content.trim() === article.summary.trim()) return [];
+        return splitParagraphs(article.content);
+    }, [article]);
+
+    const readingMinutes = useMemo(
+        () => estimateReadingMinutes(article?.content || article?.summary || ''),
+        [article]
+    );
 
     if (loading) {
         return (
-            <div style={s.root}>
-                <button onClick={handleBack} style={s.backButton}>
-                    <span style={s.backIcon} className="news-back-arrow">←</span>
-                    <span>Haberlere Dön</span>
+            <article style={s.page}>
+                <button onClick={handleBack} style={s.backLink}>
+                    <span style={s.backArrow}>←</span> Haberlere dön
                 </button>
                 <div style={s.loadingContainer}>
                     <div style={s.spinner}></div>
-                    <p style={s.loadingText}>Haber yükleniyor...</p>
+                    <p style={s.loadingText}>Haber yükleniyor…</p>
                 </div>
-            </div>
+            </article>
         );
     }
 
     if (error || !article) {
         return (
-            <div style={s.root}>
-                <button onClick={handleBack} style={s.backButton}>
-                    <span style={s.backIcon} className="news-back-arrow">←</span>
-                    <span>Haberlere Dön</span>
+            <article style={s.page}>
+                <button onClick={handleBack} style={s.backLink}>
+                    <span style={s.backArrow}>←</span> Haberlere dön
                 </button>
-                <div style={s.articleContainer}>
-                    <p style={{ color: 'var(--text-muted)' }}>{error ?? 'Haber bulunamadı'}</p>
-                </div>
-            </div>
+                <p style={s.errorText}>{error ?? 'Haber bulunamadı'}</p>
+            </article>
         );
     }
 
+    const categoryLabel = CATEGORY_LABELS[article.category] || article.category;
+
     return (
-        <div style={s.root}>
-            {/* Back Button */}
-            <button onClick={handleBack} style={s.backButton}>
-                <span style={s.backIcon} className="news-back-arrow">←</span>
-                <span>Haberlere Dön</span>
+        <article style={s.page}>
+            {/* Breadcrumb / back link */}
+            <button onClick={handleBack} style={s.backLink}>
+                <span style={s.backArrow}>←</span> Haberlere dön
             </button>
 
-            {/* Article Container */}
-            <div style={s.articleContainer}>
-                {/* Category Badge */}
-                <div style={s.categoryBadge}>
-                    {getCategoryDisplayName(article.category)}
-                </div>
+            {/* Category kicker — newspaper style section label above headline */}
+            {categoryLabel && (
+                <div style={s.kicker}>{categoryLabel}</div>
+            )}
 
-                {/* Title */}
-                <h1 style={s.title}>{article.title}</h1>
+            {/* Headline */}
+            <h1 style={s.headline}>{article.title}</h1>
 
-                {/* Meta Info */}
-                <div style={s.meta}>
-                    <span style={s.source}>{article.sourceName || 'Piyasalar'}</span>
-                    <span style={s.dot}>•</span>
-                    <span style={s.date}>{formatDate(article.publishedAt)}</span>
-                </div>
+            {/* Standfirst / lead — the summary as italic deck */}
+            {article.summary && (
+                <p style={s.standfirst}>{article.summary}</p>
+            )}
 
-                {/* Content */}
-                <div style={s.content}>
-                    {/* Summary Section */}
-                    <div style={s.summarySection}>
-                        <h2 style={s.sectionTitle}>Özet</h2>
-                        <p style={s.summary}>{article.summary}</p>
-                    </div>
-
-                    {/* Detail Section */}
-                    <div style={s.detailSection}>
-                        <h2 style={s.sectionTitle}>Haber Detayı</h2>
-                        <div style={s.fullContent}>
-                            {article.content && article.content !== article.summary && article.content.length > 200 ? (
-                                article.content.split('\n\n').map((paragraph, index) => (
-                                    <p key={index} style={s.contentParagraph}>
-                                        {paragraph}
-                                    </p>
-                                ))
-                            ) : (
-                                <>
-                                    <p style={s.contentParagraph}>
-                                        {article.summary}
-                                    </p>
-                                    <p style={s.contentNote}>
-                                        <strong>Not:</strong> Haberin tam içeriği için aşağıdaki "Kaynağa Git" butonunu kullanabilirsiniz.
-                                    </p>
-                                </>
-                            )}
-                        </div>
-                    </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div style={s.actions}>
-                    {article.sourceUrl && (
-                        <a
-                            href={article.sourceUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            style={s.sourceButton}
-                        >
-                            <span>Kaynağa Git</span>
-                            <span style={s.externalIcon} className="news-external-icon">↗</span>
-                        </a>
-                    )}
-                    <button onClick={handleBack} style={s.secondaryButton}>
-                        Geri Dön
-                    </button>
-                </div>
+            {/* Byline / meta strip */}
+            <div style={s.byline}>
+                <span style={s.sourceName}>{article.sourceName || 'Piyasalar'}</span>
+                <span style={s.bylineSep}>·</span>
+                <time style={s.date}>{formatDate(article.publishedAt)}</time>
+                <span style={s.bylineSep}>·</span>
+                <span style={s.readTime}>{readingMinutes} dk okuma</span>
             </div>
-        </div>
+
+            {/* Divider under masthead */}
+            <hr style={s.divider} />
+
+            {/* Body */}
+            <div style={s.body}>
+                {paragraphs.length > 0 ? (
+                    paragraphs.map((p, i) => (
+                        <p
+                            key={i}
+                            style={i === 0 ? { ...s.bodyParagraph, ...s.firstParagraph } : s.bodyParagraph}
+                        >
+                            {p}
+                        </p>
+                    ))
+                ) : (
+                    <p style={s.bodyParagraph}>
+                        Bu haberin tam metni kaynak sitede yayınlanmıştır. Devamını okumak için aşağıdaki bağlantıyı kullanabilirsiniz.
+                    </p>
+                )}
+            </div>
+
+            {/* Source attribution / CTA */}
+            {article.sourceUrl && (
+                <footer style={s.footer}>
+                    <div style={s.footerLeft}>
+                        <div style={s.footerLabel}>KAYNAK</div>
+                        <div style={s.footerSource}>{article.sourceName || 'Haber kaynağı'}</div>
+                    </div>
+                    <a
+                        href={article.sourceUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        style={s.sourceCta}
+                    >
+                        Orijinal habere git
+                        <span style={s.ctaArrow}>↗</span>
+                    </a>
+                </footer>
+            )}
+        </article>
     );
 };
 
 const s = {
-    root: {
+    page: {
+        maxWidth: 760,
+        margin: '0 auto',
+        padding: '24px 24px 80px',
         display: 'flex',
         flexDirection: 'column',
-        gap: 20,
-        maxWidth: 900,
-        margin: '0 auto',
-        padding: '0 20px',
     },
-    backButton: {
+    backLink: {
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 8,
-        padding: '10px 16px',
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-card)',
-        borderRadius: 8,
-        color: 'var(--text-primary)',
+        gap: 6,
+        alignSelf: 'flex-start',
+        marginBottom: 32,
+        padding: 0,
+        background: 'transparent',
+        border: 'none',
+        color: 'var(--text-muted)',
         fontSize: 14,
         fontWeight: 500,
         cursor: 'pointer',
-        transition: 'all 0.2s',
+        letterSpacing: '0.01em',
+    },
+    backArrow: {
+        fontSize: 16,
+        lineHeight: 1,
+    },
+    kicker: {
+        display: 'inline-block',
         alignSelf: 'flex-start',
-    },
-    backIcon: {
-        fontSize: 18,
-        fontWeight: 700,
-        transition: 'transform 0.2s',
-    },
-    articleContainer: {
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-card)',
-        borderRadius: 12,
-        padding: 40,
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 24,
-    },
-    categoryBadge: {
-        display: 'inline-flex',
-        alignSelf: 'flex-start',
-        padding: '6px 14px',
-        background: 'rgba(59, 130, 246, 0.15)',
-        border: '1px solid rgba(59, 130, 246, 0.3)',
-        borderRadius: 20,
+        marginBottom: 16,
         fontSize: 12,
-        fontWeight: 600,
-        color: '#3b82f6',
+        fontWeight: 700,
+        letterSpacing: '0.14em',
+        textTransform: 'uppercase',
+        color: '#ef4444',
     },
-    title: {
-        fontSize: 36,
+    headline: {
+        fontSize: 'clamp(28px, 4vw, 44px)',
+        fontWeight: 800,
+        lineHeight: 1.15,
+        letterSpacing: '-0.02em',
+        color: 'var(--text-primary)',
+        margin: '0 0 20px',
+        fontFamily: '"Georgia", "Times New Roman", serif',
+    },
+    standfirst: {
+        fontSize: 'clamp(17px, 2vw, 20px)',
+        lineHeight: 1.55,
+        color: 'var(--text-secondary)',
+        fontStyle: 'italic',
+        margin: '0 0 24px',
+        fontFamily: '"Georgia", "Times New Roman", serif',
+    },
+    byline: {
+        display: 'flex',
+        flexWrap: 'wrap',
+        alignItems: 'center',
+        gap: 8,
+        fontSize: 13,
+        color: 'var(--text-muted)',
+    },
+    sourceName: {
         fontWeight: 700,
         color: 'var(--text-primary)',
-        lineHeight: 1.3,
-        margin: 0,
+        textTransform: 'uppercase',
+        letterSpacing: '0.04em',
+        fontSize: 12,
     },
-    meta: {
-        display: 'flex',
-        alignItems: 'center',
-        gap: 10,
-        paddingBottom: 24,
-        borderBottom: '1px solid var(--border-card)',
-    },
-    source: {
-        fontSize: 14,
-        color: '#10b981',
-        fontWeight: 600,
-    },
-    dot: {
-        fontSize: 14,
+    bylineSep: {
         color: 'var(--text-muted)',
+        opacity: 0.5,
     },
     date: {
-        fontSize: 14,
         color: 'var(--text-muted)',
     },
-    content: {
+    readTime: {
+        color: 'var(--text-muted)',
+    },
+    divider: {
+        border: 'none',
+        borderTop: '1px solid var(--border-card)',
+        margin: '28px 0 36px',
+        width: '100%',
+    },
+    body: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 32,
     },
-    summarySection: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 16,
-        paddingBottom: 32,
-        borderBottom: '1px solid var(--border-card)',
-    },
-    detailSection: {
-        display: 'flex',
-        flexDirection: 'column',
-        gap: 16,
-    },
-    sectionTitle: {
-        fontSize: 20,
-        fontWeight: 700,
-        color: 'var(--text-primary)',
-        margin: 0,
-    },
-    summary: {
+    bodyParagraph: {
         fontSize: 18,
-        fontWeight: 500,
+        lineHeight: 1.8,
         color: 'var(--text-primary)',
-        lineHeight: 1.7,
-        margin: 0,
+        margin: '0 0 22px',
+        fontFamily: '"Georgia", "Times New Roman", serif',
     },
-    fullContent: {
+    firstParagraph: {
+        // Small drop-cap-ish lead emphasis
+        fontSize: 19,
+    },
+    footer: {
+        marginTop: 24,
+        paddingTop: 24,
+        borderTop: '1px solid var(--border-card)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        gap: 16,
+        flexWrap: 'wrap',
+    },
+    footerLeft: {
         display: 'flex',
         flexDirection: 'column',
-        gap: 16,
+        gap: 4,
+    },
+    footerLabel: {
+        fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: '0.12em',
+        color: 'var(--text-muted)',
+    },
+    footerSource: {
+        fontSize: 15,
+        fontWeight: 600,
+        color: 'var(--text-primary)',
+    },
+    sourceCta: {
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 8,
+        padding: '11px 20px',
+        background: 'var(--text-primary)',
+        color: 'var(--bg-page, #0a0a0a)',
+        borderRadius: 999,
+        textDecoration: 'none',
+        fontSize: 14,
+        fontWeight: 600,
+        transition: 'transform 0.15s ease, opacity 0.15s ease',
+    },
+    ctaArrow: {
+        fontSize: 14,
+        fontWeight: 700,
     },
     loadingContainer: {
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 40,
+        padding: 60,
         gap: 16,
     },
     spinner: {
-        width: 40,
-        height: 40,
-        border: '3px solid var(--border)',
-        borderTop: '3px solid #3b82f6',
+        width: 36,
+        height: 36,
+        border: '3px solid var(--border-card)',
+        borderTop: '3px solid var(--text-primary)',
         borderRadius: '50%',
         animation: 'spin 0.8s linear infinite',
     },
@@ -331,60 +378,10 @@ const s = {
         color: 'var(--text-muted)',
         margin: 0,
     },
-    contentParagraph: {
+    errorText: {
+        marginTop: 40,
         fontSize: 16,
-        color: 'var(--text-secondary)',
-        lineHeight: 1.8,
-        margin: 0,
-    },
-    contentNote: {
-        fontSize: 14,
         color: 'var(--text-muted)',
-        lineHeight: 1.6,
-        padding: 16,
-        background: 'var(--bg-panel)',
-        border: '1px solid var(--border-card)',
-        borderRadius: 8,
-        margin: 0,
-    },
-    actions: {
-        display: 'flex',
-        gap: 12,
-        paddingTop: 24,
-        borderTop: '1px solid var(--border-card)',
-    },
-    sourceButton: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        gap: 8,
-        padding: '12px 24px',
-        background: '#3b82f6',
-        border: 'none',
-        borderRadius: 8,
-        color: 'white',
-        fontSize: 14,
-        fontWeight: 600,
-        cursor: 'pointer',
-        textDecoration: 'none',
-        transition: 'all 0.2s',
-    },
-    externalIcon: {
-        fontSize: 16,
-        fontWeight: 700,
-        transition: 'transform 0.2s',
-    },
-    secondaryButton: {
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '12px 24px',
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-card)',
-        borderRadius: 8,
-        color: 'var(--text-primary)',
-        fontSize: 14,
-        fontWeight: 600,
-        cursor: 'pointer',
-        transition: 'all 0.2s',
     },
 };
 

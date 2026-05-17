@@ -1,8 +1,11 @@
 package com.finansportali.backend.service;
 
 import com.finansportali.backend.entity.NewsArticle;
+import com.finansportali.backend.entity.NewsFeed;
 import com.finansportali.backend.repository.NewsArticleRepository;
+import com.finansportali.backend.repository.NewsFeedRepository;
 import com.finansportali.backend.service.client.news.NewsContentFetcher;
+import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -79,15 +82,37 @@ public class NewsService {
     );
 
     private final NewsArticleRepository repo;
+    private final NewsFeedRepository feedRepo;
     private final WebClient client;
     private final NewsContentFetcher contentFetcher;
 
-    public NewsService(NewsArticleRepository repo, NewsContentFetcher contentFetcher) {
+    public NewsService(NewsArticleRepository repo,
+                       NewsFeedRepository feedRepo,
+                       NewsContentFetcher contentFetcher) {
         this.repo = repo;
+        this.feedRepo = feedRepo;
         this.contentFetcher = contentFetcher;
         this.client = WebClient.builder()
                 .defaultHeader("User-Agent", "Mozilla/5.0 (compatible; FinansPortali/1.0)")
                 .build();
+    }
+
+    /**
+     * One-time seed: if news_feeds is empty, copy the original hard-coded FEEDS
+     * array into the database. This keeps fresh installs working out of the box
+     * and lets the admin edit the list from then on without a code change.
+     */
+    @PostConstruct
+    @Transactional
+    void seedFeedsIfEmpty() {
+        if (feedRepo.count() > 0) return;
+        log.info("Seeding {} initial RSS feeds into news_feeds table", FEEDS.size());
+        for (String[] f : FEEDS) {
+            String url = f[0];
+            String category = f[1];
+            String source = f.length > 2 ? f[2] : "Unknown";
+            feedRepo.save(new NewsFeed(url, category, source));
+        }
     }
 
     public List<NewsArticle> latest(String category) {
@@ -152,17 +177,34 @@ public class NewsService {
 
     @Scheduled(initialDelay = 5_000, fixedDelay = 6 * 60 * 60 * 1000L)
     public void fetchAndSaveNews() {
-        log.info("Fetching news from RSS feeds...");
-        for (String[] feed : FEEDS) {
+        // Pull the currently-enabled feed list from the admin-managed table.
+        List<NewsFeed> feeds = feedRepo.findByEnabledTrueOrderByCategoryAscSourceAsc();
+        log.info("Fetching news from {} active RSS feeds...", feeds.size());
+        for (NewsFeed feed : feeds) {
             try {
-                fetchRss(feed[0], feed[1], feed.length > 2 ? feed[2] : "Unknown");
+                fetchRss(feed.getUrl(), feed.getCategory(), feed.getSource());
             } catch (Exception e) {
-                log.warn("RSS fetch failed for {}: {}", feed[0], e.getMessage());
+                log.warn("RSS fetch failed for {}: {}", feed.getUrl(), e.getMessage());
             }
+        }
+        // Her döngünün sonunda kategoriler 50 ile sınırlandırılsın; eski haberler silinir
+        // ve içerikleri olmayanlar ayıklanır. Bu DB'nin sınırsız büyümesini engeller.
+        try {
+            cleanupOldNews();
+        } catch (Exception e) {
+            log.warn("Post-fetch cleanup failed: {}", e.getMessage());
         }
     }
 
     private void fetchRss(String url, String category, String sourceName) {
+        // Eğer bu kategori zaten 50'ye ulaştıysa yeni veri çekmenin anlamı yok; cleanup
+        // sonradan eskileri silecek olsa bile gereksiz HTTP/parse maliyetinden kaçınalım.
+        long existingCount = repo.countByCategory(category);
+        if (existingCount >= 50) {
+            log.debug("Category {} already has {} articles, skipping {}", category, existingCount, url);
+            return;
+        }
+
         String xml = client.get()
                 .uri(url)
                 .retrieve()
@@ -171,14 +213,20 @@ public class NewsService {
 
         if (xml == null || xml.isBlank()) return;
 
-        List<String> existingTitles = repo.findTop50ByOrderByPublishedAtDesc()
+        // Duplicate check kategoriye özel — global top 50 ile karşılaştırmak yetmiyor
+        // çünkü tek kategori son haberleri domine edebilir.
+        List<String> existingTitles = repo.findTop50ByCategoryOrderByPublishedAtDesc(category)
                 .stream().map(NewsArticle::getTitle).toList();
+
+        int budget = (int) (50 - existingCount); // bu kategoriye kaç haber daha sığar
 
         Pattern itemPat = Pattern.compile("<item>(.*?)</item>", Pattern.DOTALL);
         Matcher itemMatcher = itemPat.matcher(xml);
 
         int saved = 0;
         while (itemMatcher.find()) {
+            if (saved >= budget) break; // bu kategori için yer kalmadı
+
             String item    = itemMatcher.group(1);
             String title   = extractTag(item, "title");
             String summary = extractTag(item, "description");
@@ -203,20 +251,31 @@ public class NewsService {
             if (title.length()   > 295)  title   = title.substring(0, 295);
             if (summary.length() > 1990) summary = summary.substring(0, 1990);
 
-            // Try to fetch full content from source URL
-            if (link != null && !link.isBlank()) {
-                String fetchedContent = contentFetcher.fetchArticleContent(link);
-                if (fetchedContent != null && !fetchedContent.isBlank()) {
-                    content = fetchedContent;
-                }
+            // Require a source URL — without it we can't fetch full content and the
+            // detail page would just echo the headline.
+            if (link == null || link.isBlank()) {
+                log.debug("Skipping article without source URL: {}", title);
+                continue;
             }
 
+            // Fetch real body from source. If we can't pull substantial content
+            // (≥ 400 chars), drop the article entirely — readers shouldn't be
+            // sent to a detail page that only repeats the headline.
+            String fetchedContent = contentFetcher.fetchArticleContent(link);
+            final int MIN_CONTENT_CHARS = 400;
+            if (fetchedContent == null || fetchedContent.isBlank()
+                    || fetchedContent.length() < MIN_CONTENT_CHARS) {
+                log.debug("Dropping article — no fetchable body (len={}): {}",
+                        fetchedContent == null ? 0 : fetchedContent.length(), link);
+                continue;
+            }
+            content = fetchedContent;
             if (content.length() > 10000) content = content.substring(0, 10000);
 
             repo.save(new NewsArticle(title, summary, content, category, parseRssDate(pubDate), link, sourceName));
             saved++;
         }
-        log.info("Saved {} new {} articles", saved, category);
+        log.info("Saved {} new {} articles (only items with fetched full body)", saved, category);
     }
 
     private String extractTag(String xml, String tag) {
@@ -383,31 +442,40 @@ public class NewsService {
     @Transactional
     public Map<String, Object> cleanupOldNews() {
         log.info("Starting news cleanup...");
-        
+
         Map<String, Object> result = new HashMap<>();
         int totalDeleted = 0;
         Map<String, Integer> deletedByCategory = new HashMap<>();
-        
-        // Her kategori için en yeni 50 haberi tut, geri kalanını sil
-        List<String> categories = getCategories();
-        
-        for (String category : categories) {
-            List<NewsArticle> allArticles = repo.findAll().stream()
-                    .filter(a -> category.equals(a.getCategory()))
-                    .sorted((a, b) -> b.getPublishedAt().compareTo(a.getPublishedAt()))
-                    .toList();
-            
-            if (allArticles.size() > 50) {
-                List<NewsArticle> toDelete = allArticles.subList(50, allArticles.size());
-                repo.deleteAll(toDelete);
-                deletedByCategory.put(category, toDelete.size());
-                totalDeleted += toDelete.size();
-                log.info("Deleted {} old articles from category: {}", toDelete.size(), category);
-            } else {
+
+        // Her kategori için en yeni 50 haberi tut, geri kalanını sil.
+        // 20k+ kayıt olduğunda findAll() yavaş ve OOM riskli; kategori bazlı query + bulk delete.
+        for (String category : getCategories()) {
+            long count = repo.countByCategory(category);
+            if (count <= 50) {
                 deletedByCategory.put(category, 0);
+                continue;
             }
+            // En yeni 50'nin ID'lerini al, bunların DIŞINDAKİLERİ tek query ile sil
+            List<Long> keepIds = repo.findTop50ByCategoryOrderByPublishedAtDesc(category)
+                    .stream().map(NewsArticle::getId).toList();
+            int deleted = repo.deleteByCategoryAndIdNotIn(category, keepIds);
+            deletedByCategory.put(category, deleted);
+            totalDeleted += deleted;
+            log.info("Cleanup: kategori={} silinen={} kalan={}", category, deleted, keepIds.size());
         }
-        
+
+        // Bilinmeyen / artık kullanılmayan kategorilerde de takılı kalmış kayıtlar olabilir;
+        // bunları da temizle (10 resmi kategori dışındaki her şey).
+        List<String> validCategories = getCategories();
+        long stragglerCount = repo.findAll().stream()
+                .filter(a -> a.getCategory() == null || !validCategories.contains(a.getCategory()))
+                .peek(repo::delete)
+                .count();
+        if (stragglerCount > 0) {
+            totalDeleted += (int) stragglerCount;
+            log.info("Cleanup: {} kayıt geçersiz kategoride silindi", stragglerCount);
+        }
+
         result.put("totalDeleted", totalDeleted);
         result.put("deletedByCategory", deletedByCategory);
         result.put("remainingTotal", repo.count());
