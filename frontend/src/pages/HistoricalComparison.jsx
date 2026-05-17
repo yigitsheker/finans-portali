@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Modal from "../components/Modal";
 import { getLatestPrice, getMarketInstruments } from "../api/portfolioApi";
+import { compareInflation } from "../api/inflationApi";
 
 export default function HistoricalComparison({ keycloak }) {
   const [positions, setPositions] = useState([]);
@@ -121,6 +122,18 @@ export default function HistoricalComparison({ keycloak }) {
       const instrument = instruments.find(i => i.symbol === sym);
       const currency = getCurrency(sym);
 
+      // Compute real return adjusted for cumulative CPI inflation over the same window.
+      // /inflation/compare returns null when buy/today fall outside available CPI months;
+      // we tolerate that and just leave realReturnPct empty.
+      const nominalPct = buyPrice > 0 ? ((currentPrice - buyPrice) / buyPrice) * 100 : 0;
+      const todayISO = new Date().toISOString().split("T")[0];
+      let inflationData = null;
+      try {
+        inflationData = await compareInflation(addDate, todayISO, nominalPct);
+      } catch (e) {
+        console.debug("Inflation compare unavailable:", e?.message);
+      }
+
       const newPosition = {
         id: Date.now().toString(),
         symbol: sym,
@@ -129,7 +142,9 @@ export default function HistoricalComparison({ keycloak }) {
         buyPrice,
         currentPrice,
         lots: addLots,
-        currency
+        currency,
+        cumulativeInflationPct: inflationData?.cumulativeInflationPct ?? null,
+        realReturnPct: inflationData?.realReturnPct ?? null,
       };
 
       setPositions([...positions, newPosition]);
@@ -279,7 +294,7 @@ export default function HistoricalComparison({ keycloak }) {
             <table style={s.table}>
               <thead>
                 <tr>
-                  {["Sembol", "İsim", "Alış Tarihi", "Lot Sayısı", "Alış Fiyatı", "Güncel Fiyat", "Yatırılan", "Güncel Değer", "Kar/Zarar", "Değişim %", ""].map((h) => (
+                  {["Sembol", "İsim", "Alış Tarihi", "Lot", "Alış", "Güncel", "Yatırılan", "Güncel Değer", "Kar/Zarar", "Nominal %", "Enflasyon %", "Reel %", ""].map((h) => (
                     <th key={h} style={s.th}>{h}</th>
                   ))}
                 </tr>
@@ -319,6 +334,20 @@ export default function HistoricalComparison({ keycloak }) {
                       </td>
                       <td style={{ ...s.td, color: isPositive ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
                         {isPositive ? "▲ +" : "▼ "}{Math.abs(changePct).toFixed(2)}%
+                      </td>
+                      <td style={{ ...s.td, color: "var(--text-muted)", fontWeight: 500 }}>
+                        {p.cumulativeInflationPct != null
+                          ? "+" + Number(p.cumulativeInflationPct).toFixed(2) + "%"
+                          : "—"}
+                      </td>
+                      <td style={{
+                        ...s.td,
+                        color: p.realReturnPct == null ? "var(--text-muted)" : (Number(p.realReturnPct) >= 0 ? "var(--green)" : "var(--red)"),
+                        fontWeight: 700,
+                      }}>
+                        {p.realReturnPct != null
+                          ? (Number(p.realReturnPct) >= 0 ? "▲ +" : "▼ ") + Math.abs(Number(p.realReturnPct)).toFixed(2) + "%"
+                          : "—"}
                       </td>
                       <td style={s.td}>
                         <button style={s.deleteBtn} onClick={() => onDelete(p.id)}>

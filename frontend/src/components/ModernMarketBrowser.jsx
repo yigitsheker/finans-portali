@@ -190,7 +190,7 @@ export default function ModernMarketBrowser({ keycloak, onAdded }) {
                                         setAddErr(null);
                                     }}
                                 >
-                                    Al/Sat
+                                    Al
                                 </button>
                             </div>
                         );

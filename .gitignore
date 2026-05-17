@@ -20,6 +20,7 @@ Thumbs.db
 # Docker
 *.sql
 !init-db.sql
+!backend/src/main/resources/db/migration/*.sql
 docker-compose.override.yml
 .docker/
 

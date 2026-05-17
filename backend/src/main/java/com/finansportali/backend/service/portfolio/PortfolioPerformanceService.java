@@ -254,6 +254,22 @@ public class PortfolioPerformanceService {
             tryMultipliers.put(pos.getId(), toTryMultiplier(pos, usdTryRate));
         }
 
+        // Pre-resolve fallback prices for every position so that markets which haven't
+        // opened yet (e.g. NYSE before 16:30 TR time for AAPL) don't drop the position
+        // out of the sum and create a fake vertical jump when the first tick arrives.
+        // Priority: latest DB quote → cost basis.
+        Map<Long, BigDecimal> fallbackPrices = new HashMap<>();
+        for (PortfolioPosition pos : positions) {
+            BigDecimal fallback = pos.getAvgCost() != null ? pos.getAvgCost() : BigDecimal.ZERO;
+            MarketInstrument inst = instrumentRepo.findBySymbol(pos.getSymbol()).orElse(null);
+            if (inst != null) {
+                fallback = quoteRepo.findTop1ByInstrumentOrderByAsOfDesc(inst)
+                        .map(q -> q.getLast())
+                        .orElse(fallback);
+            }
+            fallbackPrices.put(pos.getId(), fallback);
+        }
+
         List<PortfolioPerformancePoint> points = new ArrayList<>();
 
         for (LocalDateTime datetime : allDatetimes) {
@@ -269,27 +285,25 @@ public class PortfolioPerformanceService {
                 BigDecimal multiplier = tryMultipliers.get(pos.getId());
                 List<YahooPriceFetcher.IntradayPoint> posIntradayData = intradayDataMap.get(pos.getSymbol());
 
+                BigDecimal priceAtMoment = null;
                 if (posIntradayData != null) {
-                    // Find closest price at or before this datetime
-                    Optional<BigDecimal> price = posIntradayData.stream()
+                    priceAtMoment = posIntradayData.stream()
                             .filter(p -> !p.datetime().isAfter(datetime))
                             .max(Comparator.comparing(YahooPriceFetcher.IntradayPoint::datetime))
-                            .map(YahooPriceFetcher.IntradayPoint::price);
+                            .map(YahooPriceFetcher.IntradayPoint::price)
+                            .orElse(null);
+                }
 
-                    if (price.isPresent()) {
-                        portfolioValue = portfolioValue.add(
-                                price.get().multiply(pos.getQuantity()).multiply(multiplier));
-                    }
-                } else {
-                    // No intraday data: use current price from DB
-                    MarketInstrument inst = instrumentRepo.findBySymbol(pos.getSymbol()).orElse(null);
-                    if (inst != null) {
-                        BigDecimal currentPrice = quoteRepo.findTop1ByInstrumentOrderByAsOfDesc(inst)
-                                .map(q -> q.getLast())
-                                .orElse(pos.getAvgCost() != null ? pos.getAvgCost() : BigDecimal.ZERO);
-                        portfolioValue = portfolioValue.add(
-                                currentPrice.multiply(pos.getQuantity()).multiply(multiplier));
-                    }
+                // Fallback when no intraday tick has been published yet for this position
+                // (closed market, missing data). Without this the chart "jumps" the moment
+                // a late-opening market produces its first tick.
+                if (priceAtMoment == null) {
+                    priceAtMoment = fallbackPrices.get(pos.getId());
+                }
+
+                if (priceAtMoment != null) {
+                    portfolioValue = portfolioValue.add(
+                            priceAtMoment.multiply(pos.getQuantity()).multiply(multiplier));
                 }
             }
 

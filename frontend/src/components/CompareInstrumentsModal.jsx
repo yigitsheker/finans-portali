@@ -1,6 +1,98 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import Modal from "./Modal";
 import { getMarketHistory, getMarketSummary } from "../api/portfolioApi";
+import { getInflationHistory } from "../api/inflationApi";
+
+// Instrument types whose prices are denominated in TRY. When the user picks
+// "USD Bazlı" view we need to divide these by the historical USDTRY rate of
+// each respective day — using today's rate would distort the past.
+const TRY_DENOMINATED_TYPES = new Set(["BIST", "INDEX", "BOND", "FUND", "VIOP"]);
+const isTryDenominated = (inst) => inst && TRY_DENOMINATED_TYPES.has(inst.type);
+
+// Sentinel "instrument" representing CPI (TÜFE). Treated specially in the data
+// fetcher and series builder; never shown in stock search results.
+const INFLATION_INSTRUMENT = {
+  symbol: "TÜFE",
+  name: "Enflasyon (TCMB)",
+  isInflation: true,
+};
+
+/**
+ * Fetch raw monthly CPI rows. The series builder will interpolate them onto the
+ * stock's daily date grid so the two lines share the same x-axis. CPI is monthly,
+ * so intraday periods can't carry an inflation overlay.
+ */
+async function fetchInflationAsHistory(period) {
+  if (period === "1D" || period === "5D") return [];
+  const rows = await getInflationHistory();
+  if (!rows || rows.length < 2) return [];
+  return rows.map((r) => ({
+    label: r.periodDate,
+    day: r.periodDate,
+    close: Number(r.cpiIndex),
+    timestamp: new Date(r.periodDate).getTime() / 1000,
+  }));
+}
+
+/**
+ * Project monthly CPI values onto an arbitrary list of daily target dates.
+ *
+ *  • Inside the published CPI range → linear interpolation between adjacent months.
+ *  • Before the first known month   → clamp to the earliest value.
+ *  • After the latest published month → compound the last 3-month average monthly
+ *    inflation rate forward. Each emitted point carries an {@code estimated} flag
+ *    so the chart can render it as a dashed line, making clear that this segment
+ *    is a projection rather than actual data.
+ */
+function interpolateCpiOntoDates(cpiRows, targetDates) {
+  if (!cpiRows || cpiRows.length < 2 || targetDates.length === 0) return [];
+  const cpiPts = cpiRows
+    .map((r) => ({ t: new Date(r.label).getTime(), v: Number(r.close) }))
+    .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.v))
+    .sort((a, b) => a.t - b.t);
+  if (cpiPts.length < 2) return [];
+
+  const lastT = cpiPts[cpiPts.length - 1].t;
+  const lastV = cpiPts[cpiPts.length - 1].v;
+
+  // Recent monthly inflation factor — derived from the last 3 months when available,
+  // otherwise from the last month. Damps single-month spikes for a more honest tail.
+  let monthlyFactor = 1.0;
+  if (cpiPts.length >= 4) {
+    const ref = cpiPts[cpiPts.length - 4].v;   // 3 months ago
+    monthlyFactor = Math.pow(lastV / ref, 1 / 3);
+  } else {
+    const prev = cpiPts[cpiPts.length - 2].v;
+    monthlyFactor = lastV / prev;
+  }
+  const MS_PER_MONTH = 1000 * 60 * 60 * 24 * 30.4375;
+
+  const result = [];
+  for (const label of targetDates) {
+    const t = new Date(label).getTime();
+    let v;
+    let estimated = false;
+
+    if (t <= cpiPts[0].t) {
+      v = cpiPts[0].v;
+    } else if (t > lastT) {
+      // Compound the recent monthly rate forward continuously.
+      const monthsPast = (t - lastT) / MS_PER_MONTH;
+      v = lastV * Math.pow(monthlyFactor, monthsPast);
+      estimated = true;
+    } else {
+      for (let j = 0; j < cpiPts.length - 1; j++) {
+        if (t >= cpiPts[j].t && t <= cpiPts[j + 1].t) {
+          const ratio = (t - cpiPts[j].t) / (cpiPts[j + 1].t - cpiPts[j].t);
+          v = cpiPts[j].v + ratio * (cpiPts[j + 1].v - cpiPts[j].v);
+          break;
+        }
+      }
+    }
+    if (v !== undefined) result.push({ label, value: v, estimated });
+  }
+  return result;
+}
 
 const PERIODS = [
     { label: "1G", value: "1D" },
@@ -17,12 +109,49 @@ const COLORS = ["#22c55e", "#3b82f6", "#f97316", "#ec4899", "#a855f7"];
 
 function SVGChart({ series, xLabels, yLabel, mode, independentX = false }) {
     const [tooltip, setTooltip] = useState(null);
+    // zoomRange = null → full extent; otherwise {startIdx, endIdx} inclusive over xLabels.
+    const [zoomRange, setZoomRange] = useState(null);
     const svgRef = useRef(null);
 
     const W = 780, H = 340;
     const PAD = { top: 20, right: 20, bottom: 40, left: 70 };
     const chartW = W - PAD.left - PAD.right;
     const chartH = H - PAD.top - PAD.bottom;
+
+    // Capture the FULL extent before any shadowing — wheel math needs absolute totals.
+    const fullXLabels = xLabels;
+    const fullLength = fullXLabels.length;
+
+    // Reset zoom whenever the underlying data shape changes — otherwise switching
+    // period/mode could leave the chart stuck at a stale window.
+    useEffect(() => {
+        setZoomRange(null);
+    }, [fullLength, mode, independentX]);
+
+    // Visible (zoomed) slice of the x axis. Series points are filtered to the same
+    // label set, and inflation's `estimatedFromIdx` recomputed against the new array.
+    const visibleXLabels = useMemo(() => {
+        if (!zoomRange || independentX) return fullXLabels;
+        return fullXLabels.slice(zoomRange.startIdx, zoomRange.endIdx + 1);
+    }, [fullXLabels, zoomRange, independentX]);
+
+    const visibleSeries = useMemo(() => {
+        if (!zoomRange || independentX) return series;
+        const allowed = new Set(visibleXLabels);
+        return series.map((s) => {
+            const filteredPoints = s.points.filter((p) => allowed.has(p.label));
+            const firstEst = filteredPoints.findIndex((p) => p.estimated);
+            return {
+                ...s,
+                points: filteredPoints,
+                estimatedFromIdx: firstEst >= 0 ? firstEst : null,
+            };
+        });
+    }, [series, zoomRange, visibleXLabels, independentX]);
+
+    // Shadow the originals so the existing render code below stays unchanged.
+    series = visibleSeries;
+    xLabels = visibleXLabels;
 
     // Collect all values to compute y scale
     const allValues = series.flatMap(s => s.points.map(p => p.value));
@@ -48,13 +177,24 @@ function SVGChart({ series, xLabels, yLabel, mode, independentX = false }) {
         return Array.from({ length: count }, (_, i) => yMin + (i / (count - 1)) * (yMax - yMin));
     }, [yMin, yMax]);
 
-    // X axis ticks — show ~6 evenly spaced labels
+    // X axis ticks — show ~6 evenly spaced labels.
+    // Avoid pushing the final label if it would land right next to the previous tick;
+    // otherwise the two labels overlap and render as visual garbage.
     const xTickIndices = useMemo(() => {
         if (xLabels.length <= 6) return xLabels.map((_, i) => i);
         const step = Math.floor(xLabels.length / 5);
         const indices = [];
         for (let i = 0; i < xLabels.length; i += step) indices.push(i);
-        if (indices[indices.length - 1] !== xLabels.length - 1) indices.push(xLabels.length - 1);
+        const lastIdx = xLabels.length - 1;
+        const prev = indices[indices.length - 1];
+        // Only add the trailing tick if it's meaningfully spaced from the last one.
+        // Threshold is half a step — closer than that means overlap.
+        if (lastIdx - prev > step / 2) {
+            indices.push(lastIdx);
+        } else if (prev !== lastIdx) {
+            // Replace the last tick with the actual end so users see a real end date
+            indices[indices.length - 1] = lastIdx;
+        }
         return indices;
     }, [xLabels]);
 
@@ -121,14 +261,75 @@ function SVGChart({ series, xLabels, yLabel, mode, independentX = false }) {
         }
     }, [series, xLabels, chartW, independentX]);
 
+    // Wheel zoom: keep the point under the cursor anchored as the visible window
+    // shrinks (zoom in) or grows (zoom out). Disabled in cross-market intraday mode
+    // where each series owns its own x-axis.
+    const handleWheel = useCallback((e) => {
+        if (independentX) return;
+        if (fullLength < 5) return;
+        e.preventDefault();
+
+        const rect = svgRef.current?.getBoundingClientRect();
+        if (!rect) return;
+
+        // Cursor position as a fraction inside the plot area (0..1).
+        const xInChart = (e.clientX - rect.left) * (W / rect.width) - PAD.left;
+        const frac = Math.max(0, Math.min(1, xInChart / chartW));
+
+        setZoomRange((cur) => {
+            const absStart = cur ? cur.startIdx : 0;
+            const absEnd = cur ? cur.endIdx : fullLength - 1;
+            const rangeSize = absEnd - absStart + 1;
+            const pivotAbs = absStart + Math.round(frac * (rangeSize - 1));
+
+            const factor = e.deltaY < 0 ? 0.7 : 1.42;
+            const newSize = Math.max(5, Math.min(fullLength, Math.round(rangeSize * factor)));
+            if (newSize >= fullLength) return null;     // back to full extent
+
+            let newStart = Math.round(pivotAbs - frac * (newSize - 1));
+            let newEnd = newStart + newSize - 1;
+            if (newStart < 0) { newEnd -= newStart; newStart = 0; }
+            if (newEnd > fullLength - 1) { newStart -= (newEnd - (fullLength - 1)); newEnd = fullLength - 1; }
+            newStart = Math.max(0, newStart);
+            newEnd = Math.min(fullLength - 1, newEnd);
+            return { startIdx: newStart, endIdx: newEnd };
+        });
+    }, [independentX, fullLength, chartW]);
+
     return (
         <div style={{ position: "relative", width: "100%" }}>
+            {/* Zoom reset button — visible only while zoomed in */}
+            {zoomRange && !independentX && (
+                <button
+                    type="button"
+                    onClick={() => setZoomRange(null)}
+                    style={{
+                        position: "absolute",
+                        top: 8,
+                        right: 8,
+                        zIndex: 11,
+                        padding: "4px 10px",
+                        fontSize: 11,
+                        fontWeight: 600,
+                        borderRadius: 6,
+                        border: "1px solid var(--border-card)",
+                        background: "var(--bg-card)",
+                        color: "var(--text-primary)",
+                        cursor: "pointer",
+                    }}
+                    title="Yakınlaştırmayı sıfırla"
+                >
+                    🔍 Sıfırla
+                </button>
+            )}
             <svg
                 ref={svgRef}
                 viewBox={`0 0 ${W} ${H}`}
-                style={{ width: "100%", height: "auto", display: "block" }}
+                style={{ width: "100%", height: "auto", display: "block", cursor: independentX ? "default" : "ns-resize" }}
                 onMouseMove={handleMouseMove}
                 onMouseLeave={() => setTooltip(null)}
+                onWheel={handleWheel}
+                onDoubleClick={() => setZoomRange(null)}
             >
                 {/* Grid lines */}
                 {yTicks.map((v, i) => (
@@ -152,7 +353,7 @@ function SVGChart({ series, xLabels, yLabel, mode, independentX = false }) {
                         fontSize={10}
                         fill="var(--text-muted)"
                     >
-                        {mode === "percentage" ? `${v.toFixed(1)}%` : v.toFixed(1)}
+                        {mode === "percentage" ? `${v.toFixed(1)}%` : `$${v.toFixed(2)}`}
                     </text>
                 ))}
 
@@ -209,9 +410,11 @@ function SVGChart({ series, xLabels, yLabel, mode, independentX = false }) {
                 {/* Series lines — connect every available point. Earlier code broke the
                     line whenever a series skipped a label (e.g. BIST holidays vs Nasdaq),
                     leaving visible gaps. For intraday cross-market comparison (independentX)
-                    each series spans the full chart width by its own index. */}
-                {series.map(s => {
-                    const segments = s.points
+                    each series spans the full chart width by its own index.
+                    Series with estimatedFromIdx render two overlapping paths so the projected
+                    tail appears dashed while the actual history stays solid. */}
+                {series.flatMap(s => {
+                    const allCoords = s.points
                         .map((pt, i) => {
                             if (independentX) {
                                 return { x: seriesXAt(s, i), y: toY(pt.value) };
@@ -222,21 +425,49 @@ function SVGChart({ series, xLabels, yLabel, mode, independentX = false }) {
                         })
                         .filter((p) => p !== null);
 
-                    if (segments.length < 2) return null;
-                    const d = segments
-                        .map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`)
-                        .join(" ");
-                    return (
-                        <path
-                            key={s.symbol}
-                            d={d}
-                            fill="none"
-                            stroke={s.color}
-                            strokeWidth={2}
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                        />
-                    );
+                    if (allCoords.length < 2) return [];
+
+                    const cut = (typeof s.estimatedFromIdx === "number" && s.estimatedFromIdx > 0)
+                        ? Math.min(s.estimatedFromIdx, allCoords.length)
+                        : allCoords.length;
+
+                    const solidCoords = allCoords.slice(0, cut);
+                    // Start dashed segment at the last solid point so the two paths meet visually.
+                    const dashedCoords = cut < allCoords.length ? allCoords.slice(cut - 1) : [];
+
+                    const pathOf = (coords) =>
+                        coords.map((p, i) => `${i === 0 ? "M" : "L"} ${p.x} ${p.y}`).join(" ");
+
+                    const paths = [];
+                    if (solidCoords.length >= 2) {
+                        paths.push(
+                            <path
+                                key={s.symbol + "-solid"}
+                                d={pathOf(solidCoords)}
+                                fill="none"
+                                stroke={s.color}
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                            />
+                        );
+                    }
+                    if (dashedCoords.length >= 2) {
+                        paths.push(
+                            <path
+                                key={s.symbol + "-dashed"}
+                                d={pathOf(dashedCoords)}
+                                fill="none"
+                                stroke={s.color}
+                                strokeWidth={2}
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeDasharray="6 4"
+                                opacity={0.85}
+                            />
+                        );
+                    }
+                    return paths;
                 })}
 
                 {/* Crosshair vertical line */}
@@ -360,7 +591,9 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
         if (baseInstrument) setSelectedInstruments([baseInstrument]);
     }, [baseInstrument]);
 
-    // Fetch data for all selected instruments
+    // Fetch data for all selected instruments. Also fetch USDTRY history whenever
+    // a TRY-denominated instrument is in the basket, so the "USD Bazlı" view can
+    // convert each historical TRY close at *its own day's* rate.
     useEffect(() => {
         if (selectedInstruments.length === 0) return;
         setLoading(true);
@@ -369,9 +602,22 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
             const result = {};
             for (const inst of selectedInstruments) {
                 try {
-                    result[inst.symbol] = await getMarketHistory(inst.symbol, period);
+                    if (inst.isInflation) {
+                        result[inst.symbol] = await fetchInflationAsHistory(period);
+                    } else {
+                        result[inst.symbol] = await getMarketHistory(inst.symbol, period);
+                    }
                 } catch {
                     result[inst.symbol] = [];
+                }
+            }
+            // USDTRY history is required to express TRY prices in USD across the timeline.
+            const needsUsdRate = selectedInstruments.some(isTryDenominated);
+            if (needsUsdRate && !result["USDTRY"]) {
+                try {
+                    result["USDTRY"] = await getMarketHistory("USDTRY", period);
+                } catch {
+                    result["USDTRY"] = [];
                 }
             }
             setRawData(result);
@@ -384,45 +630,110 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
     const { series, xLabels } = useMemo(() => {
         if (selectedInstruments.length === 0) return { series: [], xLabels: [] };
 
-        // Collect all unique timestamps/labels
+        // Use only stock instruments to define the x-axis grid. CPI is monthly
+        // and would otherwise stretch the axis to its own range, squeezing the
+        // stock window into one corner of the chart.
+        const stockInsts = selectedInstruments.filter((i) => !i.isInflation);
         const allLabels = new Set();
-        selectedInstruments.forEach(inst => {
+        stockInsts.forEach((inst) => {
             const data = rawData[inst.symbol] || [];
-            data.forEach(p => allLabels.add(p.label || p.day.split("T")[0]));
+            data.forEach((p) => allLabels.add(p.label || p.day.split("T")[0]));
         });
         const sortedLabels = Array.from(allLabels).sort();
 
-        // Build series
-        const seriesData = selectedInstruments.map((inst, idx) => {
-            const data = rawData[inst.symbol] || [];
-            const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
-            const first = sortedData[0];
+        // Build series. Inflation rows have a very different magnitude (CPI index ~3500)
+        // and only make sense as a % change overlay — drop them in price/usd modes.
+        // Keep the *original* index for color so chips stay consistent.
+        const seriesData = selectedInstruments
+            .map((inst, idx) => ({ inst, idx }))
+            .filter(({ inst }) => !inst.isInflation || mode === "percentage")
+            .map(({ inst, idx }) => {
+                const data = rawData[inst.symbol] || [];
 
-            const points = sortedData.map((p, i) => {
-                let value;
-                if (mode === "percentage") {
-                    value = first && first.close > 0
-                        ? ((p.close - first.close) / first.close) * 100
-                        : 0;
-                } else if (mode === "usd") {
-                    value = p.close / usdRate;
-                } else {
-                    value = p.close;
+                // Inflation: linear-interpolate monthly CPI onto the stock's daily labels
+                // so both lines share the same x-axis grid and start anchored at 0%.
+                if (inst.isInflation) {
+                    if (sortedLabels.length < 2 || data.length < 2) {
+                        return { symbol: inst.symbol, color: COLORS[idx % COLORS.length], points: [] };
+                    }
+                    const interpolated = interpolateCpiOntoDates(data, sortedLabels);
+                    const anchor = interpolated[0]?.value;
+                    const points = interpolated.map(({ label, value, estimated }, i) => {
+                        const pct = anchor && anchor > 0 ? ((value - anchor) / anchor) * 100 : 0;
+                        return { x: i, y: pct, label, value: pct, estimated };
+                    });
+                    // Index of the first projected point — caller will draw a dashed
+                    // overlay from one before it (so solid and dashed segments meet).
+                    const firstEstIdx = points.findIndex((p) => p.estimated);
+                    return {
+                        symbol: inst.symbol,
+                        color: COLORS[idx % COLORS.length],
+                        points,
+                        estimatedFromIdx: firstEstIdx >= 0 ? firstEstIdx : null,
+                    };
                 }
+
+                const sortedData = [...data].sort((a, b) => a.timestamp - b.timestamp);
+
+                // Build a {date → USDTRY close} map for USD-mode conversion of TRY instruments.
+                // Falls back to the latest known rate for any missing day.
+                let usdRateByDate = null;
+                if (mode === "usd" && isTryDenominated(inst)) {
+                    const usdtryHist = [...(rawData["USDTRY"] || [])].sort((a, b) => a.timestamp - b.timestamp);
+                    if (usdtryHist.length > 0) {
+                        usdRateByDate = new Map();
+                        let lastRate = usdtryHist[0].close;
+                        for (const r of usdtryHist) {
+                            const k = r.label || r.day?.split("T")[0];
+                            if (k && r.close > 0) {
+                                usdRateByDate.set(k, r.close);
+                                lastRate = r.close;
+                            }
+                        }
+                        usdRateByDate.__fallback = lastRate;
+                    }
+                }
+                const resolveUsdRate = (dateLabel) => {
+                    if (!usdRateByDate) return usdRate;  // non-TRY instrument: use today's spot
+                    return usdRateByDate.get(dateLabel) ?? usdRateByDate.__fallback ?? usdRate;
+                };
+
+                // For percentage mode, the anchor in USD mode must be computed from the
+                // converted-USD price of the first day — otherwise mixing TRY/USD instruments
+                // breaks the comparison. We just precompute the first converted price.
+                const firstClose = sortedData[0]?.close;
+                const firstLabel = sortedData[0]?.label || sortedData[0]?.day?.split("T")[0];
+
+                const points = sortedData.map((p, i) => {
+                    const lbl = p.label || p.day.split("T")[0];
+                    let value;
+                    if (mode === "percentage") {
+                        value = firstClose && firstClose > 0
+                            ? ((p.close - firstClose) / firstClose) * 100
+                            : 0;
+                    } else {
+                        // mode === "usd"
+                        if (isTryDenominated(inst)) {
+                            const rate = resolveUsdRate(lbl);
+                            value = rate > 0 ? p.close / rate : 0;
+                        } else {
+                            value = p.close;  // already USD
+                        }
+                    }
+                    return {
+                        x: i,
+                        y: value,
+                        label: lbl,
+                        value,
+                    };
+                });
+
                 return {
-                    x: i,
-                    y: value,
-                    label: p.label || p.day.split("T")[0],
-                    value
+                    symbol: inst.symbol,
+                    color: COLORS[idx % COLORS.length],
+                    points,
                 };
             });
-
-            return {
-                symbol: inst.symbol,
-                color: COLORS[idx % COLORS.length],
-                points
-            };
-        });
 
         return { series: seriesData, xLabels: sortedLabels };
     }, [rawData, selectedInstruments, mode, usdRate]);
@@ -444,10 +755,22 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
         i.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    // Human-readable name of the latest published CPI month, for the no-data hint.
+    const latestCpiLabel = useMemo(() => {
+        const rows = rawData["TÜFE"];
+        if (!rows || rows.length === 0) return null;
+        const last = rows[rows.length - 1];
+        if (!last?.label) return null;
+        const months = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
+        const [y, m] = String(last.label).split("-");
+        const mi = Number(m) - 1;
+        if (!Number.isInteger(mi) || mi < 0 || mi > 11) return null;
+        return `${months[mi]} ${y}`;
+    }, [rawData]);
+
     const getYAxisLabel = () => {
         if (mode === "percentage") return "Değişim (%)";
-        if (mode === "usd") return "Fiyat (USD)";
-        return "Fiyat (₺)";
+        return "Fiyat (USD)";
     };
 
     if (!baseInstrument) return null;
@@ -474,13 +797,13 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
                         ))}
                     </div>
                     <div style={s.modeRow}>
-                        {["percentage", "price", "usd"].map((m) => (
+                        {["percentage", "usd"].map((m) => (
                             <button
                                 key={m}
                                 style={{ ...s.modeBtn, ...(mode === m ? s.modeActive : {}) }}
                                 onClick={() => setMode(m)}
                             >
-                                {m === "percentage" ? "Yüzde (%)" : m === "price" ? "Fiyat (₺)" : "USD Bazlı"}
+                                {m === "percentage" ? "Yüzde (%)" : "USD Bazlı"}
                             </button>
                         ))}
                     </div>
@@ -517,6 +840,43 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
                         />
                     )}
                 </div>
+
+                {/* Inflation overlay button — only meaningful in % mode and ≥1M period */}
+                {!selectedInstruments.find((i) => i.isInflation) &&
+                  selectedInstruments.length < 5 &&
+                  mode === "percentage" &&
+                  (period === "30D" || period === "1Y") && (
+                    <button
+                        type="button"
+                        style={s.inflationBtn}
+                        onClick={() => addInstrument(INFLATION_INSTRUMENT)}
+                        title="Türkiye enflasyon (TÜFE) eğrisini grafiğe ekle"
+                    >
+                        📊 Enflasyon (TÜFE) ile karşılaştır
+                    </button>
+                )}
+
+                {/* Hint when inflation chip is present but current mode/period can't render it */}
+                {selectedInstruments.find((i) => i.isInflation) &&
+                  (mode !== "percentage" || period === "1D" || period === "5D") && (
+                    <div style={s.inflationHint}>
+                        💡 Enflasyon (TÜFE) yalnızca <b>Yüzde (%)</b> modunda ve <b>1A / 1Y</b> periyotlarında gösterilebilir.
+                    </div>
+                )}
+
+                {/* When inflation is selected and the window extends past the latest published
+                    CPI month, surface what the dashed line means so users don't mistake it for
+                    real data. */}
+                {selectedInstruments.find((i) => i.isInflation) &&
+                  mode === "percentage" &&
+                  (period === "30D" || period === "1Y") &&
+                  series.find((s) => s.symbol === "TÜFE" && typeof s.estimatedFromIdx === "number") && (
+                    <div style={s.inflationHint}>
+                        💡 TCMB en güncel TÜFE'yi <b>{latestCpiLabel ?? "Ocak 2026"}</b> olarak yayınladı.
+                        Sonraki günler için TÜFE eğrisi <b>son 3 aylık ortalama enflasyon hızıyla</b> tahmin
+                        ediliyor ve <span style={{ borderBottom: "2px dashed currentColor" }}>kesik çizgi</span> ile gösterilir.
+                    </div>
+                )}
 
                 {/* Search */}
                 {selectedInstruments.length < 5 && (
@@ -596,6 +956,25 @@ const s = {
         borderTop: "3px solid #22c55e",
         borderRadius: "50%",
         animation: "spin 0.8s linear infinite",
+    },
+    inflationBtn: {
+        alignSelf: "flex-start",
+        padding: "8px 14px",
+        borderRadius: 8,
+        border: "1px dashed var(--accent-solid, #3b82f6)",
+        background: "transparent",
+        color: "var(--accent-solid, #3b82f6)",
+        cursor: "pointer",
+        fontSize: 13,
+        fontWeight: 600,
+    },
+    inflationHint: {
+        padding: "8px 12px",
+        background: "var(--bg-panel)",
+        border: "1px solid var(--border-soft)",
+        borderRadius: 8,
+        color: "var(--text-muted)",
+        fontSize: 12,
     },
     addSection: { display: "flex", flexDirection: "column", gap: 0 },
     searchInput: {

@@ -97,11 +97,16 @@ public class MarketInstrumentService {
                 yield symbol.endsWith(".IS") ? symbol : symbol + ".IS";
             }
             case COMMODITY -> {
-                // Commodities: XAUUSD → GC=F (gold futures)
-                if ("XAUUSD".equals(symbol)) {
-                    yield "GC=F";
-                }
-                yield symbol;
+                // Commodities: map internal symbols to Yahoo futures tickers
+                yield switch (symbol) {
+                    case "XAUUSD" -> "GC=F";    // Gold
+                    case "XAGUSD" -> "SI=F";    // Silver
+                    case "WTI"    -> "CL=F";    // Crude Oil (WTI)
+                    case "NGAS"   -> "NG=F";    // Natural Gas (Henry Hub)
+                    case "XCUUSD" -> "HG=F";    // Copper
+                    case "XPTUSD" -> "PL=F";    // Platinum
+                    default       -> symbol;
+                };
             }
             case VIOP -> {
                 // VIOP futures: No Yahoo data, use symbol as-is for manual data

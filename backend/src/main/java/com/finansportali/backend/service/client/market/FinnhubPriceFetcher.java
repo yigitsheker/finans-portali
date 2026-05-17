@@ -1,12 +1,18 @@
 package com.finansportali.backend.service.client.market;
 
+import io.netty.channel.ChannelOption;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.timeout.WriteTimeoutHandler;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.http.client.HttpClient;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.Map;
 import java.util.Optional;
 
@@ -30,7 +36,16 @@ public class FinnhubPriceFetcher {
 
     public FinnhubPriceFetcher(@Value("${finnhub.api-key:disabled}") String apiKey) {
         this.apiKey = apiKey;
-        this.client = WebClient.builder().baseUrl(BASE).build();
+        HttpClient httpClient = HttpClient.create()
+                .responseTimeout(Duration.ofSeconds(10))
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5_000)
+                .doOnConnected(conn -> conn
+                        .addHandlerLast(new ReadTimeoutHandler(10))
+                        .addHandlerLast(new WriteTimeoutHandler(10)));
+        this.client = WebClient.builder()
+                .baseUrl(BASE)
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .build();
     }
 
     /**

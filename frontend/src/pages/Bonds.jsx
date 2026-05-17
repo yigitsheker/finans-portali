@@ -5,6 +5,7 @@ import {
     refreshBondData,
 } from "../api/bondApi";
 import BondDetailModal from "../components/BondDetailModal";
+import DepositRatesCard from "../components/DepositRatesCard";
 
 const TYPE_LABELS = {
     GOVERNMENT_BOND: "Devlet Tahvili",
@@ -120,6 +121,9 @@ export default function Bonds({ keycloak }) {
             {refreshMessage && (
                 <div style={s.refreshMessage}>{refreshMessage}</div>
             )}
+
+            {/* Mevduat Faizi (TCMB EVDS3) — tahvil veriliğinin doğal komşusu */}
+            <DepositRatesCard />
 
             {/* Summary Cards */}
             {summary && (

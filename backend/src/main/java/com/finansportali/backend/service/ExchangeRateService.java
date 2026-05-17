@@ -7,9 +7,15 @@ import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import io.netty.channel.ChannelOption;
+import io.netty.handler.timeout.ReadTimeoutHandler;
+import io.netty.handler.timeout.WriteTimeoutHandler;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.reactive.function.client.WebClient;
+import reactor.netty.http.client.HttpClient;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -26,7 +32,14 @@ public class ExchangeRateService {
 
     public ExchangeRateService(ExchangeRateRepository repository) {
         this.repository = repository;
+        HttpClient httpClient = HttpClient.create()
+                .responseTimeout(Duration.ofSeconds(10))
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 5_000)
+                .doOnConnected(conn -> conn
+                        .addHandlerLast(new ReadTimeoutHandler(10))
+                        .addHandlerLast(new WriteTimeoutHandler(10)));
         this.webClient = WebClient.builder()
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("User-Agent", "Mozilla/5.0 (compatible; FinansPortali/1.0)")
                 .build();
     }

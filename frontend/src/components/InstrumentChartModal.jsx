@@ -15,6 +15,48 @@ const PERIODS = [
     { label: "1Y", value: "1Y" },
 ];
 
+const BellIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M18 16V11C18 7.69 15.31 5 12 5C8.69 5 6 7.69 6 11V16L4 18V19H20V18L18 16Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+        <path d="M10 21C10 22.1 10.9 23 12 23C13.1 23 14 22.1 14 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+);
+
+const CompareIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="3" y="13" width="4" height="8" rx="1" stroke="currentColor" strokeWidth="2"/>
+        <rect x="10" y="8" width="4" height="13" rx="1" stroke="currentColor" strokeWidth="2"/>
+        <rect x="17" y="3" width="4" height="18" rx="1" stroke="currentColor" strokeWidth="2"/>
+    </svg>
+);
+
+const StarIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 3L14.5 9.5L21 10L16 15L17.5 21.5L12 18L6.5 21.5L8 15L3 10L9.5 9.5L12 3Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    </svg>
+);
+
+const ChartIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M3 17L9 11L13 15L21 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M16 7H21V12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+);
+
+const AnalysisIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="11" cy="11" r="7" stroke="currentColor" strokeWidth="2"/>
+        <path d="M16 16L21 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+);
+
+const LockIcon = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="2"/>
+        <path d="M8 11V7C8 4.79 9.79 3 12 3C14.21 3 16 4.79 16 7V11" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    </svg>
+);
+
 export default function InstrumentChartModal({ instrument, onClose, keycloak, onAddToPortfolio, onCompare }) {
     const [period, setPeriod] = useState("30D");
     const [data, setData] = useState([]);
@@ -158,59 +200,78 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
 
     console.log('[InstrumentChartModal] Rendering with instrument:', instrument.symbol, 'data points:', data.length);
 
+    const priceFmt = instrument.last != null
+        ? Number(instrument.last).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+        : "—";
+    const changeAbsFmt = instrument.changeAbs != null
+        ? `${positive ? "+" : ""}${Number(instrument.changeAbs).toFixed(2)}`
+        : "—";
+    const changePctFmt = instrument.changePct != null
+        ? `${positive ? "+" : ""}${Number(instrument.changePct).toFixed(2)}%`
+        : "—";
+    const currencyPrefix = instrument.currency === "USD" ? "$" : instrument.currency === "EUR" ? "€" : "₺";
+
     return (
         <Modal
             open={!!instrument}
             title={`${instrument.symbol} — ${instrument.name}`}
             onClose={onClose}
-            maxWidth={900}
+            maxWidth={920}
         >
-            {/* Fiyat başlığı */}
-            <div style={s.priceRow}>
-                <span style={{ fontSize: 22, fontWeight: 800, color: "var(--text-primary)" }}>
-                    {instrument.last?.toLocaleString()}
-                </span>
-                <span style={{ color, fontWeight: 600, fontSize: 14 }}>
-                    {positive ? "+" : ""}{instrument.changePct?.toFixed(2)}%
-                    &nbsp;({positive ? "+" : ""}{instrument.changeAbs?.toFixed(2)})
-                </span>
-                <span style={s.typeBadge}>{instrument.type}</span>
+            {/* HERO — fiyat, değişim, tür ve aksiyon butonları */}
+            <div style={s.hero}>
+                <div style={s.heroLeft}>
+                    <div style={s.priceLine}>
+                        <span style={s.price}>{currencyPrefix}{priceFmt}</span>
+                        <span style={{ ...s.changePill, ...(positive ? s.changePillUp : s.changePillDown) }}>
+                            {positive ? "▲" : "▼"} {changePctFmt}
+                        </span>
+                    </div>
+                    <div style={s.subline}>
+                        <span style={s.typeBadge}>{instrument.type}</span>
+                        <span style={s.changeAbs}>{changeAbsFmt}</span>
+                    </div>
+                </div>
 
-                {/* Alert Button */}
-                {keycloak?.authenticated && (
-                    <button
-                        onClick={() => setShowAlertModal(true)}
-                        style={s.alertButton}
-                        title="Fiyat Alarmı Oluştur"
-                    >
-                        🔔 Alarm
-                    </button>
-                )}
-
-                {/* Compare Button */}
-                {onCompare && (
-                    <button
-                        onClick={() => onCompare(instrument)}
-                        style={s.compareButton}
-                        title="Başka Hisse ile Karşılaştır"
-                    >
-                        📊 Karşılaştır
-                    </button>
-                )}
-
-                {/* Add to Watchlist Button */}
-                {keycloak?.authenticated && (
-                    <div ref={watchlistMenuRef} style={s.watchlistWrap}>
+                <div style={s.heroActions}>
+                    {/* Alert */}
+                    {keycloak?.authenticated && (
                         <button
-                            onClick={() => {
-                                setShowWatchlistMenu((v) => !v);
-                                ensureWatchlistsLoaded();
-                            }}
-                            style={s.watchlistButton}
-                            title="Favori Listene Ekle"
+                            onClick={() => setShowAlertModal(true)}
+                            style={s.iconBtn}
+                            title="Fiyat Alarmı"
+                            aria-label="Fiyat Alarmı"
                         >
-                            ⭐ Listeme Ekle
+                            <BellIcon /> <span style={s.btnLabel}>Alarm</span>
                         </button>
+                    )}
+
+                    {/* Compare */}
+                    {onCompare && (
+                        <button
+                            onClick={() => onCompare(instrument)}
+                            style={s.iconBtn}
+                            title="Karşılaştır"
+                            aria-label="Karşılaştır"
+                        >
+                            <CompareIcon /> <span style={s.btnLabel}>Karşılaştır</span>
+                        </button>
+                    )}
+
+                    {/* Watchlist */}
+                    {keycloak?.authenticated && (
+                        <div ref={watchlistMenuRef} style={s.watchlistWrap}>
+                            <button
+                                onClick={() => {
+                                    setShowWatchlistMenu((v) => !v);
+                                    ensureWatchlistsLoaded();
+                                }}
+                                style={s.iconBtn}
+                                title="Listeme Ekle"
+                                aria-label="Listeme Ekle"
+                            >
+                                <StarIcon /> <span style={s.btnLabel}>Liste</span>
+                            </button>
                         {showWatchlistMenu && (
                             <div style={s.watchlistMenu}>
                                 {!watchlistsLoaded ? (
@@ -279,24 +340,27 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                     </div>
                 )}
 
-                {/* Add to Portfolio Button */}
-                {keycloak?.authenticated && onAddToPortfolio && (
-                    <button
-                        onClick={() => onAddToPortfolio(instrument)}
-                        style={s.addButton}
-                        title="Portföye Ekle"
-                    >
-                        + Portföye Ekle
-                    </button>
-                )}
+                    {/* Add to Portfolio (primary action) */}
+                    {keycloak?.authenticated && onAddToPortfolio && (
+                        <button
+                            onClick={() => onAddToPortfolio(instrument)}
+                            style={s.primaryBtn}
+                            title="Portföye Ekle"
+                        >
+                            + Portföye Ekle
+                        </button>
+                    )}
+                </div>
             </div>
 
-            {/* Period seçici */}
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                <div style={s.periodRow}>
+            {/* CONTROLS — period + detaylı grafik */}
+            <div style={s.controls}>
+                <div style={s.periodGroup} role="tablist" aria-label="Zaman aralığı">
                     {PERIODS.map((p) => (
                         <button
                             key={p.value}
+                            role="tab"
+                            aria-selected={period === p.value}
                             style={{
                                 ...s.periodBtn,
                                 ...(period === p.value ? s.periodActive : {}),
@@ -308,10 +372,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                     ))}
                 </div>
                 <button
-                    style={{
-                        ...s.detailedChartBtn,
-                        ...(keycloak?.authenticated ? {} : { opacity: 0.65, cursor: "pointer" }),
-                    }}
+                    style={s.detailedChartBtn}
                     onClick={() => {
                         if (!keycloak?.authenticated) {
                             if (keycloak) keycloak.login({ redirectUri: window.location.href });
@@ -321,25 +382,30 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                     }}
                     title={keycloak?.authenticated ? "Detaylı grafik" : "Detaylı grafik için giriş yapın"}
                 >
-                    {keycloak?.authenticated ? "📊 Detaylı Grafik" : "🔒 Detaylı Grafik (Giriş gerekli)"}
+                    {keycloak?.authenticated ? "Detaylı Grafik →" : "🔒 Detaylı Grafik"}
                 </button>
             </div>
 
-            {/* Tab sistemi */}
-            <div style={s.tabRow}>
+            {/* TABS */}
+            <div style={s.tabRow} role="tablist">
                 <button
+                    role="tab"
+                    aria-selected={activeTab === 'chart'}
                     style={{
                         ...s.tabBtn,
                         ...(activeTab === 'chart' ? s.tabActive : {}),
                     }}
                     onClick={() => setActiveTab('chart')}
                 >
-                    📈 Grafik
+                    <span style={s.tabIcon}><ChartIcon /></span> Grafik
                 </button>
                 <button
+                    role="tab"
+                    aria-selected={activeTab === 'analysis'}
                     style={{
                         ...s.tabBtn,
                         ...(activeTab === 'analysis' ? s.tabActive : {}),
+                        ...(!keycloak?.authenticated ? s.tabLocked : {}),
                     }}
                     onClick={() => {
                         if (!keycloak?.authenticated) {
@@ -350,39 +416,42 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                     }}
                     title={keycloak?.authenticated ? "Teknik analiz göstergeleri" : "Teknik analiz için giriş yapın"}
                 >
-                    {keycloak?.authenticated ? "🔍 Teknik Analiz" : "🔒 Teknik Analiz"}
+                    <span style={s.tabIcon}>{keycloak?.authenticated ? <AnalysisIcon /> : <LockIcon />}</span> Teknik Analiz
                 </button>
             </div>
 
-            {/* İçerik */}
+            {/* CONTENT */}
             {activeTab === 'chart' ? (
-                /* Grafik */
                 <div style={s.chartWrap}>
                     {loading ? (
-                        <div style={s.loading}>Yükleniyor...</div>
+                        <div style={s.loading}>
+                            <div style={s.spinner} />
+                            <span>Grafik yükleniyor...</span>
+                        </div>
                     ) : data.length === 0 ? (
                         <div style={s.loading}>
-                            Veri yok - {instrument.symbol} için {period} verisi bulunamadı
+                            <span>📉</span>
+                            <span>{instrument.symbol} için {period} verisi bulunamadı</span>
                         </div>
                     ) : (
                         <LWAreaChart
                             data={data.map(d => ({ time: d.timestamp, value: d.close }))}
                             color={color}
-                            height={300}
+                            height={320}
                         />
                     )}
 
-                    {/* Debug info */}
                     {data.length > 0 && (
-                        <div style={s.debugInfo}>
-                            {data.length} veri noktası •
-                            {data[0]?.label} - {data[data.length - 1]?.label} •
-                            Son: {data[data.length - 1]?.close?.toLocaleString()}
+                        <div style={s.footer}>
+                            <span><strong>{data.length}</strong> veri noktası</span>
+                            <span style={s.footerDot}>·</span>
+                            <span>{data[0]?.label} → {data[data.length - 1]?.label}</span>
+                            <span style={s.footerDot}>·</span>
+                            <span>Son: <strong>{currencyPrefix}{Number(data[data.length - 1]?.close ?? 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
                         </div>
                     )}
                 </div>
             ) : (
-                /* Teknik Analiz */
                 <TechnicalAnalysisPanel symbol={instrument.symbol} period={period} />
             )}
 
@@ -401,159 +470,237 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
 }
 
 const s = {
-    priceRow: {
+    // ─────────── HERO ───────────
+    hero: {
         display: "flex",
-        alignItems: "center",
+        alignItems: "flex-start",
+        justifyContent: "space-between",
+        gap: 16,
+        flexWrap: "wrap",
+        paddingBottom: 16,
+        marginBottom: 16,
+        borderBottom: "1px solid var(--border-card)",
+    },
+    heroLeft: {
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        minWidth: 0,
+    },
+    priceLine: {
+        display: "flex",
+        alignItems: "baseline",
         gap: 12,
-        marginBottom: 14,
         flexWrap: "wrap",
     },
-    typeBadge: {
-        marginLeft: "auto",
+    price: {
+        fontSize: 30,
+        fontWeight: 800,
+        color: "var(--text-primary)",
+        letterSpacing: "-0.02em",
+        lineHeight: 1,
+        fontVariantNumeric: "tabular-nums",
+    },
+    changePill: {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
         padding: "4px 10px",
+        borderRadius: 8,
+        fontSize: 13,
+        fontWeight: 700,
+        fontVariantNumeric: "tabular-nums",
+    },
+    changePillUp: {
+        background: "rgba(34, 197, 94, 0.14)",
+        color: "#22c55e",
+        border: "1px solid rgba(34, 197, 94, 0.30)",
+    },
+    changePillDown: {
+        background: "rgba(239, 68, 68, 0.12)",
+        color: "#ef4444",
+        border: "1px solid rgba(239, 68, 68, 0.30)",
+    },
+    subline: {
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+        fontSize: 12,
+    },
+    typeBadge: {
+        padding: "3px 9px",
         borderRadius: 999,
         border: "1px solid var(--border-card)",
-        background: "var(--input-bg)",
+        background: "var(--bg-panel)",
         color: "var(--text-muted)",
         fontSize: 11,
+        fontWeight: 700,
+        letterSpacing: 0.5,
     },
-    periodRow: { display: "flex", gap: 8, marginBottom: 14 },
-
-    tabRow: {
+    changeAbs: {
+        color: "var(--text-muted)",
+        fontVariantNumeric: "tabular-nums",
+    },
+    heroActions: {
         display: "flex",
         gap: 8,
-        marginBottom: 14,
-        borderBottom: "1px solid var(--border-card)"
+        flexWrap: "wrap",
+        alignItems: "center",
     },
 
-    tabBtn: {
-        padding: "10px 18px",
-        border: "none",
+    // ─────────── ACTION BUTTONS ───────────
+    iconBtn: {
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        padding: "8px 12px",
+        borderRadius: 8,
+        border: "1px solid var(--border-card)",
+        background: "var(--bg-panel)",
+        color: "var(--text-primary)",
+        fontSize: 13,
+        fontWeight: 600,
+        cursor: "pointer",
+        transition: "all 0.15s",
+    },
+    btnLabel: { color: "var(--text-primary)" },
+    primaryBtn: {
+        padding: "9px 16px",
+        borderRadius: 8,
+        border: "1px solid var(--accent-solid)",
+        background: "var(--accent-solid)",
+        color: "#000",
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: "pointer",
+        transition: "all 0.15s",
+        whiteSpace: "nowrap",
+    },
+
+    // ─────────── CONTROLS (period + detail) ───────────
+    controls: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        gap: 12,
+        flexWrap: "wrap",
+        marginBottom: 12,
+    },
+    periodGroup: {
+        display: "inline-flex",
+        background: "var(--bg-panel)",
+        border: "1px solid var(--border-card)",
+        borderRadius: 10,
+        padding: 3,
+        gap: 2,
+    },
+    periodBtn: {
+        padding: "6px 14px",
+        borderRadius: 7,
+        border: "1px solid transparent",
         background: "transparent",
         color: "var(--text-muted)",
         cursor: "pointer",
-        borderRadius: "6px 6px 0 0",
-        fontSize: 14,
+        fontSize: 12,
         fontWeight: 600,
-        transition: "all 0.2s ease",
+        transition: "all 0.15s",
+        fontVariantNumeric: "tabular-nums",
     },
-
-    tabActive: {
+    periodActive: {
+        background: "var(--accent-solid)",
+        color: "#000",
+        border: "1px solid var(--accent-solid)",
+    },
+    detailedChartBtn: {
+        padding: "8px 14px",
+        borderRadius: 8,
+        border: "1px solid var(--accent-border)",
         background: "var(--accent-hover-bg)",
         color: "var(--accent-solid)",
-        borderBottom: "2px solid var(--accent-solid)",
+        fontSize: 12,
+        fontWeight: 700,
+        cursor: "pointer",
+        transition: "all 0.15s",
     },
-    periodBtn: {
-        padding: "8px 16px",
-        borderRadius: 6,
-        border: "1px solid var(--border-card)",
-        background: "var(--input-bg)",
+
+    // ─────────── TABS ───────────
+    tabRow: {
+        display: "flex",
+        gap: 4,
+        marginBottom: 12,
+        borderBottom: "1px solid var(--border-card)",
+    },
+    tabBtn: {
+        padding: "10px 16px",
+        border: "none",
+        borderBottom: "2px solid transparent",
+        background: "transparent",
         color: "var(--text-muted)",
         cursor: "pointer",
         fontSize: 13,
-        fontWeight: 500,
-        transition: "all 0.2s",
+        fontWeight: 600,
+        transition: "all 0.15s",
+        marginBottom: -1,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
     },
-    periodActive: {
-        border: "1px solid var(--accent-solid)",
-        background: "var(--accent)",
-        color: "var(--text-primary)",
+    tabIcon: {
+        display: "inline-flex",
+        alignItems: "center",
     },
+    tabActive: {
+        color: "var(--accent-solid)",
+        borderBottom: "2px solid var(--accent-solid)",
+    },
+    tabLocked: { opacity: 0.7 },
+
+    // ─────────── CHART + FOOTER ───────────
     chartWrap: {
-        borderRadius: 14,
-        border: "1px solid var(--border)",
-        background: "var(--bg-panel2)",
-        padding: 16,
+        borderRadius: 12,
+        border: "1px solid var(--border-card)",
+        background: "var(--bg-panel)",
+        padding: 12,
         position: "relative",
         overflow: "hidden",
     },
     loading: {
-        height: 300,
+        height: 320,
+        display: "flex",
+        flexDirection: "column",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 12,
+        color: "var(--text-muted)",
+        fontSize: 13,
+    },
+    spinner: {
+        width: 28,
+        height: 28,
+        border: "3px solid var(--border-card)",
+        borderTopColor: "var(--accent-solid)",
+        borderRadius: "50%",
+        animation: "spin 0.8s linear infinite",
+    },
+    footer: {
+        marginTop: 10,
+        padding: "8px 12px",
+        fontSize: 11,
+        color: "var(--text-muted)",
+        background: "var(--bg-panel2, var(--bg-card))",
+        border: "1px solid var(--border-card)",
+        borderRadius: 8,
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        color: "var(--text-muted)",
-        fontSize: 13,
+        gap: 8,
+        flexWrap: "wrap",
+        fontVariantNumeric: "tabular-nums",
     },
-    debugInfo: {
-        marginTop: 8,
-        padding: "4px 8px",
-        fontSize: 10,
-        color: "var(--text-muted)",
-        background: "var(--bg-panel)",
-        borderRadius: 4,
-        textAlign: "center",
-    },
-    alertButton: {
-        padding: "8px 16px",
-        background: "var(--accent)",
-        color: "var(--accent-solid)",
-        border: "1px solid var(--accent-border)",
-        borderRadius: 6,
-        fontSize: 13,
-        fontWeight: 600,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        transition: "all 0.2s",
-    },
-    compareButton: {
-        padding: "8px 16px",
-        background: "transparent",
-        color: "#10b981",
-        border: "1px solid #10b981",
-        borderRadius: 6,
-        fontSize: 13,
-        fontWeight: 600,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        transition: "all 0.2s",
-    },
-    addButton: {
-        padding: "8px 16px",
-        background: "#10b981",
-        color: "#000",
-        border: "none",
-        borderRadius: 6,
-        fontSize: 13,
-        fontWeight: 600,
-        cursor: "pointer",
-        transition: "all 0.2s",
-    },
-    detailedChartBtn: {
-        padding: "10px 20px",
-        borderRadius: 8,
-        border: "1px solid var(--accent-border)",
-        background: "var(--accent)",
-        color: "var(--accent-solid)",
-        fontSize: 14,
-        fontWeight: 600,
-        cursor: "pointer",
-        transition: "all 0.2s",
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-    },
-    watchlistWrap: {
-        position: "relative",
-    },
-    watchlistButton: {
-        padding: "8px 16px",
-        background: "transparent",
-        color: "#facc15",
-        border: "1px solid #facc15",
-        borderRadius: 6,
-        fontSize: 13,
-        fontWeight: 600,
-        cursor: "pointer",
-        display: "flex",
-        alignItems: "center",
-        gap: 6,
-        transition: "all 0.2s",
-    },
+    footerDot: { color: "var(--text-muted)", opacity: 0.5 },
+
+    // ─────────── WATCHLIST POPOVER ───────────
+    watchlistWrap: { position: "relative" },
     watchlistMenu: {
         position: "absolute",
         top: "calc(100% + 6px)",

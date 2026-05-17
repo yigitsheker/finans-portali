@@ -46,8 +46,13 @@ public class MarketDataSeedService {
         // FX â€” Yahoo: "USDTRY=X", "EURTRY=X"
         var usdtry = upsert("USDTRY", "USD/TRY",              InstrumentType.FX,        "USDTRY=X",    false);
         var eurtry = upsert("EURTRY", "EUR/TRY",              InstrumentType.FX,        "EURTRY=X",    false);
-        // Emtia â€” Yahoo: "GC=F" (altÄ±n vadeli)
-        var xauusd = upsert("XAUUSD", "Gold (XAU/USD)",       InstrumentType.COMMODITY, "GC=F",        false);
+        // Emtia â€” Yahoo: futures tickers (GC/SI/CL/NG/HG/PL =F)
+        var xauusd = upsert("XAUUSD", "Altın (XAU/USD)",      InstrumentType.COMMODITY, "GC=F",        false);
+        var xagusd = upsert("XAGUSD", "Gümüş (XAG/USD)",      InstrumentType.COMMODITY, "SI=F",        false);
+        var wti    = upsert("WTI",    "Ham Petrol (WTI)",     InstrumentType.COMMODITY, "CL=F",        false);
+        var ngas   = upsert("NGAS",   "Doğalgaz (Henry Hub)", InstrumentType.COMMODITY, "NG=F",        false);
+        var xcuusd = upsert("XCUUSD", "Bakır (XCU/USD)",      InstrumentType.COMMODITY, "HG=F",        false);
+        var xptusd = upsert("XPTUSD", "Platin (XPT/USD)",     InstrumentType.COMMODITY, "PL=F",        false);
         // Endeks â€” BIST endeksleri gecikmeli
         var xu100  = upsert("XU100",  "BIST 100",             InstrumentType.INDEX,     "XU100.IS",    true);
         var xu050  = upsert("XU050",  "BIST 50",              InstrumentType.INDEX,     "XU050.IS",    true);
@@ -207,7 +212,12 @@ public class MarketDataSeedService {
         // Her enstrÃ¼man iÃ§in ayrÄ± kontrol yap
         seedQuoteIfMissing(usdtry, "44.75",    "0.05",   "0.11",  now);
         seedQuoteIfMissing(eurtry, "52.70",    "0.11",   "0.21",  now);
-        seedQuoteIfMissing(xauusd, "4820.00",  "-5.00",  "-0.10", now);
+        seedQuoteIfMissing(xauusd, "4561.00",  "-5.00",  "-0.10", now);
+        seedQuoteIfMissing(xagusd, "77.50",    "0.20",   "0.26",  now);
+        seedQuoteIfMissing(wti,    "101.00",   "-0.80",  "-0.79", now);
+        seedQuoteIfMissing(ngas,   "2.96",     "0.04",   "1.37",  now);
+        seedQuoteIfMissing(xcuusd, "6.30",     "0.02",   "0.32",  now);
+        seedQuoteIfMissing(xptusd, "1990.00",  "8.00",   "0.40",  now);
         seedQuoteIfMissing(xu100,  "14200.00", "2.00",   "0.01",  now);
         seedQuoteIfMissing(xu050,  "9850.00",  "1.50",   "0.02",  now);
         seedQuoteIfMissing(xu030,  "8920.00",  "1.20",   "0.01",  now);
@@ -361,7 +371,10 @@ public class MarketDataSeedService {
         // Fallback candle'lar â€” gerÃ§ek deÄŸerlere yakÄ±n baÅŸlangÄ±Ã§ noktalarÄ±
         // Her enstrÃ¼man iÃ§in ayrÄ± kontrol yap
         seedCandlesIfMissing(usdtry, "44.00");   seedCandlesIfMissing(eurtry, "52.00");
-        seedCandlesIfMissing(xauusd, "4700.00"); seedCandlesIfMissing(xu100,  "14000.00");
+        seedCandlesIfMissing(xauusd, "4500.00"); seedCandlesIfMissing(xagusd, "76.00");
+        seedCandlesIfMissing(wti,    "100.00");  seedCandlesIfMissing(ngas,   "2.85");
+        seedCandlesIfMissing(xcuusd, "6.20");    seedCandlesIfMissing(xptusd, "1950.00");
+        seedCandlesIfMissing(xu100,  "14000.00");
         seedCandlesIfMissing(xu050,  "9800.00"); seedCandlesIfMissing(xu030,  "8900.00");
         seedCandlesIfMissing(btcusd, "70000.00");seedCandlesIfMissing(ethusd, "2200.00");
         seedCandlesIfMissing(solusd, "80.00");   seedCandlesIfMissing(bnbusd, "600.00");

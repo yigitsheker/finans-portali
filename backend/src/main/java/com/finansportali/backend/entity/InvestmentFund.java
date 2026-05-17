@@ -30,26 +30,38 @@ public class InvestmentFund {
     @Column(nullable = false, precision = 15, scale = 6)
     private BigDecimal totalValue; // Toplam fon büyüklüğü
 
-    @Column(precision = 8, scale = 4)
+    @Column(precision = 12, scale = 4)
     private BigDecimal managementFee; // Yönetim ücreti (%)
 
-    @Column(precision = 8, scale = 4)
+    @Column(precision = 12, scale = 4)
     private BigDecimal performanceFee; // Performans ücreti (%)
 
     @Column(nullable = false)
     private LocalDate priceDate;
 
-    @Column(precision = 8, scale = 4)
+    @Column(precision = 12, scale = 4)
     private BigDecimal dailyReturn; // Günlük getiri (%)
 
-    @Column(precision = 8, scale = 4)
+    @Column(precision = 12, scale = 4)
     private BigDecimal weeklyReturn; // Haftalık getiri (%)
 
-    @Column(precision = 8, scale = 4)
-    private BigDecimal monthlyReturn; // Aylık getiri (%)
+    @Column(precision = 12, scale = 4)
+    private BigDecimal monthlyReturn; // 1 aylık getiri (%)
 
-    @Column(precision = 8, scale = 4)
-    private BigDecimal yearlyReturn; // Yıllık getiri (%)
+    @Column(name = "three_month_return", precision = 12, scale = 4)
+    private BigDecimal threeMonthReturn; // 3 aylık getiri (%)
+
+    @Column(name = "six_month_return", precision = 12, scale = 4)
+    private BigDecimal sixMonthReturn; // 6 aylık getiri (%)
+
+    @Column(precision = 12, scale = 4)
+    private BigDecimal yearlyReturn; // 1 yıllık getiri (%)
+
+    @Column(name = "three_year_return", precision = 12, scale = 4)
+    private BigDecimal threeYearReturn; // 3 yıllık getiri (%)
+
+    @Column(name = "five_year_return", precision = 12, scale = 4)
+    private BigDecimal fiveYearReturn; // 5 yıllık getiri (%)
 
     @Column(length = 10)
     private String riskLevel; // DÜŞÜK, ORTA, YÜKSEK
@@ -82,7 +94,11 @@ public class InvestmentFund {
     public BigDecimal getDailyReturn() { return dailyReturn; }
     public BigDecimal getWeeklyReturn() { return weeklyReturn; }
     public BigDecimal getMonthlyReturn() { return monthlyReturn; }
+    public BigDecimal getThreeMonthReturn() { return threeMonthReturn; }
+    public BigDecimal getSixMonthReturn() { return sixMonthReturn; }
     public BigDecimal getYearlyReturn() { return yearlyReturn; }
+    public BigDecimal getThreeYearReturn() { return threeYearReturn; }
+    public BigDecimal getFiveYearReturn() { return fiveYearReturn; }
     public String getRiskLevel() { return riskLevel; }
 
     public void setFundCode(String fundCode) { this.fundCode = fundCode; }
@@ -97,6 +113,10 @@ public class InvestmentFund {
     public void setDailyReturn(BigDecimal dailyReturn) { this.dailyReturn = dailyReturn; }
     public void setWeeklyReturn(BigDecimal weeklyReturn) { this.weeklyReturn = weeklyReturn; }
     public void setMonthlyReturn(BigDecimal monthlyReturn) { this.monthlyReturn = monthlyReturn; }
+    public void setThreeMonthReturn(BigDecimal threeMonthReturn) { this.threeMonthReturn = threeMonthReturn; }
+    public void setSixMonthReturn(BigDecimal sixMonthReturn) { this.sixMonthReturn = sixMonthReturn; }
     public void setYearlyReturn(BigDecimal yearlyReturn) { this.yearlyReturn = yearlyReturn; }
+    public void setThreeYearReturn(BigDecimal threeYearReturn) { this.threeYearReturn = threeYearReturn; }
+    public void setFiveYearReturn(BigDecimal fiveYearReturn) { this.fiveYearReturn = fiveYearReturn; }
     public void setRiskLevel(String riskLevel) { this.riskLevel = riskLevel; }
 }

@@ -20,7 +20,11 @@ public class CacheConfig {
             "exchange-rates",
             "exchange-rates-by-source",
             "investment-funds",
-            "funds-by-type"
+            "funds-by-type",
+            "inflation-all",
+            "inflation-latest",
+            "deposit-rates-all",
+            "deposit-rates-latest"
         );
         mgr.setCaffeine(Caffeine.newBuilder()
                 .maximumSize(1000)

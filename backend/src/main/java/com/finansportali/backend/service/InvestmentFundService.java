@@ -88,7 +88,15 @@ public class InvestmentFundService {
                     fund.setDailyReturn(freshFund.getDailyReturn());
                     fund.setWeeklyReturn(freshFund.getWeeklyReturn());
                     fund.setMonthlyReturn(freshFund.getMonthlyReturn());
+                    fund.setThreeMonthReturn(freshFund.getThreeMonthReturn());
+                    fund.setSixMonthReturn(freshFund.getSixMonthReturn());
                     fund.setYearlyReturn(freshFund.getYearlyReturn());
+                    fund.setThreeYearReturn(freshFund.getThreeYearReturn());
+                    fund.setFiveYearReturn(freshFund.getFiveYearReturn());
+                    fund.setRiskLevel(freshFund.getRiskLevel());
+                    fund.setFundType(freshFund.getFundType());
+                    fund.setManagementCompany(freshFund.getManagementCompany());
+                    fund.setFundName(freshFund.getFundName());
                     repository.save(fund);
                     updated++;
                 } else {
@@ -103,6 +111,17 @@ public class InvestmentFundService {
         } catch (Exception e) {
             log.error("Error updating fund prices from TEFAS: {}", e.getMessage(), e);
         }
+    }
+
+    /**
+     * Wipe all funds from DB. Used by admin "reset" flow before refreshing
+     * from a real source (e.g. when migrating off demo data).
+     */
+    public int wipeAll() {
+        long count = repository.count();
+        repository.deleteAllInBatch();
+        log.info("Wiped {} investment funds from DB", count);
+        return (int) count;
     }
 
     public void seedIfEmpty() {

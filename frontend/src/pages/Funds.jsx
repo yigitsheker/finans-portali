@@ -70,6 +70,7 @@ export default function Funds({ keycloak }) {
         : funds;
 
     const formatCurrency = (value) => {
+        if (value === undefined || value === null || Number(value) === 0) return '—';
         return '₺' + new Intl.NumberFormat('tr-TR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4
@@ -84,6 +85,7 @@ export default function Funds({ keycloak }) {
     };
 
     const formatLargeNumber = (value) => {
+        if (value === undefined || value === null || Number(value) === 0) return '—';
         if (value >= 1000000) {
             return (value / 1000000).toFixed(1) + 'M ₺';
         }
@@ -161,10 +163,13 @@ export default function Funds({ keycloak }) {
                     <div style={s.colFund}>Fon Bilgileri</div>
                     <div style={s.colPrice}>Birim Fiyat</div>
                     <div style={s.colReturn}>Günlük</div>
-                    <div style={s.colReturn}>Aylık</div>
-                    <div style={s.colReturn}>Yıllık</div>
+                    <div style={s.colReturn}>1 Aylık</div>
+                    <div style={s.colReturn}>3 Aylık</div>
+                    <div style={s.colReturn}>6 Aylık</div>
+                    <div style={s.colReturn}>1 Yıllık</div>
+                    <div style={s.colReturn}>3 Yıllık</div>
+                    <div style={s.colReturn}>5 Yıllık</div>
                     <div style={s.colRisk}>Risk</div>
-                    <div style={s.colValue}>Toplam Değer</div>
                 </div>
 
                 {/* Table Body */}
@@ -174,7 +179,7 @@ export default function Funds({ keycloak }) {
                             <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
                             <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
                                 {funds.length === 0
-                                    ? 'Henüz yatırım fonu verisi bulunmuyor. TEFAS\'tan veri çekilmesi bekleniyor.'
+                                    ? 'Henüz yatırım fonu verisi bulunmuyor. Admin panelinden "Fonları Sıfırla" diyerek TEFAS\'tan canlı veri çekebilirsiniz.'
                                     : selectedFundType
                                         ? `${selectedFundType} türünde fon bulunmuyor.`
                                         : 'Fon bulunamadı.'
@@ -213,7 +218,27 @@ export default function Funds({ keycloak }) {
                                 </div>
                                 <div style={s.colReturn}>
                                     <div style={{ fontSize: 13, fontWeight: 600 }}>
+                                        {formatPercent(fund.threeMonthReturn)}
+                                    </div>
+                                </div>
+                                <div style={s.colReturn}>
+                                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                                        {formatPercent(fund.sixMonthReturn)}
+                                    </div>
+                                </div>
+                                <div style={s.colReturn}>
+                                    <div style={{ fontSize: 13, fontWeight: 600 }}>
                                         {formatPercent(fund.yearlyReturn)}
+                                    </div>
+                                </div>
+                                <div style={s.colReturn}>
+                                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                                        {formatPercent(fund.threeYearReturn)}
+                                    </div>
+                                </div>
+                                <div style={s.colReturn}>
+                                    <div style={{ fontSize: 13, fontWeight: 600 }}>
+                                        {formatPercent(fund.fiveYearReturn)}
                                     </div>
                                 </div>
                                 <div style={s.colRisk}>
@@ -227,9 +252,6 @@ export default function Funds({ keycloak }) {
                                             {fund.riskLevel}
                                         </span>
                                     )}
-                                </div>
-                                <div style={s.colValue}>
-                                    <div style={s.valueAmount}>{formatLargeNumber(fund.totalValue)}</div>
                                 </div>
                             </div>
                         ))
@@ -316,8 +338,8 @@ const s = {
     filterSelect: {
         padding: "8px 16px",
         borderRadius: 6,
-        border: "1px solid #374151",
-        background: "#1f2937",
+        border: "1px solid var(--input-border, var(--border-card))",
+        background: "var(--input-bg, var(--bg-card))",
         color: "var(--text-primary)",
         fontSize: 13,
         fontWeight: 500,
@@ -342,7 +364,7 @@ const s = {
     },
     tableHeader: {
         display: "grid",
-        gridTemplateColumns: "2.5fr 1fr 1fr 1fr 1fr auto 1fr",
+        gridTemplateColumns: "2.2fr 1fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 90px",
         gap: 16,
         padding: "14px 20px",
         background: "var(--bg-panel)",
@@ -358,7 +380,7 @@ const s = {
     },
     tableRow: {
         display: "grid",
-        gridTemplateColumns: "2.5fr 1fr 1fr 1fr 1fr auto 1fr",
+        gridTemplateColumns: "2.2fr 1fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 90px",
         gap: 16,
         padding: "14px 20px",
         borderBottom: "1px solid var(--border-card)",

@@ -8,6 +8,7 @@ import Modal from "./Modal";
 import InstrumentChartModal from "./InstrumentChartModal";
 import CompareInstrumentsModal from "./CompareInstrumentsModal";
 import { LWSparkline } from "./common/LWSparkline";
+import { usePriceDisplay } from "../contexts/CurrencyDisplayContext";
 
 // SVG Icon Components
 const AllIcon = () => (
@@ -98,6 +99,7 @@ export default function FinexStyleMarket({
     onRemoveFromWatchlist,
     watchlistSymbols = []
 }) {
+    const { format: formatPrice } = usePriceDisplay();
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
@@ -277,11 +279,13 @@ export default function FinexStyleMarket({
                         <h1 style={s.pageTitle}>
                             {filterType === "CRYPTO" ? "Kripto Paralar" :
                              filterType === "STOCK" ? "Hisse Senetleri" :
+                             filterType === "COMMODITY" ? "Emtia" :
                              "Hisse Fiyatları"}
                         </h1>
                         <p style={s.pageSubtitle}>
                             {filterType === "CRYPTO" ? "Kripto para fiyatları ve piyasa verileri" :
                              filterType === "STOCK" ? "Gerçek zamanlı hisse fiyatları ve piyasa performansı" :
+                             filterType === "COMMODITY" ? "Altın, gümüş, petrol, doğalgaz ve diğer emtia fiyatları (Yahoo Finance)" :
                              "Gerçek zamanlı hisse fiyatları ve piyasa performansı"}
                         </p>
                     </div>
@@ -294,7 +298,10 @@ export default function FinexStyleMarket({
                                 onClick={onAlertsClick}
                                 title="Fiyat Alarmları"
                             >
-                                🔔
+                                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                    <path d="M18 16V11C18 7.69 15.31 5 12 5C8.69 5 6 7.69 6 11V16L4 18V19H20V18L18 16Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+                                    <path d="M10 21C10 22.1 10.9 23 12 23C13.1 23 14 22.1 14 21" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                                </svg>
                             </button>
                         )}
                         {onThemeToggle && (
@@ -437,7 +444,7 @@ export default function FinexStyleMarket({
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder={filterType === "CRYPTO" ? "Kripto ara..." : "Hisse ara..."}
+                        placeholder={filterType === "CRYPTO" ? "Kripto ara..." : filterType === "COMMODITY" ? "Emtia ara..." : "Hisse ara..."}
                         style={s.searchInput}
                     />
                 </div>
@@ -462,16 +469,9 @@ export default function FinexStyleMarket({
                             // Grouped view for stocks page
                             Object.entries(groupedStocks).map(([category, categoryItems]) => (
                                 <div key={category}>
-                                    {/* Category Header */}
-                                    <div style={s.categoryHeader}>
-                                        <span style={s.categoryTitle}>{category}</span>
-                                        <span style={s.categoryCount}>({categoryItems.length} hisse)</span>
-                                    </div>
-                                    {/* Category Items */}
                                     {categoryItems.map((item) => {
                                         const pos = item.changePct >= 0;
                                         const color = pos ? "#10b981" : "#ef4444";
-                                        const currency = item.type === "BIST" ? "₺" : "$";
                                         return (
                                             <div
                                                 key={item.symbol}
@@ -484,7 +484,7 @@ export default function FinexStyleMarket({
                                                 </div>
                                                 <div style={s.colFiyat}>
                                                     <div style={s.stockPrice}>
-                                                        {currency}{item.last?.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                        {formatPrice(item.last, item.type, { symbol: item.symbol })}
                                                     </div>
                                                 </div>
                                                 <div style={s.colDegisim}>
@@ -542,7 +542,7 @@ export default function FinexStyleMarket({
                                                                         setAddErr(null);
                                                                     }}
                                                                 >
-                                                                    Al/Sat
+                                                                    Al
                                                                 </button>
                                                             )}
                                                         </div>
@@ -556,7 +556,7 @@ export default function FinexStyleMarket({
                                                                 setAddErr(null);
                                                             }}
                                                         >
-                                                            Al/Sat
+                                                            Al
                                                         </button>
                                                     )}
                                                 </div>
@@ -570,7 +570,6 @@ export default function FinexStyleMarket({
                             filtered.map((item) => {
                                 const pos = item.changePct >= 0;
                                 const color = pos ? "#10b981" : "#ef4444";
-                                const currency = item.type === "BIST" ? "₺" : "$";
                                 return (
                                     <div
                                         key={item.symbol}
@@ -583,7 +582,7 @@ export default function FinexStyleMarket({
                                         </div>
                                         <div style={s.colFiyat}>
                                             <div style={s.stockPrice}>
-                                                {currency}{item.last?.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                                {formatPrice(item.last, item.type, { symbol: item.symbol })}
                                             </div>
                                         </div>
                                         <div style={s.colDegisim}>
@@ -641,7 +640,7 @@ export default function FinexStyleMarket({
                                                                 setAddErr(null);
                                                             }}
                                                         >
-                                                            Al/Sat
+                                                            Al
                                                         </button>
                                                     )}
                                                 </div>
@@ -655,7 +654,7 @@ export default function FinexStyleMarket({
                                                         setAddErr(null);
                                                     }}
                                                 >
-                                                    Al/Sat
+                                                    Al
                                                 </button>
                                             )}
                                         </div>

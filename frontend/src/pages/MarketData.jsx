@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { getExchangeRates } from '../api/portfolioApi';
+import CurrencyConverter from '../components/CurrencyConverter';
 
 const MarketData = () => {
     const [exchangeRates, setExchangeRates] = useState([]);
@@ -57,6 +58,9 @@ const MarketData = () => {
 
     return (
         <div style={s.root}>
+            {/* Live FX converter — sits above the table for quick access */}
+            <CurrencyConverter rates={exchangeRates} />
+
             {/* Exchange Rates Table */}
             <div style={s.tableContainer}>
                 {/* Table Header */}
