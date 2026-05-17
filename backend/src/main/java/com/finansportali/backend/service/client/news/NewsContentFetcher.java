@@ -9,12 +9,16 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestClient;
 
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 @Service
@@ -70,6 +74,50 @@ public class NewsContentFetcher {
 
     private static final ObjectMapper JSON = new ObjectMapper();
 
+    private final RestClient playwrightClient;
+    private final boolean playwrightEnabled;
+
+    public NewsContentFetcher(
+            @Value("${app.playwright.service-url:}") String playwrightServiceUrl) {
+        this.playwrightEnabled = playwrightServiceUrl != null && !playwrightServiceUrl.isBlank();
+        this.playwrightClient = playwrightEnabled
+                ? RestClient.builder().baseUrl(playwrightServiceUrl).build()
+                : null;
+    }
+
+    /**
+     * A page looks blocked when the status is one of the typical bot-block
+     * codes or when the body is too small to plausibly contain article text
+     * (Cloudflare challenges are ~5KB; real articles are tens of KB).
+     */
+    private boolean looksBlocked(int status, String body) {
+        return status == 403 || status == 401 || status == 503
+                || body == null || body.length() < 5_000;
+    }
+
+    /**
+     * Last-resort fetch via the playwright-service sidecar — a real headless
+     * Chromium that bypasses Cloudflare JS challenges and TLS fingerprinting.
+     * No-op when the service URL is not configured.
+     */
+    private String fetchWithPlaywright(String url) {
+        if (!playwrightEnabled) return null;
+        try {
+            Map<String, Object> resp = playwrightClient.post()
+                    .uri("/fetch")
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .body(Map.of("url", url, "waitMs", 3000))
+                    .retrieve()
+                    .body(Map.class);
+            if (resp == null) return null;
+            Object html = resp.get("html");
+            return html instanceof String s && !s.isBlank() ? s : null;
+        } catch (Exception e) {
+            log.warn("playwright fallback failed for {}: {}", url, e.getMessage());
+            return null;
+        }
+    }
+
     public String fetchArticleContent(String url) {
         if (url == null || url.isBlank()) {
             return null;
@@ -102,11 +150,22 @@ public class NewsContentFetcher {
             // Some sites (investing.com via Cloudflare) TLS-fingerprint Java
             // and serve a 403 challenge page. Fall back to system curl, which
             // has a different TLS stack that these CDNs already accept.
-            if (status == 403 || status == 401 || status == 503 || body == null || body.length() < 5000) {
+            if (looksBlocked(status, body)) {
                 String curlBody = fetchWithCurl(url);
                 if (curlBody != null && curlBody.length() > (body == null ? 0 : body.length())) {
                     log.info("curl fallback succeeded: {} bytes from {}", curlBody.length(), url);
                     body = curlBody;
+                }
+            }
+
+            // Final fallback: a real headless Chrome. Slower (~2-5s) but
+            // bypasses sites that fingerprint both Java and curl. Only used
+            // when both prior tiers came back empty or challenge-page-sized.
+            if (body == null || body.length() < 10_000) {
+                String pwBody = fetchWithPlaywright(url);
+                if (pwBody != null && pwBody.length() > (body == null ? 0 : body.length())) {
+                    log.info("playwright fallback succeeded: {} bytes from {}", pwBody.length(), url);
+                    body = pwBody;
                 }
             }
 

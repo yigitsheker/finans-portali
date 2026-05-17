@@ -302,6 +302,11 @@ services:
       # Get from evds3.tcmb.gov.tr after login via DevTools → Application → Cookies
       TCMB_EVDS3_JSESSIONID: ${TCMB_EVDS3_JSESSIONID}
       TCMB_EVDS3_TS_COOKIE: ${TCMB_EVDS3_TS_COOKIE}
+
+      # Headless-browser fetcher — used as a last-resort fallback for
+      # Cloudflare-protected pages (e.g. some news sites) when both Jsoup
+      # and system curl get blocked.
+      APP_PLAYWRIGHT_SERVICE_URL: http://playwright-service:3000
       
       # Logging
       LOGGING_LEVEL_ROOT: INFO
@@ -341,6 +346,8 @@ services:
         condition: service_started
       mailpit:
         condition: service_started
+      playwright-service:
+        condition: service_started
     networks:
       - finans-network
     volumes:
@@ -351,6 +358,30 @@ services:
       timeout: 10s
       retries: 5
       start_period: 90s
+
+  # Headless Chrome fetcher — fallback HTTP client for sites that
+  # Cloudflare-challenge or TLS-fingerprint Java. Used by NewsContentFetcher
+  # as a last resort when Jsoup and curl both come back empty/blocked.
+  playwright-service:
+    build:
+      context: ./playwright-service
+      dockerfile: Dockerfile
+    container_name: finans-playwright
+    logging: *default-logging
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 768M
+    networks:
+      - finans-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
 
   # React Frontend with Nginx
   frontend:
