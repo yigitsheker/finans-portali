@@ -1,0 +1,95 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Cancel older runs on the same branch when a newer commit lands.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Maven build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      # Tests are skipped for now: BackendApplicationTests is the default
+      # @SpringBootTest stub that needs Postgres + Keycloak running.
+      # When real sliced tests land, swap -DskipTests for `verify`.
+      - name: Build (no tests)
+        run: ./mvnw -B -ntp -DskipTests package
+
+  frontend:
+    name: Frontend (Vite build)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        run: npm ci
+
+      # Lint is intentionally not run here yet — there are ~160 pre-existing
+      # unused-import errors left over from the TS→JS conversion plus an
+      # ESLint parser version mismatch on numeric separators. Once those are
+      # cleaned up, add `- run: npm run lint` above `npm run build`.
+      - name: Build
+        run: npm run build
+
+  playwright-service:
+    name: Playwright service (deps install + syntax check)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: playwright-service
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # No lockfile here, so use `install` rather than `ci`. The Dockerfile
+      # uses `npm install --omit=dev` for the same reason; keeping CI aligned.
+      - name: Install deps
+        run: npm install --omit=dev
+
+      - name: Syntax-check entrypoint
+        run: node --check server.js
+
+  compose-config:
+    name: docker-compose syntax
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Use the example file as the dev .env so all ${VAR} interpolations
+      # resolve. Empty values are fine here — we're only checking that the
+      # compose file itself parses, not that the stack starts.
+      - name: Stage env file
+        run: cp .env.example .env
+
+      - name: Validate compose file
+        run: docker compose config > /dev/null
