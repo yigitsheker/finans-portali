@@ -10,6 +10,7 @@
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
   "editUsernameAllowed": false,
+  "rememberMe": true,
   "bruteForceProtected": true,
   "permanentLockout": false,
   "maxFailureWaitSeconds": 900,
@@ -25,8 +26,8 @@
   "accessTokenLifespanForImplicitFlow": 900,
   "ssoSessionIdleTimeout": 1800,
   "ssoSessionMaxLifespan": 36000,
-  "ssoSessionIdleTimeoutRememberMe": 0,
-  "ssoSessionMaxLifespanRememberMe": 0,
+  "ssoSessionIdleTimeoutRememberMe": 86400,
+  "ssoSessionMaxLifespanRememberMe": 2592000,
   "accessCodeLifespan": 60,
   "accessCodeLifespanUserAction": 300,
   "accessCodeLifespanLogin": 1800,
@@ -93,6 +94,36 @@
         "offline_access",
         "microprofile-jwt"
       ]
+    },
+    {
+      "clientId": "finans-backend-admin",
+      "name": "Finance Backend Admin Service",
+      "description": "Service account used by Spring Boot backend to call Keycloak Admin REST API",
+      "enabled": true,
+      "clientAuthenticatorType": "client-secret",
+      "secret": "finans-backend-admin-secret",
+      "redirectUris": [],
+      "webOrigins": [],
+      "notBefore": 0,
+      "bearerOnly": false,
+      "consentRequired": false,
+      "standardFlowEnabled": false,
+      "implicitFlowEnabled": false,
+      "directAccessGrantsEnabled": false,
+      "serviceAccountsEnabled": true,
+      "publicClient": false,
+      "frontchannelLogout": false,
+      "protocol": "openid-connect",
+      "fullScopeAllowed": true,
+      "nodeReRegistrationTimeout": -1,
+      "defaultClientScopes": [
+        "web-origins",
+        "acr",
+        "profile",
+        "roles",
+        "email"
+      ],
+      "optionalClientScopes": []
     }
   ],
   "roles": {
@@ -199,5 +230,21 @@
     "cibaInterval": "5",
     "realmReusableOtpCode": "false"
   },
+  "users": [
+    {
+      "username": "service-account-finans-backend-admin",
+      "enabled": true,
+      "serviceAccountClientId": "finans-backend-admin",
+      "clientRoles": {
+        "realm-management": [
+          "view-users",
+          "manage-users",
+          "query-users",
+          "query-clients",
+          "view-clients"
+        ]
+      }
+    }
+  ],
   "keycloakVersion": "26.5.1"
 }

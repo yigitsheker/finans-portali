@@ -35,16 +35,25 @@ public class SecurityConfig {
                         // Public market & news endpoints (GET only)
                         .requestMatchers(HttpMethod.GET, "/api/v1/market/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/news/**").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/news/*/fetch-content").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/funds/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/investment-funds/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/exchange-rates/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/bonds/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/inflation/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/deposit-rates/**").permitAll()
 
                         // Portfolio requires authentication (any authenticated user)
                         .requestMatchers("/api/v1/portfolio/**").authenticated()
 
                         // Price alerts require authentication
                         .requestMatchers("/api/v1/alerts/**").authenticated()
+
+                        // In-app notifications inbox — per-user, authenticated only
+                        .requestMatchers("/api/v1/notifications/**").authenticated()
+
+                        // Self-service profile (user edits their own data)
+                        .requestMatchers("/api/v1/users/me/**").authenticated()
 
                         // Technical analysis - public GET access
                         .requestMatchers(HttpMethod.GET, "/api/v1/technical-analysis/**").permitAll()

@@ -1,16 +1,28 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+
+const REMEMBER_ME_KEY = "investhub.rememberMe";
+const REMEMBER_EMAIL_KEY = "investhub.rememberEmail";
 
 export default function LoginPage({ keycloak }) {
     const [mode, setMode] = useState("login");
-    const [email, setEmail] = useState("");
+    const [email, setEmail] = useState(
+        () => localStorage.getItem(REMEMBER_EMAIL_KEY) || ""
+    );
     const [password, setPassword] = useState("");
     const [confirmPassword, setConfirmPassword] = useState("");
     const [showPassword, setShowPassword] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
+    const [rememberMe, setRememberMe] = useState(
+        () => localStorage.getItem(REMEMBER_ME_KEY) === "true"
+    );
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
     const isLogin = mode === "login";
+
+    useEffect(() => {
+        localStorage.setItem(REMEMBER_ME_KEY, String(rememberMe));
+    }, [rememberMe]);
 
     function switchMode(next) {
         setMode(next);
@@ -29,6 +41,13 @@ export default function LoginPage({ keycloak }) {
         if (!password) { setError("Şifre gereklidir."); return; }
         setLoading(true);
         setError(null);
+
+        if (rememberMe) {
+            localStorage.setItem(REMEMBER_EMAIL_KEY, email.trim());
+        } else {
+            localStorage.removeItem(REMEMBER_EMAIL_KEY);
+        }
+
         keycloak.login({ loginHint: email.trim() });
     }
 
@@ -216,9 +235,18 @@ export default function LoginPage({ keycloak }) {
                         </div>
                     )}
 
-                    {/* Forgot password — login only */}
+                    {/* Remember me + Forgot password — login only */}
                     {isLogin && (
-                        <div style={{ textAlign: "right", marginTop: -8 }}>
+                        <div style={s.rememberRow}>
+                            <label style={s.rememberLabel}>
+                                <input
+                                    type="checkbox"
+                                    checked={rememberMe}
+                                    onChange={(e) => setRememberMe(e.target.checked)}
+                                    style={s.checkbox}
+                                />
+                                <span>Beni hatırla</span>
+                            </label>
                             <button
                                 type="button"
                                 style={s.forgotBtn}
@@ -517,6 +545,28 @@ const s = {
         fontWeight: 500,
         padding: 0,
         opacity: 0.8,
+    },
+    rememberRow: {
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        marginTop: -4,
+        gap: 12,
+    },
+    rememberLabel: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        fontSize: 12,
+        color: "#a8c5a8",
+        cursor: "pointer",
+        userSelect: "none",
+    },
+    checkbox: {
+        width: 14,
+        height: 14,
+        accentColor: "#22c55e",
+        cursor: "pointer",
     },
     errorBox: {
         display: "flex",

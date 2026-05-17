@@ -1,9 +1,14 @@
 package com.finansportali.backend.controller;
 
+import com.finansportali.backend.dto.response.admin.KeycloakUserDto;
 import com.finansportali.backend.repository.MarketCandleRepository;
 import com.finansportali.backend.repository.MarketInstrumentRepository;
 import com.finansportali.backend.repository.MarketQuoteRepository;
+import com.finansportali.backend.entity.NewsFeed;
 import com.finansportali.backend.repository.NewsArticleRepository;
+import com.finansportali.backend.repository.NewsFeedRepository;
+import com.finansportali.backend.service.InvestmentFundService;
+import com.finansportali.backend.service.KeycloakAdminService;
 import com.finansportali.backend.service.MarketService;
 import com.finansportali.backend.service.NewsService;
 import com.finansportali.backend.service.UserService;
@@ -12,6 +17,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -30,6 +36,9 @@ public class AdminController {
     private final NewsArticleRepository newsRepo;
     private final NewsService newsService;
     private final UserService userService;
+    private final KeycloakAdminService keycloakAdminService;
+    private final InvestmentFundService investmentFundService;
+    private final NewsFeedRepository feedRepo;
 
     public AdminController(MarketCandleRepository candleRepo,
                            MarketQuoteRepository quoteRepo,
@@ -38,7 +47,10 @@ public class AdminController {
                            PriceRefreshScheduler scheduler,
                            NewsArticleRepository newsRepo,
                            NewsService newsService,
-                           UserService userService) {
+                           UserService userService,
+                           KeycloakAdminService keycloakAdminService,
+                           InvestmentFundService investmentFundService,
+                           NewsFeedRepository feedRepo) {
         this.candleRepo = candleRepo;
         this.quoteRepo = quoteRepo;
         this.instrumentRepo = instrumentRepo;
@@ -47,6 +59,67 @@ public class AdminController {
         this.newsRepo = newsRepo;
         this.newsService = newsService;
         this.userService = userService;
+        this.keycloakAdminService = keycloakAdminService;
+        this.investmentFundService = investmentFundService;
+        this.feedRepo = feedRepo;
+    }
+
+    // ── RSS feed management ─────────────────────────────────────────────────
+
+    public record FeedDto(Long id, String url, String category, String source, boolean enabled) {
+        static FeedDto from(NewsFeed f) {
+            return new FeedDto(f.getId(), f.getUrl(), f.getCategory(), f.getSource(), f.isEnabled());
+        }
+    }
+
+    public record CreateFeedRequest(String url, String category, String source) {}
+
+    @GetMapping("/feeds")
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<FeedDto> listFeeds() {
+        return feedRepo.findAllByOrderByCategoryAscSourceAsc().stream().map(FeedDto::from).toList();
+    }
+
+    @PostMapping("/feeds")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<FeedDto> addFeed(@RequestBody CreateFeedRequest req) {
+        if (req == null || req.url() == null || req.url().isBlank()) {
+            return ResponseEntity.badRequest().build();
+        }
+        String url = req.url().trim();
+        if (feedRepo.findByUrl(url).isPresent()) {
+            return ResponseEntity.status(409).build();   // duplicate
+        }
+        NewsFeed saved = feedRepo.save(new NewsFeed(
+                url,
+                blankToDefault(req.category(), "diger"),
+                blankToDefault(req.source(), "Custom")
+        ));
+        return ResponseEntity.ok(FeedDto.from(saved));
+    }
+
+    @PostMapping("/feeds/{id}/toggle")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<FeedDto> toggleFeed(@PathVariable Long id) {
+        return feedRepo.findById(id)
+                .map(f -> {
+                    f.setEnabled(!f.isEnabled());
+                    f.setUpdatedAt(java.time.LocalDateTime.now());
+                    return ResponseEntity.ok(FeedDto.from(feedRepo.save(f)));
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
+    }
+
+    @DeleteMapping("/feeds/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Void> deleteFeed(@PathVariable Long id) {
+        if (!feedRepo.existsById(id)) return ResponseEntity.notFound().build();
+        feedRepo.deleteById(id);
+        return ResponseEntity.noContent().build();
+    }
+
+    private static String blankToDefault(String v, String fallback) {
+        return (v == null || v.isBlank()) ? fallback : v.trim();
     }
 
     /**
@@ -104,5 +177,86 @@ public class AdminController {
         newsRepo.deleteAll();
         newsService.fetchAndSaveNews();
         return ResponseEntity.ok("News cleared and fetch triggered by " + userService.getCurrentUsername());
+    }
+
+    /**
+     * Wipe all investment funds (including demo seed) and re-fetch from TEFAS public API.
+     * Requires ADMIN role.
+     */
+    @PostMapping("/reset-funds")
+    @PreAuthorize("hasRole('ADMIN')")
+    @org.springframework.transaction.annotation.Transactional
+    public ResponseEntity<Map<String, Object>> resetFunds() {
+        int wiped = investmentFundService.wipeAll();
+        investmentFundService.updateFundPrices();
+        long after = investmentFundService.getAllFunds().size();
+        return ResponseEntity.ok(Map.of(
+                "wiped", wiped,
+                "fundsAfter", after,
+                "actor", userService.getCurrentUsername(),
+                "source", "TEFAS public API"
+        ));
+    }
+
+    // ── User management (Keycloak) ────────────────────────────────────────
+
+    @GetMapping("/users")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<List<KeycloakUserDto>> listUsers(
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int first,
+            @RequestParam(defaultValue = "100") int max) {
+        return ResponseEntity.ok(keycloakAdminService.listUsers(search, first, max));
+    }
+
+    @PostMapping("/users/{id}/ban")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> banUser(@PathVariable String id) {
+        keycloakAdminService.setUserEnabled(id, false);
+        return ResponseEntity.ok(Map.of(
+                "id", id,
+                "enabled", false,
+                "actor", userService.getCurrentUsername()
+        ));
+    }
+
+    @PostMapping("/users/{id}/unban")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> unbanUser(@PathVariable String id) {
+        keycloakAdminService.setUserEnabled(id, true);
+        return ResponseEntity.ok(Map.of(
+                "id", id,
+                "enabled", true,
+                "actor", userService.getCurrentUsername()
+        ));
+    }
+
+    /**
+     * Force a user to configure TOTP on next login.
+     */
+    @PostMapping("/users/{id}/require-2fa")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> require2fa(@PathVariable String id) {
+        keycloakAdminService.addRequiredAction(id, "CONFIGURE_TOTP");
+        return ResponseEntity.ok(Map.of(
+                "id", id,
+                "requiredAction", "CONFIGURE_TOTP",
+                "actor", userService.getCurrentUsername()
+        ));
+    }
+
+    /**
+     * Remove all OTP/TOTP credentials for a user (e.g. user lost their device).
+     * After this, if 2FA was forced, you may also want to call /require-2fa again.
+     */
+    @PostMapping("/users/{id}/reset-2fa")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> reset2fa(@PathVariable String id) {
+        keycloakAdminService.removeTotpCredentials(id);
+        return ResponseEntity.ok(Map.of(
+                "id", id,
+                "action", "TOTP credentials cleared",
+                "actor", userService.getCurrentUsername()
+        ));
     }
 }
