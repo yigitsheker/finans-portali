@@ -1,6 +1,8 @@
 package com.finansportali.backend.service;
 
+import com.finansportali.backend.entity.Notification;
 import com.finansportali.backend.entity.PriceAlert;
+import com.finansportali.backend.repository.NotificationRepository;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
@@ -10,6 +12,7 @@ import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.text.NumberFormat;
@@ -22,43 +25,106 @@ public class NotificationService {
 
     private final JavaMailSender mailSender;
     private final KeycloakUserService keycloakUserService;
-    
-    @Value("${spring.mail.username:noreply@finansportali.com}")
+    private final KeycloakAdminService keycloakAdminService;
+    private final NotificationRepository notificationRepository;
+
+    // Some relays (e.g. Brevo) require the auth user (spring.mail.username) to be
+    // different from the human-readable From: address (the verified sender).
+    // app.mail.from lets us set the From: explicitly; falls back to mail.username,
+    // and finally to a literal noreply address if neither is provided.
+    @Value("${app.mail.from:${spring.mail.username:noreply@finansportali.com}}")
     private String fromEmail;
 
-    public NotificationService(JavaMailSender mailSender, KeycloakUserService keycloakUserService) {
+    public NotificationService(JavaMailSender mailSender,
+                               KeycloakUserService keycloakUserService,
+                               KeycloakAdminService keycloakAdminService,
+                               NotificationRepository notificationRepository) {
         this.mailSender = mailSender;
         this.keycloakUserService = keycloakUserService;
+        this.keycloakAdminService = keycloakAdminService;
+        this.notificationRepository = notificationRepository;
     }
 
+    /**
+     * Authenticated-path: user is online and just triggered the alert manually
+     * (e.g. the "Test" button). Pulls email from the JWT.
+     */
     public void sendPriceAlert(PriceAlert alert, BigDecimal currentPrice, Authentication authentication) {
-        String message = formatAlertMessage(alert, currentPrice);
-        
-        // Log the alert
-        log.info("🔔 PRICE ALERT: {}", message);
-        
-        // Send email notification
-        try {
-            String userEmail = keycloakUserService.getUserEmail(authentication);
-            if (userEmail != null && !userEmail.isEmpty()) {
-                String username = keycloakUserService.getUsername(authentication);
-                sendAlertEmail(userEmail, username, alert, currentPrice, message);
-                log.info("✅ Email notification sent to {} for alert {}", userEmail, alert.getId());
-            } else {
-                log.warn("⚠️ No email found in JWT token for user {}, skipping email notification", alert.getUserId());
-            }
-        } catch (Exception e) {
-            log.error("❌ Failed to send email notification for alert {}: {}", alert.getId(), e.getMessage(), e);
-            // Don't throw exception - alert should still be triggered even if email fails
+        String email = keycloakUserService.getUserEmail(authentication);
+        String username = keycloakUserService.getUsername(authentication);
+        sendPriceAlertInternal(alert, currentPrice, email, username);
+    }
+
+    /**
+     * Scheduled-path: a background job tripped the alert. No Authentication
+     * context, so we look the email up live from Keycloak using the stored userId.
+     * This way a user can change their email in Keycloak and the very next alert
+     * goes to the new address — no need to recreate alerts.
+     *
+     * The email persisted on the PriceAlert row is used only as a last-resort
+     * fallback if Keycloak is unreachable.
+     */
+    public void sendPriceAlertSystem(PriceAlert alert, BigDecimal currentPrice) {
+        String liveEmail = keycloakAdminService.getUserEmailById(alert.getUserId());
+        String email = (liveEmail != null && !liveEmail.isBlank()) ? liveEmail : alert.getUserEmail();
+        if (liveEmail == null) {
+            log.warn("Falling back to stored email {} for alert {} (Keycloak lookup failed)",
+                    email, alert.getId());
+        } else if (alert.getUserEmail() != null && !liveEmail.equalsIgnoreCase(alert.getUserEmail())) {
+            log.info("Email for alert {} updated in Keycloak: stored={} → live={}",
+                    alert.getId(), alert.getUserEmail(), liveEmail);
         }
+        sendPriceAlertInternal(alert, currentPrice, email, null);
+    }
+
+    private void sendPriceAlertInternal(PriceAlert alert, BigDecimal currentPrice,
+                                        String email, String username) {
+        String message = formatAlertMessage(alert, currentPrice);
+        log.info("🔔 PRICE ALERT: {}", message);
+
+        // 1) Persist as in-app notification (visible in the bell dropdown).
+        try {
+            recordNotification(alert.getUserId(), "PRICE_ALERT",
+                    alert.getSymbol() + " fiyat alarmı tetiklendi",
+                    message,
+                    String.valueOf(alert.getId()));
+        } catch (Exception e) {
+            log.warn("Failed to persist in-app notification for alert {}: {}", alert.getId(), e.getMessage());
+        }
+
+        // 2) Email — best-effort. Failure does not prevent the in-app record above.
+        if (email == null || email.isBlank()) {
+            log.warn("No email stored/available for alert {} (user {}); skipping email", alert.getId(), alert.getUserId());
+            return;
+        }
+        try {
+            sendAlertEmail(email, username, alert, currentPrice, message);
+            log.info("✅ Email notification sent to {} for alert {}", email, alert.getId());
+        } catch (Exception e) {
+            log.error("❌ Failed to send email to {} for alert {}: {}", email, alert.getId(), e.getMessage(), e);
+        }
+    }
+
+    /** Persist a generic in-app notification row. Used by both the price-alert
+     *  flow and any future system messages. */
+    @Transactional
+    public Notification recordNotification(String userId, String type, String title,
+                                           String message, String referenceId) {
+        Notification n = new Notification(userId, type, title, message, referenceId);
+        return notificationRepository.save(n);
     }
 
     private void sendAlertEmail(String toEmail, String username, PriceAlert alert, BigDecimal currentPrice, String message) {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
-            
-            helper.setFrom(fromEmail);
+
+            // SPRING_MAIL_USERNAME can be intentionally empty for local Mailpit (no auth);
+            // fall back to a literal sender so MimeMessageHelper.setFrom("") doesn't blow up.
+            String from = (fromEmail != null && !fromEmail.isBlank())
+                    ? fromEmail
+                    : "noreply@finansportali.com";
+            helper.setFrom(from);
             helper.setTo(toEmail);
             helper.setSubject("🔔 Fiyat Alarmı Tetiklendi: " + alert.getSymbol());
             

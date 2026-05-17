@@ -34,7 +34,8 @@ public class PriceAlertService {
     @Transactional
     public AlertView createAlert(CreateAlertRequest request, Authentication authentication) {
         String userId = keycloakUserService.getUserId(authentication);
-        
+        String userEmail = keycloakUserService.getUserEmail(authentication);
+
         // Find instrument
         MarketInstrument instrument = instrumentRepository.findBySymbol(request.symbol())
                 .orElseThrow(() -> new IllegalArgumentException("Instrument not found: " + request.symbol()));
@@ -44,6 +45,7 @@ public class PriceAlertService {
 
         PriceAlert alert = PriceAlert.builder()
                 .userId(userId)
+                .userEmail(userEmail)            // captured for the scheduled trigger
                 .instrument(instrument)
                 .symbol(request.symbol())
                 .alertType(request.alertType())
@@ -54,7 +56,8 @@ public class PriceAlertService {
                 .build();
 
         PriceAlert saved = alertRepository.save(alert);
-        log.info("Created price alert {} for user {} on symbol {}", saved.getId(), userId, request.symbol());
+        log.info("Created price alert {} for user {} on symbol {} (email={})",
+                saved.getId(), userId, request.symbol(), userEmail);
 
         return AlertView.fromAlert(saved, currentPrice);
     }
@@ -175,9 +178,16 @@ public class PriceAlertService {
             alert.setTriggeredPrice(currentPrice);
             alertRepository.save(alert);
 
-            // Note: We can't send email here because we don't have Authentication
-            // Email will be sent when user checks their alerts or via scheduled job with stored email
             log.info("🔔 Alert {} triggered for symbol {} at price {}", alert.getId(), alert.getSymbol(), currentPrice);
+
+            // Fire both email (using email captured at creation) and in-app notification.
+            // NotificationService swallows individual errors so neither path blocks the
+            // other; the alert row is already saved as triggered.
+            try {
+                notificationService.sendPriceAlertSystem(alert, currentPrice);
+            } catch (Exception e) {
+                log.error("Notification dispatch failed for alert {}: {}", alert.getId(), e.getMessage(), e);
+            }
 
             return true;
         }

@@ -57,6 +57,11 @@ public class PriceAlert {
     @Column(name = "note", length = 200)
     private String note;
 
+    /** Email captured at creation time. Used by the scheduled trigger which
+     *  has no Authentication context to look it up from. */
+    @Column(name = "user_email", length = 200)
+    private String userEmail;
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {
