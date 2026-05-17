@@ -15,10 +15,11 @@
     <!-- JSON File Appender - For OpenSearch -->
     <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
         <file>/app/logs/application.json</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
-            <fileNamePattern>/app/logs/application.json.%d{yyyy-MM-dd}.gz</fileNamePattern>
-            <maxHistory>7</maxHistory>
-            <totalSizeCap>1GB</totalSizeCap>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>/app/logs/application.json.%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>3</maxHistory>
+            <totalSizeCap>200MB</totalSizeCap>
         </rollingPolicy>
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
             <customFields>{"service":"${serviceName}","environment":"${environment}"}</customFields>
@@ -79,7 +80,9 @@
     <logger name="com.finansportali" level="INFO"/>
     <logger name="org.springframework.web" level="INFO"/>
     <logger name="org.springframework.security" level="INFO"/>
-    <logger name="org.hibernate.SQL" level="DEBUG"/>
+    <!-- Hibernate SQL: WARN — DEBUG produces ~10x volume; enable per-debugging only -->
+    <logger name="org.hibernate.SQL" level="WARN"/>
+    <logger name="org.hibernate.orm.jdbc.bind" level="WARN"/>
     
     <!-- Prevent Kafka appender from logging its own messages (avoid infinite loop) -->
     <logger name="org.apache.kafka" level="WARN" additivity="false">

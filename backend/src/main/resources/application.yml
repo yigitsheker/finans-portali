@@ -39,6 +39,11 @@ spring:
 
 app:
   base-url: ${APP_BASE_URL:http://localhost}
+  keycloak:
+    server-url: ${APP_KEYCLOAK_SERVER_URL:http://localhost:8090}
+    realm: ${APP_KEYCLOAK_REALM:finans}
+    admin-client-id: ${APP_KEYCLOAK_ADMIN_CLIENT_ID:finans-backend-admin}
+    admin-client-secret: ${APP_KEYCLOAK_ADMIN_CLIENT_SECRET:finans-backend-admin-secret}
   bonds:
     provider: ${BONDS_PROVIDER:TCMB}  # TCMB (real: politika faizi + Bigpara scrape), DEMO
     scheduler-enabled: ${BONDS_SCHEDULER_ENABLED:true}
@@ -55,7 +60,7 @@ app:
     provider: ${FUNDS_PROVIDER:TEFAS}  # TEFAS (real data source via JSON API)
     scheduler-enabled: ${FUNDS_SCHEDULER_ENABLED:true}
     refresh-cron: ${FUNDS_REFRESH_CRON:0 30 10,14,18 * * MON-FRI}  # 10:30, 14:30, 18:30 on weekdays
-    max-funds-to-fetch: ${FUNDS_MAX_FETCH:100}  # Increased limit for API (faster than web scraping)
+    max-funds-to-fetch: ${FUNDS_MAX_FETCH:1500}  # TEFAS has ~1008 active funds total
     rate-limit-delay-ms: ${FUNDS_RATE_LIMIT_DELAY:200}  # Reduced delay for API (faster than web scraping)
     retry-max-attempts: ${FUNDS_RETRY_MAX_ATTEMPTS:3}  # Max retry attempts for failed requests
     retry-initial-delay-ms: ${FUNDS_RETRY_INITIAL_DELAY:1000}  # Initial retry delay (ms)

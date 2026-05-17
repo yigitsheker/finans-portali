@@ -1,9 +1,23 @@
+# YAML anchor for log rotation — applied to every service via `logging: *default-logging`.
+# Max 30MB per container (3 × 10MB rolling files). Prevents disk fill from runaway logs.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   # OpenLDAP Directory Server
   openldap:
     image: osixia/openldap:1.5.0
     container_name: finans-openldap
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
     environment:
       LDAP_ORGANISATION: "Finance Portal"
       LDAP_DOMAIN: "finance.local"
@@ -35,7 +49,13 @@ services:
   phpldapadmin:
     image: osixia/phpldapadmin:0.9.0
     container_name: finans-phpldapadmin
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
     environment:
       PHPLDAPADMIN_LDAP_HOSTS: "openldap"
       PHPLDAPADMIN_HTTPS: "false"
@@ -50,10 +70,20 @@ services:
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: finans-zookeeper
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
     environment:
+      KAFKA_HEAP_OPTS: "-Xms128m -Xmx192m"
       ZOOKEEPER_CLIENT_PORT: 2181
       ZOOKEEPER_TICK_TIME: 2000
+      # Auto-purge old snapshots+txn logs every hour, keep last 3
+      ZOOKEEPER_AUTOPURGE_SNAP_RETAIN_COUNT: 3
+      ZOOKEEPER_AUTOPURGE_PURGE_INTERVAL: 1
       ZOOKEEPER_4LW_COMMANDS_WHITELIST: "srvr,mntr,ruok,conf"
     ports:
       - "2181:2181"
@@ -72,7 +102,13 @@ services:
   kafka:
     image: confluentinc/cp-kafka:7.5.0
     container_name: finans-kafka
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.75"
+          memory: 768M
     depends_on:
       zookeeper:
         condition: service_healthy
@@ -80,6 +116,7 @@ services:
       - "9092:9092"
       - "9093:9093"
     environment:
+      KAFKA_HEAP_OPTS: "-Xms256m -Xmx512m"
       KAFKA_BROKER_ID: 1
       KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
       KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092
@@ -89,8 +126,10 @@ services:
       KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
       KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
       KAFKA_AUTO_CREATE_TOPICS_ENABLE: "true"
-      KAFKA_LOG_RETENTION_HOURS: 168
-      KAFKA_LOG_SEGMENT_BYTES: 1073741824
+      # 48h retention + 500MB hard cap per partition — app logs, not critical
+      KAFKA_LOG_RETENTION_HOURS: 48
+      KAFKA_LOG_RETENTION_BYTES: 524288000
+      KAFKA_LOG_SEGMENT_BYTES: 134217728
     volumes:
       - kafka_data:/var/lib/kafka/data
     networks:
@@ -106,7 +145,13 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: finans-postgres
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 512M
     environment:
       POSTGRES_DB: finans_db
       POSTGRES_USER: finans_user
@@ -128,8 +173,15 @@ services:
   keycloak:
     image: quay.io/keycloak/keycloak:26.5.1
     container_name: finans-keycloak
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
     environment:
+      JAVA_OPTS_APPEND: "-Xms256m -Xmx640m"
       KEYCLOAK_ADMIN: admin
       KEYCLOAK_ADMIN_PASSWORD: admin
       KC_DB: postgres
@@ -153,9 +205,10 @@ services:
         condition: service_healthy
     volumes:
       - ./keycloak-themes:/opt/keycloak/themes
+      - ./keycloak:/opt/keycloak/data/import:ro
     networks:
       - finans-network
-    command: start-dev
+    command: ["start-dev", "--import-realm"]
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
       interval: 30s
@@ -163,14 +216,51 @@ services:
       retries: 5
       start_period: 60s
 
+  # Keycloak Bootstrap - idempotent post-start patcher
+  # Ensures rememberMe + finans-backend-admin client + realm-management roles
+  # are in place, even when --import-realm skips an existing realm.
+  # Re-runs on every `docker compose up`; no-op if already applied.
+  keycloak-bootstrap:
+    image: quay.io/keycloak/keycloak:26.5.1
+    container_name: finans-keycloak-bootstrap
+    logging: *default-logging
+    restart: "no"
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
+    environment:
+      KC_URL: http://keycloak:8080
+      KC_ADMIN_USER: admin
+      KC_ADMIN_PASS: admin
+      REALM: finans
+      BACKEND_CLIENT_ID: finans-backend-admin
+      BACKEND_CLIENT_SECRET: ${KC_BACKEND_CLIENT_SECRET}
+    depends_on:
+      keycloak:
+        condition: service_started
+    volumes:
+      - ./scripts/keycloak-bootstrap.sh:/bootstrap.sh:ro
+    entrypoint: ["/bin/sh", "/bootstrap.sh"]
+    networks:
+      - finans-network
+
   # Spring Boot Backend
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile
     container_name: finans-backend
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 1.5G
     environment:
+      JDK_JAVA_OPTIONS: "-Xms256m -Xmx1024m"
       # Database
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/finans_db
       SPRING_DATASOURCE_USERNAME: finans_user
@@ -179,14 +269,29 @@ services:
       # Keycloak
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://localhost:8090/realms/finans
       SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI: http://keycloak:8080/realms/finans/protocol/openid-connect/certs
+
+      # Keycloak Admin API (service account)
+      APP_KEYCLOAK_SERVER_URL: http://keycloak:8080
+      APP_KEYCLOAK_REALM: finans
+      APP_KEYCLOAK_ADMIN_CLIENT_ID: finans-backend-admin
+      APP_KEYCLOAK_ADMIN_CLIENT_SECRET: ${KC_BACKEND_CLIENT_SECRET}
       
-      # Email (Mailpit for development)
-      SPRING_MAIL_HOST: mailpit
-      SPRING_MAIL_PORT: 1025
-      SPRING_MAIL_USERNAME: ""
-      SPRING_MAIL_PASSWORD: ""
-      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "false"
-      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "false"
+      # Email — Brevo SMTP relay (transactional mail provider, free tier 300/day)
+      # Verified sender: portalfinans1@gmail.com (set up in Brevo's Senders page).
+      # From-address comes from SPRING_MAIL_USERNAME below.
+      SPRING_MAIL_HOST: smtp-relay.brevo.com
+      SPRING_MAIL_PORT: 587
+      # SMTP Login is Brevo's auto-assigned address (NOT the verified sender).
+      # The actual From: address is set separately in NotificationService.
+      SPRING_MAIL_USERNAME: ${BREVO_SMTP_USERNAME}
+      SPRING_MAIL_PASSWORD: ${BREVO_SMTP_PASSWORD}
+      # Verified sender — used as the "From" address for all outgoing mail
+      APP_MAIL_FROM: ${MAIL_FROM_ADDRESS}
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_DEBUG: "true"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_TRUST: "smtp-relay.brevo.com"
       APP_BASE_URL: http://localhost
       
       # Application
@@ -195,8 +300,8 @@ services:
 
       # TCMB EVDS3 session cookies (manual login required; expire periodically)
       # Get from evds3.tcmb.gov.tr after login via DevTools → Application → Cookies
-      TCMB_EVDS3_JSESSIONID: 3D01028EDC2AD18BEFF7EB88E45660C8
-      TCMB_EVDS3_TS_COOKIE: 015d31d691b74c251071a893c6b15a3e2de5aafc2acea2b3ffceca29b5111050d4d6894a8ff27aaacf5ccff76315563c5b9f51395fd1be12822e450595fa0050f550da3a312a8ffe664b96d748da2a877f056116a7
+      TCMB_EVDS3_JSESSIONID: ${TCMB_EVDS3_JSESSIONID}
+      TCMB_EVDS3_TS_COOKIE: ${TCMB_EVDS3_TS_COOKIE}
       
       # Logging
       LOGGING_LEVEL_ROOT: INFO
@@ -224,11 +329,18 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - postgres
-      - keycloak
-      - jaeger
-      - kafka
-      - mailpit
+      postgres:
+        condition: service_started
+      keycloak:
+        condition: service_started
+      keycloak-bootstrap:
+        condition: service_completed_successfully
+      jaeger:
+        condition: service_started
+      kafka:
+        condition: service_started
+      mailpit:
+        condition: service_started
     networks:
       - finans-network
     volumes:
@@ -246,7 +358,13 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: finans-frontend
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 128M
     ports:
       - "80:80"
     depends_on:
@@ -263,11 +381,17 @@ services:
   opensearch:
     image: opensearchproject/opensearch:2.11.1
     container_name: finans-opensearch
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1G
     environment:
       - discovery.type=single-node
       - bootstrap.memory_lock=true
-      - "OPENSEARCH_JAVA_OPTS=-Xms512m -Xmx512m"
+      - "OPENSEARCH_JAVA_OPTS=-Xms384m -Xmx384m"
       - "DISABLE_INSTALL_DEMO_CONFIG=true"
       - "DISABLE_SECURITY_PLUGIN=true"
     ulimits:
@@ -297,8 +421,15 @@ services:
       context: ./log-consumer
       dockerfile: Dockerfile
     container_name: finans-log-consumer
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
     environment:
+      JDK_JAVA_OPTIONS: "-Xms128m -Xmx256m"
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
       OPENSEARCH_HOST: opensearch
       OPENSEARCH_PORT: 9200
@@ -323,10 +454,20 @@ services:
   opensearch-dashboards:
     image: opensearchproject/opensearch-dashboards:2.11.1
     container_name: finans-opensearch-dashboards
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 512M
     environment:
       - 'OPENSEARCH_HOSTS=["http://opensearch:9200"]'
       - "DISABLE_SECURITY_DASHBOARDS_PLUGIN=true"
+      # Disable telemetry/sample data fetches that burn CPU when idle
+      - "TELEMETRY_OPTIN=false"
+      - "TELEMETRY_ENABLED=false"
+      - "NEWSFEED_ENABLED=false"
     ports:
       - "5601:5601"
     depends_on:
@@ -345,7 +486,13 @@ services:
   fluent-bit:
     image: fluent/fluent-bit:2.2.0
     container_name: finans-fluent-bit
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
     volumes:
       - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
       - backend_logs:/app/logs:ro
@@ -360,7 +507,13 @@ services:
   jaeger:
     image: jaegertracing/all-in-one:1.53
     container_name: finans-jaeger
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
     environment:
       - COLLECTOR_OTLP_ENABLED=true
       - SPAN_STORAGE_TYPE=memory
@@ -382,7 +535,13 @@ services:
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.93.0
     container_name: finans-otel-collector
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 256M
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
       - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
@@ -407,7 +566,13 @@ services:
   prometheus:
     image: prom/prometheus:v2.48.1
     container_name: finans-prometheus
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -437,7 +602,13 @@ services:
   grafana:
     image: grafana/grafana:10.2.3
     container_name: finans-grafana
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.50"
+          memory: 384M
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
@@ -464,7 +635,13 @@ services:
   mailpit:
     image: axllent/mailpit:latest
     container_name: finans-mailpit
+    logging: *default-logging
     restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          cpus: "0.25"
+          memory: 128M
     ports:
       - "1025:1025"  # SMTP server
       - "8025:8025"  # Web UI
