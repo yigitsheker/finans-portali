@@ -38,9 +38,13 @@ function withTheme(url) {
     return `${url}${sep}kc_theme=${resolveTheme()}`;
 }
 
+// keycloak-js 26.x makes createLoginUrl / createRegisterUrl async, so the
+// patched wrappers must await before string-concatenating the theme param.
+// Without the await our previous version returned `withTheme(Promise)` →
+// `Promise.includes("?")` threw silently and the redirect never happened.
 const origLogin = keycloak.createLoginUrl.bind(keycloak);
 const origRegister = keycloak.createRegisterUrl.bind(keycloak);
-keycloak.createLoginUrl = (opts) => withTheme(origLogin(opts));
-keycloak.createRegisterUrl = (opts) => withTheme(origRegister(opts));
+keycloak.createLoginUrl = async (opts) => withTheme(await origLogin(opts));
+keycloak.createRegisterUrl = async (opts) => withTheme(await origRegister(opts));
 
 export default keycloak;
