@@ -4,20 +4,29 @@ import { useCurrencyDisplay } from "../contexts/CurrencyDisplayContext";
 import { isAdmin } from "../utils/roleUtils";
 
 /**
- * Public navigation items shown inline in the top bar. These replace the
- * old left-rail sidebar — fewer clicks for the common pages, and a single
- * sticky header keeps the most-used controls visible while scrolling.
+ * Inline navigation items shown in the top bar.
  *
- * Admin / private routes (Yatırımlarım, Yönetim) intentionally stay off
- * the public nav — they're surfaced from the user menu when authenticated.
+ * `PUBLIC_NAV` is always visible — these are the market & content pages
+ * anyone can browse without an account. `PRIVATE_NAV` appears only when
+ * the user is authenticated. Admin-only routes are still surfaced from
+ * the dedicated admin user menu, not here.
  */
 const PUBLIC_NAV = [
-  { to: "/",        label: "Anasayfa" },
-  { to: "/stocks",  label: "Hisseler" },
-  { to: "/crypto",  label: "Kripto" },
-  { to: "/funds",   label: "Fonlar" },
+  { to: "/",            label: "Anasayfa" },
+  { to: "/stocks",      label: "Hisseler" },
+  { to: "/crypto",      label: "Kripto" },
+  { to: "/funds",       label: "Fonlar" },
+  { to: "/bonds",       label: "Tahvil" },
   { to: "/market-data", label: "Döviz" },
-  { to: "/news",    label: "Haberler" },
+  { to: "/commodities", label: "Emtia" },
+  { to: "/viop",        label: "VIOP" },
+  { to: "/inflation",   label: "Enflasyon" },
+  { to: "/news",        label: "Haberler" },
+];
+
+const PRIVATE_NAV = [
+  { to: "/portfolio",  label: "Portföyüm" },
+  { to: "/historical", label: "Geçmişten" },
 ];
 
 function CurrencyToggle() {
@@ -108,9 +117,22 @@ export default function Topbar({
         </span>
       </Link>
 
-      {/* Inline nav links */}
+      {/* Inline nav links. Private routes are appended only when the user
+          is authenticated — keeps the bar tidy for anonymous visitors. */}
       <nav style={s.nav} aria-label="Ana menü">
         {PUBLIC_NAV.map((item) => {
+          const active = isActive(item.to);
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              style={{ ...s.navLink, ...(active ? s.navLinkActive : {}) }}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+        {isAuthenticated && PRIVATE_NAV.map((item) => {
           const active = isActive(item.to);
           return (
             <Link
@@ -217,19 +239,21 @@ const s = {
   nav: {
     display: "flex",
     alignItems: "center",
-    gap: 4,
+    gap: 2,
     flex: 1,
     justifyContent: "center",
     flexWrap: "wrap",
+    minWidth: 0,
   },
   navLink: {
-    padding: "8px 14px",
+    padding: "8px 11px",
     borderRadius: 8,
-    fontSize: 14,
+    fontSize: 13.5,
     fontWeight: 600,
     color: "var(--text-muted)",
     textDecoration: "none",
     transition: "background-color 0.15s, color 0.15s",
+    whiteSpace: "nowrap",
   },
   navLinkActive: {
     color: "var(--accent-solid)",
