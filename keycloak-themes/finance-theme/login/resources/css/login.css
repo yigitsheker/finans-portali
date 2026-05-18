@@ -5,6 +5,7 @@
    seamless transition between our app and Keycloak's hosted login.
    ═══════════════════════════════════════════════════════════════ */
 
+/* Dark — default. Picked up unless template.ftl flips data-theme to light. */
 :root {
     --bg-page:        #040a06;
     --bg-panel:       #080d09;
@@ -21,6 +22,41 @@
     --danger:         #ef4444;
     --danger-soft:    rgba(239, 68, 68, 0.10);
     --shadow-card:    0 24px 60px rgba(0, 0, 0, 0.45);
+    /* Chart-art gradients — swapped in light theme */
+    --chart-bg-from:   #0c2a18;
+    --chart-bg-to:     #040a06;
+    --chart-line-color:#22c55e;
+    /* Decorative typography colours that don't fit the muted/soft scale */
+    --badge-color:     #7aa37a;
+    --badge-sep:       #3a5a3a;
+    --brand-footer:    #3f5a3f;
+    --placeholder:     #4a6b4a;
+}
+
+/* Light — activated by inline JS in template.ftl when kc_theme=light. */
+:root[data-theme="light"] {
+    --bg-page:        #eef4ef;
+    --bg-panel:       #f5faf6;
+    --bg-card:        #ffffff;
+    --bg-input:       #f3f7f3;
+    --border:         rgba(21, 128, 61, 0.20);
+    --border-strong:  rgba(21, 128, 61, 0.40);
+    --text:           #0f172a;
+    --text-soft:      #1f2937;
+    --text-muted:     #475569;
+    --text-faint:     #475569;
+    --accent:         #16a34a;
+    --accent-dark:    #15803d;
+    --danger:         #dc2626;
+    --danger-soft:    rgba(220, 38, 38, 0.08);
+    --shadow-card:    0 24px 60px rgba(15, 23, 42, 0.10);
+    --chart-bg-from:   #d8efdf;
+    --chart-bg-to:     #eef4ef;
+    --chart-line-color:#15803d;
+    --badge-color:     #15803d;
+    --badge-sep:       #94a3b8;
+    --brand-footer:    #64748b;
+    --placeholder:     #9ca3af;
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -135,17 +171,32 @@ body {
     gap: 10px;
     font-size: 12px;
     font-weight: 600;
-    color: #7aa37a;
+    color: var(--badge-color);
     letter-spacing: 0.08em;
 }
 
 .finance-badge-sep {
-    color: #3a5a3a;
+    color: var(--badge-sep);
 }
 
 .finance-brand-footer {
     font-size: 12px;
-    color: #3f5a3f;
+    color: var(--brand-footer);
+}
+
+/* In light mode the dark inline-SVG chart art doesn't read well on a
+   light-cream background. Hide it and let the brand panel use a soft
+   gradient background instead. */
+:root[data-theme="light"] .finance-chart-art {
+    display: none;
+}
+:root[data-theme="light"] .finance-brand {
+    background:
+        radial-gradient(900px circle at 18% 32%, rgba(34, 197, 94, 0.12), transparent 55%),
+        linear-gradient(135deg, #f0f9f1 0%, #dff1e3 100%);
+}
+:root[data-theme="light"] .finance-form-panel {
+    background: var(--bg-panel);
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -244,7 +295,7 @@ input:focus {
 
 .form-control::placeholder,
 input::placeholder {
-    color: #4a6b4a;
+    color: var(--placeholder);
 }
 
 /* ── Remember me + forgot password row ──────────────────────── */

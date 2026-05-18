@@ -34,6 +34,23 @@
             <script src="${script}" type="text/javascript"></script>
         </#list>
     </#if>
+
+    <#-- Inline theme probe: runs synchronously before the body paints so we
+         avoid a flash of dark-theme on a light-mode user. The React app
+         appends ?kc_theme=light|dark to the authorize URL it builds for us.
+         If absent, fall back to OS prefers-color-scheme. -->
+    <script>
+    (function () {
+        try {
+            var params = new URLSearchParams(window.location.search);
+            var t = params.get("kc_theme");
+            if (!t && window.matchMedia) {
+                t = window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+            }
+            if (t === "light") document.documentElement.setAttribute("data-theme", "light");
+        } catch (e) { /* default to dark */ }
+    })();
+    </script>
 </head>
 
 <body class="${properties.kcBodyClass!}">
