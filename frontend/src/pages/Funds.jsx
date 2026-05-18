@@ -1,10 +1,15 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { getInvestmentFunds, getFundTypes, refreshInvestmentFunds } from "../api/portfolioApi";
+import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
+import Pagination from "../components/common/Pagination";
 
 export default function Funds({ keycloak }) {
     const [funds, setFunds] = useState([]);
     const [fundTypes, setFundTypes] = useState([]);
-    const [selectedFundType, setSelectedFundType] = useState('');
+    // Multi-select fund-type filter; empty array = "all types".
+    const [selectedFundTypes, setSelectedFundTypes] = useState([]);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(25);
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
@@ -65,9 +70,29 @@ export default function Funds({ keycloak }) {
         }
     };
 
-    const filteredFunds = selectedFundType
-        ? funds.filter(fund => fund.fundType === selectedFundType)
-        : funds;
+    // Filter + paginate. Counts are per-type so the checkbox chips can
+    // show "Hisse 24" / "Para Piyasası 17" badges without a separate query.
+    const typeCounts = useMemo(() => {
+        const out = {};
+        for (const f of funds) {
+            if (!f.fundType) continue;
+            out[f.fundType] = (out[f.fundType] || 0) + 1;
+        }
+        return out;
+    }, [funds]);
+
+    const filteredFunds = useMemo(() => {
+        if (selectedFundTypes.length === 0) return funds;
+        const set = new Set(selectedFundTypes);
+        return funds.filter((f) => set.has(f.fundType));
+    }, [funds, selectedFundTypes]);
+
+    useEffect(() => { setPage(1); }, [selectedFundTypes, pageSize]);
+    const totalFiltered = filteredFunds.length;
+    const pagedFunds = useMemo(() => {
+        const start = (page - 1) * pageSize;
+        return filteredFunds.slice(start, start + pageSize);
+    }, [filteredFunds, page, pageSize]);
 
     const formatCurrency = (value) => {
         if (value === undefined || value === null || Number(value) === 0) return '—';
@@ -130,19 +155,6 @@ export default function Funds({ keycloak }) {
                         )}
                     </div>
                     <div style={s.headerRight}>
-                        <select
-                            value={selectedFundType}
-                            onChange={(e) => setSelectedFundType(e.target.value)}
-                            style={s.filterSelect}
-                        >
-                            <option value="">Tüm Fon Türleri</option>
-                            {fundTypes.map((type) => (
-                                <option key={type} value={type}>
-                                    {type}
-                                </option>
-                            ))}
-                        </select>
-
                         {isAdmin && (
                             <button
                                 onClick={handleRefresh}
@@ -157,6 +169,24 @@ export default function Funds({ keycloak }) {
                         )}
                     </div>
                 </div>
+
+                {/* Fund-type checkbox filter — multi-select, replaces the old
+                    single-select dropdown so users can tick e.g. "Hisse"
+                    AND "Karma" simultaneously. */}
+                {fundTypes.length > 0 && (
+                    <div style={{ padding: "8px 0 16px" }}>
+                        <CheckboxFilterGroup
+                            options={fundTypes.map((t) => ({
+                                key: t,
+                                label: t,
+                                count: typeCounts[t] || 0,
+                            }))}
+                            selected={selectedFundTypes}
+                            onChange={setSelectedFundTypes}
+                            allLabel="Tüm Fon Türleri"
+                        />
+                    </div>
+                )}
 
                 {/* Table Header */}
                 <div style={s.tableHeader}>
@@ -180,8 +210,8 @@ export default function Funds({ keycloak }) {
                             <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
                                 {funds.length === 0
                                     ? 'Henüz yatırım fonu verisi bulunmuyor. Admin panelinden "Fonları Sıfırla" diyerek TEFAS\'tan canlı veri çekebilirsiniz.'
-                                    : selectedFundType
-                                        ? `${selectedFundType} türünde fon bulunmuyor.`
+                                    : selectedFundTypes.length > 0
+                                        ? `Seçili türlerde fon bulunmuyor: ${selectedFundTypes.join(', ')}.`
                                         : 'Fon bulunamadı.'
                                 }
                             </div>
@@ -196,7 +226,7 @@ export default function Funds({ keycloak }) {
                             )}
                         </div>
                     ) : (
-                        filteredFunds.map((fund) => (
+                        pagedFunds.map((fund) => (
                             <div key={fund.id} style={s.tableRow}>
                                 <div style={s.colFund}>
                                     <div style={s.fundCode}>{fund.fundCode}</div>
@@ -257,6 +287,16 @@ export default function Funds({ keycloak }) {
                         ))
                     )}
                 </div>
+
+                {totalFiltered > 0 && (
+                    <Pagination
+                        page={page}
+                        pageSize={pageSize}
+                        total={totalFiltered}
+                        onPageChange={setPage}
+                        onPageSizeChange={setPageSize}
+                    />
+                )}
             </div>
         </div>
     );

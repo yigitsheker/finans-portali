@@ -8,6 +8,8 @@ import Modal from "./Modal";
 import InstrumentChartModal from "./InstrumentChartModal";
 import CompareInstrumentsModal from "./CompareInstrumentsModal";
 import { LWSparkline } from "./common/LWSparkline";
+import Pagination from "./common/Pagination";
+import CheckboxFilterGroup from "./common/CheckboxFilterGroup";
 import { usePriceDisplay } from "../contexts/CurrencyDisplayContext";
 
 // SVG Icon Components
@@ -115,7 +117,12 @@ export default function FinexStyleMarket({
     const [addAmount, setAddAmount] = useState(0);
     const [compareTarget, setCompareTarget] = useState(null);
     const [indexFilter, setIndexFilter] = useState(null);
-    const [categoryFilter, setCategoryFilter] = useState(null); // "BIST" or "STOCK" or null for all
+    // Multi-select stock category filter. Empty array == "show all".
+    // Replaces the old single-string state to support ticking both BIST and
+    // STOCK at once.
+    const [categoryFilters, setCategoryFilters] = useState([]);
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(25);
 
     // Sparkline data: symbol → last 30 daily closes
     const [sparklines, setSparklines] = useState({});
@@ -180,8 +187,9 @@ export default function FinexStyleMarket({
         }
 
         // Apply category filter (BIST vs STOCK)
-        if (categoryFilter) {
-            list = list.filter((i) => i.type === categoryFilter);
+        if (categoryFilters.length > 0) {
+            const set = new Set(categoryFilters);
+            list = list.filter((i) => set.has(i.type));
         }
 
         // Apply BIST index filter
@@ -198,11 +206,11 @@ export default function FinexStyleMarket({
             list = list.filter((i) => i.symbol.includes(q) || i.name.toUpperCase().includes(q));
         }
         return list;
-    }, [items, search, indexFilter, categoryFilter, filterType]);
+    }, [items, search, indexFilter, categoryFilters, filterType]);
 
     // Group stocks by category (BIST vs STOCK) - only when no filters are active
     const groupedStocks = useMemo(() => {
-        if (filterType !== "STOCK" || categoryFilter || indexFilter) return null;
+        if (filterType !== "STOCK" || categoryFilters.length > 0 || indexFilter) return null;
 
         const groups = {};
         filtered.forEach(item => {
@@ -213,7 +221,21 @@ export default function FinexStyleMarket({
             groups[category].push(item);
         });
         return groups;
-    }, [filtered, filterType, categoryFilter, indexFilter]);
+    }, [filtered, filterType, categoryFilters, indexFilter]);
+
+    // Reset to first page whenever the visible set changes — prevents the
+    // user from being stuck on "page 7" of a 2-page result after a filter.
+    useEffect(() => { setPage(1); }, [search, indexFilter, categoryFilters, filterType, pageSize]);
+
+    // Pagination is only meaningful in the flat (non-grouped) view; the
+    // grouped stocks view stays as-is because the groups themselves are
+    // already a navigational chunking.
+    const totalFiltered = filtered.length;
+    const pagedFiltered = useMemo(() => {
+        if (groupedStocks) return filtered; // not used; left as the original list for safety
+        const start = (page - 1) * pageSize;
+        return filtered.slice(start, start + pageSize);
+    }, [filtered, groupedStocks, page, pageSize]);
 
     // Fetch sparkline history for visible items (batched, low priority)
     useEffect(() => {
@@ -393,7 +415,7 @@ export default function FinexStyleMarket({
                                                 setIndexFilter(null);
                                             } else {
                                                 setIndexFilter(idx.symbol);
-                                                setCategoryFilter(null); // Clear category filter when index is selected
+                                                setCategoryFilters([]); // Clear category filter when index is selected
                                             }
                                         }}
                                     >
@@ -413,78 +435,40 @@ export default function FinexStyleMarket({
                             })}
                         </div>
 
-                        {/* Category Filter Buttons */}
+                        {/* Multi-select category checkboxes — replaces the single-active
+                            BIST/STOCK button row. Picking an index card above
+                            clears these via setCategoryFilters([]). */}
                         <div style={s.categoryFilterContainer}>
-                            <button
-                                style={{
-                                    ...s.categoryFilterBtn,
-                                    ...(categoryFilter === null && indexFilter === null ? s.categoryFilterActive : {}),
+                            <CheckboxFilterGroup
+                                options={[
+                                    { key: "BIST",  label: "BIST Hisseleri" },
+                                    { key: "STOCK", label: "Uluslararası Hisseler" },
+                                ]}
+                                selected={categoryFilters}
+                                onChange={(next) => {
+                                    setCategoryFilters(next);
+                                    if (next.length > 0) setIndexFilter(null);
                                 }}
-                                onClick={() => {
-                                    setCategoryFilter(null);
-                                    setIndexFilter(null);
-                                }}
-                            >
-                                <AllIcon /> Tümü
-                            </button>
-                            <button
-                                style={{
-                                    ...s.categoryFilterBtn,
-                                    ...(categoryFilter === "BIST" ? s.categoryFilterActive : {}),
-                                }}
-                                onClick={() => {
-                                    setCategoryFilter("BIST");
-                                    setIndexFilter(null);
-                                }}
-                            >
-                                <BISTIcon /> BIST Hisseleri
-                            </button>
-                            <button
-                                style={{
-                                    ...s.categoryFilterBtn,
-                                    ...(categoryFilter === "STOCK" ? s.categoryFilterActive : {}),
-                                }}
-                                onClick={() => {
-                                    setCategoryFilter("STOCK");
-                                    setIndexFilter(null);
-                                }}
-                            >
-                                <GlobalIcon /> Uluslararası Hisseler
-                            </button>
+                                allLabel="Tümü"
+                            />
                         </div>
                     </>
                 )}
             </div>
 
-            {/* Filter Banner - Only show for STOCK type */}
-            {filterType === "STOCK" && (indexFilter || categoryFilter) && (
+            {/* Filter banner — surfaces the active index filter so the user can
+                clear it without scrolling back to the index cards. */}
+            {filterType === "STOCK" && indexFilter && (
                 <div style={s.filterBanner}>
-                    {indexFilter && (
-                        <>
-                            <span style={{ fontSize: 13, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
-                                <ChartIcon /> <strong>{indexFilter}</strong> endeksi hisseleri gösteriliyor
-                            </span>
-                            <button
-                                style={s.clearFilterBtn}
-                                onClick={() => setIndexFilter(null)}
-                            >
-                                ✕ Filtreyi Kaldır
-                            </button>
-                        </>
-                    )}
-                    {categoryFilter && !indexFilter && (
-                        <>
-                            <span style={{ fontSize: 13, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
-                                {categoryFilter === "BIST" ? <><BISTIcon /> BIST Hisseleri</> : <><GlobalIcon /> Uluslararası Hisseler</>} gösteriliyor
-                            </span>
-                            <button
-                                style={s.clearFilterBtn}
-                                onClick={() => setCategoryFilter(null)}
-                            >
-                                ✕ Filtreyi Kaldır
-                            </button>
-                        </>
-                    )}
+                    <span style={{ fontSize: 13, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
+                        <ChartIcon /> <strong>{indexFilter}</strong> endeksi hisseleri gösteriliyor
+                    </span>
+                    <button
+                        style={s.clearFilterBtn}
+                        onClick={() => setIndexFilter(null)}
+                    >
+                        ✕ Filtreyi Kaldır
+                    </button>
                 </div>
             )}
 
@@ -611,8 +595,8 @@ export default function FinexStyleMarket({
                                 </div>
                             ))
                         ) : (
-                            // Regular view for other pages
-                            filtered.map((item) => {
+                            // Regular view for other pages — paginated slice.
+                            pagedFiltered.map((item) => {
                                 const pos = item.changePct >= 0;
                                 const color = pos ? "#10b981" : "#ef4444";
                                 return (
@@ -704,6 +688,18 @@ export default function FinexStyleMarket({
                     </div>
                 </div>
             </div>
+
+            {/* Pagination — flat view only; the grouped Stocks view manages
+                its own structure and would fight against page slicing. */}
+            {!groupedStocks && (
+                <Pagination
+                    page={page}
+                    pageSize={pageSize}
+                    total={totalFiltered}
+                    onPageChange={setPage}
+                    onPageSizeChange={setPageSize}
+                />
+            )}
 
             {/* Modals */}
             <InstrumentChartModal

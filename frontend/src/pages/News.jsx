@@ -5,6 +5,9 @@ import {
     getNewsCategories,
     getMarketSummary,
 } from '../api/portfolioApi';
+import Pagination from '../components/common/Pagination';
+
+const NEWS_PAGE_SIZE = 10;
 
 const CATEGORY_LABELS = {
     'genel-ekonomi': 'Genel Ekonomi',
@@ -32,6 +35,7 @@ const News = ({ keycloak }) => {
     const [news, setNews] = useState([]);
     const [categories, setCategories] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState('');
+    const [newsPage, setNewsPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [topMovers, setTopMovers] = useState([]);
     const [showScrollTop, setShowScrollTop] = useState(false);
@@ -43,6 +47,10 @@ const News = ({ keycloak }) => {
     useEffect(() => {
         loadNews();
     }, [selectedCategory]);
+
+    // Reset to first page whenever the active category changes; staying
+    // on page 4 of a category that only returned 2 pages looks broken.
+    useEffect(() => { setNewsPage(1); }, [selectedCategory]);
 
     useEffect(() => {
         const onScroll = () => setShowScrollTop(window.scrollY > 400);
@@ -94,8 +102,13 @@ const News = ({ keycloak }) => {
 
     const openArticle = (article) => navigate(`/news/${article.id}`);
 
+    // Featured = the most recent article; the rest of the feed is paginated
+    // so the page stays scannable when the backend returns 100+ articles.
     const featured = news[0];
-    const rest = news.slice(1);
+    const restAll = news.slice(1);
+    const totalRest = restAll.length;
+    const restStart = (newsPage - 1) * NEWS_PAGE_SIZE;
+    const rest = restAll.slice(restStart, restStart + NEWS_PAGE_SIZE);
 
     return (
         <div style={s.root} className="home-page">
@@ -221,7 +234,7 @@ const News = ({ keycloak }) => {
                                 </article>
                             )}
 
-                            {/* Other news */}
+                            {/* Other news — paginated below */}
                             <div style={s.list}>
                                 {rest.map((a) => (
                                     <article
@@ -246,6 +259,14 @@ const News = ({ keycloak }) => {
                                     </article>
                                 ))}
                             </div>
+                            {totalRest > NEWS_PAGE_SIZE && (
+                                <Pagination
+                                    page={newsPage}
+                                    pageSize={NEWS_PAGE_SIZE}
+                                    total={totalRest}
+                                    onPageChange={setNewsPage}
+                                />
+                            )}
                         </>
                     )}
                 </div>

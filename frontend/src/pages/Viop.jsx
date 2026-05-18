@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
 import { getViopContracts } from "../api/viopApi";
+import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
+import Pagination from "../components/common/Pagination";
 
-const CATEGORIES = [
-    { key: "ALL",        label: "Tümü" },
+// Empty selection => "all categories". Same convention used by the
+// CheckboxFilterGroup component.
+const CATEGORY_OPTIONS = [
     { key: "INDEX",      label: "Endeks" },
     { key: "STOCK",      label: "Pay (Hisse)" },
     { key: "FX_TRY",     label: "Döviz / TRY" },
@@ -39,16 +42,21 @@ export default function Viop() {
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [category, setCategory] = useState("ALL");
+    const [categories, setCategories] = useState([]); // [] = all
     const [search, setSearch] = useState("");
     const [sortKey, setSortKey] = useState("volumeTl");
     const [sortDir, setSortDir] = useState("desc");
+    const [page, setPage] = useState(1);
+    const [pageSize, setPageSize] = useState(25);
 
+    // Fetch the entire universe once; multi-select category filter is
+    // applied client-side so we can flip filters instantly without re-hitting
+    // the API.
     useEffect(() => {
         let cancelled = false;
         setLoading(true);
         setError(null);
-        getViopContracts(category === "ALL" ? undefined : category)
+        getViopContracts()
             .then((data) => {
                 if (!cancelled) setContracts(Array.isArray(data) ? data : []);
             })
@@ -60,18 +68,31 @@ export default function Viop() {
                 if (!cancelled) setLoading(false);
             });
         return () => { cancelled = true; };
-    }, [category]);
+    }, []);
 
-    const rows = useMemo(() => {
-        const q = search.trim().toUpperCase();
-        let list = contracts;
-        if (q) {
-            list = list.filter((c) =>
-                (c.symbol || "").toUpperCase().includes(q)
-                || (c.underlying || "").toUpperCase().includes(q)
-                || (c.name || "").toUpperCase().includes(q)
-            );
+    // Per-category row count for the filter chip badges.
+    const categoryCounts = useMemo(() => {
+        const out = {};
+        for (const c of contracts) {
+            if (!c.category) continue;
+            out[c.category] = (out[c.category] || 0) + 1;
         }
+        return out;
+    }, [contracts]);
+
+    const filteredRows = useMemo(() => {
+        const q = search.trim().toUpperCase();
+        const catSet = new Set(categories);
+        let list = contracts.filter((c) => {
+            if (catSet.size > 0 && !catSet.has(c.category)) return false;
+            if (q) {
+                const inSymbol = (c.symbol || "").toUpperCase().includes(q);
+                const inUnder  = (c.underlying || "").toUpperCase().includes(q);
+                const inName   = (c.name || "").toUpperCase().includes(q);
+                if (!inSymbol && !inUnder && !inName) return false;
+            }
+            return true;
+        });
         const dir = sortDir === "asc" ? 1 : -1;
         list = [...list].sort((a, b) => {
             const av = a[sortKey];
@@ -82,7 +103,17 @@ export default function Viop() {
             return String(av).localeCompare(String(bv), "tr") * dir;
         });
         return list;
-    }, [contracts, search, sortKey, sortDir]);
+    }, [contracts, search, sortKey, sortDir, categories]);
+
+    // Slice the filtered set for the current page. Reset to page 1 whenever
+    // the filter/search changes so the user isn't stranded on page 7 of a
+    // 3-page result set.
+    useEffect(() => { setPage(1); }, [categories, search, pageSize]);
+    const totalRows = filteredRows.length;
+    const pagedRows = useMemo(() => {
+        const start = (page - 1) * pageSize;
+        return filteredRows.slice(start, start + pageSize);
+    }, [filteredRows, page, pageSize]);
 
     const updatedAt = useMemo(() => {
         if (contracts.length === 0) return null;
@@ -118,18 +149,15 @@ export default function Viop() {
             </header>
 
             <div style={s.controls}>
-                <div style={s.tabs}>
-                    {CATEGORIES.map((c) => (
-                        <button
-                            key={c.key}
-                            type="button"
-                            onClick={() => setCategory(c.key)}
-                            style={{ ...s.tab, ...(category === c.key ? s.tabActive : {}) }}
-                        >
-                            {c.label}
-                        </button>
-                    ))}
-                </div>
+                <CheckboxFilterGroup
+                    options={CATEGORY_OPTIONS.map((c) => ({
+                        ...c,
+                        count: categoryCounts[c.key] || 0,
+                    }))}
+                    selected={categories}
+                    onChange={setCategories}
+                    allLabel="Tümü"
+                />
                 <input
                     type="text"
                     placeholder="Sembol veya dayanak ara… (örn. AKBNK, XU030)"
@@ -143,45 +171,54 @@ export default function Viop() {
 
             {loading ? (
                 <div style={s.placeholder}>Yükleniyor…</div>
-            ) : rows.length === 0 ? (
+            ) : totalRows === 0 ? (
                 <div style={s.placeholder}>Gösterilecek kontrat yok</div>
             ) : (
-                <div style={s.tableWrap}>
-                    <table style={s.table}>
-                        <thead>
-                            <tr>
-                                <ThSort label="Sembol"        onClick={() => handleSort("symbol")}     active={sortKey === "symbol"}     dir={sortDir} align="left" />
-                                <ThSort label="Dayanak"       onClick={() => handleSort("underlying")} active={sortKey === "underlying"} dir={sortDir} align="left" />
-                                <ThSort label="Vade"          onClick={() => handleSort("maturityYear")} active={sortKey === "maturityYear"} dir={sortDir} align="left" />
-                                <ThSort label="Son Fiyat"     onClick={() => handleSort("lastPrice")}  active={sortKey === "lastPrice"}  dir={sortDir} />
-                                <ThSort label="Değişim"       onClick={() => handleSort("changePct")}  active={sortKey === "changePct"}  dir={sortDir} />
-                                <ThSort label="Hacim (TL)"    onClick={() => handleSort("volumeTl")}   active={sortKey === "volumeTl"}   dir={sortDir} />
-                                <ThSort label="Hacim (Adet)"  onClick={() => handleSort("volumeLots")} active={sortKey === "volumeLots"} dir={sortDir} />
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {rows.map((c) => {
-                                const pct = c.changePct == null ? null : Number(c.changePct);
-                                const tone = pct == null ? "neutral" : (pct > 0 ? "up" : (pct < 0 ? "down" : "neutral"));
-                                return (
-                                    <tr key={c.id} style={s.tr}>
-                                        <td style={s.tdSymbol}>{c.symbol}</td>
-                                        <td>{c.underlying}</td>
-                                        <td style={{ color: "var(--text-muted)" }}>
-                                            {MONTH_NAMES[(c.maturityMonth || 1) - 1]} {c.maturityYear}
-                                        </td>
-                                        <td style={s.tdNum}>{numFmt(c.lastPrice, 2)}</td>
-                                        <td style={{ ...s.tdNum, color: TONE_COLOR[tone], fontWeight: 600 }}>
-                                            {pctFmt(c.changePct)}
-                                        </td>
-                                        <td style={s.tdNum}>{numFmt(c.volumeTl, 0)}</td>
-                                        <td style={s.tdNum}>{numFmt(c.volumeLots, 0)}</td>
-                                    </tr>
-                                );
-                            })}
-                        </tbody>
-                    </table>
-                </div>
+                <>
+                    <div style={s.tableWrap}>
+                        <table style={s.table}>
+                            <thead>
+                                <tr>
+                                    <ThSort label="Sembol"        onClick={() => handleSort("symbol")}     active={sortKey === "symbol"}     dir={sortDir} align="left" />
+                                    <ThSort label="Dayanak"       onClick={() => handleSort("underlying")} active={sortKey === "underlying"} dir={sortDir} align="left" />
+                                    <ThSort label="Vade"          onClick={() => handleSort("maturityYear")} active={sortKey === "maturityYear"} dir={sortDir} align="left" />
+                                    <ThSort label="Son Fiyat"     onClick={() => handleSort("lastPrice")}  active={sortKey === "lastPrice"}  dir={sortDir} />
+                                    <ThSort label="Değişim"       onClick={() => handleSort("changePct")}  active={sortKey === "changePct"}  dir={sortDir} />
+                                    <ThSort label="Hacim (TL)"    onClick={() => handleSort("volumeTl")}   active={sortKey === "volumeTl"}   dir={sortDir} />
+                                    <ThSort label="Hacim (Adet)"  onClick={() => handleSort("volumeLots")} active={sortKey === "volumeLots"} dir={sortDir} />
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {pagedRows.map((c) => {
+                                    const pct = c.changePct == null ? null : Number(c.changePct);
+                                    const tone = pct == null ? "neutral" : (pct > 0 ? "up" : (pct < 0 ? "down" : "neutral"));
+                                    return (
+                                        <tr key={c.id} style={s.tr}>
+                                            <td style={s.tdSymbol}>{c.symbol}</td>
+                                            <td>{c.underlying}</td>
+                                            <td style={{ color: "var(--text-muted)" }}>
+                                                {MONTH_NAMES[(c.maturityMonth || 1) - 1]} {c.maturityYear}
+                                            </td>
+                                            <td style={s.tdNum}>{numFmt(c.lastPrice, 2)}</td>
+                                            <td style={{ ...s.tdNum, color: TONE_COLOR[tone], fontWeight: 600 }}>
+                                                {pctFmt(c.changePct)}
+                                            </td>
+                                            <td style={s.tdNum}>{numFmt(c.volumeTl, 0)}</td>
+                                            <td style={s.tdNum}>{numFmt(c.volumeLots, 0)}</td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
+                    </div>
+                    <Pagination
+                        page={page}
+                        pageSize={pageSize}
+                        total={totalRows}
+                        onPageChange={setPage}
+                        onPageSizeChange={setPageSize}
+                    />
+                </>
             )}
 
             <p style={s.footer}>
