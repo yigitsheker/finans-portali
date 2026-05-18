@@ -284,7 +284,10 @@ a:hover { text-decoration: underline; }
   width: var(--sidebar-rail);
   background: var(--bg-sidebar);
   border-right: 1px solid var(--border-card);
-  z-index: 60;
+  /* Above the ticker (z-index 70) so the hover-expanded panel covers the
+     ticker strip on desktop instead of having the BIST 100 text bleed
+     through the brand area at the top. */
+  z-index: 75;
   transition: width 0.22s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.22s ease;
   overflow-y: auto;
   overflow-x: hidden;
@@ -359,13 +362,15 @@ a:hover { text-decoration: underline; }
   box-shadow: var(--shadow-sm);
 }
 
-/* Mobile backdrop — covers content while drawer is open */
+/* Mobile backdrop — covers content while drawer is open. Sits above the
+   ticker (z-index 70) so the dim layer covers the whole viewport, not
+   just the area below the ticker. */
 .fp-mobile-backdrop {
   display: none;
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.55);
-  z-index: 55;
+  z-index: 75;
   opacity: 0;
   transition: opacity 0.2s ease;
 }
@@ -473,6 +478,9 @@ button:hover .news-external-icon   { transform: translate(2px, -2px); }
   .fp-sidebar-shell.is-mobile-open {
     transform: translateX(0);
     box-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
+    /* Lift above the ticker (z-index 70) so the drawer covers it fully
+       instead of having the BIST 100 strip bleed over the logo area. */
+    z-index: 80;
   }
 
   /* Labels are always visible inside the mobile drawer */

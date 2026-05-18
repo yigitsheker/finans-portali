@@ -109,12 +109,40 @@ export default function FinexStyleMarket({
     const [addQty, setAddQty] = useState(1);
     const [addSaving, setAddSaving] = useState(false);
     const [addErr, setAddErr] = useState(null);
+    // Lot vs budget mode — mirrors the Portfolio AddPositionModal so the
+    // same affordance exists wherever a user can place a buy.
+    const [addMode, setAddMode] = useState("quantity"); // "quantity" | "amount"
+    const [addAmount, setAddAmount] = useState(0);
     const [compareTarget, setCompareTarget] = useState(null);
     const [indexFilter, setIndexFilter] = useState(null);
     const [categoryFilter, setCategoryFilter] = useState(null); // "BIST" or "STOCK" or null for all
 
     // Sparkline data: symbol → last 30 daily closes
     const [sparklines, setSparklines] = useState({});
+
+    /**
+     * Open the buy-modal only for authenticated users. If the user isn't
+     * logged in, prompt them and route to Keycloak login on confirm.
+     * Without this guard the modal opens for anonymous visitors and the
+     * portfolio POST fails server-side with a 401.
+     */
+    const openBuyModalIfAuthed = (item) => {
+        const authed = keycloak?.authenticated === true;
+        if (!authed) {
+            const goLogin = window.confirm(
+                "Bu işlem için giriş yapmanız gerekmektedir.\n\nGiriş sayfasına gitmek ister misiniz?"
+            );
+            if (goLogin && keycloak?.login) {
+                keycloak.login({ redirectUri: window.location.href });
+            }
+            return;
+        }
+        setAddTarget(item);
+        setAddQty(1);
+        setAddMode("quantity");
+        setAddAmount(0);
+        setAddErr(null);
+    };
 
     useEffect(() => {
         // If external instruments are provided (watchlist mode), use them directly
@@ -225,21 +253,44 @@ export default function FinexStyleMarket({
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filtered]);
 
+    // In amount mode the buyer enters a budget (e.g. ₺5000); we floor-divide by
+    // the live price to get whole lots, leaving small change ("artık para")
+    // unused. This avoids fractional shares that the backend doesn't accept.
+    const effectiveQty = useMemo(() => {
+        if (addMode !== "amount") return Math.max(0, Number(addQty) || 0);
+        const price = addTarget?.last;
+        if (!price || price <= 0) return 0;
+        return Math.floor((Number(addAmount) || 0) / price);
+    }, [addMode, addAmount, addQty, addTarget]);
+
+    const amountLeftover = useMemo(() => {
+        if (addMode !== "amount") return 0;
+        const price = addTarget?.last;
+        if (!price || price <= 0 || effectiveQty <= 0) return 0;
+        return Math.max(0, (Number(addAmount) || 0) - effectiveQty * price);
+    }, [addMode, addAmount, addTarget, effectiveQty]);
+
     const addTotal = useMemo(() => {
-        if (!addTarget || !addQty || addQty <= 0) return 0;
-        return Number((addTarget.last * addQty).toFixed(4));
-    }, [addTarget, addQty]);
+        if (!addTarget || !effectiveQty || effectiveQty <= 0) return 0;
+        return Number((addTarget.last * effectiveQty).toFixed(4));
+    }, [addTarget, effectiveQty]);
 
     async function onConfirmAdd() {
         if (!addTarget) return;
         if (!keycloak) return;
-        if (!addQty || addQty <= 0) return setAddErr("Adet 1 veya daha büyük olmalı");
+        if (!effectiveQty || effectiveQty <= 0) {
+            return setAddErr(
+                addMode === "amount"
+                    ? "Tutar bir adet alınmasına yetmiyor"
+                    : "Adet 1 veya daha büyük olmalı"
+            );
+        }
         try {
             setAddSaving(true);
             setAddErr(null);
             await upsertPosition(keycloak, {
                 symbol: addTarget.symbol,
-                quantity: addQty,
+                quantity: effectiveQty,
                 avgCost: addTarget.last,
             });
             setAddTarget(null);
@@ -532,28 +583,22 @@ export default function FinexStyleMarket({
                                                                     ☆
                                                                 </button>
                                                             )}
-                                                            {keycloak && (
-                                                                <button
-                                                                    style={s.actionBtn}
-                                                                    onClick={(e) => {
-                                                                        e.stopPropagation();
-                                                                        setAddTarget(item);
-                                                                        setAddQty(1);
-                                                                        setAddErr(null);
-                                                                    }}
-                                                                >
-                                                                    Al
-                                                                </button>
-                                                            )}
+                                                            <button
+                                                                style={s.actionBtn}
+                                                                onClick={(e) => {
+                                                                    e.stopPropagation();
+                                                                    openBuyModalIfAuthed(item);
+                                                                }}
+                                                            >
+                                                                Al
+                                                            </button>
                                                         </div>
                                                     ) : (
                                                         <button
                                                             style={s.actionBtn}
                                                             onClick={(e) => {
                                                                 e.stopPropagation();
-                                                                setAddTarget(item);
-                                                                setAddQty(1);
-                                                                setAddErr(null);
+                                                                openBuyModalIfAuthed(item);
                                                             }}
                                                         >
                                                             Al
@@ -630,28 +675,22 @@ export default function FinexStyleMarket({
                                                             ☆
                                                         </button>
                                                     )}
-                                                    {keycloak && (
-                                                        <button
-                                                            style={s.actionBtn}
-                                                            onClick={(e) => {
-                                                                e.stopPropagation();
-                                                                setAddTarget(item);
-                                                                setAddQty(1);
-                                                                setAddErr(null);
-                                                            }}
-                                                        >
-                                                            Al
-                                                        </button>
-                                                    )}
+                                                    <button
+                                                        style={s.actionBtn}
+                                                        onClick={(e) => {
+                                                            e.stopPropagation();
+                                                            openBuyModalIfAuthed(item);
+                                                        }}
+                                                    >
+                                                        Al
+                                                    </button>
                                                 </div>
                                             ) : (
                                                 <button
                                                     style={s.actionBtn}
                                                     onClick={(e) => {
                                                         e.stopPropagation();
-                                                        setAddTarget(item);
-                                                        setAddQty(1);
-                                                        setAddErr(null);
+                                                        openBuyModalIfAuthed(item);
                                                     }}
                                                 >
                                                     Al
@@ -672,10 +711,8 @@ export default function FinexStyleMarket({
                 onClose={() => setSelected(null)}
                 keycloak={keycloak}
                 onAddToPortfolio={(instrument) => {
-                    setAddTarget(instrument);
-                    setAddQty(1);
-                    setAddErr(null);
                     setSelected(null);
+                    openBuyModalIfAuthed(instrument);
                 }}
                 onCompare={(instrument) => {
                     setCompareTarget(instrument);
@@ -703,38 +740,104 @@ export default function FinexStyleMarket({
                     </>
                 }
             >
-                {addTarget && (
-                    <div style={{ display: "grid", gap: 14 }}>
-                        <div style={s.infoBox}>
-                            <div style={s.infoRow}>
-                                <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Güncel Fiyat</span>
-                                <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 18 }}>
-                                    {addTarget.type === "BIST" ? "₺" : "$"}{addTarget.last?.toLocaleString("tr-TR")}
-                                </span>
+                {addTarget && (() => {
+                    const sym = addTarget.type === "BIST" ? "₺" : "$";
+                    const tabBtn = (active) => ({
+                        flex: 1,
+                        padding: "8px 12px",
+                        border: "1px solid var(--border-card)",
+                        background: active ? "var(--accent-hover-bg, var(--accent))" : "var(--input-bg)",
+                        color: active ? "var(--accent-solid)" : "var(--text-muted)",
+                        fontSize: 12,
+                        fontWeight: 600,
+                        cursor: "pointer",
+                        borderRadius: 6,
+                        transition: "all 0.15s",
+                    });
+                    return (
+                        <div style={{ display: "grid", gap: 14 }}>
+                            <div style={s.infoBox}>
+                                <div style={s.infoRow}>
+                                    <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Güncel Fiyat</span>
+                                    <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 18 }}>
+                                        {sym}{addTarget.last?.toLocaleString("tr-TR")}
+                                    </span>
+                                </div>
                             </div>
-                        </div>
-                        <div style={{ display: "grid", gap: 6 }}>
-                            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Adet</div>
-                            <input
-                                type="number"
-                                value={addQty}
-                                min={1}
-                                onChange={(e) => setAddQty(Number(e.target.value))}
-                                style={s.input}
-                                autoFocus
-                            />
-                        </div>
-                        <div style={s.infoBox}>
-                            <div style={s.infoRow}>
-                                <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Tahmini Tutar</span>
-                                <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 16 }}>
-                                    {addTarget.type === "BIST" ? "₺" : "$"}{addTotal > 0 ? addTotal.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}
-                                </span>
+
+                            {/* Mode toggle — same affordance as PortfolioPage AddPositionModal */}
+                            <div style={{ display: "flex", gap: 6 }}>
+                                <button type="button" style={tabBtn(addMode === "quantity")} onClick={() => setAddMode("quantity")}>
+                                    Adet
+                                </button>
+                                <button type="button" style={tabBtn(addMode === "amount")} onClick={() => setAddMode("amount")}>
+                                    Tutar
+                                </button>
                             </div>
+
+                            {addMode === "quantity" ? (
+                                <div style={{ display: "grid", gap: 6 }}>
+                                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Adet</div>
+                                    <input
+                                        type="number"
+                                        value={addQty}
+                                        min={1}
+                                        onChange={(e) => setAddQty(Number(e.target.value))}
+                                        style={s.input}
+                                        autoFocus
+                                    />
+                                </div>
+                            ) : (
+                                <>
+                                    <div style={{ display: "grid", gap: 6 }}>
+                                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Tutar ({sym})</div>
+                                        <input
+                                            type="number"
+                                            value={addAmount || ""}
+                                            min={0}
+                                            step="any"
+                                            placeholder="örn. 5000"
+                                            onChange={(e) => setAddAmount(Number(e.target.value))}
+                                            style={s.input}
+                                            autoFocus
+                                        />
+                                    </div>
+                                    <div style={{
+                                        padding: "10px 12px",
+                                        borderRadius: 8,
+                                        border: "1px solid var(--border-soft, var(--border-card))",
+                                        background: "var(--bg-panel)",
+                                        fontSize: 12,
+                                        color: "var(--text-muted)",
+                                        display: "flex",
+                                        justifyContent: "space-between",
+                                        alignItems: "center",
+                                    }}>
+                                        <span>📊 Alınacak miktar:</span>
+                                        <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>
+                                            {effectiveQty > 0 ? effectiveQty.toLocaleString("tr-TR") + " adet" : "—"}
+                                        </span>
+                                    </div>
+                                    {amountLeftover > 0 && effectiveQty > 0 && (
+                                        <div style={{ fontSize: 11, color: "var(--text-muted)", paddingLeft: 4 }}>
+                                            Kalan: {sym}{amountLeftover.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} (artık para — alımda kullanılmaz)
+                                        </div>
+                                    )}
+                                </>
+                            )}
+
+                            <div style={s.infoBox}>
+                                <div style={s.infoRow}>
+                                    <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Tahmini Tutar</span>
+                                    <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 16 }}>
+                                        {sym}{addTotal > 0 ? addTotal.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}
+                                    </span>
+                                </div>
+                            </div>
+                            {addErr && <div style={{ color: "#ef4444", fontSize: 13 }}>{addErr}</div>}
                         </div>
-                        {addErr && <div style={{ color: "#ef4444", fontSize: 13 }}>{addErr}</div>}
-                    </div>
-                )}
+                    );
+                })()}
             </Modal>
         </div>
     );

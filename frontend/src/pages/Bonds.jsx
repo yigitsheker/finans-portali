@@ -122,6 +122,19 @@ export default function Bonds({ keycloak }) {
                 <div style={s.refreshMessage}>{refreshMessage}</div>
             )}
 
+            {/* Data-quality disclosure — bond yields here are derived from EVDS3's
+                "dirty price" series via a textbook YTM approximation. Both inputs
+                are real but the dirty-price (= clean + accrued coupon) makes the
+                computed YTM read low when the bond is well into its coupon period.
+                Front-end note keeps user expectations honest without hiding the data. */}
+            <div style={s.disclaimer}>
+                <strong>Bilgi:</strong> Devlet tahvili getirileri TCMB EVDS3 "Gösterge Niteliğindeki Değerler"
+                serisinden çekilir; bu fiyatlar kirli fiyattır (kupon ödeme periyodunda biriken faiz dahil).
+                Türetilmiş <b>Getiri (YTM)</b>, dirty-price yaklaşımıyla hesaplanan göstergedir;
+                gerçek ikincil piyasa getirisinden ±5-10 puan farklılaşabilir. Kupon ve fiyat değerleri
+                otoritatif, sadece YTM hesabı yaklaşıktır.
+            </div>
+
             {/* Mevduat Faizi (TCMB EVDS3) — tahvil veriliğinin doğal komşusu */}
             <DepositRatesCard />
 
@@ -312,6 +325,16 @@ const s = {
         color: "var(--text-primary)",
         fontSize: 13,
         marginBottom: 16,
+    },
+    disclaimer: {
+        padding: "12px 16px",
+        marginBottom: 16,
+        borderRadius: 8,
+        background: "rgba(245, 158, 11, 0.10)",
+        border: "1px solid rgba(245, 158, 11, 0.35)",
+        color: "var(--text-secondary)",
+        fontSize: 12.5,
+        lineHeight: 1.55,
     },
     summaryGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 },
     summaryCard: {

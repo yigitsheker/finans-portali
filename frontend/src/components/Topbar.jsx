@@ -1,5 +1,6 @@
 import NotificationBell from "./NotificationBell";
 import { useCurrencyDisplay } from "../contexts/CurrencyDisplayContext";
+import { isAdmin } from "../utils/roleUtils";
 
 function CurrencyToggle() {
   const { mode, setMode } = useCurrencyDisplay();
@@ -88,7 +89,11 @@ export default function Topbar({
 
         <CurrencyToggle />
 
-        {isAuthenticated && <NotificationBell keycloak={keycloak} />}
+        {/* The notification bell is a user feature (price-alert pings).
+            Admins manage the system, not their own positions, so hide it
+            for admin role to avoid confusion when the bell shows the
+            admin's own old test notifications. */}
+        {isAuthenticated && !isAdmin(keycloak) && <NotificationBell keycloak={keycloak} />}
 
         {showAlerts && onAlertsClick && (
           <button style={s.iconBtn} onClick={onAlertsClick} title="Fiyat Alarmı Oluştur">
