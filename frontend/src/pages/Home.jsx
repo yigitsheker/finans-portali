@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { getMarketSummary, getMarketInstruments, getNews } from "../api/portfolioApi";
+import { getMarketSummary, getNews } from "../api/portfolioApi";
 
 /**
  * Home — the new landing page.
@@ -14,29 +14,28 @@ import { getMarketSummary, getMarketInstruments, getNews } from "../api/portfoli
  * All data comes from the public market/news endpoints — no auth required.
  */
 export default function Home({ keycloak }) {
-    const [summary, setSummary] = useState(null);
-    const [instruments, setInstruments] = useState([]);
+    // /api/v1/market/summary returns a flat array — one quote per instrument
+    // with { symbol, name, type, last, changeAbs, changePct, asOf }.
+    // No separate /instruments call needed; everything we render below comes
+    // from this single endpoint, filtered by `type`.
+    const [summary, setSummary] = useState([]);
     const [news, setNews] = useState([]);
     const [filter, setFilter] = useState("ALL"); // ALL | UP | DOWN | VOL
 
     useEffect(() => {
         Promise.all([
-            getMarketSummary().catch(() => null),
-            getMarketInstruments().catch(() => []),
+            getMarketSummary().catch(() => []),
             getNews().catch(() => []),
-        ]).then(([s, instr, n]) => {
-            setSummary(s);
-            setInstruments(Array.isArray(instr) ? instr : []);
+        ]).then(([s, n]) => {
+            setSummary(Array.isArray(s) ? s : []);
             setNews(Array.isArray(n) ? n : []);
         });
     }, []);
 
-    // BIST 100 universe — keep just stocks listed on BIST and trim to 8 rows
-    // so the homepage stays glanceable. Filter buttons sort/restrict the list.
+    // BIST 100 universe — backend tags these specifically with type "BIST"
+    // (US stocks come back as type "STOCK"). Filter buttons sort/restrict.
     const bistRows = useMemo(() => {
-        let rows = instruments.filter(
-            (i) => i.type === "STOCK" || i.type === "BIST"
-        );
+        let rows = summary.filter((i) => i.type === "BIST");
         if (filter === "UP") {
             rows = rows.filter((r) => (r.changePct ?? 0) > 0)
                 .sort((a, b) => (b.changePct ?? 0) - (a.changePct ?? 0));
@@ -44,39 +43,46 @@ export default function Home({ keycloak }) {
             rows = rows.filter((r) => (r.changePct ?? 0) < 0)
                 .sort((a, b) => (a.changePct ?? 0) - (b.changePct ?? 0));
         } else if (filter === "VOL") {
-            rows = rows.sort((a, b) => (b.volume ?? 0) - (a.volume ?? 0));
+            // Volume isn't on the summary payload; fall back to absolute
+            // price change as a "active" proxy so the filter still does
+            // something useful instead of producing identical rows.
+            rows = rows.sort((a, b) => Math.abs(b.changeAbs ?? 0) - Math.abs(a.changeAbs ?? 0));
         }
         return rows.slice(0, 8);
-    }, [instruments, filter]);
+    }, [summary, filter]);
 
-    // "Günün hareketlileri" — top absolute movers irrespective of direction
+    // "Günün hareketlileri" — biggest absolute % movers across the whole
+    // universe (not just BIST) so the panel feels global.
     const movers = useMemo(() => {
-        return [...instruments]
+        return summary
             .filter((i) => i.last != null && i.changePct != null)
             .sort((a, b) => Math.abs(b.changePct) - Math.abs(a.changePct))
             .slice(0, 5);
-    }, [instruments]);
+    }, [summary]);
 
-    // Split summary.byType into the three sidecards on the right column.
-    const fxRows = useMemo(() => {
-        const all = (summary?.byType?.FX || summary?.fx || [])
-            .filter((r) => r.symbol && r.last != null);
-        return all.slice(0, 3);
-    }, [summary]);
-    const cryptoRows = useMemo(() => {
-        const all = (summary?.byType?.CRYPTO || summary?.crypto || [])
-            .filter((r) => r.symbol && r.last != null);
-        return all.slice(0, 3);
-    }, [summary]);
-    const commodityRows = useMemo(() => {
-        const all = (summary?.byType?.COMMODITY || summary?.commodities || [])
-            .filter((r) => r.symbol && r.last != null);
-        return all.slice(0, 3);
-    }, [summary]);
+    // Side panels: 3 rows per asset class.
+    const fxRows = useMemo(
+        () => summary.filter((r) => r.type === "FX").slice(0, 4),
+        [summary]
+    );
+    const cryptoRows = useMemo(
+        () => summary.filter((r) => r.type === "CRYPTO").slice(0, 4),
+        [summary]
+    );
+    const commodityRows = useMemo(
+        () => summary.filter((r) => r.type === "COMMODITY").slice(0, 4),
+        [summary]
+    );
 
     const updatedAt = useMemo(() => {
-        if (!summary?.asOf) return null;
-        return new Date(summary.asOf).toLocaleString("tr-TR", {
+        if (!summary.length) return null;
+        // Pick the freshest asOf timestamp across all rows.
+        const latest = summary.reduce((max, r) => {
+            const t = r.asOf ? new Date(r.asOf).getTime() : 0;
+            return t > max ? t : max;
+        }, 0);
+        if (!latest) return null;
+        return new Date(latest).toLocaleString("tr-TR", {
             day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit",
         });
     }, [summary]);
@@ -201,7 +207,7 @@ export default function Home({ keycloak }) {
                                 <th style={s.bistTh}>SEMBOL</th>
                                 <th style={{ ...s.bistTh, textAlign: "right" }}>FİYAT ₺</th>
                                 <th style={{ ...s.bistTh, textAlign: "right" }}>DEĞİŞİM %</th>
-                                <th style={{ ...s.bistTh, textAlign: "right" }}>HACİM</th>
+                                <th style={{ ...s.bistTh, textAlign: "right" }}>DEĞİŞİM ₺</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -223,7 +229,9 @@ export default function Home({ keycloak }) {
                                         <td style={{ ...s.bistTdNum, color: up ? "var(--green, #10b981)" : "var(--red, #ef4444)", fontWeight: 700 }}>
                                             {up ? "▲" : "▼"} {pct.toFixed(2)}
                                         </td>
-                                        <td style={s.bistTdNum}>{fmtVolume(r.volume)}</td>
+                                        <td style={{ ...s.bistTdNum, color: up ? "var(--green, #10b981)" : "var(--red, #ef4444)" }}>
+                                            {up ? "+" : ""}{fmtPrice(r.changeAbs)}
+                                        </td>
                                     </tr>
                                 );
                             })}
