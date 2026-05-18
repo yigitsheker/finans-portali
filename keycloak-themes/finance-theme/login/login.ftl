@@ -1,16 +1,8 @@
 <#import "template.ftl" as layout>
 <@layout.registrationLayout displayMessage=!messagesPerField.existsError('username','password') displayInfo=realm.password && realm.registrationAllowed && !registrationDisabled??; section>
     <#if section = "header">
-        <div class="finance-header">
-            <div class="finance-logo">
-                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2L4 8V14L12 20L20 14V8L12 2Z" fill="#22c55e"/>
-                    <path d="M12 8V16M8 12H16" stroke="#0a0d12" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-            </div>
-            <h1 class="finance-title">${msg("loginAccountTitle")}</h1>
-            <p class="finance-subtitle">${msg("loginSubtitle")!"Hesabınıza giriş yapın"}</p>
-        </div>
+        <h1 class="finance-title">${msg("loginAccountTitle")}</h1>
+        <p class="finance-subtitle">${msg("loginSubtitle")!"Hesabına erişmek için bilgilerini gir."}</p>
     <#elseif section = "form">
         <div id="kc-form">
             <div id="kc-form-wrapper">
