@@ -6,10 +6,10 @@ import { isAdmin } from "../utils/roleUtils";
 /**
  * Inline navigation items shown in the top bar.
  *
- * `PUBLIC_NAV` is always visible — these are the market & content pages
- * anyone can browse without an account. `PRIVATE_NAV` appears only when
- * the user is authenticated. Admin-only routes are still surfaced from
- * the dedicated admin user menu, not here.
+ * Three tiers, all rendered as flat chips in the nav strip:
+ *   PUBLIC_NAV  — always visible. Market & content pages.
+ *   PRIVATE_NAV — shown only to authenticated users (per-user dashboards).
+ *   ADMIN_NAV   — shown only to users with the ADMIN realm role.
  */
 const PUBLIC_NAV = [
   { to: "/",            label: "Anasayfa" },
@@ -27,6 +27,11 @@ const PUBLIC_NAV = [
 const PRIVATE_NAV = [
   { to: "/portfolio",  label: "Portföyüm" },
   { to: "/historical", label: "Geçmişten" },
+  { to: "/settings",   label: "Ayarlar" },
+];
+
+const ADMIN_NAV = [
+  { to: "/admin", label: "Yönetim" },
 ];
 
 function CurrencyToggle() {
@@ -117,8 +122,8 @@ export default function Topbar({
         </span>
       </Link>
 
-      {/* Inline nav links. Private routes are appended only when the user
-          is authenticated — keeps the bar tidy for anonymous visitors. */}
+      {/* Inline nav links. Private items show only when authenticated;
+          admin items show only when the user carries the ADMIN realm role. */}
       <nav style={s.nav} aria-label="Ana menü">
         {PUBLIC_NAV.map((item) => {
           const active = isActive(item.to);
@@ -139,6 +144,18 @@ export default function Topbar({
               key={item.to}
               to={item.to}
               style={{ ...s.navLink, ...(active ? s.navLinkActive : {}) }}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+        {isAuthenticated && isAdmin(keycloak) && ADMIN_NAV.map((item) => {
+          const active = isActive(item.to);
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              style={{ ...s.navLink, ...s.navLinkAdmin, ...(active ? s.navLinkAdminActive : {}) }}
             >
               {item.label}
             </Link>
@@ -258,6 +275,19 @@ const s = {
   navLinkActive: {
     color: "var(--accent-solid)",
     background: "var(--accent-hover-bg)",
+  },
+  // Admin items are visually distinct so a privileged user can spot the
+  // privileged-only pages at a glance and won't confuse them with
+  // ordinary market links.
+  navLinkAdmin: {
+    color: "var(--accent-amber, #f59e0b)",
+    border: "1px dashed var(--accent-amber, #f59e0b)",
+    padding: "7px 10px",
+  },
+  navLinkAdminActive: {
+    background: "rgba(245, 158, 11, 0.12)",
+    color: "var(--accent-amber, #f59e0b)",
+    borderStyle: "solid",
   },
   right: {
     display: "flex",
