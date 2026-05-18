@@ -17,10 +17,12 @@ import NewsDetail from "./pages/NewsDetail";
 import Admin from "./pages/Admin";
 import Inflation from "./pages/Inflation";
 import Commodities from "./pages/Commodities";
+import Viop from "./pages/Viop";
 import PriceAlertModal from "./components/PriceAlertModal";
 import { applyTheme, getStoredTheme } from "./theme";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { CurrencyDisplayProvider } from "./contexts/CurrencyDisplayContext";
+import { isAdmin } from "./utils/roleUtils";
 
 /**
  * Login gerektiren sayfalar için sarmalayıcı. Auth yoksa kullanıcıyı login flow'una
@@ -169,7 +171,10 @@ export default function App({ keycloak }) {
                                     redirectUri: window.location.origin,
                                 })
                             }
-                            showAlerts={isAuthenticated}
+                            // Hide the price-alarms button for admin users:
+                            // alerts are a per-user trading feature, and the bell
+                            // for admins would just surface stale system-testing data.
+                            showAlerts={isAuthenticated && !isAdmin(keycloak)}
                             onAlertsClick={() => setShowAlertModal(true)}
                         />
                     ) : undefined
@@ -209,6 +214,7 @@ export default function App({ keycloak }) {
                     <Route path="/bonds" element={<Bonds keycloak={keycloak} />} />
                     <Route path="/market-data" element={<MarketData />} />
                     <Route path="/inflation" element={<Inflation />} />
+                    <Route path="/viop" element={<Viop />} />
                     <Route
                         path="/commodities"
                         element={

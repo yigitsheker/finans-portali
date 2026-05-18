@@ -1,0 +1,268 @@
+import { useEffect, useMemo, useState } from "react";
+import { getViopContracts } from "../api/viopApi";
+
+const CATEGORIES = [
+    { key: "ALL",        label: "Tümü" },
+    { key: "INDEX",      label: "Endeks" },
+    { key: "STOCK",      label: "Pay (Hisse)" },
+    { key: "FX_TRY",     label: "Döviz / TRY" },
+    { key: "FX_USD",     label: "Döviz / USD" },
+    { key: "METAL_TRY",  label: "Kıymetli Maden / TRY" },
+    { key: "METAL_USD",  label: "Kıymetli Maden / USD" },
+    { key: "METAL",      label: "Metal" },
+];
+
+const MONTH_NAMES = [
+    "Oca", "Şub", "Mar", "Nis", "May", "Haz",
+    "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara",
+];
+
+const numFmt = (value, fractionDigits = 2) => {
+    if (value === null || value === undefined) return "—";
+    const n = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(n)) return "—";
+    return n.toLocaleString("tr-TR", {
+        minimumFractionDigits: fractionDigits,
+        maximumFractionDigits: fractionDigits,
+    });
+};
+
+const pctFmt = (value) => {
+    if (value === null || value === undefined) return "—";
+    const n = typeof value === "number" ? value : Number(value);
+    if (!Number.isFinite(n)) return "—";
+    const sign = n > 0 ? "+" : "";
+    return `${sign}${n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
+};
+
+export default function Viop() {
+    const [contracts, setContracts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState(null);
+    const [category, setCategory] = useState("ALL");
+    const [search, setSearch] = useState("");
+    const [sortKey, setSortKey] = useState("volumeTl");
+    const [sortDir, setSortDir] = useState("desc");
+
+    useEffect(() => {
+        let cancelled = false;
+        setLoading(true);
+        setError(null);
+        getViopContracts(category === "ALL" ? undefined : category)
+            .then((data) => {
+                if (!cancelled) setContracts(Array.isArray(data) ? data : []);
+            })
+            .catch((e) => {
+                console.error("VIOP fetch failed:", e);
+                if (!cancelled) setError("Veriler yüklenemedi");
+            })
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+        return () => { cancelled = true; };
+    }, [category]);
+
+    const rows = useMemo(() => {
+        const q = search.trim().toUpperCase();
+        let list = contracts;
+        if (q) {
+            list = list.filter((c) =>
+                (c.symbol || "").toUpperCase().includes(q)
+                || (c.underlying || "").toUpperCase().includes(q)
+                || (c.name || "").toUpperCase().includes(q)
+            );
+        }
+        const dir = sortDir === "asc" ? 1 : -1;
+        list = [...list].sort((a, b) => {
+            const av = a[sortKey];
+            const bv = b[sortKey];
+            if (av === null || av === undefined) return 1;
+            if (bv === null || bv === undefined) return -1;
+            if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
+            return String(av).localeCompare(String(bv), "tr") * dir;
+        });
+        return list;
+    }, [contracts, search, sortKey, sortDir]);
+
+    const updatedAt = useMemo(() => {
+        if (contracts.length === 0) return null;
+        const latest = contracts.reduce((max, c) => {
+            const t = c.updatedAt ? new Date(c.updatedAt).getTime() : 0;
+            return t > max ? t : max;
+        }, 0);
+        if (!latest) return null;
+        return new Date(latest).toLocaleString("tr-TR", {
+            day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit",
+        });
+    }, [contracts]);
+
+    const handleSort = (key) => {
+        if (sortKey === key) {
+            setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        } else {
+            setSortKey(key);
+            setSortDir("desc");
+        }
+    };
+
+    return (
+        <div style={s.page}>
+            <header style={s.header}>
+                <div>
+                    <h1 style={s.title}>VIOP — Vadeli İşlem Kontratları</h1>
+                    <p style={s.sub}>
+                        Borsa İstanbul vadeli işlem kontratları, İş Yatırım'dan 15 dakika gecikmeli.
+                        {updatedAt && <span style={{ marginLeft: 8 }}>Son güncelleme: <strong>{updatedAt}</strong></span>}
+                    </p>
+                </div>
+            </header>
+
+            <div style={s.controls}>
+                <div style={s.tabs}>
+                    {CATEGORIES.map((c) => (
+                        <button
+                            key={c.key}
+                            type="button"
+                            onClick={() => setCategory(c.key)}
+                            style={{ ...s.tab, ...(category === c.key ? s.tabActive : {}) }}
+                        >
+                            {c.label}
+                        </button>
+                    ))}
+                </div>
+                <input
+                    type="text"
+                    placeholder="Sembol veya dayanak ara… (örn. AKBNK, XU030)"
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    style={s.search}
+                />
+            </div>
+
+            {error && <div style={s.error}>{error}</div>}
+
+            {loading ? (
+                <div style={s.placeholder}>Yükleniyor…</div>
+            ) : rows.length === 0 ? (
+                <div style={s.placeholder}>Gösterilecek kontrat yok</div>
+            ) : (
+                <div style={s.tableWrap}>
+                    <table style={s.table}>
+                        <thead>
+                            <tr>
+                                <ThSort label="Sembol"        onClick={() => handleSort("symbol")}     active={sortKey === "symbol"}     dir={sortDir} align="left" />
+                                <ThSort label="Dayanak"       onClick={() => handleSort("underlying")} active={sortKey === "underlying"} dir={sortDir} align="left" />
+                                <ThSort label="Vade"          onClick={() => handleSort("maturityYear")} active={sortKey === "maturityYear"} dir={sortDir} align="left" />
+                                <ThSort label="Son Fiyat"     onClick={() => handleSort("lastPrice")}  active={sortKey === "lastPrice"}  dir={sortDir} />
+                                <ThSort label="Değişim"       onClick={() => handleSort("changePct")}  active={sortKey === "changePct"}  dir={sortDir} />
+                                <ThSort label="Hacim (TL)"    onClick={() => handleSort("volumeTl")}   active={sortKey === "volumeTl"}   dir={sortDir} />
+                                <ThSort label="Hacim (Adet)"  onClick={() => handleSort("volumeLots")} active={sortKey === "volumeLots"} dir={sortDir} />
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {rows.map((c) => {
+                                const pct = c.changePct == null ? null : Number(c.changePct);
+                                const tone = pct == null ? "neutral" : (pct > 0 ? "up" : (pct < 0 ? "down" : "neutral"));
+                                return (
+                                    <tr key={c.id} style={s.tr}>
+                                        <td style={s.tdSymbol}>{c.symbol}</td>
+                                        <td>{c.underlying}</td>
+                                        <td style={{ color: "var(--text-muted)" }}>
+                                            {MONTH_NAMES[(c.maturityMonth || 1) - 1]} {c.maturityYear}
+                                        </td>
+                                        <td style={s.tdNum}>{numFmt(c.lastPrice, 2)}</td>
+                                        <td style={{ ...s.tdNum, color: TONE_COLOR[tone], fontWeight: 600 }}>
+                                            {pctFmt(c.changePct)}
+                                        </td>
+                                        <td style={s.tdNum}>{numFmt(c.volumeTl, 0)}</td>
+                                        <td style={s.tdNum}>{numFmt(c.volumeLots, 0)}</td>
+                                    </tr>
+                                );
+                            })}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+
+            <p style={s.footer}>
+                Veri kaynağı: İş Yatırım — Akamai bot-block'unu Playwright ile geçtikten sonra her 15 dakikada bir
+                kazınır. BIST'in kendi yayını 15 dakika gecikmeli; gerçek-zamanlı veri için aracı kurum platformu gerekir.
+            </p>
+        </div>
+    );
+}
+
+function ThSort({ label, onClick, active, dir, align = "right" }) {
+    const arrow = !active ? "" : (dir === "asc" ? " ▲" : " ▼");
+    return (
+        <th
+            onClick={onClick}
+            style={{
+                ...s.th,
+                textAlign: align,
+                color: active ? "var(--text-primary)" : "var(--text-muted)",
+            }}
+        >
+            {label}{arrow}
+        </th>
+    );
+}
+
+const TONE_COLOR = {
+    up: "var(--green, #10b981)",
+    down: "var(--red, #ef4444)",
+    neutral: "var(--text-secondary)",
+};
+
+const s = {
+    page: { maxWidth: 1280, margin: "0 auto", padding: "0 4px" },
+    header: { marginBottom: 18 },
+    title: { fontSize: 24, fontWeight: 700, margin: 0, color: "var(--text-primary)" },
+    sub: { fontSize: 13, color: "var(--text-muted)", margin: "6px 0 0" },
+    controls: {
+        display: "flex", flexWrap: "wrap", gap: 12, alignItems: "center",
+        justifyContent: "space-between", marginBottom: 16,
+    },
+    tabs: { display: "flex", flexWrap: "wrap", gap: 6 },
+    tab: {
+        padding: "8px 14px", borderRadius: 8,
+        background: "var(--bg-card)", border: "1px solid var(--border-card)",
+        color: "var(--text-secondary)", fontSize: 13, fontWeight: 500, cursor: "pointer",
+    },
+    tabActive: {
+        background: "var(--accent-hover-bg)", color: "var(--accent-solid)",
+        borderColor: "var(--accent-solid)",
+    },
+    search: {
+        flex: "1 1 280px", maxWidth: 360,
+        padding: "9px 12px", borderRadius: 8,
+        background: "var(--input-bg)", border: "1px solid var(--border-card)",
+        color: "var(--text-primary)", fontSize: 13,
+    },
+    tableWrap: {
+        background: "var(--bg-card)", border: "1px solid var(--border-card)",
+        borderRadius: 10, overflow: "auto",
+    },
+    table: { width: "100%", borderCollapse: "collapse", fontSize: 13 },
+    th: {
+        padding: "12px 14px", fontSize: 11, fontWeight: 700,
+        letterSpacing: "0.05em", textTransform: "uppercase",
+        borderBottom: "1px solid var(--border-card)", cursor: "pointer",
+        whiteSpace: "nowrap", userSelect: "none",
+    },
+    tr: { borderBottom: "1px solid var(--border-soft, var(--border-card))" },
+    tdSymbol: { padding: "10px 14px", fontWeight: 600, color: "var(--text-primary)", whiteSpace: "nowrap" },
+    tdNum: {
+        padding: "10px 14px", textAlign: "right",
+        fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap",
+    },
+    placeholder: { padding: 40, textAlign: "center", color: "var(--text-muted)" },
+    error: {
+        padding: 12, marginBottom: 12, borderRadius: 8,
+        background: "rgba(239, 68, 68, 0.1)", color: "#ef4444",
+        border: "1px solid rgba(239, 68, 68, 0.3)",
+    },
+    footer: { fontSize: 12, color: "var(--text-muted)", marginTop: 16, lineHeight: 1.5 },
+};
+
+s.tdSymbol = { ...s.tdSymbol, fontVariantNumeric: "tabular-nums" };

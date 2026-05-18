@@ -86,6 +86,14 @@ const CommodityIcon = () => (
     </svg>
 );
 
+const ViopIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 19L9 14L13 18L20 11" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M15 11H20V16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <rect x="3" y="3" width="18" height="3" rx="1" stroke="currentColor" strokeWidth="2"/>
+    </svg>
+);
+
 const InflationIcon = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <path d="M3 17L9 11L13 15L21 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -109,6 +117,7 @@ const PUBLIC_NAV_ITEMS = [
     { id: "bonds", label: "Tahvil ve Bono", icon: <BondsIcon />, path: "/bonds" },
     { id: "market-data", label: "Döviz Kurları", icon: <ExchangeIcon />, path: "/market-data" },
     { id: "commodities", label: "Emtia", icon: <CommodityIcon />, path: "/commodities" },
+    { id: "viop", label: "VIOP", icon: <ViopIcon />, path: "/viop" },
     { id: "inflation", label: "Enflasyon", icon: <InflationIcon />, path: "/inflation" },
 ];
 

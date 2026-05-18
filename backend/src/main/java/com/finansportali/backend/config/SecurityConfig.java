@@ -42,6 +42,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.GET, "/api/v1/bonds/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/inflation/**").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/v1/deposit-rates/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/viop/**").permitAll()
 
                         // Portfolio requires authentication (any authenticated user)
                         .requestMatchers("/api/v1/portfolio/**").authenticated()
