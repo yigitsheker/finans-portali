@@ -1,6 +1,24 @@
+import { Link, useLocation } from "react-router-dom";
 import NotificationBell from "./NotificationBell";
 import { useCurrencyDisplay } from "../contexts/CurrencyDisplayContext";
 import { isAdmin } from "../utils/roleUtils";
+
+/**
+ * Public navigation items shown inline in the top bar. These replace the
+ * old left-rail sidebar — fewer clicks for the common pages, and a single
+ * sticky header keeps the most-used controls visible while scrolling.
+ *
+ * Admin / private routes (Yatırımlarım, Yönetim) intentionally stay off
+ * the public nav — they're surfaced from the user menu when authenticated.
+ */
+const PUBLIC_NAV = [
+  { to: "/",        label: "Anasayfa" },
+  { to: "/stocks",  label: "Hisseler" },
+  { to: "/crypto",  label: "Kripto" },
+  { to: "/funds",   label: "Fonlar" },
+  { to: "/market-data", label: "Döviz" },
+  { to: "/news",    label: "Haberler" },
+];
 
 function CurrencyToggle() {
   const { mode, setMode } = useCurrencyDisplay();
@@ -33,7 +51,6 @@ const ctgl = {
     border: "1px solid var(--border-card)",
     borderRadius: 10,
     padding: 2,
-    gap: 0,
   },
   btn: {
     border: "none",
@@ -53,50 +70,69 @@ const ctgl = {
   },
 };
 
-/**
- * Topbar — page title on the left, action cluster on the right. The hamburger
- * button only appears on viewports ≤1024px (CSS-controlled) and toggles the
- * sidebar drawer via the `onMenuClick` prop injected by Layout.
- */
 export default function Topbar({
   isAuthenticated,
   onLogin,
   onLogout,
-  title,
-  subtitle,
-  right,
   theme,
   onThemeToggle,
   onAlertsClick,
   showAlerts,
   keycloak,
 }) {
+  const location = useLocation();
   const isDark = theme === "dark" ||
     (theme === "system" && typeof window !== "undefined" && window.matchMedia
       && window.matchMedia("(prefers-color-scheme: dark)").matches);
 
+  // Active link matcher — "/" matches only the exact home route to avoid
+  // every page lighting up "Anasayfa". Everything else uses prefix match
+  // so /stocks/AAPL still highlights "Hisseler".
+  const isActive = (to) => to === "/"
+    ? location.pathname === "/"
+    : location.pathname.startsWith(to);
+
   return (
-    <div style={s.row} className="topbar">
-      <div style={s.left}>
-        <div style={s.titleWrap}>
-          <div style={s.title}>{title}</div>
-          {subtitle && <div style={s.sub}>{subtitle}</div>}
-        </div>
-      </div>
+    <div style={s.row} className="fp-topbar">
+      {/* Brand */}
+      <Link to="/" style={s.brand}>
+        <span style={s.brandLogo}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+            <polyline points="16 7 22 7 22 13"/>
+          </svg>
+        </span>
+        <span style={s.brandText}>
+          <span style={s.brandName}>Piyasa</span>
+          <span style={s.brandTag}>FINANS PORTALI</span>
+        </span>
+      </Link>
 
+      {/* Inline nav links */}
+      <nav style={s.nav} aria-label="Ana menü">
+        {PUBLIC_NAV.map((item) => {
+          const active = isActive(item.to);
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              style={{ ...s.navLink, ...(active ? s.navLinkActive : {}) }}
+            >
+              {item.label}
+            </Link>
+          );
+        })}
+      </nav>
+
+      {/* Action cluster */}
       <div style={s.right}>
-        {right}
-
         <CurrencyToggle />
 
-        {/* The notification bell is a user feature (price-alert pings).
-            Admins manage the system, not their own positions, so hide it
-            for admin role to avoid confusion when the bell shows the
-            admin's own old test notifications. */}
+        {/* Notification bell — hidden for admin (their own test pings) */}
         {isAuthenticated && !isAdmin(keycloak) && <NotificationBell keycloak={keycloak} />}
 
         {showAlerts && onAlertsClick && (
-          <button style={s.iconBtn} onClick={onAlertsClick} title="Fiyat Alarmı Oluştur">
+          <button style={s.iconBtn} onClick={onAlertsClick} title="Fiyat Alarmı Oluştur" aria-label="Fiyat Alarmı">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 5V3M12 5C8.69 5 6 7.69 6 11V16L4 18V19H20V18L18 16V11C18 7.69 15.31 5 12 5Z"
                     stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
@@ -115,12 +151,12 @@ export default function Topbar({
           {isDark ? (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="4" />
-              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41" />
+              <circle cx="12" cy="12" r="4"/>
+              <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
             </svg>
           ) : (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
-              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z" />
+              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>
             </svg>
           )}
         </button>
@@ -139,49 +175,71 @@ const s = {
   row: {
     display: "flex",
     alignItems: "center",
-    justifyContent: "space-between",
     gap: 16,
     flexWrap: "wrap",
   },
-  left: {
-    minWidth: 0,
-    flex: "1 1 auto",
-    display: "flex",
+  brand: {
+    display: "inline-flex",
     alignItems: "center",
-    gap: 12,
-  },
-  hamburger: {
-    display: "none",  // CSS override for ≤1024px
-    width: 38, height: 38,
-    borderRadius: 10,
-    border: "1px solid var(--border-card)",
-    background: "var(--input-bg)",
-    color: "var(--text-primary)",
-    cursor: "pointer",
-    placeItems: "center",
+    gap: 10,
+    textDecoration: "none",
+    color: "inherit",
     flexShrink: 0,
   },
-  titleWrap: {
-    minWidth: 0,
-    flex: "1 1 auto",
+  brandLogo: {
+    width: 36,
+    height: 36,
+    borderRadius: 9,
+    background: "linear-gradient(135deg, var(--accent-strong, #15803d), var(--accent-solid, #22c55e))",
+    display: "grid",
+    placeItems: "center",
+    boxShadow: "0 4px 12px rgba(34, 197, 94, 0.25)",
   },
-  title: {
-    fontSize: "var(--font-2xl)",
-    fontWeight: 700,
+  brandText: {
+    display: "flex",
+    flexDirection: "column",
+    lineHeight: 1.1,
+  },
+  brandName: {
+    fontSize: 16,
+    fontWeight: 800,
     color: "var(--text-primary)",
-    letterSpacing: "-0.02em",
-    lineHeight: 1.2,
+    letterSpacing: "-0.3px",
   },
-  sub: {
+  brandTag: {
+    fontSize: 9.5,
+    fontWeight: 700,
     color: "var(--text-muted)",
-    fontSize: "var(--font-md)",
-    marginTop: 2,
+    letterSpacing: "0.12em",
+    textTransform: "uppercase",
+    marginTop: 1,
+  },
+  nav: {
+    display: "flex",
+    alignItems: "center",
+    gap: 4,
+    flex: 1,
+    justifyContent: "center",
+    flexWrap: "wrap",
+  },
+  navLink: {
+    padding: "8px 14px",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    color: "var(--text-muted)",
+    textDecoration: "none",
+    transition: "background-color 0.15s, color 0.15s",
+  },
+  navLinkActive: {
+    color: "var(--accent-solid)",
+    background: "var(--accent-hover-bg)",
   },
   right: {
     display: "flex",
     alignItems: "center",
     gap: 8,
-    flexWrap: "wrap",
+    flexShrink: 0,
   },
   iconBtn: {
     width: 38, height: 38,
@@ -200,7 +258,7 @@ const s = {
     background: "var(--danger-bg)",
     color: "var(--danger-text)",
     cursor: "pointer",
-    fontSize: "var(--font-md)",
+    fontSize: 14,
     fontWeight: 600,
   },
   loginBtn: {
@@ -210,7 +268,7 @@ const s = {
     background: "linear-gradient(135deg, var(--accent-strong), var(--accent-solid))",
     color: "#fff",
     cursor: "pointer",
-    fontSize: "var(--font-md)",
+    fontSize: 14,
     fontWeight: 700,
     boxShadow: "0 4px 14px rgba(34, 197, 94, 0.30)",
   },

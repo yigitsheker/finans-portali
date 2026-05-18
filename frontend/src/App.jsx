@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
-import Sidebar from "./components/Sidebar";
 import Topbar from "./components/Topbar";
 import Ticker from "./components/Ticker";
 import Stocks from "./pages/Stocks";
@@ -12,6 +11,7 @@ import Portfolio from "./pages/Portfolio";
 import HistoricalComparison from "./pages/HistoricalComparison";
 import Settings from "./pages/Settings";
 import MarketData from "./pages/MarketData";
+import Home from "./pages/Home";
 import News from "./pages/News";
 import NewsDetail from "./pages/NewsDetail";
 import Admin from "./pages/Admin";
@@ -149,14 +149,11 @@ export default function App({ keycloak }) {
         <ThemeProvider>
             <CurrencyDisplayProvider>
             <Layout
-                sidebar={<Sidebar keycloak={keycloak} />}
                 ticker={<Ticker keycloak={keycloak} />}
                 topbar={
                     !currentPage.hideTopbar ? (
                         <Topbar
                             keycloak={keycloak}
-                            title={currentPage.title}
-                            subtitle={currentPage.subtitle}
                             username={username}
                             isAuthenticated={isAuthenticated}
                             theme={theme}
@@ -181,7 +178,7 @@ export default function App({ keycloak }) {
                 }
             >
                 <Routes>
-                    <Route path="/" element={<Navigate to="/news" replace />} />
+                    <Route path="/" element={<Home keycloak={keycloak} />} />
                     <Route path="/news" element={<News keycloak={keycloak} />} />
                     <Route path="/news/:id" element={<NewsDetail />} />
                     <Route
