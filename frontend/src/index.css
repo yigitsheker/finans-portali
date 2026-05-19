@@ -211,6 +211,10 @@ html, body, #root {
   padding: 0;
   height: 100%;
   min-height: 100vh;
+  /* Block all horizontal scroll on the document. Any wide content (tables,
+     tickers, charts) must scroll within its own container — never the page. */
+  overflow-x: hidden;
+  max-width: 100vw;
 }
 
 body {
@@ -520,13 +524,18 @@ button:hover .news-external-icon   { transform: translate(2px, -2px); }
   .home-hero, .home-snapshot { grid-template-columns: 1fr !important; }
 }
 
-/* Small tablet & below — hamburger takes over from the inline nav */
-@media (max-width: 900px) {
+/* Tablet & narrow desktop — hamburger takes over. The inline nav has ~10
+   items and wraps to two rows at <=1100px, which looks worse than just
+   collapsing to a drawer. */
+@media (max-width: 1100px) {
   .fp-topbar-hamburger { display: grid; }
   .fp-topbar-nav { display: none !important; }
   .fp-topbar { padding-left: 56px !important; }      /* room for the hamburger */
-  .fp-topbar-brand-tag { display: none !important; } /* free up brand width */
-  /* Topbar action cluster: shrink gap, allow wrap as a last resort */
+}
+
+/* <=900px also drops the brand subtitle to free up width for actions. */
+@media (max-width: 900px) {
+  .fp-topbar-brand-tag { display: none !important; }
   .fp-topbar-actions { gap: 6px !important; flex-wrap: wrap; justify-content: flex-end; }
 }
 
@@ -561,13 +570,23 @@ button:hover .news-external-icon   { transform: translate(2px, -2px); }
 }
 
 @media (max-width: 480px) {
-  /* Below ~iPhone SE width, hide the second icon button (theme toggle)
-     entirely — theme is still reachable from Settings. Keep currency/lang/
-     login/notifications visible. */
+  /* Below ~iPhone SE width, hide the theme toggle to give the login
+     button enough room. Theme is still reachable from Settings. */
   .fp-topbar-actions > button[title="Tema değiştir"],
   .fp-topbar-actions > button[aria-label="Tema değiştir"],
   .fp-topbar-actions > button[aria-label="Toggle theme"] {
     display: none !important;
+  }
+  /* Keep the login/logout button on a single line — wrapping looks broken. */
+  .fp-topbar-actions > button:last-child {
+    white-space: nowrap !important;
+    padding: 8px 10px !important;
+  }
+  /* Belt-and-braces: every section caps at viewport width so a long
+     string can't push the page past the right edge. */
+  body, .fp-main, .home-hero, .home-snapshot {
+    max-width: 100vw;
+    overflow-x: clip;
   }
 }
 
