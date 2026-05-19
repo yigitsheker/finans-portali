@@ -92,31 +92,32 @@ public class EvdsBondYieldFetcher {
      * fallback (clearly labelled with source=TCMB rather than TCMB_EVDS3).
      */
     static final List<BondDef> BONDS = List.of(
-            // 4-year, paired-code (TRT020130 T19 + K18)
-            new BondDef(
-                    "TR4YT",
-                    "Türkiye 4 Yıllık Devlet Tahvili",
-                    "TRT020130T19",
-                    "TRT020130K18",
-                    DebtInstrumentType.GOVERNMENT_BOND,
-                    LocalDate.of(2030, 1, 2)),
             // ~2-year, same-code pattern (TP.TRD171127T13 + .ORAN)
-            new BondDef(
-                    "TR2YT",
-                    "Türkiye 2 Yıllık Devlet Tahvili",
-                    "TRD171127T13",
-                    "TRD171127T13",
-                    DebtInstrumentType.GOVERNMENT_BOND,
-                    LocalDate.of(2027, 11, 17)),
+            new BondDef("TR2YT", "Türkiye 2 Yıllık Devlet Tahvili (TRD171127T13)",
+                    "TRD171127T13", "TRD171127T13",
+                    DebtInstrumentType.GOVERNMENT_BOND, LocalDate.of(2027, 11, 17)),
+            // ~2-year, alternative paired-code (TRD050128 T18/A19) — adds curve coverage
+            new BondDef("TR2YT_B", "Türkiye 2 Yıllık Devlet Tahvili (TRD050128T18)",
+                    "TRD050128T18", "TRD050128T18",
+                    DebtInstrumentType.GOVERNMENT_BOND, LocalDate.of(2028, 1, 5)),
             // ~2.5-year, same-code pattern (TP.TRD151227T14 + .ORAN)
-            new BondDef(
-                    "TR3YT",
-                    "Türkiye 3 Yıllık Devlet Tahvili",
-                    "TRD151227T14",
-                    "TRD151227T14",
-                    DebtInstrumentType.GOVERNMENT_BOND,
-                    LocalDate.of(2027, 12, 15))
+            new BondDef("TR3YT", "Türkiye 3 Yıllık Devlet Tahvili (TRD151227T14)",
+                    "TRD151227T14", "TRD151227T14",
+                    DebtInstrumentType.GOVERNMENT_BOND, LocalDate.of(2027, 12, 15)),
+            // ~1.5-year (TRD171127T21 — different sub-issue, same maturity as TR2YT)
+            new BondDef("TR2YT_C", "Türkiye 2 Yıllık Devlet Tahvili (TRD171127T21)",
+                    "TRD171127T21", "TRD171127T21",
+                    DebtInstrumentType.GOVERNMENT_BOND, LocalDate.of(2027, 11, 17)),
+            // 4-year, paired-code (TRT020130 T19 + K18)
+            new BondDef("TR4YT", "Türkiye 4 Yıllık Devlet Tahvili (TRT020130T19)",
+                    "TRT020130T19", "TRT020130K18",
+                    DebtInstrumentType.GOVERNMENT_BOND, LocalDate.of(2030, 1, 2))
     );
+
+    // Preferred auth: persistent API key from evds3.tcmb.gov.tr Profilim.
+    // Session cookies remain as a fallback for users who haven't generated a key.
+    @Value("${app.evds.api-key:}")
+    private String apiKey;
 
     @Value("${app.bonds.tcmb.evds3-jsessionid:}")
     private String jsessionId;
@@ -140,8 +141,11 @@ public class EvdsBondYieldFetcher {
      * Bonds that fail to return data (network error, expired, missing) are skipped.
      */
     public List<BondQuoteDto> fetchAll() {
-        if (jsessionId == null || jsessionId.isBlank() || tsCookie == null || tsCookie.isBlank()) {
-            log.warn("[EVDS-BOND] TCMB cookies not configured; cannot fetch bond data");
+        boolean haveKey = apiKey != null && !apiKey.isBlank();
+        boolean haveCookies = jsessionId != null && !jsessionId.isBlank()
+                && tsCookie != null && !tsCookie.isBlank();
+        if (!haveKey && !haveCookies) {
+            log.warn("[EVDS-BOND] no EVDS auth (api-key or session cookies) configured; skipping");
             return List.of();
         }
 
@@ -217,12 +221,20 @@ public class EvdsBondYieldFetcher {
                             + "\"ozelFormuller\":[],\"sira\":\"0\",\"yon\":\"0\"}",
                     seriesCode, from.format(EVDS_DATE), to.format(EVDS_DATE));
 
-            String response = webClient.post()
+            // Prefer the API key (persistent); fall back to session cookies
+            // only when the operator hasn't provisioned a key yet.
+            var spec = webClient.post()
                     .uri(EVDS3_URL)
                     .header("Content-Type", "application/json")
                     .header("Origin", "https://evds3.tcmb.gov.tr")
-                    .header("Referer", "https://evds3.tcmb.gov.tr/")
-                    .header("Cookie", "JSESSIONID=" + jsessionId + "; TS017d0b0b=" + tsCookie)
+                    .header("Referer", "https://evds3.tcmb.gov.tr/");
+            if (apiKey != null && !apiKey.isBlank()) {
+                spec = spec.header("key", apiKey);
+            } else {
+                spec = spec.header("Cookie",
+                        "JSESSIONID=" + jsessionId + "; TS017d0b0b=" + tsCookie);
+            }
+            String response = spec
                     .bodyValue(body)
                     .retrieve()
                     .bodyToMono(String.class)

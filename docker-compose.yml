@@ -298,10 +298,11 @@ services:
       SPRING_PROFILES_ACTIVE: prod
       SERVER_PORT: 8080
 
-      # TCMB EVDS3 session cookies (manual login required; expire periodically)
-      # Get from evds3.tcmb.gov.tr after login via DevTools → Application → Cookies
-      TCMB_EVDS3_JSESSIONID: ${TCMB_EVDS3_JSESSIONID}
-      TCMB_EVDS3_TS_COOKIE: ${TCMB_EVDS3_TS_COOKIE}
+      # TCMB EVDS3 — preferred auth is the persistent API key. Session
+      # cookies remain as a fallback for the path the SPA hands out.
+      APP_EVDS_API_KEY: ${EVDS_API_KEY:-}
+      TCMB_EVDS3_JSESSIONID: ${TCMB_EVDS3_JSESSIONID:-}
+      TCMB_EVDS3_TS_COOKIE: ${TCMB_EVDS3_TS_COOKIE:-}
 
       # Headless-browser fetcher — used as a last-resort fallback for
       # Cloudflare-protected pages (e.g. some news sites) when both Jsoup

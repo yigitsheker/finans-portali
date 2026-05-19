@@ -53,6 +53,9 @@ public class TcmbInflationFetcher {
     //   TP.FE.OKTG01, TP.FE.OKTGY01, TP.UFE.S01, TP.UFE.YEYI — disabled.
     private static final String SERIES_CPI_INDEX = "TP.FG.J0";
 
+    @Value("${app.evds.api-key:}")
+    private String apiKey;
+
     @Value("${app.bonds.tcmb.evds3-jsessionid:}")
     private String jsessionId;
 
@@ -137,12 +140,18 @@ public class TcmbInflationFetcher {
                     from.format(EVDS_DATE),
                     to.format(EVDS_DATE));
 
-            String response = webClient.post()
+            var spec = webClient.post()
                     .uri(EVDS3_DATA_URL)
                     .header("Content-Type", "application/json")
                     .header("Origin", "https://evds3.tcmb.gov.tr")
-                    .header("Referer", "https://evds3.tcmb.gov.tr/")
-                    .header("Cookie", "JSESSIONID=" + jsessionId + "; TS017d0b0b=" + tsCookie)
+                    .header("Referer", "https://evds3.tcmb.gov.tr/");
+            if (apiKey != null && !apiKey.isBlank()) {
+                spec = spec.header("key", apiKey);
+            } else {
+                spec = spec.header("Cookie",
+                        "JSESSIONID=" + jsessionId + "; TS017d0b0b=" + tsCookie);
+            }
+            String response = spec
                     .bodyValue(body)
                     .retrieve()
                     .bodyToMono(String.class)

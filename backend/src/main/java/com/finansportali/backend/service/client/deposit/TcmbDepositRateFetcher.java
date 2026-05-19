@@ -52,6 +52,9 @@ public class TcmbDepositRateFetcher {
     public static final List<String> CURRENCIES = List.of("TRY", "USD", "EUR");
     public static final List<String> MATURITIES = List.of("MT01", "MT02", "MT03", "MT04", "MT05", "MT06");
 
+    @Value("${app.evds.api-key:}")
+    private String apiKey;
+
     @Value("${app.bonds.tcmb.evds3-jsessionid:}")
     private String jsessionId;
 
@@ -131,12 +134,18 @@ public class TcmbDepositRateFetcher {
                     from.format(EVDS_DATE),
                     to.format(EVDS_DATE));
 
-            String response = webClient.post()
+            var spec = webClient.post()
                     .uri(EVDS3_DATA_URL)
                     .header("Content-Type", "application/json")
                     .header("Origin", "https://evds3.tcmb.gov.tr")
-                    .header("Referer", "https://evds3.tcmb.gov.tr/")
-                    .header("Cookie", "JSESSIONID=" + jsessionId + "; TS017d0b0b=" + tsCookie)
+                    .header("Referer", "https://evds3.tcmb.gov.tr/");
+            if (apiKey != null && !apiKey.isBlank()) {
+                spec = spec.header("key", apiKey);
+            } else {
+                spec = spec.header("Cookie",
+                        "JSESSIONID=" + jsessionId + "; TS017d0b0b=" + tsCookie);
+            }
+            String response = spec
                     .bodyValue(body)
                     .retrieve()
                     .bodyToMono(String.class)
