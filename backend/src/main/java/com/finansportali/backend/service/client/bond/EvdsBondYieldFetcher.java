@@ -111,7 +111,15 @@ public class EvdsBondYieldFetcher {
             // 4-year, paired-code (TRT020130 T19 + K18)
             new BondDef("TR4YT", "Türkiye 4 Yıllık Devlet Tahvili (TRT020130T19)",
                     "TRT020130T19", "TRT020130K18",
-                    DebtInstrumentType.GOVERNMENT_BOND, LocalDate.of(2030, 1, 2))
+                    DebtInstrumentType.GOVERNMENT_BOND, LocalDate.of(2030, 1, 2)),
+            // ~4-year, same-code pattern (TRT090130T20 — alt sub-issue of TR4YT)
+            new BondDef("TR4YT_B", "Türkiye 4 Yıllık Devlet Tahvili (TRT090130T20)",
+                    "TRT090130T20", "TRT090130T20",
+                    DebtInstrumentType.GOVERNMENT_BOND, LocalDate.of(2030, 1, 9))
+            // Note: TRT060127T10 (1Y) and TRT080131T20 (5Y) were probed but their
+            // same-code .ORAN series returns non-coupon values that yield nonsense
+            // YTMs (293% and -0.19%). They'd need a paired K-suffix coupon ISIN to
+            // be usable, which is not in our verified set.
     );
 
     // Preferred auth: persistent API key from evds3.tcmb.gov.tr Profilim.

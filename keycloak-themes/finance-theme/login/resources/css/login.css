@@ -79,12 +79,28 @@ body {
 .finance-background { display: none !important; }
 
 /* ──────────────────────────────────────────────────────────────
-   PAGE SHELL — two columns side by side
+   PAGE SHELL — two columns side by side, chart art layered behind both
    ────────────────────────────────────────────────────────────── */
 .finance-shell {
     min-height: 100vh;
     display: grid;
     grid-template-columns: 1.05fr 0.95fr;
+    position: relative;
+    isolation: isolate; /* keep the absolute SVG below the columns */
+    overflow: hidden;   /* belt-and-braces against any horizontal overflow */
+}
+
+/* Full-page chart background. Lives at the shell level so the line sweeps
+   the entire viewport instead of getting clipped at the brand/form seam.
+   `xMidYMid slice` scales the 1600×900 viewBox to cover whatever the
+   window is, so wide and narrow screens both stay graph-like. */
+.finance-chart-art {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    z-index: -1;
+    pointer-events: none;
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -95,18 +111,20 @@ body {
     padding: 44px 56px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
-    overflow: hidden;
     min-height: 100vh;
+    gap: 28px;
+    /* No own background — the shell-level SVG provides it. */
 }
 
-.finance-chart-art {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
-    pointer-events: none;
+/* Lift the hero block toward the top: a small spacer rather than pure
+   space-between, which used to centre the headline vertically. */
+.finance-brand-body {
+    margin-top: 32px;
+}
+
+/* Push the footer to the bottom on its own. */
+.finance-brand-footer {
+    margin-top: auto;
 }
 
 .finance-brand-header,
@@ -185,18 +203,23 @@ body {
 }
 
 /* In light mode the dark inline-SVG chart art doesn't read well on a
-   light-cream background. Hide it and let the brand panel use a soft
-   gradient background instead. */
+   light-cream background. Hide it and let the shell use a soft gradient
+   directly. */
 :root[data-theme="light"] .finance-chart-art {
     display: none;
 }
-:root[data-theme="light"] .finance-brand {
+:root[data-theme="light"] .finance-shell {
     background:
         radial-gradient(900px circle at 18% 32%, rgba(34, 197, 94, 0.12), transparent 55%),
         linear-gradient(135deg, #f0f9f1 0%, #dff1e3 100%);
 }
 :root[data-theme="light"] .finance-form-panel {
-    background: var(--bg-panel);
+    background: linear-gradient(
+        to right,
+        rgba(245, 250, 246, 0) 0%,
+        rgba(245, 250, 246, 0.7) 40%,
+        rgba(245, 250, 246, 0.95) 100%
+    );
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -208,7 +231,18 @@ body {
     justify-content: center;
     padding: 44px 40px;
     min-height: 100vh;
-    background: var(--bg-panel);
+    position: relative;
+    z-index: 1;
+    /* Soft fade so the chart line is still visible at the seam yet doesn't
+       overpower the form. Goes from transparent on the left to a darkened
+       panel on the right. */
+    background: linear-gradient(
+        to right,
+        rgba(8, 13, 9, 0) 0%,
+        rgba(8, 13, 9, 0.55) 30%,
+        rgba(8, 13, 9, 0.85) 70%,
+        rgba(8, 13, 9, 0.95) 100%
+    );
 }
 
 .finance-card {
@@ -219,6 +253,54 @@ body {
     border-radius: 16px;
     padding: 36px 32px;
     box-shadow: var(--shadow-card);
+    /* Glass-ish so the line peeking through the form panel gradient hints at
+       the graphic behind the card. */
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    position: relative;
+}
+
+/* ── Language switcher (top-right of the form card) ─────────────── */
+.finance-lang-switch {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: inline-flex;
+    gap: 2px;
+    padding: 2px;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    z-index: 1;
+}
+
+.finance-lang-link {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 32px;
+    padding: 4px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    text-decoration: none;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+}
+
+.finance-lang-link:hover {
+    color: var(--text-soft);
+}
+
+.finance-lang-link.is-active {
+    background: rgba(34, 197, 94, 0.15);
+    color: var(--accent);
+}
+
+:root[data-theme="light"] .finance-lang-link.is-active {
+    background: rgba(21, 128, 61, 0.12);
 }
 
 /* Header text (login.ftl puts logo + title + subtitle into .finance-header) */
@@ -489,6 +571,12 @@ input[aria-invalid="true"] {
     .finance-form-panel {
         min-height: auto;
         padding: 28px 20px;
+        /* On mobile the layout stacks: the chart sits behind the brand block
+           above, while the form needs a solid backdrop for legibility. */
+        background: rgba(8, 13, 9, 0.92);
+    }
+    :root[data-theme="light"] .finance-form-panel {
+        background: rgba(245, 250, 246, 0.95);
     }
     .finance-hero-title {
         font-size: clamp(26px, 8vw, 36px);

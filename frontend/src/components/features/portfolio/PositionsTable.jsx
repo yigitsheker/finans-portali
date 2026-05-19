@@ -1,5 +1,6 @@
 import { portfolioStyles as s } from "./portfolioStyles";
 import { usePriceDisplay } from "../../../contexts/CurrencyDisplayContext";
+import { useI18n } from "../../../contexts/I18nContext";
 
 /**
  * Two render paths exist for historical reasons:
@@ -21,6 +22,7 @@ export function PositionsTable({
   openSell,
 }) {
   const { format: formatPrice } = usePriceDisplay();
+  const { t } = useI18n();
 
   // Helper: look up the InstrumentType for a symbol from the loaded market data.
   // Used in the fallback path where positions don't carry currency.
@@ -31,29 +33,40 @@ export function PositionsTable({
     <div style={s.holdingsCard}>
       <div style={s.holdingsHeader}>
         <div>
-          <div style={s.chartTitle}>Pozisyonlar</div>
-          <div style={s.chartSub}>Mevcut yatirim pozisyonlariniz</div>
+          <div style={s.chartTitle}>{t("portfolio.positionsTitle")}</div>
+          <div style={s.chartSub}>{t("portfolio.positionsSub")}</div>
         </div>
         <button style={s.addBtn} onClick={openAdd}>
-          + Pozisyon Ekle
+          {t("portfolio.addPosition")}
         </button>
       </div>
 
       {loading ? (
-        <div style={s.empty}>Yukleniyor...</div>
+        <div style={s.empty}>{t("portfolio.loading")}</div>
       ) : items.length === 0 ? (
         <div style={s.emptyBox}>
-          <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 6 }}>Henuz pozisyon yok</div>
-          <div style={{ color: "var(--text-muted)", fontSize: 13 }}>Ilk pozisyonunu ekleyerek portfoyunu olustur.</div>
-          <button style={{ ...s.addBtn, marginTop: 14 }} onClick={openAdd}>+ Pozisyon Ekle</button>
+          <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 6 }}>{t("portfolio.emptyTitle")}</div>
+          <div style={{ color: "var(--text-muted)", fontSize: 13 }}>{t("portfolio.emptySub")}</div>
+          <button style={{ ...s.addBtn, marginTop: 14 }} onClick={openAdd}>{t("portfolio.addPosition")}</button>
         </div>
       ) : (
         <div style={s.tableWrap}>
           <table style={s.table}>
             <thead>
               <tr>
-                {["Sembol", "Isim", "Adet", "Alis Tarihi", "Alis Fiyati", "Guncel Fiyat", "Deger", "Toplam Degisim", "Gunluk Degisim", ""].map((heading) => (
-                  <th key={heading} style={s.th}>{heading}</th>
+                {[
+                  t("portfolio.colSymbol"),
+                  t("portfolio.colName"),
+                  t("portfolio.colQty"),
+                  t("portfolio.colBuyDate"),
+                  t("portfolio.colBuyPrice"),
+                  t("portfolio.colCurrentPrice"),
+                  t("portfolio.colValue"),
+                  t("portfolio.colTotalChange"),
+                  t("portfolio.colDailyChange"),
+                  "",
+                ].map((heading, idx) => (
+                  <th key={idx} style={s.th}>{heading}</th>
                 ))}
               </tr>
             </thead>
@@ -85,7 +98,7 @@ export function PositionsTable({
                         {dailyChangePos ? "▲ +" : "▼ "}{Math.abs(position.dailyChangePercent).toFixed(2)}%
                       </td>
                       <td style={s.td}>
-                        <button style={s.sellBtn} onClick={() => openSell(sourcePosition)}>Sat</button>
+                        <button style={s.sellBtn} onClick={() => openSell(sourcePosition)}>{t("portfolio.sell")}</button>
                       </td>
                     </tr>
                   );
@@ -119,7 +132,7 @@ export function PositionsTable({
                         {dailyChangePos ? "▲ +" : "▼ "}{Math.abs(dailyChangePct).toFixed(2)}%
                       </td>
                       <td style={s.td}>
-                        <button style={s.sellBtn} onClick={() => openSell(position)}>Sat</button>
+                        <button style={s.sellBtn} onClick={() => openSell(position)}>{t("portfolio.sell")}</button>
                       </td>
                     </tr>
                   );

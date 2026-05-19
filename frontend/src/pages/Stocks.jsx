@@ -1,6 +1,7 @@
 import { useState } from "react";
 import FinexStyleMarket from "../components/FinexStyleMarket";
 import WatchlistManager from "../components/WatchlistManager";
+import { useI18n } from "../contexts/I18nContext";
 
 // SVG Icon Components
 const StocksIcon = () => (
@@ -17,6 +18,7 @@ const StarIcon = () => (
 );
 
 export default function Stocks({ keycloak, onAdded }) {
+    const { t } = useI18n();
     const [activeTab, setActiveTab] = useState('stocks');
 
     return (
@@ -44,7 +46,7 @@ export default function Stocks({ keycloak, onAdded }) {
                         alignItems: 'center'
                     }}
                 >
-                    <StocksIcon /> Hisse Senetleri
+                    <StocksIcon /> {t("stocks.tabStocks")}
                 </button>
                 <button
                     onClick={() => setActiveTab('watchlist')}
@@ -62,7 +64,7 @@ export default function Stocks({ keycloak, onAdded }) {
                         alignItems: 'center'
                     }}
                 >
-                    <StarIcon /> Favori Listelerim
+                    <StarIcon /> {t("stocks.tabWatchlists")}
                 </button>
             </div>
 
@@ -75,9 +77,9 @@ export default function Stocks({ keycloak, onAdded }) {
                 ) : (
                     <div style={{ padding: 60, textAlign: 'center', maxWidth: 480, margin: '0 auto' }}>
                         <div style={{ fontSize: 56 }}>⭐</div>
-                        <h3 style={{ color: 'var(--text-primary)', marginTop: 16 }}>Favori listeleri için giriş gerekli</h3>
+                        <h3 style={{ color: 'var(--text-primary)', marginTop: 16 }}>{t("stocks.loginNeeded")}</h3>
                         <p style={{ color: 'var(--text-muted)', lineHeight: 1.6 }}>
-                            Hisselerinizi listeler halinde düzenlemek için ücretsiz hesap oluşturun.
+                            {t("stocks.loginNeededSub")}
                         </p>
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'center', marginTop: 16, flexWrap: 'wrap' }}>
                             <button
@@ -93,7 +95,7 @@ export default function Stocks({ keycloak, onAdded }) {
                                     cursor: 'pointer',
                                 }}
                             >
-                                Giriş Yap
+                                {t("topbar.login")}
                             </button>
                             <button
                                 onClick={() => keycloak.register({ redirectUri: window.location.href })}
@@ -108,7 +110,7 @@ export default function Stocks({ keycloak, onAdded }) {
                                     cursor: 'pointer',
                                 }}
                             >
-                                Kayıt Ol
+                                {t("common.register")}
                             </button>
                         </div>
                     </div>

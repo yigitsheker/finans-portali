@@ -1,18 +1,19 @@
 import { useState, useEffect, useCallback } from "react";
 import { isAdmin } from "../utils/roleUtils";
 import { createAdminApi } from "../api/adminApi";
+import { useI18n } from "../contexts/I18nContext";
 
 export default function Admin({ keycloak }) {
+    const { t } = useI18n();
     const [tab, setTab] = useState("users");
 
     if (!isAdmin(keycloak)) {
         return (
             <div style={s.container}>
                 <div style={s.card}>
-                    <h2 style={s.title}>⛔ Erişim Reddedildi</h2>
+                    <h2 style={s.title}>{t("admin.denied")}</h2>
                     <p style={s.text}>
-                        Bu sayfaya erişim yetkiniz bulunmamaktadır.
-                        Sadece yöneticiler bu sayfayı görüntüleyebilir.
+                        {t("admin.deniedBody")}
                     </p>
                 </div>
             </div>
@@ -22,14 +23,14 @@ export default function Admin({ keycloak }) {
     return (
         <div style={s.container}>
             <div style={s.header}>
-                <h1 style={s.mainTitle}>🔧 Yönetim Paneli</h1>
-                <p style={s.subtitle}>Kullanıcı ve sistem yönetimi.</p>
+                <h1 style={s.mainTitle}>{t("admin.title")}</h1>
+                <p style={s.subtitle}>{t("admin.subtitle")}</p>
             </div>
 
             <div style={s.tabBar}>
-                <TabButton active={tab === "users"} onClick={() => setTab("users")}>👥 Kullanıcılar</TabButton>
-                <TabButton active={tab === "data"} onClick={() => setTab("data")}>📦 Veri Yönetimi</TabButton>
-                <TabButton active={tab === "feeds"} onClick={() => setTab("feeds")}>📰 RSS Kaynakları</TabButton>
+                <TabButton active={tab === "users"} onClick={() => setTab("users")}>{t("admin.tabUsers")}</TabButton>
+                <TabButton active={tab === "data"} onClick={() => setTab("data")}>{t("admin.tabData")}</TabButton>
+                <TabButton active={tab === "feeds"} onClick={() => setTab("feeds")}>{t("admin.tabRss")}</TabButton>
             </div>
 
             {tab === "users" && <UsersPanel keycloak={keycloak} />}
@@ -53,6 +54,7 @@ function TabButton({ active, onClick, children }) {
 // ── Users panel ───────────────────────────────────────────────────────────
 
 function UsersPanel({ keycloak }) {
+    const { t } = useI18n();
     const [users, setUsers] = useState([]);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
@@ -85,10 +87,10 @@ function UsersPanel({ keycloak }) {
 
     async function handleAction(user, action) {
         const confirms = {
-            ban: `${user.username} kullanıcısını banlamak istediğinizden emin misiniz?`,
-            unban: `${user.username} kullanıcısının banını kaldırmak istediğinizden emin misiniz?`,
-            require2fa: `${user.username} için 2FA zorunlu kılınsın mı? (Sonraki girişte TOTP kuracaktır.)`,
-            reset2fa: `${user.username} kullanıcısının tüm OTP kimlik bilgileri silinsin mi?`,
+            ban: t("admin.confirmBan", { user: user.username }),
+            unban: t("admin.confirmUnban", { user: user.username }),
+            require2fa: t("admin.confirm2faForce", { user: user.username }),
+            reset2fa: t("admin.confirm2faReset", { user: user.username }),
         };
         if (!window.confirm(confirms[action])) return;
 
@@ -98,10 +100,10 @@ function UsersPanel({ keycloak }) {
             else if (action === "unban") await adminApi.unbanUser(user.id);
             else if (action === "require2fa") await adminApi.require2fa(user.id);
             else if (action === "reset2fa") await adminApi.reset2fa(user.id);
-            showToast("İşlem başarılı.", "success");
+            showToast(t("admin.opSuccess"), "success");
             await fetchUsers(search);
         } catch (e) {
-            showToast(e.response?.data?.message || e.message || "İşlem başarısız", "error");
+            showToast(e.response?.data?.message || e.message || t("admin.opFail"), "error");
         } finally {
             setBusyId(null);
         }
@@ -117,13 +119,13 @@ function UsersPanel({ keycloak }) {
             <form onSubmit={handleSearchSubmit} style={s.searchBar}>
                 <input
                     type="text"
-                    placeholder="Kullanıcı ara (kullanıcı adı, email, ad/soyad)"
+                    placeholder={t("admin.searchPh")}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     style={s.searchInput}
                 />
                 <button type="submit" style={s.searchBtn} disabled={loading}>
-                    {loading ? "Yükleniyor..." : "Ara"}
+                    {loading ? t("common.loading") : t("admin.btnSearch")}
                 </button>
                 <button
                     type="button"
@@ -131,13 +133,13 @@ function UsersPanel({ keycloak }) {
                     onClick={() => { setSearch(""); fetchUsers(""); }}
                     disabled={loading}
                 >
-                    Sıfırla
+                    {t("admin.btnReset")}
                 </button>
             </form>
 
             {error && (
                 <div style={s.errorBox}>
-                    <h3 style={s.errorTitle}>❌ Hata</h3>
+                    <h3 style={s.errorTitle}>{t("admin.errLabel")}</h3>
                     <p style={s.errorContent}>{error}</p>
                 </div>
             )}
@@ -148,22 +150,22 @@ function UsersPanel({ keycloak }) {
                 </div>
             )}
 
-            <div style={s.tableWrap}>
+            <div style={s.tableWrap} className="fp-table-scroll">
                 <table style={s.table}>
                     <thead>
                         <tr>
-                            <th style={s.th}>Kullanıcı</th>
-                            <th style={s.th}>E-posta</th>
-                            <th style={s.th}>Durum</th>
-                            <th style={s.th}>2FA</th>
-                            <th style={s.th}>Oluşturulma</th>
-                            <th style={s.th}>İşlemler</th>
+                            <th style={s.th}>{t("admin.colUser")}</th>
+                            <th style={s.th}>{t("admin.colEmail")}</th>
+                            <th style={s.th}>{t("admin.colStatus")}</th>
+                            <th style={s.th}>{t("admin.col2fa")}</th>
+                            <th style={s.th}>{t("admin.colCreated")}</th>
+                            <th style={s.th}>{t("admin.colActions")}</th>
                         </tr>
                     </thead>
                     <tbody>
                         {users.length === 0 && !loading && (
                             <tr>
-                                <td colSpan={6} style={s.emptyCell}>Kullanıcı bulunamadı.</td>
+                                <td colSpan={6} style={s.emptyCell}>{t("admin.noUsers")}</td>
                             </tr>
                         )}
                         {users.map((u) => (
@@ -177,15 +179,15 @@ function UsersPanel({ keycloak }) {
                                 <td style={s.td}>{u.email || "—"}</td>
                                 <td style={s.td}>
                                     {u.enabled
-                                        ? <span style={s.badgeActive}>Aktif</span>
-                                        : <span style={s.badgeBanned}>Banlı</span>}
+                                        ? <span style={s.badgeActive}>{t("admin.statusActive")}</span>
+                                        : <span style={s.badgeBanned}>{t("admin.statusBanned")}</span>}
                                 </td>
                                 <td style={s.td}>
                                     {u.totpEnabled
-                                        ? <span style={s.badgeActive}>Açık</span>
+                                        ? <span style={s.badgeActive}>{t("admin.mfaOn")}</span>
                                         : (u.requiredActions || []).includes("CONFIGURE_TOTP")
-                                            ? <span style={s.badgePending}>Zorunlu (bekliyor)</span>
-                                            : <span style={s.muted}>Kapalı</span>}
+                                            ? <span style={s.badgePending}>{t("admin.mfaPending")}</span>
+                                            : <span style={s.muted}>{t("admin.mfaOff")}</span>}
                                 </td>
                                 <td style={s.td}>
                                     {u.createdTimestamp
@@ -200,7 +202,7 @@ function UsersPanel({ keycloak }) {
                                                 disabled={busyId === u.id}
                                                 onClick={() => handleAction(u, "ban")}
                                             >
-                                                Banla
+                                                {t("admin.btnBan")}
                                             </button>
                                         ) : (
                                             <button
@@ -208,7 +210,7 @@ function UsersPanel({ keycloak }) {
                                                 disabled={busyId === u.id}
                                                 onClick={() => handleAction(u, "unban")}
                                             >
-                                                Banı Kaldır
+                                                {t("admin.btnUnban")}
                                             </button>
                                         )}
                                         <button
@@ -217,7 +219,7 @@ function UsersPanel({ keycloak }) {
                                             onClick={() => handleAction(u, "require2fa")}
                                             title="Bir sonraki girişte TOTP kurmaya zorla"
                                         >
-                                            2FA Zorla
+                                            {t("admin.btn2faForce")}
                                         </button>
                                         {u.totpEnabled && (
                                             <button
@@ -226,7 +228,7 @@ function UsersPanel({ keycloak }) {
                                                 onClick={() => handleAction(u, "reset2fa")}
                                                 title="Kullanıcının OTP kimlik bilgilerini sıfırla"
                                             >
-                                                2FA Sıfırla
+                                                {t("admin.btn2faReset")}
                                             </button>
                                         )}
                                     </div>
@@ -243,6 +245,7 @@ function UsersPanel({ keycloak }) {
 // ── Data panel ────────────────────────────────────────────────────────────
 
 function DataPanel({ keycloak }) {
+    const { t } = useI18n();
     const [loading, setLoading] = useState(false);
     const [message, setMessage] = useState(null);
     const [error, setError] = useState(null);
@@ -272,44 +275,44 @@ function DataPanel({ keycloak }) {
     return (
         <div style={s.grid}>
             <div style={s.card}>
-                <h2 style={s.cardTitle}>📈 Piyasa Verileri</h2>
-                <p style={s.cardText}>Tüm piyasa verilerini sıfırlayın ve yeniden yükleyin.</p>
+                <h2 style={s.cardTitle}>{t("admin.dataMarket")}</h2>
+                <p style={s.cardText}>{t("admin.dataMarketSub")}</p>
                 <button style={s.button} onClick={() => callAdminEndpoint("reset-market")} disabled={loading}>
-                    {loading ? "İşleniyor..." : "Piyasa Verilerini Sıfırla"}
+                    {loading ? t("admin.processing") : t("admin.dataMarketBtn")}
                 </button>
             </div>
             <div style={s.card}>
-                <h2 style={s.cardTitle}>💰 Fiyat Güncelleme</h2>
-                <p style={s.cardText}>Tüm enstrümanların fiyatlarını hemen güncelleyin.</p>
+                <h2 style={s.cardTitle}>{t("admin.dataPrice")}</h2>
+                <p style={s.cardText}>{t("admin.dataPriceSub")}</p>
                 <button style={s.button} onClick={() => callAdminEndpoint("refresh-prices")} disabled={loading}>
-                    {loading ? "İşleniyor..." : "Fiyatları Güncelle"}
+                    {loading ? t("admin.processing") : t("admin.dataPriceBtn")}
                 </button>
             </div>
             <div style={s.card}>
-                <h2 style={s.cardTitle}>📰 Haber Verileri</h2>
-                <p style={s.cardText}>Tüm haberleri sıfırlayın ve RSS'den yeniden çekin.</p>
+                <h2 style={s.cardTitle}>{t("admin.dataNews")}</h2>
+                <p style={s.cardText}>{t("admin.dataNewsSub")}</p>
                 <button style={s.button} onClick={() => callAdminEndpoint("reset-news")} disabled={loading}>
-                    {loading ? "İşleniyor..." : "Haberleri Sıfırla"}
+                    {loading ? t("admin.processing") : t("admin.dataNewsBtn")}
                 </button>
             </div>
 
             <div style={s.card}>
-                <h2 style={s.cardTitle}>💼 Yatırım Fonları</h2>
-                <p style={s.cardText}>Demo fonları silin ve TEFAS public API'den canlı 1000+ fon çekin.</p>
+                <h2 style={s.cardTitle}>{t("admin.dataFunds")}</h2>
+                <p style={s.cardText}>{t("admin.dataFundsSub")}</p>
                 <button style={s.button} onClick={() => callAdminEndpoint("reset-funds")} disabled={loading}>
-                    {loading ? "İşleniyor..." : "Fonları Sıfırla (TEFAS)"}
+                    {loading ? t("admin.processing") : t("admin.dataFundsBtn")}
                 </button>
             </div>
 
             {message && (
                 <div style={{ ...s.messageBox, gridColumn: "1 / -1" }}>
-                    <h3 style={s.messageTitle}>✅ Başarılı</h3>
+                    <h3 style={s.messageTitle}>{t("admin.successLabel")}</h3>
                     <pre style={s.messageContent}>{message}</pre>
                 </div>
             )}
             {error && (
                 <div style={{ ...s.errorBox, gridColumn: "1 / -1" }}>
-                    <h3 style={s.errorTitle}>❌ Hata</h3>
+                    <h3 style={s.errorTitle}>{t("admin.errLabel")}</h3>
                     <p style={s.errorContent}>{error}</p>
                 </div>
             )}
@@ -319,6 +322,7 @@ function DataPanel({ keycloak }) {
 
 // ─── RSS Feeds Panel ─────────────────────────────────────────────────────────
 function FeedsPanel({ keycloak }) {
+    const { t } = useI18n();
     const [feeds, setFeeds] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -372,14 +376,14 @@ function FeedsPanel({ keycloak }) {
     };
 
     const remove = async (id, url) => {
-        if (!confirm(`'${url}' feed'i kaldırılsın mı?`)) return;
+        if (!confirm(t("admin.rssRemoveQ", { url }))) return;
         setBusyId(id);
         try {
             const r = await authFetch(`/api/v1/admin/feeds/${id}`, { method: "DELETE" });
             if (!r.ok && r.status !== 204) throw new Error(`HTTP ${r.status}`);
             setFeeds((prev) => prev.filter((f) => f.id !== id));
         } catch (e) {
-            alert("Silinemedi: " + e.message);
+            alert(t("admin.rssDeleteErr", { error: e.message }));
         } finally {
             setBusyId(null);
         }
@@ -387,8 +391,8 @@ function FeedsPanel({ keycloak }) {
 
     const add = async () => {
         const url = newUrl.trim();
-        if (!url) return alert("URL zorunlu");
-        if (!/^https?:\/\//i.test(url)) return alert("URL http:// veya https:// ile başlamalı");
+        if (!url) return alert(t("admin.rssUrlReq"));
+        if (!/^https?:\/\//i.test(url)) return alert(t("admin.rssUrlScheme"));
         setAdding(true);
         try {
             const r = await authFetch("/api/v1/admin/feeds", {
@@ -399,14 +403,14 @@ function FeedsPanel({ keycloak }) {
                     source: newSource.trim() || "Custom",
                 }),
             });
-            if (r.status === 409) throw new Error("Bu URL zaten ekli");
+            if (r.status === 409) throw new Error(t("admin.rssDupErr"));
             if (!r.ok) throw new Error(`HTTP ${r.status}`);
             const added = await r.json();
             setFeeds((prev) => [...prev, added].sort((a, b) =>
                 (a.category + a.source).localeCompare(b.category + b.source)));
             setNewUrl(""); setNewCategory(""); setNewSource("");
         } catch (e) {
-            alert("Eklenemedi: " + e.message);
+            alert(t("admin.rssAddErr", { error: e.message }));
         } finally {
             setAdding(false);
         }
@@ -425,43 +429,43 @@ function FeedsPanel({ keycloak }) {
         <div>
             {/* Add form */}
             <div style={{ ...s.card, marginBottom: 12 }}>
-                <h3 style={s.cardTitle}>➕ Yeni RSS Kaynağı Ekle</h3>
+                <h3 style={s.cardTitle}>{t("admin.rssAdd")}</h3>
                 <div style={fp.addGrid}>
                     <input
                         style={fp.input}
-                        placeholder="RSS URL (https://...)"
+                        placeholder={t("admin.rssUrlPh")}
                         value={newUrl}
                         onChange={(e) => setNewUrl(e.target.value)}
                     />
                     <input
                         style={fp.input}
-                        placeholder="Kategori (örn. hisse)"
+                        placeholder={t("admin.rssCatPh")}
                         value={newCategory}
                         onChange={(e) => setNewCategory(e.target.value)}
                     />
                     <input
                         style={fp.input}
-                        placeholder="Kaynak (örn. Bloomberg HT)"
+                        placeholder={t("admin.rssSourcePh")}
                         value={newSource}
                         onChange={(e) => setNewSource(e.target.value)}
                     />
                     <button style={s.button} onClick={add} disabled={adding}>
-                        {adding ? "Ekleniyor..." : "Ekle"}
+                        {adding ? t("admin.rssAdding") : t("admin.rssAddBtn")}
                     </button>
                 </div>
                 <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 8 }}>
-                    Olası kategoriler: <code>genel-ekonomi, hisse, doviz, tahvil, kripto, emtia, fonlar, borsa, tcmb, uluslararasi, diger</code>
+                    {t("admin.rssCatsHint")}
                 </div>
             </div>
 
             {/* List header */}
             <div style={fp.listHeader}>
                 <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
-                    {feeds.length} kaynak — <b style={{ color: "var(--accent-solid)" }}>{enabledCount}</b> aktif
+                    {t("admin.rssSummary", { count: feeds.length, enabled: enabledCount })}
                 </div>
                 <input
                     style={{ ...fp.input, maxWidth: 280 }}
-                    placeholder="Filtre (URL / kategori / kaynak)"
+                    placeholder={t("admin.rssFilterPh")}
                     value={filter}
                     onChange={(e) => setFilter(e.target.value)}
                 />
@@ -470,19 +474,19 @@ function FeedsPanel({ keycloak }) {
             {error && <div style={fp.error}>{error}</div>}
 
             {loading ? (
-                <div style={fp.muted}>Yükleniyor...</div>
+                <div style={fp.muted}>{t("common.loading")}</div>
             ) : filtered.length === 0 ? (
-                <div style={fp.muted}>Eşleşen kaynak yok.</div>
+                <div style={fp.muted}>{t("admin.rssNone")}</div>
             ) : (
-                <div style={s.tableWrap}>
+                <div style={s.tableWrap} className="fp-table-scroll">
                     <table style={s.table}>
                         <thead>
                             <tr>
-                                <th style={s.th}>URL</th>
-                                <th style={s.th}>Kategori</th>
-                                <th style={s.th}>Kaynak</th>
-                                <th style={s.th}>Durum</th>
-                                <th style={s.th}>İşlemler</th>
+                                <th style={s.th}>{t("admin.rssUrl")}</th>
+                                <th style={s.th}>{t("admin.rssCat")}</th>
+                                <th style={s.th}>{t("admin.rssSource")}</th>
+                                <th style={s.th}>{t("admin.rssStatus")}</th>
+                                <th style={s.th}>{t("admin.colActions")}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -507,14 +511,14 @@ function FeedsPanel({ keycloak }) {
                                             onClick={() => toggle(f.id)}
                                             disabled={busyId === f.id}
                                         >
-                                            {f.enabled ? "Devre Dışı Bırak" : "Etkinleştir"}
+                                            {f.enabled ? t("admin.rssDisable") : t("admin.rssEnable")}
                                         </button>
                                         <button
                                             style={fp.actionDanger}
                                             onClick={() => remove(f.id, f.url)}
                                             disabled={busyId === f.id}
                                         >
-                                            Sil
+                                            {t("admin.rssDelete")}
                                         </button>
                                     </td>
                                 </tr>

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getViopContracts } from "../api/viopApi";
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
 import Pagination from "../components/common/Pagination";
+import { useI18n } from "../contexts/I18nContext";
 
 // Empty selection => "all categories". Same convention used by the
 // CheckboxFilterGroup component.
@@ -39,6 +40,7 @@ const pctFmt = (value) => {
 };
 
 export default function Viop() {
+    const { t } = useI18n();
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -62,7 +64,7 @@ export default function Viop() {
             })
             .catch((e) => {
                 console.error("VIOP fetch failed:", e);
-                if (!cancelled) setError("Veriler yüklenemedi");
+                if (!cancelled) setError(t("viop.loadError"));
             })
             .finally(() => {
                 if (!cancelled) setLoading(false);
@@ -140,10 +142,10 @@ export default function Viop() {
         <div style={s.page}>
             <header style={s.header}>
                 <div>
-                    <h1 style={s.title}>VIOP — Vadeli İşlem Kontratları</h1>
+                    <h1 style={s.title}>{t("viop.title")}</h1>
                     <p style={s.sub}>
-                        Borsa İstanbul vadeli işlem kontratları, İş Yatırım'dan 15 dakika gecikmeli.
-                        {updatedAt && <span style={{ marginLeft: 8 }}>Son güncelleme: <strong>{updatedAt}</strong></span>}
+                        {t("viop.subtitle")}
+                        {updatedAt && <span style={{ marginLeft: 8 }}>{`${t("viop.lastUpdate")}: `}<strong>{updatedAt}</strong></span>}
                     </p>
                 </div>
             </header>
@@ -156,11 +158,11 @@ export default function Viop() {
                     }))}
                     selected={categories}
                     onChange={setCategories}
-                    allLabel="Tümü"
+                    allLabel={t("common.all")}
                 />
                 <input
                     type="text"
-                    placeholder="Sembol veya dayanak ara… (örn. AKBNK, XU030)"
+                    placeholder={t("viop.searchPh")}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     style={s.search}
@@ -170,22 +172,22 @@ export default function Viop() {
             {error && <div style={s.error}>{error}</div>}
 
             {loading ? (
-                <div style={s.placeholder}>Yükleniyor…</div>
+                <div style={s.placeholder}>{t("common.loadingDots")}</div>
             ) : totalRows === 0 ? (
-                <div style={s.placeholder}>Gösterilecek kontrat yok</div>
+                <div style={s.placeholder}>{t("viop.empty")}</div>
             ) : (
                 <>
-                    <div style={s.tableWrap}>
+                    <div style={s.tableWrap} className="fp-table-scroll">
                         <table style={s.table}>
                             <thead>
                                 <tr>
-                                    <ThSort label="Sembol"        onClick={() => handleSort("symbol")}     active={sortKey === "symbol"}     dir={sortDir} align="left" />
-                                    <ThSort label="Dayanak"       onClick={() => handleSort("underlying")} active={sortKey === "underlying"} dir={sortDir} align="left" />
-                                    <ThSort label="Vade"          onClick={() => handleSort("maturityYear")} active={sortKey === "maturityYear"} dir={sortDir} align="left" />
-                                    <ThSort label="Son Fiyat"     onClick={() => handleSort("lastPrice")}  active={sortKey === "lastPrice"}  dir={sortDir} />
-                                    <ThSort label="Değişim"       onClick={() => handleSort("changePct")}  active={sortKey === "changePct"}  dir={sortDir} />
-                                    <ThSort label="Hacim (TL)"    onClick={() => handleSort("volumeTl")}   active={sortKey === "volumeTl"}   dir={sortDir} />
-                                    <ThSort label="Hacim (Adet)"  onClick={() => handleSort("volumeLots")} active={sortKey === "volumeLots"} dir={sortDir} />
+                                    <ThSort label={t("viop.colSymbol")}      onClick={() => handleSort("symbol")}     active={sortKey === "symbol"}     dir={sortDir} align="left" />
+                                    <ThSort label={t("viop.colUnderlying")}  onClick={() => handleSort("underlying")} active={sortKey === "underlying"} dir={sortDir} align="left" />
+                                    <ThSort label={t("viop.colMaturity")}    onClick={() => handleSort("maturityYear")} active={sortKey === "maturityYear"} dir={sortDir} align="left" />
+                                    <ThSort label={t("viop.colLast")}        onClick={() => handleSort("lastPrice")}  active={sortKey === "lastPrice"}  dir={sortDir} />
+                                    <ThSort label={t("viop.colChange")}      onClick={() => handleSort("changePct")}  active={sortKey === "changePct"}  dir={sortDir} />
+                                    <ThSort label={t("viop.colVolumeTl")}    onClick={() => handleSort("volumeTl")}   active={sortKey === "volumeTl"}   dir={sortDir} />
+                                    <ThSort label={t("viop.colVolumeQty")}   onClick={() => handleSort("volumeLots")} active={sortKey === "volumeLots"} dir={sortDir} />
                                 </tr>
                             </thead>
                             <tbody>
@@ -222,8 +224,7 @@ export default function Viop() {
             )}
 
             <p style={s.footer}>
-                Veri kaynağı: İş Yatırım — Akamai bot-block'unu Playwright ile geçtikten sonra her 15 dakikada bir
-                kazınır. BIST'in kendi yayını 15 dakika gecikmeli; gerçek-zamanlı veri için aracı kurum platformu gerekir.
+                {t("viop.footerNote")}
             </p>
         </div>
     );

@@ -7,21 +7,23 @@ const keycloak = new Keycloak({
 });
 
 /**
- * Forward the user's current app theme (light/dark) to Keycloak's hosted
- * login page as a URL parameter. Keycloak runs on a different origin so it
- * can't see our localStorage; the URL is the only sideband channel.
+ * Forward the user's current app theme (light/dark) AND language (tr/en) to
+ * Keycloak's hosted login page as URL parameters. Keycloak runs on a
+ * different origin so it can't see our localStorage; the URL is the only
+ * sideband channel.
  *
  * keycloak-js builds the authorize URL internally via {@code createLoginUrl}
  * / {@code createRegisterUrl} before redirecting, so patching those two
  * methods is enough to cover every {@code keycloak.login()} /
  * {@code keycloak.register()} call site without touching them.
  */
-const STORAGE_KEY = "theme";
+const THEME_KEY = "theme";
+const LANG_KEY = "i18n-lang";
 const DARK_QUERY = "(prefers-color-scheme: dark)";
 
 function resolveTheme() {
     let stored;
-    try { stored = localStorage.getItem(STORAGE_KEY); } catch { stored = null; }
+    try { stored = localStorage.getItem(THEME_KEY); } catch { stored = null; }
     if (stored === "light") return "light";
     if (stored === "dark") return "dark";
     // "system" or anything unrecognized: defer to the OS preference,
@@ -32,19 +34,39 @@ function resolveTheme() {
     return "light";
 }
 
-function withTheme(url) {
+function resolveLocale() {
+    let stored;
+    try { stored = localStorage.getItem(LANG_KEY); } catch { stored = null; }
+    if (stored === "tr" || stored === "en") return stored;
+    // Fall back to browser language so a first-time visitor sees the
+    // login page in something close to their preferred tongue.
+    try {
+        const nav = (navigator.language || "").toLowerCase();
+        if (nav.startsWith("en")) return "en";
+    } catch {}
+    return "tr";
+}
+
+function decorate(url) {
     if (!url) return url;
-    const sep = url.includes("?") ? "&" : "?";
-    return `${url}${sep}kc_theme=${resolveTheme()}`;
+    const lang = resolveLocale();
+    let out = url;
+    const sep1 = out.includes("?") ? "&" : "?";
+    out = `${out}${sep1}kc_theme=${resolveTheme()}`;
+    // ui_locales is the OIDC standard the initial /auth endpoint honours;
+    // kc_locale is the Keycloak-specific override that sticks across steps.
+    // Pass both so the language follows the user end-to-end.
+    out = `${out}&ui_locales=${lang}&kc_locale=${lang}`;
+    return out;
 }
 
 // keycloak-js 26.x makes createLoginUrl / createRegisterUrl async, so the
-// patched wrappers must await before string-concatenating the theme param.
-// Without the await our previous version returned `withTheme(Promise)` →
+// patched wrappers must await before string-concatenating the params.
+// Without the await our previous version returned `decorate(Promise)` →
 // `Promise.includes("?")` threw silently and the redirect never happened.
 const origLogin = keycloak.createLoginUrl.bind(keycloak);
 const origRegister = keycloak.createRegisterUrl.bind(keycloak);
-keycloak.createLoginUrl = async (opts) => withTheme(await origLogin(opts));
-keycloak.createRegisterUrl = async (opts) => withTheme(await origRegister(opts));
+keycloak.createLoginUrl = async (opts) => decorate(await origLogin(opts));
+keycloak.createRegisterUrl = async (opts) => decorate(await origRegister(opts));
 
 export default keycloak;

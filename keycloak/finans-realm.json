@@ -209,8 +209,6 @@
   "adminEventsDetailsEnabled": false,
   "identityProviders": [],
   "identityProviderMappers": [],
-  "internationalizationEnabled": false,
-  "supportedLocales": [],
   "authenticationFlows": [],
   "authenticatorConfig": [],
   "requiredActions": [],

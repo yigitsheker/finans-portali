@@ -42,14 +42,24 @@ export function SellPositionModal({
           </div>
           <div style={{ display: "grid", gap: 6 }}>
             <label style={s.label}>Satilacak Adet</label>
-            <input
-              type="number"
-              value={quantity}
-              min={1}
-              max={Number(target.quantity)}
-              onChange={(event) => setQuantity(Number(event.target.value))}
-              style={s.input}
-            />
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="number"
+                value={quantity}
+                min={1}
+                max={Number(target.quantity)}
+                onChange={(event) => setQuantity(Number(event.target.value))}
+                style={{ ...s.input, flex: 1 }}
+              />
+              <button
+                type="button"
+                style={s.ghostBtn}
+                onClick={() => setQuantity(Number(target.quantity))}
+                disabled={saving}
+              >
+                Hepsini Sat
+              </button>
+            </div>
           </div>
           <div style={s.infoBox}>
             <InfoRow label="Elde Edilecek" value={fmt(proceeds)} valueColor="var(--green)" />

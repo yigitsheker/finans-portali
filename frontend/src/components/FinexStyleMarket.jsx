@@ -11,6 +11,7 @@ import { LWSparkline } from "./common/LWSparkline";
 import Pagination from "./common/Pagination";
 import CheckboxFilterGroup from "./common/CheckboxFilterGroup";
 import { usePriceDisplay } from "../contexts/CurrencyDisplayContext";
+import { useI18n } from "../contexts/I18nContext";
 
 // SVG Icon Components
 const AllIcon = () => (
@@ -101,10 +102,15 @@ export default function FinexStyleMarket({
     onRemoveFromWatchlist,
     watchlistSymbols = []
 }) {
-    const { format: formatPrice } = usePriceDisplay();
+    const { format: formatPrice, convert: convertPrice } = usePriceDisplay();
+    const { t } = useI18n();
     const [items, setItems] = useState([]);
     const [loading, setLoading] = useState(true);
     const [search, setSearch] = useState("");
+    // Column sort. null → default (grouped/natural) order. Click toggles
+    // direction on the same column; clicking another column starts at "desc".
+    const [sortField, setSortField] = useState(null); // "price" | "change" | null
+    const [sortDir, setSortDir] = useState("desc");   // "asc" | "desc"
     const [err, setErr] = useState(null);
     const [selected, setSelected] = useState(null);
     const [addTarget, setAddTarget] = useState(null);
@@ -136,9 +142,7 @@ export default function FinexStyleMarket({
     const openBuyModalIfAuthed = (item) => {
         const authed = keycloak?.authenticated === true;
         if (!authed) {
-            const goLogin = window.confirm(
-                "Bu işlem için giriş yapmanız gerekmektedir.\n\nGiriş sayfasına gitmek ister misiniz?"
-            );
+            const goLogin = window.confirm(t("market.authPrompt"));
             if (goLogin && keycloak?.login) {
                 keycloak.login({ redirectUri: window.location.href });
             }
@@ -208,34 +212,75 @@ export default function FinexStyleMarket({
         return list;
     }, [items, search, indexFilter, categoryFilters, filterType]);
 
-    // Group stocks by category (BIST vs STOCK) - only when no filters are active
+    // Apply sort on top of the filtered list. Price sort normalises currencies
+    // through usePriceDisplay.convert(): a $200 stock and a ₺294 stock must
+    // both be compared in the same unit (the active display mode), otherwise
+    // raw `last` values would put BIST tickers above USD ones for the wrong
+    // reason. Change sort is currency-agnostic — percent is unitless.
+    const sorted = useMemo(() => {
+        if (!sortField) return filtered;
+        const dirMul = sortDir === "asc" ? 1 : -1;
+        const keyOf = (it) => {
+            if (sortField === "change") {
+                const v = Number(it.changePct);
+                return Number.isFinite(v) ? v : -Infinity;
+            }
+            // price
+            const c = convertPrice(it.last, it.type, it.symbol);
+            const v = c?.value;
+            return Number.isFinite(v) ? v : -Infinity;
+        };
+        return [...filtered].sort((a, b) => {
+            const va = keyOf(a);
+            const vb = keyOf(b);
+            if (va === vb) return 0;
+            return va < vb ? -1 * dirMul : 1 * dirMul;
+        });
+    }, [filtered, sortField, sortDir, convertPrice]);
+
+    const toggleSort = (field) => {
+        if (sortField !== field) {
+            setSortField(field);
+            setSortDir("desc");
+        } else if (sortDir === "desc") {
+            setSortDir("asc");
+        } else {
+            // third click clears the sort, restoring natural/grouped order
+            setSortField(null);
+            setSortDir("desc");
+        }
+    };
+
+    // Group stocks by category (BIST vs STOCK) - only when no filters are
+    // active AND no column sort is in effect. A user-chosen sort spans both
+    // groups, so keeping the split would silently override it.
     const groupedStocks = useMemo(() => {
-        if (filterType !== "STOCK" || categoryFilters.length > 0 || indexFilter) return null;
+        if (filterType !== "STOCK" || categoryFilters.length > 0 || indexFilter || sortField) return null;
 
         const groups = {};
         filtered.forEach(item => {
-            const category = item.type === "BIST" ? "BIST Hisseleri" : "Uluslararası Hisseler";
+            const category = item.type === "BIST" ? t("market.groupBist") : t("market.groupIntl");
             if (!groups[category]) {
                 groups[category] = [];
             }
             groups[category].push(item);
         });
         return groups;
-    }, [filtered, filterType, categoryFilters, indexFilter]);
+    }, [filtered, filterType, categoryFilters, indexFilter, sortField]);
 
     // Reset to first page whenever the visible set changes — prevents the
     // user from being stuck on "page 7" of a 2-page result after a filter.
-    useEffect(() => { setPage(1); }, [search, indexFilter, categoryFilters, filterType, pageSize]);
+    useEffect(() => { setPage(1); }, [search, indexFilter, categoryFilters, filterType, pageSize, sortField, sortDir]);
 
     // Pagination is only meaningful in the flat (non-grouped) view; the
     // grouped stocks view stays as-is because the groups themselves are
     // already a navigational chunking.
-    const totalFiltered = filtered.length;
+    const totalFiltered = sorted.length;
     const pagedFiltered = useMemo(() => {
-        if (groupedStocks) return filtered; // not used; left as the original list for safety
+        if (groupedStocks) return sorted; // not used; left as the sorted list for safety
         const start = (page - 1) * pageSize;
-        return filtered.slice(start, start + pageSize);
-    }, [filtered, groupedStocks, page, pageSize]);
+        return sorted.slice(start, start + pageSize);
+    }, [sorted, groupedStocks, page, pageSize]);
 
     // Fetch sparkline history for visible items (batched, low priority)
     useEffect(() => {
@@ -303,8 +348,8 @@ export default function FinexStyleMarket({
         if (!effectiveQty || effectiveQty <= 0) {
             return setAddErr(
                 addMode === "amount"
-                    ? "Tutar bir adet alınmasına yetmiyor"
-                    : "Adet 1 veya daha büyük olmalı"
+                    ? t("market.errAmountTooSmall")
+                    : t("market.errQtyMin")
             );
         }
         try {
@@ -328,7 +373,7 @@ export default function FinexStyleMarket({
         return (
             <div style={s.loading}>
                 <div style={s.spinner}></div>
-                <div style={{ color: "var(--text-muted)", marginTop: 12 }}>Yükleniyor...</div>
+                <div style={{ color: "var(--text-muted)", marginTop: 12 }}>{t("common.loading")}</div>
             </div>
         );
     }
@@ -337,7 +382,7 @@ export default function FinexStyleMarket({
         return (
             <div style={s.error}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
-                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Bir Hata Oluştu</div>
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{t("common.error")}</div>
                 <div style={{ color: "var(--text-muted)", fontSize: 13 }}>{err}</div>
             </div>
         );
@@ -350,16 +395,16 @@ export default function FinexStyleMarket({
                 <div style={s.titleRow}>
                     <div style={s.titleArea}>
                         <h1 style={s.pageTitle}>
-                            {filterType === "CRYPTO" ? "Kripto Paralar" :
-                             filterType === "STOCK" ? "Hisse Senetleri" :
-                             filterType === "COMMODITY" ? "Emtia" :
-                             "Hisse Fiyatları"}
+                            {filterType === "CRYPTO" ? t("market.pageCrypto") :
+                             filterType === "STOCK" ? t("market.pageStocks") :
+                             filterType === "COMMODITY" ? t("market.pageCommodities") :
+                             t("market.pagePrices")}
                         </h1>
                         <p style={s.pageSubtitle}>
-                            {filterType === "CRYPTO" ? "Kripto para fiyatları ve piyasa verileri" :
-                             filterType === "STOCK" ? "Gerçek zamanlı hisse fiyatları ve piyasa performansı" :
-                             filterType === "COMMODITY" ? "Altın, gümüş, petrol, doğalgaz ve diğer emtia fiyatları (Yahoo Finance)" :
-                             "Gerçek zamanlı hisse fiyatları ve piyasa performansı"}
+                            {filterType === "CRYPTO" ? t("market.subCrypto") :
+                             filterType === "STOCK" ? t("market.subStocks") :
+                             filterType === "COMMODITY" ? t("market.subCommodities") :
+                             t("market.subStocks")}
                         </p>
                     </div>
 
@@ -369,7 +414,7 @@ export default function FinexStyleMarket({
                             <button
                                 style={s.iconBtn}
                                 onClick={onAlertsClick}
-                                title="Fiyat Alarmları"
+                                title={t("market.fiyatAlarmlari")}
                             >
                                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                                     <path d="M18 16V11C18 7.69 15.31 5 12 5C8.69 5 6 7.69 6 11V16L4 18V19H20V18L18 16Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
@@ -381,14 +426,14 @@ export default function FinexStyleMarket({
                             <button
                                 style={s.iconBtn}
                                 onClick={onThemeToggle}
-                                title={theme === "dark" ? "Açık tema" : "Koyu tema"}
+                                title={theme === "dark" ? t("topbar.themeLight") : t("topbar.themeDark")}
                             >
                                 {theme === "dark" ? "☀️" : "🌙"}
                             </button>
                         )}
                         {onLogout && (
                             <button style={s.logoutBtn} onClick={onLogout}>
-                                Çıkış
+                                {t("topbar.logout")}
                             </button>
                         )}
                     </div>
@@ -397,7 +442,7 @@ export default function FinexStyleMarket({
                 {/* Index Cards - Only show for STOCK type */}
                 {filterType === "STOCK" && indices.length > 0 && (
                     <>
-                        <div style={s.indexGrid}>
+                        <div style={s.indexGrid} className="fp-index-grid">
                             {indices.map((idx) => {
                                 const pos = idx.changePct >= 0;
                                 const color = pos ? "#10b981" : "#ef4444";
@@ -441,15 +486,15 @@ export default function FinexStyleMarket({
                         <div style={s.categoryFilterContainer}>
                             <CheckboxFilterGroup
                                 options={[
-                                    { key: "BIST",  label: "BIST Hisseleri" },
-                                    { key: "STOCK", label: "Uluslararası Hisseler" },
+                                    { key: "BIST",  label: t("market.groupBist") },
+                                    { key: "STOCK", label: t("market.groupIntl") },
                                 ]}
                                 selected={categoryFilters}
                                 onChange={(next) => {
                                     setCategoryFilters(next);
                                     if (next.length > 0) setIndexFilter(null);
                                 }}
-                                allLabel="Tümü"
+                                allLabel={t("common.all")}
                             />
                         </div>
                     </>
@@ -461,13 +506,13 @@ export default function FinexStyleMarket({
             {filterType === "STOCK" && indexFilter && (
                 <div style={s.filterBanner}>
                     <span style={{ fontSize: 13, color: "var(--text-primary)", display: "flex", alignItems: "center", gap: 6 }}>
-                        <ChartIcon /> <strong>{indexFilter}</strong> endeksi hisseleri gösteriliyor
+                        <ChartIcon /> <strong>{indexFilter}</strong> {t("market.indexBanner")}
                     </span>
                     <button
                         style={s.clearFilterBtn}
                         onClick={() => setIndexFilter(null)}
                     >
-                        ✕ Filtreyi Kaldır
+                        {t("market.clearFilter")}
                     </button>
                 </div>
             )}
@@ -479,7 +524,7 @@ export default function FinexStyleMarket({
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder={filterType === "CRYPTO" ? "Kripto ara..." : filterType === "COMMODITY" ? "Emtia ara..." : "Hisse ara..."}
+                        placeholder={filterType === "CRYPTO" ? t("market.searchCrypto") : filterType === "COMMODITY" ? t("market.searchCommodities") : t("market.searchStocks")}
                         style={s.searchInput}
                     />
                 </div>
@@ -490,12 +535,30 @@ export default function FinexStyleMarket({
                 <div style={s.tableContainer}>
                     {/* Table Header */}
                     <div style={s.tableHeader}>
-                        <div style={s.colHisse}>Hisse</div>
-                        <div style={s.colFiyat}>Fiyat</div>
-                        <div style={s.colDegisim}>Değişim</div>
-                        <div style={s.colHacim}>Hacim</div>
-                        <div style={s.colGrafik}>Mini Grafik</div>
-                        <div style={s.colIslem}>İşlemler</div>
+                        <div style={s.colHisse}>{t("market.colSymbol")}</div>
+                        <div
+                            style={{ ...s.colFiyat, ...s.sortableHeader, ...(sortField === "price" ? s.sortableHeaderActive : {}) }}
+                            onClick={() => toggleSort("price")}
+                            title={t("market.sortByPrice")}
+                        >
+                            {t("market.colPrice")}
+                            <span style={s.sortArrow}>
+                                {sortField === "price" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+                            </span>
+                        </div>
+                        <div
+                            style={{ ...s.colDegisim, ...s.sortableHeader, ...(sortField === "change" ? s.sortableHeaderActive : {}) }}
+                            onClick={() => toggleSort("change")}
+                            title={t("market.sortByChange")}
+                        >
+                            {t("market.colChange")}
+                            <span style={s.sortArrow}>
+                                {sortField === "change" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+                            </span>
+                        </div>
+                        <div style={s.colHacim}>{t("market.colVolume")}</div>
+                        <div style={s.colGrafik}>{t("market.colChart")}</div>
+                        <div style={s.colIslem}>{t("market.colActions")}</div>
                     </div>
 
                     {/* Table Body */}
@@ -551,7 +614,7 @@ export default function FinexStyleMarket({
                                                                         e.stopPropagation();
                                                                         onRemoveFromWatchlist(item.symbol);
                                                                     }}
-                                                                    title="Listeden Çıkar"
+                                                                    title={t("market.removeFromList")}
                                                                 >
                                                                     ★
                                                                 </button>
@@ -562,7 +625,7 @@ export default function FinexStyleMarket({
                                                                         e.stopPropagation();
                                                                         onAddToWatchlist(item.symbol);
                                                                     }}
-                                                                    title="Listeye Ekle"
+                                                                    title={t("market.addToList")}
                                                                 >
                                                                     ☆
                                                                 </button>
@@ -574,7 +637,7 @@ export default function FinexStyleMarket({
                                                                     openBuyModalIfAuthed(item);
                                                                 }}
                                                             >
-                                                                Al
+                                                                {t("market.buy")}
                                                             </button>
                                                         </div>
                                                     ) : (
@@ -585,7 +648,7 @@ export default function FinexStyleMarket({
                                                                 openBuyModalIfAuthed(item);
                                                             }}
                                                         >
-                                                            Al
+                                                            {t("market.buy")}
                                                         </button>
                                                     )}
                                                 </div>
@@ -643,7 +706,7 @@ export default function FinexStyleMarket({
                                                                 e.stopPropagation();
                                                                 onRemoveFromWatchlist(item.symbol);
                                                             }}
-                                                            title="Listeden Çıkar"
+                                                            title={t("market.removeFromList")}
                                                         >
                                                             ★
                                                         </button>
@@ -654,7 +717,7 @@ export default function FinexStyleMarket({
                                                                 e.stopPropagation();
                                                                 onAddToWatchlist(item.symbol);
                                                             }}
-                                                            title="Listeye Ekle"
+                                                            title={t("market.addToList")}
                                                         >
                                                             ☆
                                                         </button>
@@ -666,7 +729,7 @@ export default function FinexStyleMarket({
                                                             openBuyModalIfAuthed(item);
                                                         }}
                                                     >
-                                                        Al
+                                                        {t("market.buy")}
                                                     </button>
                                                 </div>
                                             ) : (
@@ -677,7 +740,7 @@ export default function FinexStyleMarket({
                                                         openBuyModalIfAuthed(item);
                                                     }}
                                                 >
-                                                    Al
+                                                    {t("market.buy")}
                                                 </button>
                                             )}
                                         </div>
@@ -723,15 +786,15 @@ export default function FinexStyleMarket({
 
             <Modal
                 open={!!addTarget}
-                title={"İşlem Yap - " + (addTarget?.symbol ?? "")}
+                title={t("market.modalTitle") + " - " + (addTarget?.symbol ?? "")}
                 onClose={() => setAddTarget(null)}
                 footer={
                     <>
                         <button style={s.ghostBtn} onClick={() => setAddTarget(null)} disabled={addSaving}>
-                            Vazgeç
+                            {t("common.cancel")}
                         </button>
                         <button style={s.primaryBtn} onClick={onConfirmAdd} disabled={addSaving}>
-                            {addSaving ? "İşleniyor..." : "Onayla"}
+                            {addSaving ? t("market.processing") : t("common.confirm")}
                         </button>
                     </>
                 }
@@ -754,7 +817,7 @@ export default function FinexStyleMarket({
                         <div style={{ display: "grid", gap: 14 }}>
                             <div style={s.infoBox}>
                                 <div style={s.infoRow}>
-                                    <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Güncel Fiyat</span>
+                                    <span style={{ color: "var(--text-muted)", fontSize: 13 }}>{t("market.currentPrice")}</span>
                                     <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 18 }}>
                                         {sym}{addTarget.last?.toLocaleString("tr-TR")}
                                     </span>
@@ -764,16 +827,16 @@ export default function FinexStyleMarket({
                             {/* Mode toggle — same affordance as PortfolioPage AddPositionModal */}
                             <div style={{ display: "flex", gap: 6 }}>
                                 <button type="button" style={tabBtn(addMode === "quantity")} onClick={() => setAddMode("quantity")}>
-                                    Adet
+                                    {t("market.qty")}
                                 </button>
                                 <button type="button" style={tabBtn(addMode === "amount")} onClick={() => setAddMode("amount")}>
-                                    Tutar
+                                    {t("market.amount")}
                                 </button>
                             </div>
 
                             {addMode === "quantity" ? (
                                 <div style={{ display: "grid", gap: 6 }}>
-                                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Adet</div>
+                                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{t("market.qty")}</div>
                                     <input
                                         type="number"
                                         value={addQty}
@@ -786,13 +849,13 @@ export default function FinexStyleMarket({
                             ) : (
                                 <>
                                     <div style={{ display: "grid", gap: 6 }}>
-                                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>Tutar ({sym})</div>
+                                        <div style={{ fontSize: 12, color: "var(--text-muted)" }}>{`${t("market.amount")} (${sym})`}</div>
                                         <input
                                             type="number"
                                             value={addAmount || ""}
                                             min={0}
                                             step="any"
-                                            placeholder="örn. 5000"
+                                            placeholder={t("market.amountPh")}
                                             onChange={(e) => setAddAmount(Number(e.target.value))}
                                             style={s.input}
                                             autoFocus
@@ -809,14 +872,14 @@ export default function FinexStyleMarket({
                                         justifyContent: "space-between",
                                         alignItems: "center",
                                     }}>
-                                        <span>📊 Alınacak miktar:</span>
+                                        <span>{t("market.amountToBuy")}</span>
                                         <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>
-                                            {effectiveQty > 0 ? effectiveQty.toLocaleString("tr-TR") + " adet" : "—"}
+                                            {effectiveQty > 0 ? effectiveQty.toLocaleString("tr-TR") + " " + t("market.qtyUnit") : "—"}
                                         </span>
                                     </div>
                                     {amountLeftover > 0 && effectiveQty > 0 && (
                                         <div style={{ fontSize: 11, color: "var(--text-muted)", paddingLeft: 4 }}>
-                                            Kalan: {sym}{amountLeftover.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} (artık para — alımda kullanılmaz)
+                                            {t("market.leftover", { sym, value: amountLeftover.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) })}
                                         </div>
                                     )}
                                 </>
@@ -824,7 +887,7 @@ export default function FinexStyleMarket({
 
                             <div style={s.infoBox}>
                                 <div style={s.infoRow}>
-                                    <span style={{ color: "var(--text-muted)", fontSize: 13 }}>Tahmini Tutar</span>
+                                    <span style={{ color: "var(--text-muted)", fontSize: 13 }}>{t("market.estimatedTotal")}</span>
                                     <span style={{ color: "var(--text-primary)", fontWeight: 700, fontSize: 16 }}>
                                         {sym}{addTotal > 0 ? addTotal.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"}
                                     </span>
@@ -1106,6 +1169,19 @@ const s = {
     colFiyat: { display: "flex", alignItems: "center" },
     colDegisim: { display: "flex", alignItems: "center" },
     colHacim: { display: "flex", alignItems: "center" },
+    sortableHeader: {
+        cursor: "pointer",
+        userSelect: "none",
+        gap: 6,
+        transition: "color 0.15s",
+    },
+    sortableHeaderActive: {
+        color: "var(--text-primary)",
+    },
+    sortArrow: {
+        fontSize: 10,
+        opacity: 0.75,
+    },
     colGrafik: { display: "flex", alignItems: "center", justifyContent: "center" },
     colIslem: { display: "flex", alignItems: "center", justifyContent: "flex-end" },
     actionBtn: {

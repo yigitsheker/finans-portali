@@ -1,6 +1,9 @@
+import { useEffect, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { createPortal } from "react-dom";
 import NotificationBell from "./NotificationBell";
 import { useCurrencyDisplay } from "../contexts/CurrencyDisplayContext";
+import { useI18n } from "../contexts/I18nContext";
 import { isAdmin } from "../utils/roleUtils";
 
 /**
@@ -10,39 +13,42 @@ import { isAdmin } from "../utils/roleUtils";
  *   PUBLIC_NAV  — always visible. Market & content pages.
  *   PRIVATE_NAV — shown only to authenticated users (per-user dashboards).
  *   ADMIN_NAV   — shown only to users with the ADMIN realm role.
+ *
+ * Labels are i18n keys; `useI18n().t()` resolves them per the active language.
  */
 const PUBLIC_NAV = [
-  { to: "/",            label: "Anasayfa" },
-  { to: "/stocks",      label: "Hisseler" },
-  { to: "/crypto",      label: "Kripto" },
-  { to: "/funds",       label: "Fonlar" },
-  { to: "/bonds",       label: "Tahvil" },
-  { to: "/market-data", label: "Döviz" },
-  { to: "/commodities", label: "Emtia" },
-  { to: "/viop",        label: "VIOP" },
-  { to: "/inflation",   label: "Enflasyon" },
-  { to: "/news",        label: "Haberler" },
+  { to: "/",            key: "nav.home" },
+  { to: "/stocks",      key: "nav.stocks" },
+  { to: "/crypto",      key: "nav.crypto" },
+  { to: "/funds",       key: "nav.funds" },
+  { to: "/bonds",       key: "nav.bonds" },
+  { to: "/market-data", key: "nav.fx" },
+  { to: "/commodities", key: "nav.commodities" },
+  { to: "/viop",        key: "nav.viop" },
+  { to: "/inflation",   key: "nav.inflation" },
+  { to: "/news",        key: "nav.news" },
 ];
 
 const PRIVATE_NAV = [
-  { to: "/portfolio",  label: "Portföyüm" },
-  { to: "/historical", label: "Geçmişten" },
-  { to: "/settings",   label: "Ayarlar" },
+  { to: "/portfolio",  key: "nav.portfolio" },
+  { to: "/historical", key: "nav.historical" },
+  { to: "/settings",   key: "nav.settings" },
 ];
 
 const ADMIN_NAV = [
-  { to: "/admin", label: "Yönetim" },
+  { to: "/admin", key: "nav.admin" },
 ];
 
 function CurrencyToggle() {
   const { mode, setMode } = useCurrencyDisplay();
+  const { t } = useI18n();
   const opts = [
-    { v: "original", label: "Orijinal", title: "Her enstrümanı kendi para biriminde göster" },
-    { v: "TRY",      label: "₺",        title: "Tüm fiyatları Türk Lirası'na çevir" },
-    { v: "USD",      label: "$",        title: "Tüm fiyatları ABD Doları'na çevir" },
+    { v: "original", label: t("topbar.currencyOriginal"), title: t("topbar.currencyOriginalTitle") },
+    { v: "TRY",      label: "₺",                          title: t("topbar.currencyTryTitle") },
+    { v: "USD",      label: "$",                          title: t("topbar.currencyUsdTitle") },
   ];
   return (
-    <div style={ctgl.wrap} role="group" aria-label="Para birimi gösterim modu">
+    <div style={ctgl.wrap} role="group" aria-label={t("topbar.currencyMode")}>
       {opts.map((o) => (
         <button
           key={o.v}
@@ -50,6 +56,29 @@ function CurrencyToggle() {
           onClick={() => setMode(o.v)}
           title={o.title}
           style={{ ...ctgl.btn, ...(mode === o.v ? ctgl.btnActive : {}) }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function LanguageToggle() {
+  const { lang, setLang, t } = useI18n();
+  const opts = [
+    { v: "tr", label: "TR", title: t("topbar.langTrTitle") },
+    { v: "en", label: "EN", title: t("topbar.langEnTitle") },
+  ];
+  return (
+    <div style={ctgl.wrap} role="group" aria-label={t("topbar.langMode")}>
+      {opts.map((o) => (
+        <button
+          key={o.v}
+          type="button"
+          onClick={() => setLang(o.v)}
+          title={o.title}
+          style={{ ...ctgl.btn, ...(lang === o.v ? ctgl.btnActive : {}) }}
         >
           {o.label}
         </button>
@@ -95,9 +124,24 @@ export default function Topbar({
   keycloak,
 }) {
   const location = useLocation();
+  const { t } = useI18n();
   const isDark = theme === "dark" ||
     (theme === "system" && typeof window !== "undefined" && window.matchMedia
       && window.matchMedia("(prefers-color-scheme: dark)").matches);
+
+  // Mobile drawer state. The CSS hides the inline nav at <=900px and shows
+  // the hamburger; clicking opens this drawer with the full nav inside.
+  const [mobileOpen, setMobileOpen] = useState(false);
+  // Close the drawer on route change so a click inside the drawer never
+  // leaves it covering the page.
+  useEffect(() => { setMobileOpen(false); }, [location.pathname]);
+  // Lock background scroll while the drawer is open.
+  useEffect(() => {
+    if (!mobileOpen) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => { document.body.style.overflow = prev; };
+  }, [mobileOpen]);
 
   // Active link matcher — "/" matches only the exact home route to avoid
   // every page lighting up "Anasayfa". Everything else uses prefix match
@@ -106,10 +150,92 @@ export default function Topbar({
     ? location.pathname === "/"
     : location.pathname.startsWith(to);
 
+  const allNavItems = [
+    ...PUBLIC_NAV,
+    ...(isAuthenticated ? PRIVATE_NAV : []),
+    ...(isAuthenticated && isAdmin(keycloak) ? ADMIN_NAV : []),
+  ];
+
+  // Drawer rendered via portal so its fixed positioning isn't affected by
+  // the topbar's sticky context (which can clip pointer events).
+  const mobileDrawer = createPortal(
+    <>
+      <button
+        type="button"
+        className="fp-topbar-hamburger"
+        onClick={() => setMobileOpen((v) => !v)}
+        aria-label={mobileOpen ? t("topbar.menuClose") : t("topbar.menuOpen")}
+        aria-expanded={mobileOpen}
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
+             stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          {mobileOpen ? (
+            <>
+              <line x1="6" y1="6" x2="18" y2="18" />
+              <line x1="6" y1="18" x2="18" y2="6" />
+            </>
+          ) : (
+            <>
+              <line x1="3" y1="6" x2="21" y2="6" />
+              <line x1="3" y1="12" x2="21" y2="12" />
+              <line x1="3" y1="18" x2="21" y2="18" />
+            </>
+          )}
+        </svg>
+      </button>
+
+      <div
+        className={`fp-topbar-backdrop ${mobileOpen ? "is-visible" : ""}`}
+        onClick={() => setMobileOpen(false)}
+        aria-hidden="true"
+      />
+
+      <aside className={`fp-topbar-drawer ${mobileOpen ? "is-open" : ""}`} aria-hidden={!mobileOpen}>
+        <div style={s.drawerHeader}>
+          <Link to="/" style={s.brand} onClick={() => setMobileOpen(false)}>
+            <span style={s.brandLogo}>
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
+                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
+                <polyline points="16 7 22 7 22 13"/>
+              </svg>
+            </span>
+            <span style={s.brandText}>
+              <span style={s.brandName}>Piyasa</span>
+              <span style={s.brandTag}>FINANS PORTALI</span>
+            </span>
+          </Link>
+        </div>
+        <nav style={s.drawerNav} aria-label={t("topbar.mainMenu")}>
+          {allNavItems.map((item) => {
+            const active = isActive(item.to);
+            const isAdminItem = ADMIN_NAV.includes(item);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                style={{
+                  ...s.drawerLink,
+                  ...(active ? s.drawerLinkActive : {}),
+                  ...(isAdminItem ? s.drawerLinkAdmin : {}),
+                }}
+                onClick={() => setMobileOpen(false)}
+              >
+                {t(item.key)}
+              </Link>
+            );
+          })}
+        </nav>
+      </aside>
+    </>,
+    document.body
+  );
+
   return (
     <div style={s.row} className="fp-topbar">
+      {mobileDrawer}
+
       {/* Brand */}
-      <Link to="/" style={s.brand}>
+      <Link to="/" style={s.brand} className="fp-topbar-brand">
         <span style={s.brandLogo}>
           <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
             <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
@@ -118,13 +244,13 @@ export default function Topbar({
         </span>
         <span style={s.brandText}>
           <span style={s.brandName}>Piyasa</span>
-          <span style={s.brandTag}>FINANS PORTALI</span>
+          <span style={s.brandTag} className="fp-topbar-brand-tag">FINANS PORTALI</span>
         </span>
       </Link>
 
       {/* Inline nav links. Private items show only when authenticated;
           admin items show only when the user carries the ADMIN realm role. */}
-      <nav style={s.nav} aria-label="Ana menü">
+      <nav style={s.nav} className="fp-topbar-nav" aria-label={t("topbar.mainMenu")}>
         {PUBLIC_NAV.map((item) => {
           const active = isActive(item.to);
           return (
@@ -133,7 +259,7 @@ export default function Topbar({
               to={item.to}
               style={{ ...s.navLink, ...(active ? s.navLinkActive : {}) }}
             >
-              {item.label}
+              {t(item.key)}
             </Link>
           );
         })}
@@ -145,7 +271,7 @@ export default function Topbar({
               to={item.to}
               style={{ ...s.navLink, ...(active ? s.navLinkActive : {}) }}
             >
-              {item.label}
+              {t(item.key)}
             </Link>
           );
         })}
@@ -157,21 +283,22 @@ export default function Topbar({
               to={item.to}
               style={{ ...s.navLink, ...s.navLinkAdmin, ...(active ? s.navLinkAdminActive : {}) }}
             >
-              {item.label}
+              {t(item.key)}
             </Link>
           );
         })}
       </nav>
 
       {/* Action cluster */}
-      <div style={s.right}>
+      <div style={s.right} className="fp-topbar-actions">
         <CurrencyToggle />
+        <LanguageToggle />
 
         {/* Notification bell — hidden for admin (their own test pings) */}
         {isAuthenticated && !isAdmin(keycloak) && <NotificationBell keycloak={keycloak} />}
 
         {showAlerts && onAlertsClick && (
-          <button style={s.iconBtn} onClick={onAlertsClick} title="Fiyat Alarmı Oluştur" aria-label="Fiyat Alarmı">
+          <button style={s.iconBtn} onClick={onAlertsClick} title={t("topbar.priceAlertCreate")} aria-label={t("topbar.priceAlert")}>
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 5V3M12 5C8.69 5 6 7.69 6 11V16L4 18V19H20V18L18 16V11C18 7.69 15.31 5 12 5Z"
                     stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
@@ -184,8 +311,8 @@ export default function Topbar({
         <button
           style={s.iconBtn}
           onClick={onThemeToggle}
-          title={isDark ? "Açık tema" : "Koyu tema"}
-          aria-label="Tema değiştir"
+          title={isDark ? t("topbar.themeLight") : t("topbar.themeDark")}
+          aria-label={t("topbar.themeToggle")}
         >
           {isDark ? (
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
@@ -201,9 +328,9 @@ export default function Topbar({
         </button>
 
         {isAuthenticated ? (
-          <button style={s.logoutBtn} onClick={onLogout}>Çıkış</button>
+          <button style={s.logoutBtn} onClick={onLogout}>{t("topbar.logout")}</button>
         ) : (
-          <button style={s.loginBtn} onClick={onLogin}>Giriş Yap</button>
+          <button style={s.loginBtn} onClick={onLogin}>{t("topbar.login")}</button>
         )}
       </div>
     </div>
@@ -325,5 +452,34 @@ const s = {
     fontSize: 14,
     fontWeight: 700,
     boxShadow: "0 4px 14px rgba(34, 197, 94, 0.30)",
+  },
+
+  // ── Mobile drawer (visible only via media query in index.css) ──
+  drawerHeader: {
+    padding: "20px 20px 16px",
+    borderBottom: "1px solid var(--border-card)",
+  },
+  drawerNav: {
+    display: "flex",
+    flexDirection: "column",
+    padding: 12,
+    gap: 2,
+    overflowY: "auto",
+  },
+  drawerLink: {
+    padding: "12px 14px",
+    borderRadius: 10,
+    fontSize: 15,
+    fontWeight: 600,
+    color: "var(--text-primary)",
+    textDecoration: "none",
+  },
+  drawerLinkActive: {
+    background: "var(--accent-hover-bg)",
+    color: "var(--accent-solid)",
+  },
+  drawerLinkAdmin: {
+    color: "var(--accent-amber, #f59e0b)",
+    border: "1px dashed var(--accent-amber, #f59e0b)",
   },
 };

@@ -6,19 +6,29 @@ import {
 } from "../api/bondApi";
 import BondDetailModal from "../components/BondDetailModal";
 import DepositRatesCard from "../components/DepositRatesCard";
+import { useI18n } from "../contexts/I18nContext";
 
-const TYPE_LABELS = {
-    GOVERNMENT_BOND: "Devlet Tahvili",
-    TREASURY_BILL: "Hazine Bonosu",
-    LEASE_CERTIFICATE: "Kira Sertifikası",
-    EUROBOND: "Eurobond",
-    CORPORATE_BOND: "Özel Sektör Tahvili",
-    OTHER: "Diğer",
+const TYPE_KEYS = {
+    GOVERNMENT_BOND: "bonds.typeGovBond",
+    TREASURY_BILL: "bonds.typeTBill",
+    LEASE_CERTIFICATE: "bonds.typeSukuk",
+    EUROBOND: "bonds.typeEurobond",
+    CORPORATE_BOND: "bonds.typeCorp",
+    OTHER: "bonds.typeOther",
 };
 
 const CURRENCY_OPTIONS = ["TRY", "USD", "EUR"];
 
 export default function Bonds({ keycloak }) {
+    const { t } = useI18n();
+    const TYPE_LABELS = {
+        GOVERNMENT_BOND: t("bonds.typeGovBond"),
+        TREASURY_BILL: t("bonds.typeTBill"),
+        LEASE_CERTIFICATE: t("bonds.typeSukuk"),
+        EUROBOND: t("bonds.typeEurobond"),
+        CORPORATE_BOND: t("bonds.typeCorp"),
+        OTHER: t("bonds.typeOther"),
+    };
     const [bonds, setBonds] = useState([]);
     const [summary, setSummary] = useState(null);
     const [loading, setLoading] = useState(true);
@@ -102,9 +112,9 @@ export default function Bonds({ keycloak }) {
             {/* Header */}
             <div style={s.header}>
                 <div>
-                    <h1 style={s.title}>Tahvil ve Bono</h1>
+                    <h1 style={s.title}>{t("bonds.title")}</h1>
                     <p style={s.subtitle}>
-                        Devlet tahvilleri, hazine bonoları ve borçlanma araçları verileri
+                        {t("bonds.subtitle")}
                     </p>
                 </div>
                 {isAdmin && (
@@ -113,7 +123,7 @@ export default function Bonds({ keycloak }) {
                         onClick={handleRefresh}
                         disabled={refreshing}
                     >
-                        {refreshing ? "Güncelleniyor..." : "🔄 Verileri Yenile"}
+                        {refreshing ? t("bonds.refreshing") : `🔄 ${t("bonds.refresh")}`}
                     </button>
                 )}
             </div>
@@ -128,11 +138,7 @@ export default function Bonds({ keycloak }) {
                 computed YTM read low when the bond is well into its coupon period.
                 Front-end note keeps user expectations honest without hiding the data. */}
             <div style={s.disclaimer}>
-                <strong>Bilgi:</strong> Devlet tahvili getirileri TCMB EVDS3 "Gösterge Niteliğindeki Değerler"
-                serisinden çekilir; bu fiyatlar kirli fiyattır (kupon ödeme periyodunda biriken faiz dahil).
-                Türetilmiş <b>Getiri (YTM)</b>, dirty-price yaklaşımıyla hesaplanan göstergedir;
-                gerçek ikincil piyasa getirisinden ±5-10 puan farklılaşabilir. Kupon ve fiyat değerleri
-                otoritatif, sadece YTM hesabı yaklaşıktır.
+                <strong>{t("bonds.noteLabel")}</strong> {t("bonds.noteBody")}
             </div>
 
             {/* Mevduat Faizi (TCMB EVDS3) — tahvil veriliğinin doğal komşusu */}
@@ -142,23 +148,23 @@ export default function Bonds({ keycloak }) {
             {summary && (
                 <div style={s.summaryGrid}>
                     <div style={s.summaryCard}>
-                        <div style={s.summaryLabel}>Toplam Enstrüman</div>
+                        <div style={s.summaryLabel}>{t("bonds.totalInstruments")}</div>
                         <div style={s.summaryValue}>{summary.totalInstruments}</div>
                     </div>
                     <div style={s.summaryCard}>
-                        <div style={s.summaryLabel}>Ortalama Getiri</div>
+                        <div style={s.summaryLabel}>{t("bonds.avgYield")}</div>
                         <div style={s.summaryValue}>
                             {summary.averageYield ? `${summary.averageYield.toFixed(2)}%` : "-"}
                         </div>
                     </div>
                     <div style={s.summaryCard}>
-                        <div style={s.summaryLabel}>En Yüksek Getiri</div>
+                        <div style={s.summaryLabel}>{t("bonds.maxYield")}</div>
                         <div style={s.summaryValue}>
                             {summary.highestYield ? `${summary.highestYield.toFixed(2)}%` : "-"}
                         </div>
                     </div>
                     <div style={s.summaryCard}>
-                        <div style={s.summaryLabel}>Son Güncelleme</div>
+                        <div style={s.summaryLabel}>{t("bonds.lastUpdate")}</div>
                         <div style={s.summaryValue}>
                             {summary.lastUpdateDate
                                 ? new Date(summary.lastUpdateDate).toLocaleDateString("tr-TR")
@@ -172,7 +178,7 @@ export default function Bonds({ keycloak }) {
             <div style={s.filterSection}>
                 <input
                     type="text"
-                    placeholder="Ara (sembol, isim, ISIN)..."
+                    placeholder={t("bonds.searchPh")}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     style={s.searchInput}
@@ -182,7 +188,7 @@ export default function Bonds({ keycloak }) {
                     onChange={(e) => setTypeFilter(e.target.value)}
                     style={s.select}
                 >
-                    <option value="ALL">Tüm Türler</option>
+                    <option value="ALL">{t("bonds.allTypes")}</option>
                     {Object.entries(TYPE_LABELS).map(([key, label]) => (
                         <option key={key} value={key}>{label}</option>
                     ))}
@@ -192,7 +198,7 @@ export default function Bonds({ keycloak }) {
                     onChange={(e) => setCurrencyFilter(e.target.value)}
                     style={s.select}
                 >
-                    <option value="ALL">Tüm Para Birimleri</option>
+                    <option value="ALL">{t("bonds.allCurrencies")}</option>
                     {CURRENCY_OPTIONS.map((curr) => (
                         <option key={curr} value={curr}>{curr}</option>
                     ))}
@@ -203,28 +209,28 @@ export default function Bonds({ keycloak }) {
             {error && <div style={s.error}>{error}</div>}
 
             {/* Loading State */}
-            {loading && <div style={s.loading}>Yükleniyor...</div>}
+            {loading && <div style={s.loading}>{t("common.loading")}</div>}
 
             {/* Empty State */}
             {!loading && !error && sortedBonds.length === 0 && (
-                <div style={s.empty}>Sonuç bulunamadı</div>
+                <div style={s.empty}>{t("common.noResults")}</div>
             )}
 
             {/* Bonds Table */}
             {!loading && !error && sortedBonds.length > 0 && (
-                <div style={s.tableWrapper}>
+                <div style={s.tableWrapper} className="fp-table-scroll">
                     <table style={s.table}>
                         <thead>
                             <tr>
-                                <th style={s.th}>Enstrüman</th>
-                                <th style={s.th}>Tür</th>
-                                <th style={s.th}>ISIN</th>
-                                <th style={s.th}>Vade</th>
-                                <th style={s.th}>Kupon %</th>
-                                <th style={s.th}>Fiyat</th>
-                                <th style={s.th}>Getiri %</th>
-                                <th style={s.th}>Değişim %</th>
-                                <th style={s.th}>Kaynak</th>
+                                <th style={s.th}>{t("bonds.colInstrument")}</th>
+                                <th style={s.th}>{t("bonds.colType")}</th>
+                                <th style={s.th}>{t("bonds.colIsin")}</th>
+                                <th style={s.th}>{t("bonds.colMaturity")}</th>
+                                <th style={s.th}>{t("bonds.colCoupon")}</th>
+                                <th style={s.th}>{t("bonds.colPrice")}</th>
+                                <th style={s.th}>{t("bonds.colYield")}</th>
+                                <th style={s.th}>{t("bonds.colChange")}</th>
+                                <th style={s.th}>{t("bonds.colSource")}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -275,9 +281,9 @@ export default function Bonds({ keycloak }) {
                                         <td style={s.td}>
                                             <span style={s.sourceBadge} title={
                                                 bond.source === "TCMB"
-                                                    ? "TCMB EVDS3'ten canlı çekilen politika faizine piyasa spread'i eklenerek hesaplanmıştır"
+                                                    ? t("bonds.sourceTcmbHint")
                                                     : bond.source === "BIST/BIGPARA"
-                                                        ? "BIST kaynaklı; sayfa scrape edilemezse son bilinen değer kullanılır"
+                                                        ? t("bonds.sourceBistHint")
                                                         : bond.source
                                             }>
                                                 {bond.source}

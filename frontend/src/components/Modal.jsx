@@ -33,6 +33,7 @@ export default function Modal({ open, title, children, onClose, footer, maxWidth
             onMouseDown={onClose}
         >
             <div
+                className="fp-modal-card"
                 style={{
                     width: "100%",
                     maxWidth,

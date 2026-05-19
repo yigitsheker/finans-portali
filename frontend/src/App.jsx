@@ -22,6 +22,7 @@ import PriceAlertModal from "./components/PriceAlertModal";
 import { applyTheme, getStoredTheme } from "./theme";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { CurrencyDisplayProvider } from "./contexts/CurrencyDisplayContext";
+import { I18nProvider } from "./contexts/I18nContext";
 import { isAdmin } from "./utils/roleUtils";
 
 /**
@@ -147,6 +148,7 @@ export default function App({ keycloak }) {
 
     return (
         <ThemeProvider>
+            <I18nProvider>
             <CurrencyDisplayProvider>
             <Layout
                 ticker={<Ticker keycloak={keycloak} />}
@@ -269,6 +271,7 @@ export default function App({ keycloak }) {
                 )}
             </Layout>
             </CurrencyDisplayProvider>
+            </I18nProvider>
         </ThemeProvider>
     );
 }

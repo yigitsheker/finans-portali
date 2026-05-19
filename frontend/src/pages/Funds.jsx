@@ -2,8 +2,10 @@ import { useState, useEffect, useMemo } from "react";
 import { getInvestmentFunds, getFundTypes, refreshInvestmentFunds } from "../api/portfolioApi";
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
 import Pagination from "../components/common/Pagination";
+import { useI18n } from "../contexts/I18nContext";
 
 export default function Funds({ keycloak }) {
+    const { t } = useI18n();
     const [funds, setFunds] = useState([]);
     const [fundTypes, setFundTypes] = useState([]);
     // Multi-select fund-type filter; empty array = "all types".
@@ -124,7 +126,7 @@ export default function Funds({ keycloak }) {
         return (
             <div style={s.loading}>
                 <div style={s.spinner}></div>
-                <div style={{ color: "var(--text-muted)", marginTop: 12 }}>Yükleniyor...</div>
+                <div style={{ color: "var(--text-muted)", marginTop: 12 }}>{t("common.loading")}</div>
             </div>
         );
     }
@@ -133,10 +135,10 @@ export default function Funds({ keycloak }) {
         return (
             <div style={s.error}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
-                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Bir Hata Oluştu</div>
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{t("common.error")}</div>
                 <div style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>{error}</div>
                 <button style={s.retryBtn} onClick={loadData}>
-                    Tekrar Dene
+                    {t("common.retry")}
                 </button>
             </div>
         );
@@ -150,7 +152,7 @@ export default function Funds({ keycloak }) {
                     <div style={s.headerLeft}>
                         {lastUpdate && (
                             <div style={s.lastUpdate}>
-                                Son Güncelleme: {new Date(lastUpdate).toLocaleDateString('tr-TR')}
+                                {t("funds.lastUpdate")}: {new Date(lastUpdate).toLocaleDateString('tr-TR')}
                             </div>
                         )}
                     </div>
@@ -164,7 +166,7 @@ export default function Funds({ keycloak }) {
                                     ...(refreshing ? s.refreshBtnDisabled : {})
                                 }}
                             >
-                                {refreshing ? '🔄 Güncelleniyor...' : '🔄 Verileri Güncelle'}
+                                {refreshing ? `🔄 ${t("funds.refreshing")}` : `🔄 ${t("funds.refresh")}`}
                             </button>
                         )}
                     </div>
@@ -183,23 +185,23 @@ export default function Funds({ keycloak }) {
                             }))}
                             selected={selectedFundTypes}
                             onChange={setSelectedFundTypes}
-                            allLabel="Tüm Fon Türleri"
+                            allLabel={t("funds.allTypes")}
                         />
                     </div>
                 )}
 
                 {/* Table Header */}
                 <div style={s.tableHeader}>
-                    <div style={s.colFund}>Fon Bilgileri</div>
-                    <div style={s.colPrice}>Birim Fiyat</div>
-                    <div style={s.colReturn}>Günlük</div>
-                    <div style={s.colReturn}>1 Aylık</div>
-                    <div style={s.colReturn}>3 Aylık</div>
-                    <div style={s.colReturn}>6 Aylık</div>
-                    <div style={s.colReturn}>1 Yıllık</div>
-                    <div style={s.colReturn}>3 Yıllık</div>
-                    <div style={s.colReturn}>5 Yıllık</div>
-                    <div style={s.colRisk}>Risk</div>
+                    <div style={s.colFund}>{t("funds.colInfo")}</div>
+                    <div style={s.colPrice}>{t("funds.colUnitPrice")}</div>
+                    <div style={s.colReturn}>{t("funds.colDaily")}</div>
+                    <div style={s.colReturn}>{t("funds.col1m")}</div>
+                    <div style={s.colReturn}>{t("funds.col3m")}</div>
+                    <div style={s.colReturn}>{t("funds.col6m")}</div>
+                    <div style={s.colReturn}>{t("funds.col1y")}</div>
+                    <div style={s.colReturn}>{t("funds.col3y")}</div>
+                    <div style={s.colReturn}>{t("funds.col5y")}</div>
+                    <div style={s.colRisk}>{t("funds.colRisk")}</div>
                 </div>
 
                 {/* Table Body */}
@@ -209,10 +211,10 @@ export default function Funds({ keycloak }) {
                             <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
                             <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
                                 {funds.length === 0
-                                    ? 'Henüz yatırım fonu verisi bulunmuyor. Admin panelinden "Fonları Sıfırla" diyerek TEFAS\'tan canlı veri çekebilirsiniz.'
+                                    ? t("funds.emptyAll")
                                     : selectedFundTypes.length > 0
-                                        ? `Seçili türlerde fon bulunmuyor: ${selectedFundTypes.join(', ')}.`
-                                        : 'Fon bulunamadı.'
+                                        ? t("funds.emptyFiltered", { types: selectedFundTypes.join(', ') })
+                                        : t("funds.empty")
                                 }
                             </div>
                             {funds.length === 0 && isAdmin && (
@@ -221,7 +223,7 @@ export default function Funds({ keycloak }) {
                                     onClick={handleRefresh}
                                     disabled={refreshing}
                                 >
-                                    {refreshing ? 'Güncelleniyor...' : 'Manuel Güncelle'}
+                                    {refreshing ? t("funds.refreshing") : t("funds.manualRefresh")}
                                 </button>
                             )}
                         </div>
@@ -279,7 +281,10 @@ export default function Funds({ keycloak }) {
                                                 fund.riskLevel === 'ORTA' ? s.riskMedium :
                                                 s.riskHigh)
                                         }}>
-                                            {fund.riskLevel}
+                                            {fund.riskLevel === 'DÜŞÜK' ? t("funds.riskLow") :
+                                             fund.riskLevel === 'ORTA' ? t("funds.riskMed") :
+                                             fund.riskLevel === 'YÜKSEK' ? t("funds.riskHigh") :
+                                             fund.riskLevel}
                                         </span>
                                     )}
                                 </div>

@@ -454,69 +454,171 @@ button:hover .news-external-icon   { transform: translate(2px, -2px); }
 .slide-in { animation: slide-in 240ms ease both; }
 
 /* ──────────────────────────────────────────────────────────────────────────
-   RESPONSIVE
+   RESPONSIVE — single source of truth for mobile/tablet behaviour.
+
+   Breakpoints:
+     <=1024px  tablet      — collapse multi-column page grids
+     <=900px   small tab.  — hide inline topbar nav, reveal hamburger drawer
+     <=640px   mobile      — shrink padding, stack feature cards
+     <=480px   small phone — single-column grids, smaller fonts
    ────────────────────────────────────────────────────────────────────────── */
-/* Tablet / Mobile — sidebar becomes an off-canvas drawer. Hamburger shows up,
-   content stretches to full width, sidebar slides in from the left when open. */
-@media (max-width: 1024px) {
-  .fp-shell { grid-template-columns: 1fr; }
 
-  /* Keep aside in DOM (its child renders the hamburger + drawer); just zero
-     out the grid track size. `display: none` would kill the fixed children. */
-  .fp-sidebar {
-    width: 0;
-    height: 0;
-    overflow: visible;
-    position: absolute;
-  }
-
-  .fp-sidebar-shell {
-    width: var(--sidebar-expanded);
-    transform: translateX(-100%);
-    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  }
-  .fp-sidebar-shell.is-mobile-open {
-    transform: translateX(0);
-    box-shadow: 12px 0 32px rgba(0, 0, 0, 0.45);
-    /* Lift above the ticker (z-index 70) so the drawer covers it fully
-       instead of having the BIST 100 strip bleed over the logo area. */
-    z-index: 80;
-  }
-
-  /* Labels are always visible inside the mobile drawer */
-  .fp-sidebar-shell .fp-sidebar-text {
-    opacity: 1;
-    visibility: visible;
-    pointer-events: auto;
-  }
-
-  .fp-mobile-hamburger { display: grid; }
-
-  /* Topbar slides right to leave room for the hamburger button overlay */
-  .topbar { padding-left: 64px !important; }
-
-  /* Home page: stack */
-  .home-main-grid { grid-template-columns: 1fr !important; }
-  .home-sidebar { position: static !important; }
-  .home-hero { grid-template-columns: 1fr !important; padding: 24px !important; }
+/* ── Topbar hamburger + drawer (hidden on desktop) ── */
+.fp-topbar-hamburger {
+  display: none;
+  position: fixed;
+  top: 8px;
+  left: 12px;
+  z-index: 95;
+  width: 40px;
+  height: 40px;
+  border-radius: 10px;
+  border: 1px solid var(--border-card);
+  background: var(--bg-card);
+  color: var(--text-primary);
+  cursor: pointer;
+  place-items: center;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.25);
 }
 
-/* Mobile */
+.fp-topbar-backdrop {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.55);
+  z-index: 85;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+.fp-topbar-backdrop.is-visible { display: block; opacity: 1; }
+
+.fp-topbar-drawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: 78%;
+  max-width: 320px;
+  background: var(--bg-card);
+  border-right: 1px solid var(--border-card);
+  z-index: 90;
+  transform: translateX(-100%);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.fp-topbar-drawer.is-open {
+  transform: translateX(0);
+  box-shadow: 12px 0 32px rgba(0,0,0,0.45);
+}
+
+/* Tablet — narrower nav budget */
+@media (max-width: 1024px) {
+  .fp-main { padding: 16px !important; }
+  /* Reduce gaps in stat rows / card grids; let page CSS do the rest. */
+  .home-hero, .home-snapshot { grid-template-columns: 1fr !important; }
+}
+
+/* Small tablet & below — hamburger takes over from the inline nav */
+@media (max-width: 900px) {
+  .fp-topbar-hamburger { display: grid; }
+  .fp-topbar-nav { display: none !important; }
+  .fp-topbar { padding-left: 56px !important; }      /* room for the hamburger */
+  .fp-topbar-brand-tag { display: none !important; } /* free up brand width */
+  /* Topbar action cluster: shrink gap, allow wrap as a last resort */
+  .fp-topbar-actions { gap: 6px !important; flex-wrap: wrap; justify-content: flex-end; }
+}
+
+/* Sub-tablet — drop the wide "Original" currency-toggle label down to a
+   symbol so the action cluster fits in one row at narrow widths. */
 @media (max-width: 640px) {
-  .home-hero h1 { font-size: var(--font-2xl) !important; }
-  .home-hero    { padding: 20px !important; }
-  .home-quick-grid { grid-template-columns: repeat(2, 1fr) !important; }
-  .topbar {
-    flex-wrap: wrap;
-    gap: 12px !important;
+  /* CurrencyToggle: the first button carries the longest label ("Original"
+     / "Orijinal"). Hide its text node (inline font-size needs !important)
+     and stamp a compact glyph via ::before. */
+  .fp-topbar-actions > div:first-child > button:first-child {
+    font-size: 0 !important;
+    min-width: 0 !important;
+    padding: 6px 8px !important;
+  }
+  .fp-topbar-actions > div:first-child > button:first-child::before {
+    content: "⊕";
+    font-size: 13px;
+  }
+  /* Shrink the login/logout text button so the cluster stays one row. */
+  .fp-topbar-actions > button:last-child {
+    padding: 8px 12px !important;
+    font-size: 13px !important;
+  }
+  /* Force the action cluster onto a single horizontal scroll-row if it
+     STILL doesn't fit — better than the controls colliding with the brand. */
+  .fp-topbar-actions {
+    flex-wrap: nowrap !important;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    max-width: 100%;
   }
 }
 
 @media (max-width: 480px) {
-  .home-quick-grid { grid-template-columns: 1fr !important; }
-  :root {
-    --font-base: 13px;
-    --font-md:   12px;
+  /* Below ~iPhone SE width, hide the second icon button (theme toggle)
+     entirely — theme is still reachable from Settings. Keep currency/lang/
+     login/notifications visible. */
+  .fp-topbar-actions > button[title="Tema değiştir"],
+  .fp-topbar-actions > button[aria-label="Tema değiştir"],
+  .fp-topbar-actions > button[aria-label="Toggle theme"] {
+    display: none !important;
+  }
+}
+
+/* Mobile — tighter padding, stack home cards into a single column */
+@media (max-width: 640px) {
+  .fp-main { padding: 12px !important; }
+  .home-hero { padding: 24px 20px !important; }
+  .home-stats { gap: 18px !important; }
+  /* The feature card row already uses auto-fit but force tight stacking at this width. */
+  .home-features { grid-template-columns: repeat(2, 1fr) !important; }
+  /* Modal in narrow viewport: full-bleed-ish. The Modal component uses inline
+     styles, so we widen via a generic class set on its wrapper. */
+  .fp-modal-card { max-width: 96vw !important; padding: 18px !important; }
+}
+
+@media (max-width: 480px) {
+  .home-features { grid-template-columns: 1fr !important; }
+  .home-stats { flex-direction: column !important; align-items: flex-start !important; gap: 10px !important; }
+  .home-hero h1 { font-size: clamp(26px, 7vw, 34px) !important; }
+  :root { --font-base: 13px; --font-md: 12px; }
+}
+
+/* Generic horizontally scrollable table wrapper — apply to any element with
+   a wide table inside so it never causes a viewport-wide overflow. Pages
+   wrap their tables in <div class="fp-table-scroll">. */
+.fp-table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+.fp-table-scroll > table,
+.fp-table-scroll > div > table {
+  min-width: 640px;
+}
+
+/* Stock index-card grid — at narrow widths drop from 3 columns to 2, then 1.
+   Inline style sets `repeat(3, 1fr)`; overrides need !important. */
+@media (max-width: 640px) {
+  .fp-index-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 380px) {
+  .fp-index-grid { grid-template-columns: 1fr !important; }
+}
+
+/* Bonds page: the stats card grid is auto-fit so it usually stacks
+   naturally, but the long type-filter row needs flex-wrap on mobile. */
+@media (max-width: 640px) {
+  /* Filter chip rows — generic safety net so any horizontally arranged
+     filter set wraps instead of bursting out of the page width. */
+  [class*="filterRow"], [class*="FilterRow"] {
+    flex-wrap: wrap !important;
   }
 }
 

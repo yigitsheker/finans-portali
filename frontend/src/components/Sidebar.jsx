@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { isAdmin } from "../utils/roleUtils";
+import { useI18n } from "../contexts/I18nContext";
 
 // SVG Icon Components
 const NewsIcon = () => (
@@ -110,33 +111,34 @@ const SettingsIcon = () => (
 );
 
 const PUBLIC_NAV_ITEMS = [
-    { id: "news", label: "Anasayfa", icon: <NewsIcon />, path: "/news" },
-    { id: "stocks", label: "Hisse Senetleri", icon: <StocksIcon />, path: "/stocks" },
-    { id: "crypto", label: "Kripto Paralar", icon: <CryptoIcon />, path: "/crypto" },
-    { id: "funds", label: "Yatırım Fonları", icon: <FundsIcon />, path: "/funds" },
-    { id: "bonds", label: "Tahvil ve Bono", icon: <BondsIcon />, path: "/bonds" },
-    { id: "market-data", label: "Döviz Kurları", icon: <ExchangeIcon />, path: "/market-data" },
-    { id: "commodities", label: "Emtia", icon: <CommodityIcon />, path: "/commodities" },
-    { id: "viop", label: "VIOP", icon: <ViopIcon />, path: "/viop" },
-    { id: "inflation", label: "Enflasyon", icon: <InflationIcon />, path: "/inflation" },
+    { id: "news", i18nKey: "nav.home", icon: <NewsIcon />, path: "/news" },
+    { id: "stocks", i18nKey: "nav.stocksFull", icon: <StocksIcon />, path: "/stocks" },
+    { id: "crypto", i18nKey: "nav.cryptoFull", icon: <CryptoIcon />, path: "/crypto" },
+    { id: "funds", i18nKey: "nav.fundsFull", icon: <FundsIcon />, path: "/funds" },
+    { id: "bonds", i18nKey: "nav.bondsFull", icon: <BondsIcon />, path: "/bonds" },
+    { id: "market-data", i18nKey: "nav.fxFull", icon: <ExchangeIcon />, path: "/market-data" },
+    { id: "commodities", i18nKey: "nav.commodities", icon: <CommodityIcon />, path: "/commodities" },
+    { id: "viop", i18nKey: "nav.viop", icon: <ViopIcon />, path: "/viop" },
+    { id: "inflation", i18nKey: "nav.inflation", icon: <InflationIcon />, path: "/inflation" },
 ];
 
 const PRIVATE_NAV_ITEMS = [
-    { id: "portfolio", label: "Yatırımlarım", icon: <PortfolioIcon />, path: "/portfolio", requiresAuth: true },
-    { id: "historical", label: "Geçmişten Bugüne", icon: <HistoricalIcon />, path: "/historical", requiresAuth: true },
+    { id: "portfolio", i18nKey: "nav.portfolioFull", icon: <PortfolioIcon />, path: "/portfolio", requiresAuth: true },
+    { id: "historical", i18nKey: "nav.historicalFull", icon: <HistoricalIcon />, path: "/historical", requiresAuth: true },
 ];
 
 const ADMIN_ITEMS = [
-    { id: "admin", label: "Yönetim", icon: <AdminIcon />, path: "/admin" },
+    { id: "admin", i18nKey: "nav.admin", icon: <AdminIcon />, path: "/admin" },
 ];
 
 const PREF_ITEMS = [
-    { id: "settings", label: "Ayarlar", icon: <SettingsIcon />, path: "/settings" },
+    { id: "settings", i18nKey: "nav.settings", icon: <SettingsIcon />, path: "/settings" },
 ];
 
 export default function Sidebar({ keycloak }) {
     const navigate = useNavigate();
     const location = useLocation();
+    const { t } = useI18n();
 
     // Mobile drawer state. Desktop hover-expand is pure CSS (see index.css).
     const [mobileOpen, setMobileOpen] = useState(false);
@@ -181,8 +183,8 @@ export default function Sidebar({ keycloak }) {
                 type="button"
                 className="fp-mobile-hamburger"
                 onClick={() => setMobileOpen((v) => !v)}
-                aria-label={mobileOpen ? "Menüyü kapat" : "Menüyü aç"}
-                title="Menü"
+                aria-label={mobileOpen ? t("topbar.menuClose") : t("topbar.menuOpen")}
+                title={t("topbar.menu")}
             >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none"
                      stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -232,79 +234,91 @@ export default function Sidebar({ keycloak }) {
                 </div>
                 <div className="fp-sidebar-text">
                     <div style={s.brandName}>Finans Portal</div>
-                    <div style={s.brandSub}>Investment Hub</div>
+                    <div style={s.brandSub}>{t("sidebar.brandSub")}</div>
                 </div>
             </div>
 
             {/* Navigation - public */}
-            <div className="fp-sidebar-text" style={s.sectionLabel}>PİYASALAR</div>
-            {PUBLIC_NAV_ITEMS.map((item) => (
+            <div className="fp-sidebar-text" style={s.sectionLabel}>{t("sidebar.markets")}</div>
+            {PUBLIC_NAV_ITEMS.map((item) => {
+                const label = t(item.i18nKey);
+                return (
                 <button
                     key={item.id}
                     className="fp-nav-item"
                     style={isActive(item.path) ? s.itemActive : s.item}
                     onClick={() => navigate(item.path)}
-                    title={item.label}
+                    title={label}
                 >
                     <span style={s.icon}>{item.icon}</span>
-                    <span className="fp-sidebar-text">{item.label}</span>
+                    <span className="fp-sidebar-text">{label}</span>
                 </button>
-            ))}
+                );
+            })}
 
             {/* Navigation - private (only when logged in) */}
             {keycloak.authenticated && (
                 <>
-                    <div className="fp-sidebar-text" style={s.sectionLabel}>HESABIM</div>
-                    {PRIVATE_NAV_ITEMS.map((item) => (
+                    <div className="fp-sidebar-text" style={s.sectionLabel}>{t("sidebar.account")}</div>
+                    {PRIVATE_NAV_ITEMS.map((item) => {
+                        const label = t(item.i18nKey);
+                        return (
                         <button
                             key={item.id}
                             className="fp-nav-item"
                             style={isActive(item.path) ? s.itemActive : s.item}
                             onClick={() => navigate(item.path)}
-                            title={item.label}
+                            title={label}
                         >
                             <span style={s.icon}>{item.icon}</span>
-                            <span className="fp-sidebar-text">{item.label}</span>
+                            <span className="fp-sidebar-text">{label}</span>
                         </button>
-                    ))}
+                        );
+                    })}
                 </>
             )}
 
             {/* Admin Section - Only visible for admins */}
             {userIsAdmin && (
                 <>
-                    <div className="fp-sidebar-text" style={s.sectionLabel}>ADMIN</div>
-                    {ADMIN_ITEMS.map((item) => (
+                    <div className="fp-sidebar-text" style={s.sectionLabel}>{t("sidebar.admin")}</div>
+                    {ADMIN_ITEMS.map((item) => {
+                        const label = t(item.i18nKey);
+                        return (
                         <button
                             key={item.id}
                             className="fp-nav-item"
                             style={isActive(item.path) ? s.itemActive : s.item}
                             onClick={() => navigate(item.path)}
-                            title={item.label}
+                            title={label}
                         >
                             <span style={s.icon}>{item.icon}</span>
-                            <span className="fp-sidebar-text">{item.label}</span>
+                            <span className="fp-sidebar-text">{label}</span>
                         </button>
-                    ))}
+                        );
+                    })}
                 </>
             )}
 
             <div style={{ flex: 1 }} />
 
             {/* Preferences */}
-            <div className="fp-sidebar-text" style={s.sectionLabel}>PREFERENCES</div>
-            {PREF_ITEMS.map((item) => (
+            <div className="fp-sidebar-text" style={s.sectionLabel}>{t("sidebar.preferences")}</div>
+            {PREF_ITEMS.map((item) => {
+                const label = t(item.i18nKey);
+                return (
                 <button
                     key={item.id}
                     className="fp-nav-item"
                     style={isActive(item.path) ? s.itemActive : s.item}
                     onClick={() => navigate(item.path)}
-                    title={item.label}
+                    title={label}
                 >
                     <span style={s.icon}>{item.icon}</span>
-                    <span className="fp-sidebar-text">{item.label}</span>
+                    <span className="fp-sidebar-text">{label}</span>
                 </button>
-            ))}
+                );
+            })}
 
             {/* User footer */}
             {keycloak.authenticated ? (

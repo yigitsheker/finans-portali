@@ -2,8 +2,10 @@ import { useEffect, useMemo, useState } from "react";
 import Modal from "../components/Modal";
 import { getLatestPrice, getMarketInstruments } from "../api/portfolioApi";
 import { compareInflation } from "../api/inflationApi";
+import { useI18n } from "../contexts/I18nContext";
 
 export default function HistoricalComparison({ keycloak }) {
+  const { t } = useI18n();
   const [positions, setPositions] = useState([]);
   const [instruments, setInstruments] = useState([]);
 
@@ -59,15 +61,15 @@ export default function HistoricalComparison({ keycloak }) {
   async function onAdd() {
     const sym = addSymbol.trim().toUpperCase();
     if (!sym) {
-      setAddError("Sembol zorunlu");
+      setAddError(t("historical.errSymbol"));
       return;
     }
     if (!addDate) {
-      setAddError("Tarih zorunlu");
+      setAddError(t("historical.errDate"));
       return;
     }
     if (addLots <= 0) {
-      setAddError("Lot sayısı 1 veya daha büyük olmalı");
+      setAddError(t("historical.errQty"));
       return;
     }
 
@@ -76,7 +78,7 @@ export default function HistoricalComparison({ keycloak }) {
     today.setHours(0, 0, 0, 0);
 
     if (selectedDate >= today) {
-      setAddError("Tarih bugünden eski olmalı");
+      setAddError(t("historical.errPast"));
       return;
     }
 
@@ -100,7 +102,7 @@ export default function HistoricalComparison({ keycloak }) {
       const historyData = await getMarketHistory(sym, period);
 
       if (!historyData || historyData.length === 0) {
-        setAddError("Bu sembol için geçmiş veri bulunamadı");
+        setAddError(t("historical.errNoHistory"));
         return;
       }
 
@@ -154,7 +156,7 @@ export default function HistoricalComparison({ keycloak }) {
       setAddLots(1);
     } catch (e) {
       console.error("Error adding position:", e);
-      setAddError(e?.message ?? "Fiyat alınamadı");
+      setAddError(e?.message ?? t("historical.errPrice"));
     } finally {
       setAddLoading(false);
     }
@@ -165,7 +167,7 @@ export default function HistoricalComparison({ keycloak }) {
   }
 
   function onClearAll() {
-    if (confirm("Tüm pozisyonları silmek istediğinizden emin misiniz?")) {
+    if (confirm(t("historical.confirmClearAll"))) {
       setPositions([]);
       localStorage.removeItem("historicalPositions");
     }
@@ -213,13 +215,13 @@ export default function HistoricalComparison({ keycloak }) {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <div style={s.title}>📊 Geçmişten Bugüne Değişim</div>
-          <div style={s.subtitle}>Geçmiş alımlarınızı takip edin ve toplam kar/zarar hesaplayın</div>
+          <div style={s.title}>{t("historical.title")}</div>
+          <div style={s.subtitle}>{t("historical.subtitle")}</div>
         </div>
         <div style={{ display: "flex", gap: 8 }}>
           {positions.length > 0 && (
             <button style={s.clearBtn} onClick={onClearAll}>
-              Tümünü Temizle
+              {t("historical.clearAll")}
             </button>
           )}
           <button style={s.addBtn} onClick={() => {
@@ -229,7 +231,7 @@ export default function HistoricalComparison({ keycloak }) {
             setAddError(null);
             setAddOpen(true);
           }}>
-            + Pozisyon Ekle
+            {t("historical.addPosition")}
           </button>
         </div>
       </div>
@@ -240,15 +242,15 @@ export default function HistoricalComparison({ keycloak }) {
           {totals.totalInvestedTRY > 0 && (
             <>
               <SCard
-                label="Toplam Yatırım (TRY)"
+                label={`${t("historical.totalInvest")} (TRY)`}
                 value={"₺" + totals.totalInvestedTRY.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
               />
               <SCard
-                label="Güncel Değer (TRY)"
+                label={`${t("historical.currentValue")} (TRY)`}
                 value={"₺" + totals.totalCurrentTRY.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
               />
               <SCard
-                label="Kar/Zarar (TRY)"
+                label={`${t("historical.pnl")} (TRY)`}
                 value={(totals.totalChangeTRY >= 0 ? "+₺" : "-₺") + Math.abs(totals.totalChangeTRY).toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
                 sub={(totals.totalChangeTRY >= 0 ? "+" : "") + totals.totalChangePctTRY.toFixed(2) + "%"}
                 valueColor={totals.totalChangeTRY >= 0 ? "var(--green)" : "var(--red)"}
@@ -258,15 +260,15 @@ export default function HistoricalComparison({ keycloak }) {
           {totals.totalInvestedUSD > 0 && (
             <>
               <SCard
-                label="Toplam Yatırım (USD)"
+                label={`${t("historical.totalInvest")} (USD)`}
                 value={"$" + totals.totalInvestedUSD.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
               />
               <SCard
-                label="Güncel Değer (USD)"
+                label={`${t("historical.currentValue")} (USD)`}
                 value={"$" + totals.totalCurrentUSD.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
               />
               <SCard
-                label="Kar/Zarar (USD)"
+                label={`${t("historical.pnl")} (USD)`}
                 value={(totals.totalChangeUSD >= 0 ? "+$" : "-$") + Math.abs(totals.totalChangeUSD).toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
                 sub={(totals.totalChangeUSD >= 0 ? "+" : "") + totals.totalChangePctUSD.toFixed(2) + "%"}
                 valueColor={totals.totalChangeUSD >= 0 ? "var(--green)" : "var(--red)"}
@@ -281,20 +283,20 @@ export default function HistoricalComparison({ keycloak }) {
         {positions.length === 0 ? (
           <div style={s.empty}>
             <div style={{ fontSize: 48, marginBottom: 12 }}>📈</div>
-            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>Henüz pozisyon yok</div>
+            <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>{t("historical.empty")}</div>
             <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
-              Geçmiş bir tarihte aldığınız hisseleri ekleyerek o tarihten bugüne kar/zarar hesaplayın
+              {t("historical.emptySub")}
             </div>
             <button style={s.addBtn} onClick={() => setAddOpen(true)}>
-              + İlk Pozisyonu Ekle
+              {t("historical.emptyCta")}
             </button>
           </div>
         ) : (
-          <div style={s.tableWrap}>
+          <div style={s.tableWrap} className="fp-table-scroll">
             <table style={s.table}>
               <thead>
                 <tr>
-                  {["Sembol", "İsim", "Alış Tarihi", "Lot", "Alış", "Güncel", "Yatırılan", "Güncel Değer", "Kar/Zarar", "Nominal %", "Enflasyon %", "Reel %", ""].map((h) => (
+                  {[t("historical.colSymbol"), t("historical.colName"), t("historical.colBuyDate"), t("historical.colLots"), t("historical.colBuy"), t("historical.colCurrent"), t("historical.colInvested"), t("historical.colValue"), t("historical.colPnl"), t("historical.colNominal"), t("historical.colInflation"), t("historical.colReal"), ""].map((h) => (
                     <th key={h} style={s.th}>{h}</th>
                   ))}
                 </tr>
@@ -351,7 +353,7 @@ export default function HistoricalComparison({ keycloak }) {
                       </td>
                       <td style={s.td}>
                         <button style={s.deleteBtn} onClick={() => onDelete(p.id)}>
-                          Sil
+                          {t("historical.delete")}
                         </button>
                       </td>
                     </tr>
@@ -366,22 +368,22 @@ export default function HistoricalComparison({ keycloak }) {
       {/* Add Modal */}
       <Modal
         open={addOpen}
-        title="Geçmiş Pozisyon Ekle"
+        title={t("historical.modalTitle")}
         onClose={() => setAddOpen(false)}
         footer={
           <>
             <button style={s.ghostBtn} onClick={() => setAddOpen(false)} disabled={addLoading}>
-              Vazgeç
+              {t("common.cancel")}
             </button>
             <button style={s.primaryBtn} onClick={onAdd} disabled={addLoading}>
-              {addLoading ? "Ekleniyor..." : "Ekle"}
+              {addLoading ? t("common.adding") : t("common.add")}
             </button>
           </>
         }
       >
         <div style={{ display: "grid", gap: 14 }}>
           <div style={{ display: "grid", gap: 6 }}>
-            <label style={s.label}>Sembol (Hisse, Döviz, Değerli Maden)</label>
+            <label style={s.label}>{t("historical.modalSymbol")}</label>
             <div style={{ position: "relative" }}>
               <input
                 value={addSymbol}
@@ -391,7 +393,7 @@ export default function HistoricalComparison({ keycloak }) {
                 }}
                 onFocus={() => setShowSugg(true)}
                 onBlur={() => setTimeout(() => setShowSugg(false), 150)}
-                placeholder="THYAO, AAPL, USDTRY..."
+                placeholder={t("historical.modalSymbolPh")}
                 style={s.input}
                 autoComplete="off"
               />
@@ -417,7 +419,7 @@ export default function HistoricalComparison({ keycloak }) {
 
           <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
             <div style={{ display: "grid", gap: 6 }}>
-              <label style={s.label}>Alış Tarihi</label>
+              <label style={s.label}>{t("historical.modalDate")}</label>
               <input
                 type="date"
                 value={addDate}
@@ -428,7 +430,7 @@ export default function HistoricalComparison({ keycloak }) {
             </div>
 
             <div style={{ display: "grid", gap: 6 }}>
-              <label style={s.label}>Lot Sayısı</label>
+              <label style={s.label}>{t("historical.modalQty")}</label>
               <input
                 type="number"
                 value={addLots}
@@ -447,7 +449,7 @@ export default function HistoricalComparison({ keycloak }) {
           )}
 
           <div style={{ fontSize: 12, color: "var(--text-muted)", padding: "8px 12px", background: "var(--bg-panel)", borderRadius: 6, border: "1px solid var(--border-card)" }}>
-            💡 Seçtiğiniz tarihten bugüne kadar olan fiyat değişimi hesaplanacak. Para birimi otomatik tespit edilir.
+            {t("historical.modalHint")}
           </div>
         </div>
       </Modal>

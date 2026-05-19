@@ -76,6 +76,21 @@ public class MarketInstrumentService {
                 if (symbol.contains("-")) {
                     yield symbol; // Already in Yahoo format
                 }
+                // Explicit overrides for tickers whose internal short-code doesn't
+                // line up with Yahoo's ticker. The naive "first 3 chars + USD" split
+                // produces dead pages (DOG-USD, MAT-USD…) or — worse — collides with
+                // an unrelated low-volume token (UNI-USD ≠ Uniswap, that's UNI7083-USD).
+                String override = switch (symbol) {
+                    case "DOGUSD"  -> "DOGE-USD";   // Dogecoin
+                    case "MATUSD"  -> "MATIC-USD";  // Polygon (legacy ticker)
+                    case "AVXUSD"  -> "AVAX-USD";   // Avalanche
+                    case "LNKUSD"  -> "LINK-USD";   // Chainlink
+                    case "UNIUSD"  -> "UNI7083-USD";// Uniswap — bare UNI-USD is a different token
+                    case "ALGOUSD" -> "ALGO-USD";   // Algorand
+                    case "ATOMUSD" -> "ATOM-USD";   // Cosmos
+                    default -> null;
+                };
+                if (override != null) yield override;
                 // Convert BTCUSD to BTC-USD
                 if (symbol.length() >= 6) {
                     String base = symbol.substring(0, 3);

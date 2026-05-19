@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react';
 import { getExchangeRates } from '../api/portfolioApi';
 import CurrencyConverter from '../components/CurrencyConverter';
+import { useI18n } from "../contexts/I18nContext";
 
 const MarketData = () => {
+    const { t } = useI18n();
     const [exchangeRates, setExchangeRates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -38,7 +40,7 @@ const MarketData = () => {
         return (
             <div style={s.loading}>
                 <div style={s.spinner}></div>
-                <div style={{ color: "var(--text-muted)", marginTop: 12 }}>Yükleniyor...</div>
+                <div style={{ color: "var(--text-muted)", marginTop: 12 }}>{t("common.loading")}</div>
             </div>
         );
     }
@@ -47,10 +49,10 @@ const MarketData = () => {
         return (
             <div style={s.error}>
                 <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
-                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>Bir Hata Oluştu</div>
+                <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{t("common.error")}</div>
                 <div style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>{error}</div>
                 <button style={s.retryBtn} onClick={loadData}>
-                    Tekrar Dene
+                    {t("common.retry")}
                 </button>
             </div>
         );
@@ -65,12 +67,12 @@ const MarketData = () => {
             <div style={s.tableContainer}>
                 {/* Table Header */}
                 <div style={{ ...s.tableHeader, ...s.tableHeaderExchange }}>
-                    <div style={s.colCurrency}>Para Birimi</div>
-                    <div style={s.colRate}>Alış</div>
-                    <div style={s.colRate}>Satış</div>
-                    <div style={s.colRate}>Efektif Alış</div>
-                    <div style={s.colRate}>Efektif Satış</div>
-                    <div style={s.colSource}>Kaynak</div>
+                    <div style={s.colCurrency}>{t("fx.currency")}</div>
+                    <div style={s.colRate}>{t("fx.bid")}</div>
+                    <div style={s.colRate}>{t("fx.ask")}</div>
+                    <div style={s.colRate}>{t("fx.bidEff")}</div>
+                    <div style={s.colRate}>{t("fx.askEff")}</div>
+                    <div style={s.colSource}>{t("common.source")}</div>
                 </div>
 
                 {/* Table Body */}
@@ -79,7 +81,7 @@ const MarketData = () => {
                         <div style={s.emptyState}>
                             <div style={{ fontSize: 48, marginBottom: 12 }}>💱</div>
                             <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
-                                Henüz döviz kuru verisi bulunmuyor.
+                                {t("fx.empty")}
                             </div>
                         </div>
                     ) : (

@@ -6,32 +6,34 @@ import {
     getMarketSummary,
 } from '../api/portfolioApi';
 import Pagination from '../components/common/Pagination';
+import { useI18n } from '../contexts/I18nContext';
 
 const NEWS_PAGE_SIZE = 10;
 
-const CATEGORY_LABELS = {
-    'genel-ekonomi': 'Genel Ekonomi',
-    'hisse': 'Hisse Senetleri',
-    'doviz': 'Döviz',
-    'tahvil': 'Tahvil & Bono',
-    'kripto': 'Kripto Para',
-    'emtia': 'Emtia',
-    'fonlar': 'Yatırım Fonları',
-    'borsa': 'Borsa Haberleri',
-    'tcmb': 'TCMB Kararları',
-    'uluslararasi': 'Uluslararası Piyasalar',
+const CATEGORY_LABEL_KEYS = {
+    'genel-ekonomi': 'news.catGeneral',
+    'hisse': 'news.catStocks',
+    'doviz': 'news.catFx',
+    'tahvil': 'news.catBonds',
+    'kripto': 'news.catCrypto',
+    'emtia': 'news.catCommodities',
+    'fonlar': 'news.catFunds',
+    'borsa': 'news.catBist',
+    'tcmb': 'news.catTcmb',
+    'uluslararasi': 'news.catIntl',
 };
 
 const QUICK_LINKS = [
-    { path: '/stocks', label: 'Hisse Senetleri', emoji: '📈', desc: 'BIST + uluslararası hisseler' },
-    { path: '/crypto', label: 'Kripto Paralar', emoji: '🪙', desc: 'Anlık kripto fiyatları' },
-    { path: '/funds', label: 'Yatırım Fonları', emoji: '💼', desc: 'TEFAS fon performansı' },
-    { path: '/bonds', label: 'Tahvil ve Bono', emoji: '🏛️', desc: 'TCMB DİBS ve eurobondlar' },
-    { path: '/market-data', label: 'Döviz Kurları', emoji: '💱', desc: 'TCMB güncel kurlar' },
+    { path: '/stocks', labelKey: 'home.cardStocks', emoji: '📈', descKey: 'home.cardStocksSub' },
+    { path: '/crypto', labelKey: 'home.cardCrypto', emoji: '🪙', descKey: 'home.cardCryptoSub' },
+    { path: '/funds', labelKey: 'home.cardFunds', emoji: '💼', descKey: 'home.cardFundsSub' },
+    { path: '/bonds', labelKey: 'home.cardBonds', emoji: '🏛️', descKey: 'home.cardBondsSub' },
+    { path: '/market-data', labelKey: 'home.cardFx', emoji: '💱', descKey: 'home.cardFxSub' },
 ];
 
 const News = ({ keycloak }) => {
     const navigate = useNavigate();
+    const { t, lang } = useI18n();
     const [news, setNews] = useState([]);
     const [categories, setCategories] = useState([]);
     const [selectedCategory, setSelectedCategory] = useState('');
@@ -91,13 +93,13 @@ const News = ({ keycloak }) => {
         const date = new Date(dateString);
         const diffMs = Date.now() - date.getTime();
         const diffMin = Math.floor(diffMs / 60_000);
-        if (diffMin < 1) return 'Az önce';
-        if (diffMin < 60) return `${diffMin} dakika önce`;
+        if (diffMin < 1) return t('news.justNow');
+        if (diffMin < 60) return t('news.minutesAgo', { N: diffMin });
         const diffH = Math.floor(diffMin / 60);
-        if (diffH < 24) return `${diffH} saat önce`;
+        if (diffH < 24) return t('news.hoursAgo', { N: diffH });
         const diffD = Math.floor(diffH / 24);
-        if (diffD < 30) return `${diffD} gün önce`;
-        return date.toLocaleDateString('tr-TR');
+        if (diffD < 30) return t('news.daysAgo', { N: diffD });
+        return date.toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR');
     };
 
     const openArticle = (article) => navigate(`/news/${article.id}`);
@@ -116,14 +118,13 @@ const News = ({ keycloak }) => {
             <section style={s.hero} className="home-hero">
                 <div style={s.heroLeft}>
                     <div style={s.heroBadge}>FİNANS PORTALI</div>
-                    <h1 style={s.heroTitle}>Yatırım dünyası tek bir ekranda</h1>
+                    <h1 style={s.heroTitle}>{t('home.heroAltTitle')}</h1>
                     <p style={s.heroText}>
-                        Hisse, kripto, fon, tahvil, döviz — Türkiye ve dünya piyasalarını
-                        canlı verilerle takip edin, haberleri okuyun, portföyünüzü yönetin.
+                        {t('home.heroAltLead')}
                     </p>
                     <div style={s.heroCtas}>
                         <button style={s.ctaPrimary} onClick={() => navigate('/stocks')}>
-                            Piyasaları Keşfet
+                            {t('home.ctaExplore')}
                         </button>
                         {!keycloak?.authenticated && (
                             <button
@@ -132,7 +133,7 @@ const News = ({ keycloak }) => {
                                     keycloak?.register({ redirectUri: window.location.href })
                                 }
                             >
-                                Ücretsiz Hesap Oluştur
+                                {t('home.ctaRegister')}
                             </button>
                         )}
                         {keycloak?.authenticated && (
@@ -140,15 +141,15 @@ const News = ({ keycloak }) => {
                                 style={s.ctaSecondary}
                                 onClick={() => navigate('/portfolio')}
                             >
-                                Portföyümü Görüntüle
+                                {t('home.ctaPortfolio')}
                             </button>
                         )}
                     </div>
                 </div>
                 <div style={s.heroRight}>
-                    <div style={s.heroStatsTitle}>Günün Hareketlileri</div>
+                    <div style={s.heroStatsTitle}>{t('home.moversTitle')}</div>
                     {topMovers.length === 0 ? (
-                        <div style={s.heroStatsEmpty}>Yükleniyor...</div>
+                        <div style={s.heroStatsEmpty}>{t('common.loading')}</div>
                     ) : (
                         <div style={s.heroStatsList}>
                             {topMovers.slice(0, 4).map((m) => {
@@ -182,8 +183,8 @@ const News = ({ keycloak }) => {
                         onClick={() => navigate(link.path)}
                     >
                         <div style={s.quickEmoji}>{link.emoji}</div>
-                        <div style={s.quickLabel}>{link.label}</div>
-                        <div style={s.quickDesc}>{link.desc}</div>
+                        <div style={s.quickLabel}>{t(link.labelKey)}</div>
+                        <div style={s.quickDesc}>{t(link.descKey)}</div>
                     </button>
                 ))}
             </section>
@@ -193,21 +194,21 @@ const News = ({ keycloak }) => {
                 {/* Left: news feed */}
                 <div style={s.newsCol}>
                     <div style={s.sectionHeader}>
-                        <h2 style={s.sectionTitle}>Finans Haberleri</h2>
+                        <h2 style={s.sectionTitle}>{t('news.title')}</h2>
                         <span style={s.sectionMeta}>
                             {selectedCategory
-                                ? CATEGORY_LABELS[selectedCategory] ?? selectedCategory
-                                : 'Tüm haberler'}
+                                ? (CATEGORY_LABEL_KEYS[selectedCategory] ? t(CATEGORY_LABEL_KEYS[selectedCategory]) : selectedCategory)
+                                : t('news.all')}
                         </span>
                     </div>
 
                     {loading && news.length === 0 ? (
                         <div style={s.loadingState}>
                             <div style={s.spinner} />
-                            <span>Haberler yükleniyor...</span>
+                            <span>{t('news.loading')}</span>
                         </div>
                     ) : news.length === 0 ? (
-                        <div style={s.emptyState}>Bu kategoride henüz haber yok.</div>
+                        <div style={s.emptyState}>{t('news.emptyCat')}</div>
                     ) : (
                         <>
                             {/* Featured news card */}
@@ -221,16 +222,16 @@ const News = ({ keycloak }) => {
                                 >
                                     <div style={s.featuredMeta}>
                                         <span style={s.featuredCategory}>
-                                            {CATEGORY_LABELS[featured.category] ?? featured.category}
+                                            {CATEGORY_LABEL_KEYS[featured.category] ? t(CATEGORY_LABEL_KEYS[featured.category]) : featured.category}
                                         </span>
                                         <span style={s.dot}>•</span>
-                                        <span style={s.muted}>{featured.sourceName || 'Piyasalar'}</span>
+                                        <span style={s.muted}>{featured.sourceName || t('news.markets')}</span>
                                         <span style={s.dot}>•</span>
                                         <span style={s.muted}>{formatRelativeTime(featured.publishedAt)}</span>
                                     </div>
                                     <h3 style={s.featuredTitle}>{featured.title}</h3>
                                     <p style={s.featuredSummary}>{featured.summary}</p>
-                                    <span style={s.readMore}>Devamını Oku →</span>
+                                    <span style={s.readMore}>{t('news.readMore')}</span>
                                 </article>
                             )}
 
@@ -247,10 +248,10 @@ const News = ({ keycloak }) => {
                                     >
                                         <div style={s.listMeta}>
                                             <span style={s.listCategory}>
-                                                {CATEGORY_LABELS[a.category] ?? a.category}
+                                                {CATEGORY_LABEL_KEYS[a.category] ? t(CATEGORY_LABEL_KEYS[a.category]) : a.category}
                                             </span>
                                             <span style={s.dot}>•</span>
-                                            <span style={s.muted}>{a.sourceName || 'Piyasalar'}</span>
+                                            <span style={s.muted}>{a.sourceName || t('news.markets')}</span>
                                             <span style={s.dot}>•</span>
                                             <span style={s.muted}>{formatRelativeTime(a.publishedAt)}</span>
                                         </div>
@@ -275,7 +276,7 @@ const News = ({ keycloak }) => {
                 <aside style={s.sidebar} className="home-sidebar">
                     {/* Categories */}
                     <div style={s.sideCard}>
-                        <h3 style={s.sideTitle}>📰 Kategoriler</h3>
+                        <h3 style={s.sideTitle}>{t('news.categoriesTitle')}</h3>
                         <div style={s.categoryList}>
                             <button
                                 style={{
@@ -284,7 +285,7 @@ const News = ({ keycloak }) => {
                                 }}
                                 onClick={() => setSelectedCategory('')}
                             >
-                                Tüm Haberler
+                                {t('news.allNews')}
                             </button>
                             {categories.map((cat) => (
                                 <button
@@ -295,7 +296,7 @@ const News = ({ keycloak }) => {
                                     }}
                                     onClick={() => setSelectedCategory(cat)}
                                 >
-                                    {CATEGORY_LABELS[cat] ?? cat}
+                                    {CATEGORY_LABEL_KEYS[cat] ? t(CATEGORY_LABEL_KEYS[cat]) : cat}
                                 </button>
                             ))}
                         </div>
@@ -305,10 +306,9 @@ const News = ({ keycloak }) => {
                     {!keycloak?.authenticated && (
                         <div style={s.ctaCard}>
                             <div style={s.ctaIcon}>🔐</div>
-                            <h3 style={s.ctaTitle}>Yatırımcı Hesabı</h3>
+                            <h3 style={s.ctaTitle}>{t('home.investorBadge')}</h3>
                             <p style={s.ctaText}>
-                                Portföyünüzü takip edin, fiyat alarmları kurun, teknik analiz
-                                araçlarını kullanın.
+                                {t('home.investorBadgeSub')}
                             </p>
                             <button
                                 style={s.ctaCardBtn}
@@ -316,7 +316,7 @@ const News = ({ keycloak }) => {
                                     keycloak?.register({ redirectUri: window.location.href })
                                 }
                             >
-                                Ücretsiz Kayıt Ol
+                                {t('home.ctaRegister')}
                             </button>
                         </div>
                     )}
@@ -327,7 +327,7 @@ const News = ({ keycloak }) => {
                 <button
                     onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
                     style={s.scrollTopBtn}
-                    aria-label="Yukarı çık"
+                    aria-label={t('common.backToTop')}
                 >
                     ↑
                 </button>

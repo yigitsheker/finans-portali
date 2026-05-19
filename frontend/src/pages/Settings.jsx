@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import { applyTheme } from "../theme";
+import { useI18n } from "../contexts/I18nContext";
 
 const NOTIF_ITEMS = [
-  { key: "transactions", label: "Islem Bildirimleri",      desc: "Hesabinizda islem gerceklestiginde bildirim alin.", defaultOn: true },
-  { key: "budget",       label: "Butce Uyarilari",         desc: "Butce limitinize yaklastiginizda uyari alin.",      defaultOn: true },
-  { key: "investments",  label: "Yatirim Guncellemeleri",  desc: "Portfoy performansinin haftalik ozeti.",            defaultOn: false },
-  { key: "marketing",    label: "Pazarlama Iletisimi",     desc: "Haberler, urun guncellemeleri ve teklifler.",       defaultOn: false },
-  { key: "push",         label: "Anlik Bildirimler",       desc: "Onemli aktiviteler icin anlik bildirimler.",        defaultOn: true },
-  { key: "security",     label: "Guvenlik Uyarilari",      desc: "Supheli aktiviteler icin SMS uyarilari.",           defaultOn: true },
+  { key: "transactions", labelKey: "settings.txNotif",         descKey: "settings.txNotifSub",         defaultOn: true },
+  { key: "budget",       labelKey: "settings.budgetWarn",      descKey: "settings.budgetWarnSub",      defaultOn: true },
+  { key: "investments",  labelKey: "settings.investUpdates",   descKey: "settings.investUpdatesSub",   defaultOn: false },
+  { key: "marketing",    labelKey: "settings.marketingComm",   descKey: "settings.marketingCommSub",   defaultOn: false },
+  { key: "push",         labelKey: "settings.pushNotif",       descKey: "settings.pushNotifSub",       defaultOn: true },
+  { key: "security",     labelKey: "settings.securityAlert",   descKey: "settings.securityAlertSub",   defaultOn: true },
 ];
 
 const NOTIF_PREF_KEY = "notif-preferences";
@@ -31,6 +32,7 @@ function loadNotifPrefs() {
 }
 
 export default function Settings({ keycloak, theme, onThemeChange }) {
+  const { t } = useI18n();
   const parsed = keycloak.tokenParsed;
 
   // Profile fields — seeded from JWT (which is what Keycloak ships back after our
@@ -91,9 +93,9 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
     setNotifs((prev) => ({ ...prev, [key]: !prev[key] }));
   }
 
-  function handleTheme(t) {
-    onThemeChange(t);
-    applyTheme(t);
+  function handleTheme(next) {
+    onThemeChange(next);
+    applyTheme(next);
   }
 
   const baseRedirect = window.location.href;
@@ -109,9 +111,9 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
   }
 
   const THEME_OPTIONS = [
-    { key: "light",  label: "Acik",  icon: "☀️" },
-    { key: "dark",   label: "Koyu",  icon: "🌙" },
-    { key: "system", label: "Sistem", icon: "💻" },
+    { key: "light",  label: t("settings.themeLight"),  icon: "☀️" },
+    { key: "dark",   label: t("settings.themeDark"),   icon: "🌙" },
+    { key: "system", label: t("settings.themeSystem"), icon: "💻" },
   ];
 
   return (
@@ -119,40 +121,40 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
       <div style={s.grid}>
         {/* Profile */}
         <div style={s.card}>
-          <div style={s.cardTitle}>Profil</div>
-          <div style={s.cardSub}>Kisisel bilgilerinizi ve hesap detaylarinizi yonetin.</div>
+          <div style={s.cardTitle}>{t("settings.profile")}</div>
+          <div style={s.cardSub}>{t("settings.profileSub")}</div>
           <div style={s.avatarRow}>
             <div style={s.avatar}>{initials}</div>
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>Avatar Degistir</div>
-              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>JPG, GIF veya PNG. Maks. 2MB.</div>
+              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{t("settings.changeAvatar")}</div>
+              <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{t("settings.avatarHint")}</div>
             </div>
           </div>
           <div style={s.formGrid}>
             <div style={s.field}>
-              <label style={s.label}>Ad</label>
-              <input value={firstName} onChange={(e) => setFirstName(e.target.value)} style={s.input} placeholder="Adiniz" />
+              <label style={s.label}>{t("settings.firstName")}</label>
+              <input value={firstName} onChange={(e) => setFirstName(e.target.value)} style={s.input} placeholder={t("settings.firstNamePh")} />
             </div>
             <div style={s.field}>
-              <label style={s.label}>Soyad</label>
-              <input value={lastName} onChange={(e) => setLastName(e.target.value)} style={s.input} placeholder="Soyadiniz" />
+              <label style={s.label}>{t("settings.lastName")}</label>
+              <input value={lastName} onChange={(e) => setLastName(e.target.value)} style={s.input} placeholder={t("settings.lastNamePh")} />
             </div>
             <div style={{ ...s.field, gridColumn: "span 2" }}>
-              <label style={s.label}>E-posta Adresi</label>
-              <input value={email} onChange={(e) => setEmail(e.target.value)} style={s.input} placeholder="ornek@email.com" type="email" />
+              <label style={s.label}>{t("settings.email")}</label>
+              <input value={email} onChange={(e) => setEmail(e.target.value)} style={s.input} placeholder={t("settings.emailPh")} type="email" />
             </div>
             <div style={{ ...s.field, gridColumn: "span 2" }}>
-              <label style={s.label}>Telefon Numarasi</label>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} style={s.input} placeholder="+90 555 000 0000" type="tel" />
+              <label style={s.label}>{t("settings.phone")}</label>
+              <input value={phone} onChange={(e) => setPhone(e.target.value)} style={s.input} placeholder={t("settings.phonePh")} type="tel" />
             </div>
           </div>
           <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
             <button style={{ ...s.saveBtn, opacity: saving ? 0.6 : 1 }} onClick={handleSave} disabled={saving}>
-              {saving ? "Kaydediliyor..." : saveStatus === "ok" ? "Kaydedildi ✓" : "Degisiklikleri Kaydet"}
+              {saving ? t("settings.saving") : saveStatus === "ok" ? t("settings.saved") : t("settings.saveChanges")}
             </button>
             {saveStatus === "error" && (
               <span style={{ color: "var(--danger-text, #ef4444)", fontSize: 12 }}>
-                Hata: {saveError}
+                {`${t("settings.error")}: ${saveError}`}
               </span>
             )}
           </div>
@@ -162,8 +164,8 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
         <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
           {/* Appearance */}
           <div style={s.card}>
-            <div style={s.cardTitle}>Gorunum</div>
-            <div style={s.cardSub}>Uygulamanin gorunumunu ozellestirin. "Sistem" işletim sistemi ayarınızı takip eder.</div>
+            <div style={s.cardTitle}>{t("settings.appearance")}</div>
+            <div style={s.cardSub}>{t("settings.appearanceSub")}</div>
             <div style={s.themeRow}>
               {THEME_OPTIONS.map((opt) => (
                 <button
@@ -180,51 +182,51 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
 
           {/* Security */}
           <div style={s.card}>
-            <div style={s.cardTitle}>Güvenlik</div>
-            <div style={s.cardSub}>Hesap güvenliğinizi ve iki faktörlü doğrulamayı yönetin.</div>
+            <div style={s.cardTitle}>{t("settings.security")}</div>
+            <div style={s.cardSub}>{t("settings.securitySub")}</div>
 
             <div style={s.secRow}>
               <div style={{ flex: 1 }}>
-                <div style={s.secLabel}>İki Faktörlü Doğrulama (2FA)</div>
+                <div style={s.secLabel}>{t("settings.mfa")}</div>
                 <div style={s.secDesc}>
                   {otpConfigured
-                    ? "Hesabınızda TOTP doğrulayıcı aktif."
-                    : "Hesabınıza ek bir güvenlik katmanı ekleyin (Google Authenticator, Authy vb.)."}
+                    ? t("settings.mfaActive")
+                    : t("settings.mfaInactive")}
                 </div>
               </div>
               <button style={s.secBtn} onClick={setup2FA}>
-                {otpConfigured ? "Yeniden Kur" : "Kur"}
+                {otpConfigured ? t("settings.reSetup") : t("settings.setup")}
               </button>
             </div>
 
             <div style={{ ...s.secRow, borderTop: "1px solid var(--border-soft)" }}>
               <div style={{ flex: 1 }}>
-                <div style={s.secLabel}>Şifreyi Değiştir</div>
-                <div style={s.secDesc}>Hesap şifrenizi güncelleyin.</div>
+                <div style={s.secLabel}>{t("settings.changePassword")}</div>
+                <div style={s.secDesc}>{t("settings.changePasswordSub")}</div>
               </div>
-              <button style={s.secBtn} onClick={changePassword}>Değiştir</button>
+              <button style={s.secBtn} onClick={changePassword}>{t("settings.changeBtn")}</button>
             </div>
 
             <div style={{ ...s.secRow, borderTop: "1px solid var(--border-soft)" }}>
               <div style={{ flex: 1 }}>
-                <div style={s.secLabel}>Keycloak Hesap Yönetimi</div>
+                <div style={s.secLabel}>{t("settings.keycloak")}</div>
                 <div style={s.secDesc}>
-                  Oturumları, cihazları ve OTP kimlik bilgilerinizi yönetin.
+                  {t("settings.keycloakSub")}
                 </div>
               </div>
-              <button style={s.secBtnOutline} onClick={manageAccount}>Aç</button>
+              <button style={s.secBtnOutline} onClick={manageAccount}>{t("settings.open")}</button>
             </div>
           </div>
 
           {/* Notifications */}
           <div style={s.card}>
-            <div style={s.cardTitle}>Bildirimler</div>
-            <div style={s.cardSub}>Bildirimleri ve uyarilari nasil alacaginizi yapilandirin. Tercihiniz tarayıcıda saklanır.</div>
+            <div style={s.cardTitle}>{t("settings.notifications")}</div>
+            <div style={s.cardSub}>{t("settings.notificationsSub")}</div>
             {NOTIF_ITEMS.map((item, i) => (
               <div key={item.key} style={{ ...s.notifRow, borderBottom: i < NOTIF_ITEMS.length - 1 ? "1px solid var(--border-soft)" : "none" }}>
                 <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", marginBottom: 2 }}>{item.label}</div>
-                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{item.desc}</div>
+                  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--text-primary)", marginBottom: 2 }}>{t(item.labelKey)}</div>
+                  <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{t(item.descKey)}</div>
                 </div>
                 <Toggle on={!!notifs[item.key]} onToggle={() => toggleNotif(item.key)} />
               </div>

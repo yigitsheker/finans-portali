@@ -14,8 +14,11 @@ public interface MarketCandleRepository extends JpaRepository<MarketCandle, Long
     );
 
     List<MarketCandle> findTop100ByInstrument_SymbolOrderByDayDesc(String symbol);
-    
+
     List<MarketCandle> findTop50ByInstrument_SymbolOrderByDayDesc(String symbol);
+
+    /** Two newest candles — used to derive daily change when the cached quote lacks it. */
+    List<MarketCandle> findTop2ByInstrumentOrderByDayDesc(MarketInstrument instrument);
 
     void deleteByInstrumentAndDay(MarketInstrument instrument, LocalDate day);
     

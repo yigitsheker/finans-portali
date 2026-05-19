@@ -1,7 +1,9 @@
 import { useEffect, useState, useMemo } from "react";
 import { getInflationHistory } from "../api/inflationApi";
+import { useI18n } from "../contexts/I18nContext";
 
 export default function Inflation() {
+  const { t } = useI18n();
   const [rows, setRows] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -44,7 +46,7 @@ export default function Inflation() {
     return (
       <div style={s.loading}>
         <div style={s.spinner} />
-        <div style={{ color: "var(--text-muted)", marginTop: 12 }}>Yükleniyor…</div>
+        <div style={{ color: "var(--text-muted)", marginTop: 12 }}>{t("common.loadingDots")}</div>
       </div>
     );
   }
@@ -62,9 +64,9 @@ export default function Inflation() {
     return (
       <div style={s.error}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
-        <div>Henüz enflasyon verisi yok.</div>
+        <div>{t("inflation.empty")}</div>
         <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
-          TCMB EVDS3 erişimi sağlandığında otomatik dolacak.
+          {t("inflation.emptyHint")}
         </div>
       </div>
     );
@@ -78,25 +80,25 @@ export default function Inflation() {
       {/* Summary cards */}
       <div style={s.summaryGrid}>
         <SCard
-          label="Son Yıllık Enflasyon (TÜFE)"
+          label={t("inflation.yearlyTitle")}
           value={stats?.latestYearly != null ? stats.latestYearly.toFixed(2) + "%" : "—"}
-          sub={stats?.latestPeriod ? `Son veri: ${formatPeriod(stats.latestPeriod)}` : ""}
+          sub={stats?.latestPeriod ? t("inflation.lastData") + ": " + formatPeriod(stats.latestPeriod) : ""}
           color="var(--red)"
         />
         <SCard
-          label="Son Aylık Enflasyon"
+          label={t("inflation.monthlyTitle")}
           value={stats?.latestMonthly != null ? stats.latestMonthly.toFixed(2) + "%" : "—"}
-          sub="Önceki aya göre"
+          sub={t("inflation.monthlySub")}
         />
         <SCard
-          label="TÜFE Endeksi"
+          label={t("inflation.cpiTitle")}
           value={stats?.latestIndex != null ? Number(stats.latestIndex).toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "—"}
-          sub="2003 = 100"
+          sub={t("inflation.cpiSub")}
         />
         <SCard
-          label="5 Yıllık Birikimli"
+          label={t("inflation.cumul5y")}
           value={stats?.cumulative5y != null ? "+" + stats.cumulative5y + "%" : "—"}
-          sub="Son 60 ayın bileşik etkisi"
+          sub={t("inflation.cumul5ySub")}
           color="var(--red)"
         />
       </div>
@@ -105,41 +107,42 @@ export default function Inflation() {
       <div style={s.card}>
         <div style={s.cardHeader}>
           <div>
-            <div style={s.cardTitle}>Tarihsel Enflasyon</div>
-            <div style={s.cardSub}>Son 24 ay {view === "yearly" ? "yıllık" : "aylık"} değişim</div>
+            <div style={s.cardTitle}>{t("inflation.chartTitle")}</div>
+            <div style={s.cardSub}>{t("inflation.chartSub", { view: view === "yearly" ? "yıllık" : "aylık" })}</div>
           </div>
           <div style={s.toggle}>
             <button
               style={{ ...s.toggleBtn, ...(view === "yearly" ? s.toggleBtnActive : {}) }}
               onClick={() => setView("yearly")}
             >
-              Yıllık %
+              {t("inflation.viewYearly")}
             </button>
             <button
               style={{ ...s.toggleBtn, ...(view === "monthly" ? s.toggleBtnActive : {}) }}
               onClick={() => setView("monthly")}
             >
-              Aylık %
+              {t("inflation.viewMonthly")}
             </button>
           </div>
         </div>
         <BarChart
           data={last24}
           field={view === "yearly" ? "cpiYearlyChange" : "cpiMonthlyChange"}
+          t={t}
         />
       </div>
 
       {/* Table — last 24 months */}
       <div style={s.card}>
-        <div style={s.cardTitle}>Son 24 Ay Detayı</div>
-        <div style={s.tableWrap}>
+        <div style={s.cardTitle}>{t("inflation.detailsTitle")}</div>
+        <div style={s.tableWrap} className="fp-table-scroll">
           <table style={s.table}>
             <thead>
               <tr>
-                <th style={s.th}>Dönem</th>
-                <th style={{ ...s.th, textAlign: "right" }}>TÜFE Endeksi</th>
-                <th style={{ ...s.th, textAlign: "right" }}>Aylık %</th>
-                <th style={{ ...s.th, textAlign: "right" }}>Yıllık %</th>
+                <th style={s.th}>{t("inflation.colPeriod")}</th>
+                <th style={{ ...s.th, textAlign: "right" }}>{t("inflation.colCpi")}</th>
+                <th style={{ ...s.th, textAlign: "right" }}>{t("inflation.colMonthly")}</th>
+                <th style={{ ...s.th, textAlign: "right" }}>{t("inflation.colYearly")}</th>
               </tr>
             </thead>
             <tbody>
@@ -165,10 +168,10 @@ export default function Inflation() {
   );
 }
 
-function BarChart({ data, field }) {
+function BarChart({ data, field, t }) {
   const values = data.map((r) => r[field]).filter((v) => v != null);
   if (values.length === 0) {
-    return <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>Bu görünüm için yeterli veri yok</div>;
+    return <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>{t("inflation.notEnough")}</div>;
   }
   const max = Math.max(...values, 0);
   const min = Math.min(...values, 0);

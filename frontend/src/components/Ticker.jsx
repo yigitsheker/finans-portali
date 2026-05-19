@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { getMarketSummary, getPositions } from "../api/portfolioApi";
 import { watchlistApi } from "../api/watchlistApi";
 import InstrumentChartModal from "./InstrumentChartModal";
+import CompareInstrumentsModal from "./CompareInstrumentsModal";
 import { usePriceDisplay } from "../contexts/CurrencyDisplayContext";
 
 const PREFS_KEY = "finans-ticker-prefs";
@@ -50,6 +51,7 @@ export default function Ticker({ keycloak }) {
     const [watchlists, setWatchlists] = useState([]);
     const [customInput, setCustomInput] = useState("");
     const [selectedInstrument, setSelectedInstrument] = useState(null);
+    const [compareTarget, setCompareTarget] = useState(null);
     const settingsRef = useRef(null);
 
     const setPrefs = (updater) => {
@@ -420,14 +422,17 @@ export default function Ticker({ keycloak }) {
                 onClose={() => setSelectedInstrument(null)}
                 keycloak={keycloak}
                 onCompare={(inst) => {
-                    // Compare modal'ı burada doğrudan yok; kullanıcıyı ilgili sayfaya at
+                    // Open the compare modal in place — navigating to /stocks just
+                    // closed the chart and stranded the user, so the click looked
+                    // like a no-op.
                     setSelectedInstrument(null);
-                    const route =
-                        inst.type === "CRYPTO" ? "/crypto"
-                        : inst.type === "FUND" ? "/funds"
-                        : "/stocks";
-                    navigate(route);
+                    setCompareTarget(inst);
                 }}
+            />
+
+            <CompareInstrumentsModal
+                baseInstrument={compareTarget}
+                onClose={() => setCompareTarget(null)}
             />
         </div>
     );

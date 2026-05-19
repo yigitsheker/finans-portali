@@ -1,6 +1,22 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getMarketSummary, getNews } from "../api/portfolioApi";
+import { useI18n } from "../contexts/I18nContext";
+
+// Map backend category slugs to i18n keys. Mirrors the table in News.jsx so
+// labels stay consistent between the home preview and the full news page.
+const CATEGORY_LABEL_KEYS = {
+    "genel-ekonomi": "news.catGeneral",
+    "hisse": "news.catStocks",
+    "doviz": "news.catFx",
+    "tahvil": "news.catBonds",
+    "kripto": "news.catCrypto",
+    "emtia": "news.catCommodities",
+    "fonlar": "news.catFunds",
+    "borsa": "news.catBist",
+    "tcmb": "news.catTcmb",
+    "uluslararasi": "news.catIntl",
+};
 
 /**
  * Home — the new landing page.
@@ -14,6 +30,7 @@ import { getMarketSummary, getNews } from "../api/portfolioApi";
  * All data comes from the public market/news endpoints — no auth required.
  */
 export default function Home({ keycloak }) {
+    const { t, lang } = useI18n();
     // /api/v1/market/summary returns a flat array — one quote per instrument
     // with { symbol, name, type, last, changeAbs, changePct, asOf }.
     // No separate /instruments call needed; everything we render below comes
@@ -82,50 +99,48 @@ export default function Home({ keycloak }) {
             return t > max ? t : max;
         }, 0);
         if (!latest) return null;
-        return new Date(latest).toLocaleString("tr-TR", {
+        return new Date(latest).toLocaleString(lang === "en" ? "en-US" : "tr-TR", {
             day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit",
         });
-    }, [summary]);
+    }, [summary, lang]);
 
     return (
         <div style={s.page}>
             {/* ───────── HERO ───────── */}
-            <section style={s.hero}>
+            <section style={s.hero} className="home-hero">
                 <div style={s.heroLeft}>
-                    <span style={s.heroBadge}>📈 FINANS PORTALI</span>
+                    <span style={s.heroBadge}>📈 {t("home.badge")}</span>
                     <h1 style={s.heroTitle}>
-                        <span style={s.heroTitleSoft}>Yatırım dünyası,</span><br/>
-                        <span style={s.heroTitleAccent}>tek bir ekranda.</span>
+                        <span style={s.heroTitleSoft}>{t("home.heroLine1")}</span><br/>
+                        <span style={s.heroTitleAccent}>{t("home.heroLine2")}</span>
                     </h1>
                     <p style={s.heroLead}>
-                        Hisse, kripto, fon, tahvil ve döviz — Türkiye ve dünya
-                        piyasalarını canlı verilerle izleyin, haberleri okuyun,
-                        portföyünüzü tek yerden yönetin.
+                        {t("home.heroLead")}
                     </p>
                     <div style={s.heroCtas}>
                         <Link to="/stocks" style={s.ctaPrimary}>
-                            Piyasaları Keşfet
+                            {t("home.ctaExplore")}
                             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                                 <line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/>
                             </svg>
                         </Link>
                         <Link to="/portfolio" style={s.ctaSecondary}>
-                            Portföyümü Görüntüle
+                            {t("home.ctaPortfolio")}
                         </Link>
                     </div>
 
-                    <div style={s.heroStats}>
+                    <div style={s.heroStats} className="home-stats">
                         <div style={s.statItem}>
                             <div style={s.statNum}>+1.200</div>
-                            <div style={s.statLabel}>Enstrüman</div>
+                            <div style={s.statLabel}>{t("home.statInstruments")}</div>
                         </div>
                         <div style={s.statItem}>
                             <div style={s.statNum}>7/24</div>
-                            <div style={s.statLabel}>Canlı veri</div>
+                            <div style={s.statLabel}>{t("home.statLive")}</div>
                         </div>
                         <div style={s.statItem}>
-                            <div style={s.statNum}>%99,9</div>
-                            <div style={s.statLabel}>Süreklilik</div>
+                            <div style={s.statNum}>99.9%</div>
+                            <div style={s.statLabel}>{t("home.statUptime")}</div>
                         </div>
                     </div>
                 </div>
@@ -133,12 +148,12 @@ export default function Home({ keycloak }) {
                 <div style={s.heroRight}>
                     <div style={s.moversCard}>
                         <div style={s.moversHead}>
-                            <span style={s.moversTitle}>Günün Hareketlileri</span>
+                            <span style={s.moversTitle}>{t("home.moversTitle")}</span>
                             <span style={s.moversChip}>BIST</span>
                         </div>
                         <ul style={s.moversList}>
                             {movers.length === 0 ? (
-                                <li style={s.moversEmpty}>Veri yükleniyor…</li>
+                                <li style={s.moversEmpty}>{t("home.moversLoading")}</li>
                             ) : movers.map((m) => {
                                 const pct = Number(m.changePct ?? 0);
                                 const up = pct >= 0;
@@ -160,32 +175,32 @@ export default function Home({ keycloak }) {
             </section>
 
             {/* ───────── FEATURE CARDS ───────── */}
-            <section style={s.featuresGrid}>
-                <FeatureCard to="/stocks" icon="📊" title="Hisse Senetleri" desc="BIST + uluslararası hisseler" />
-                <FeatureCard to="/crypto" icon="₿" title="Kripto Paralar" desc="Anlık kripto fiyatları" />
-                <FeatureCard to="/funds" icon="💼" title="Yatırım Fonları" desc="TEFAS fon performansı" />
-                <FeatureCard to="/bonds" icon="🏛️" title="Tahvil ve Bono" desc="TCMB DİBS ve eurobondlar" />
-                <FeatureCard to="/market-data" icon="💱" title="Döviz Kurları" desc="TCMB güncel kurlar" />
-                <FeatureCard to="/news" icon="📰" title="Haberler" desc="Piyasa & ekonomi gündemi" />
+            <section style={s.featuresGrid} className="home-features">
+                <FeatureCard to="/stocks" icon="📊" title={t("home.cardStocks")} desc={t("home.cardStocksSub")} />
+                <FeatureCard to="/crypto" icon="₿" title={t("home.cardCrypto")} desc={t("home.cardCryptoSub")} />
+                <FeatureCard to="/funds" icon="💼" title={t("home.cardFunds")} desc={t("home.cardFundsSub")} />
+                <FeatureCard to="/bonds" icon="🏛️" title={t("home.cardBonds")} desc={t("home.cardBondsSub")} />
+                <FeatureCard to="/market-data" icon="💱" title={t("home.cardFx")} desc={t("home.cardFxSub")} />
+                <FeatureCard to="/news" icon="📰" title={t("home.cardNews")} desc={t("home.cardNewsSub")} />
             </section>
 
             {/* ───────── BIST + SIDECARDS ───────── */}
-            <section style={s.snapshotGrid}>
+            <section style={s.snapshotGrid} className="home-snapshot">
                 {/* BIST table */}
                 <div style={s.bistCard}>
                     <div style={s.bistHead}>
                         <div>
-                            <h3 style={s.bistTitle}>BIST 100 — En aktif hisseler</h3>
+                            <h3 style={s.bistTitle}>{t("home.bistActive")}</h3>
                             <div style={s.bistSub}>
-                                {updatedAt ? `Güncellendi: ${updatedAt}` : "Yükleniyor…"}
+                                {updatedAt ? `${t("home.updatedAt")}: ${updatedAt}` : t("home.moversLoading")}
                             </div>
                         </div>
                         <div style={s.bistFilters}>
                             {[
-                                { k: "ALL",  label: "Tümü" },
-                                { k: "UP",   label: "Yükselenler" },
-                                { k: "DOWN", label: "Düşenler" },
-                                { k: "VOL",  label: "Hacim" },
+                                { k: "ALL",  label: t("home.filterAll") },
+                                { k: "UP",   label: t("home.filterGainers") },
+                                { k: "DOWN", label: t("home.filterLosers") },
+                                { k: "VOL",  label: t("home.filterVolume") },
                             ].map((opt) => (
                                 <button
                                     key={opt.k}
@@ -204,15 +219,15 @@ export default function Home({ keycloak }) {
                     <table style={s.bistTable}>
                         <thead>
                             <tr>
-                                <th style={s.bistTh}>SEMBOL</th>
-                                <th style={{ ...s.bistTh, textAlign: "right" }}>FİYAT ₺</th>
-                                <th style={{ ...s.bistTh, textAlign: "right" }}>DEĞİŞİM %</th>
-                                <th style={{ ...s.bistTh, textAlign: "right" }}>DEĞİŞİM ₺</th>
+                                <th style={s.bistTh}>{t("home.colSymbol")}</th>
+                                <th style={{ ...s.bistTh, textAlign: "right" }}>{t("home.colPrice")} ₺</th>
+                                <th style={{ ...s.bistTh, textAlign: "right" }}>{t("home.colChangePct")}</th>
+                                <th style={{ ...s.bistTh, textAlign: "right" }}>{t("home.colChangeAbs")} ₺</th>
                             </tr>
                         </thead>
                         <tbody>
                             {bistRows.length === 0 ? (
-                                <tr><td colSpan={4} style={s.bistEmpty}>Veri yükleniyor…</td></tr>
+                                <tr><td colSpan={4} style={s.bistEmpty}>{t("home.moversLoading")}</td></tr>
                             ) : bistRows.map((r) => {
                                 const pct = Number(r.changePct ?? 0);
                                 const up = pct >= 0;
@@ -241,29 +256,33 @@ export default function Home({ keycloak }) {
 
                 {/* Right sidecards */}
                 <div style={s.sideCol}>
-                    <SidePanel title="Döviz" chip="TCMB" rows={fxRows} formatter={(r) => fmtPrice(r.last)} />
-                    <SidePanel title="Kripto" chip="24S" rows={cryptoRows} formatter={(r) => "$" + fmtPrice(r.last)} />
-                    <SidePanel title="Emtia" chip="SPOT" rows={commodityRows} formatter={(r) => "$" + fmtPrice(r.last)} />
+                    <SidePanel title={t("home.fx")} chip={t("home.fxSource")} rows={fxRows} formatter={(r) => fmtPrice(r.last)} />
+                    <SidePanel title={t("home.crypto")} chip={t("home.crypto24h")} rows={cryptoRows} formatter={(r) => "$" + fmtPrice(r.last)} />
+                    <SidePanel title={t("home.commodities")} chip={t("home.spot")} rows={commodityRows} formatter={(r) => "$" + fmtPrice(r.last)} />
                 </div>
             </section>
 
             {/* ───────── NEWS PREVIEW ───────── */}
             <section style={s.newsSection}>
                 <div style={s.newsHead}>
-                    <h2 style={s.newsTitle}>Finans Haberleri</h2>
-                    <Link to="/news" style={s.newsAll}>Tüm haberler →</Link>
+                    <h2 style={s.newsTitle}>{t("home.newsTitle")}</h2>
+                    <Link to="/news" style={s.newsAll}>{t("home.allNews")}</Link>
                 </div>
                 <div style={s.newsGrid}>
-                    {news.slice(0, 3).map((n) => (
+                    {news.slice(0, 3).map((n) => {
+                        const catKey = CATEGORY_LABEL_KEYS[n.category];
+                        const catLabel = catKey ? t(catKey) : (n.category || t("home.newsGeneral"));
+                        return (
                         <Link key={n.id} to={`/news/${n.id}`} style={s.newsCard}>
-                            <div style={s.newsCategory}>{(n.category || "GENEL").toUpperCase()}</div>
+                            <div style={s.newsCategory}>{catLabel.toUpperCase()}</div>
                             <h3 style={s.newsCardTitle}>{n.title}</h3>
                             <p style={s.newsCardSummary}>{n.summary}</p>
-                            <span style={s.newsRead}>Devamını oku ↗</span>
+                            <span style={s.newsRead}>{t("home.newsReadMore")}</span>
                         </Link>
-                    ))}
+                        );
+                    })}
                     {news.length === 0 && (
-                        <div style={s.newsCardEmpty}>Haberler yükleniyor…</div>
+                        <div style={s.newsCardEmpty}>{t("home.newsLoading")}</div>
                     )}
                 </div>
             </section>

@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { fetchNewsContent, getNewsById } from '../api/portfolioApi';
+import { useI18n } from '../contexts/I18nContext';
 
-const CATEGORY_LABELS = {
-    'genel-ekonomi': 'Genel Ekonomi',
-    'hisse': 'Hisse Senetleri',
-    'doviz': 'Döviz',
-    'tahvil': 'Tahvil & Bono',
-    'kripto': 'Kripto Para',
-    'emtia': 'Emtia',
-    'fonlar': 'Yatırım Fonları',
-    'borsa': 'Borsa Haberleri',
-    'tcmb': 'TCMB Kararları',
-    'uluslararasi': 'Uluslararası Piyasalar',
+const CATEGORY_LABEL_KEYS = {
+    'genel-ekonomi': 'news.catGeneral',
+    'hisse': 'news.catStocks',
+    'doviz': 'news.catFx',
+    'tahvil': 'news.catBonds',
+    'kripto': 'news.catCrypto',
+    'emtia': 'news.catCommodities',
+    'fonlar': 'news.catFunds',
+    'borsa': 'news.catBist',
+    'tcmb': 'news.catTcmb',
+    'uluslararasi': 'news.catIntl',
 };
 
 const splitParagraphs = (text) => {
@@ -36,19 +37,20 @@ const estimateReadingMinutes = (text) => {
 const NewsDetail = () => {
     const { id } = useParams();
     const navigate = useNavigate();
+    const { t, lang } = useI18n();
     const [article, setArticle] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
 
     useEffect(() => {
         if (!id) {
-            setError('Geçersiz haber kimliği');
+            setError(t('news.detailInvalid'));
             setLoading(false);
             return;
         }
         const numericId = Number(id);
         if (!Number.isFinite(numericId)) {
-            setError('Geçersiz haber kimliği');
+            setError(t('news.detailInvalid'));
             setLoading(false);
             return;
         }
@@ -94,7 +96,7 @@ const NewsDetail = () => {
 
     const formatDate = (dateString) => {
         const date = new Date(dateString);
-        return date.toLocaleDateString('tr-TR', {
+        return date.toLocaleDateString(lang === 'en' ? 'en-US' : 'tr-TR', {
             year: 'numeric',
             month: 'long',
             day: 'numeric',
@@ -119,11 +121,11 @@ const NewsDetail = () => {
         return (
             <article style={s.page}>
                 <button onClick={handleBack} style={s.backLink}>
-                    <span style={s.backArrow}>←</span> Haberlere dön
+                    <span style={s.backArrow}>←</span> {t('news.detailBack')}
                 </button>
                 <div style={s.loadingContainer}>
                     <div style={s.spinner}></div>
-                    <p style={s.loadingText}>Haber yükleniyor…</p>
+                    <p style={s.loadingText}>{t('news.detailLoading')}</p>
                 </div>
             </article>
         );
@@ -133,20 +135,22 @@ const NewsDetail = () => {
         return (
             <article style={s.page}>
                 <button onClick={handleBack} style={s.backLink}>
-                    <span style={s.backArrow}>←</span> Haberlere dön
+                    <span style={s.backArrow}>←</span> {t('news.detailBack')}
                 </button>
-                <p style={s.errorText}>{error ?? 'Haber bulunamadı'}</p>
+                <p style={s.errorText}>{error ?? t('news.detailNotFound')}</p>
             </article>
         );
     }
 
-    const categoryLabel = CATEGORY_LABELS[article.category] || article.category;
+    const categoryLabel = CATEGORY_LABEL_KEYS[article.category]
+        ? t(CATEGORY_LABEL_KEYS[article.category])
+        : article.category;
 
     return (
         <article style={s.page}>
             {/* Breadcrumb / back link */}
             <button onClick={handleBack} style={s.backLink}>
-                <span style={s.backArrow}>←</span> Haberlere dön
+                <span style={s.backArrow}>←</span> {t('news.detailBack')}
             </button>
 
             {/* Category kicker — newspaper style section label above headline */}
@@ -164,11 +168,11 @@ const NewsDetail = () => {
 
             {/* Byline / meta strip */}
             <div style={s.byline}>
-                <span style={s.sourceName}>{article.sourceName || 'Piyasalar'}</span>
+                <span style={s.sourceName}>{article.sourceName || t('news.markets')}</span>
                 <span style={s.bylineSep}>·</span>
                 <time style={s.date}>{formatDate(article.publishedAt)}</time>
                 <span style={s.bylineSep}>·</span>
-                <span style={s.readTime}>{readingMinutes} dk okuma</span>
+                <span style={s.readTime}>{t('news.detailReadingTime', { N: readingMinutes })}</span>
             </div>
 
             {/* Divider under masthead */}
@@ -187,7 +191,7 @@ const NewsDetail = () => {
                     ))
                 ) : (
                     <p style={s.bodyParagraph}>
-                        Bu haberin tam metni kaynak sitede yayınlanmıştır. Devamını okumak için aşağıdaki bağlantıyı kullanabilirsiniz.
+                        {t('news.detailFooter')}
                     </p>
                 )}
             </div>
@@ -196,8 +200,8 @@ const NewsDetail = () => {
             {article.sourceUrl && (
                 <footer style={s.footer}>
                     <div style={s.footerLeft}>
-                        <div style={s.footerLabel}>KAYNAK</div>
-                        <div style={s.footerSource}>{article.sourceName || 'Haber kaynağı'}</div>
+                        <div style={s.footerLabel}>{t('news.detailSource')}</div>
+                        <div style={s.footerSource}>{article.sourceName || t('news.detailSourceLabel')}</div>
                     </div>
                     <a
                         href={article.sourceUrl}
@@ -205,7 +209,7 @@ const NewsDetail = () => {
                         rel="noopener noreferrer"
                         style={s.sourceCta}
                     >
-                        Orijinal habere git
+                        {t('news.detailGoToOriginal')}
                         <span style={s.ctaArrow}>↗</span>
                     </a>
                 </footer>
