@@ -9,6 +9,7 @@ import {
   sellPosition,
   upsertPosition,
 } from "../api/portfolioApi";
+import notify from "../utils/notify";
 
 export function usePortfolioPage(keycloak) {
   const [items, setItems] = useState([]);
@@ -297,6 +298,7 @@ export function usePortfolioPage(keycloak) {
       setAddSaving(true);
       setErr(null);
       await upsertPosition(keycloak, { symbol, quantity: qty, avgCost: addPrice });
+      notify.tx(`${symbol}: ${qty} adet portföye eklendi`);
       setAddOpen(false);
       await refresh();
     } catch (error) {
@@ -317,6 +319,7 @@ export function usePortfolioPage(keycloak) {
       setSellSaving(true);
       setErr(null);
       await sellPosition(keycloak, sellTarget.symbol, quantity);
+      notify.tx(`${sellTarget.symbol}: ${quantity} adet satıldı`);
       setSellOpen(false);
       await refresh();
     } catch (error) {

@@ -23,6 +23,8 @@ import { applyTheme, getStoredTheme } from "./theme";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import { CurrencyDisplayProvider } from "./contexts/CurrencyDisplayContext";
 import { I18nProvider } from "./contexts/I18nContext";
+import { Toaster } from "react-hot-toast";
+import notify from "./utils/notify";
 import { isAdmin } from "./utils/roleUtils";
 
 /**
@@ -87,6 +89,21 @@ export default function App({ keycloak }) {
     }, [keycloak.tokenParsed]);
 
     const isAuthenticated = !!keycloak.authenticated;
+
+    // Sign-in security toast — once per browser session per user. Uses
+    // sessionStorage so a page reload doesn't re-fire it, but a fresh
+    // browser tab (or new login) does. Gated by Settings → Güvenlik
+    // Uyarıları.
+    useEffect(() => {
+        if (!isAuthenticated) return;
+        const user = keycloak.tokenParsed?.preferred_username || "user";
+        const key = `sec-greeted-${user}`;
+        try {
+            if (sessionStorage.getItem(key)) return;
+            sessionStorage.setItem(key, "1");
+        } catch { /* private mode — fail open */ }
+        notify.security(`Giriş yapıldı: ${user}`);
+    }, [isAuthenticated, keycloak.tokenParsed]);
 
     // Map routes to titles and subtitles
     const pageInfo = {
@@ -270,6 +287,31 @@ export default function App({ keycloak }) {
                     />
                 )}
             </Layout>
+            {/* Toast notifications — sağ üstte, 3 saniye sonra otomatik kaybolur.
+                Visual styling matches the rest of the app via CSS variables so
+                light/dark themes stay consistent. */}
+            <Toaster
+                position="top-right"
+                toastOptions={{
+                    duration: 3000,
+                    style: {
+                        background: "var(--bg-card)",
+                        color: "var(--text-primary)",
+                        border: "1px solid var(--border-card)",
+                        borderRadius: 10,
+                        fontSize: 14,
+                        padding: "12px 14px",
+                        boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
+                        maxWidth: 360,
+                    },
+                    success: {
+                        iconTheme: { primary: "#22c55e", secondary: "#fff" },
+                    },
+                    error: {
+                        iconTheme: { primary: "#ef4444", secondary: "#fff" },
+                    },
+                }}
+            />
             </CurrencyDisplayProvider>
             </I18nProvider>
         </ThemeProvider>

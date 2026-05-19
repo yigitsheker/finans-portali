@@ -5,8 +5,12 @@ import {
   markAsRead,
   markAllAsRead,
 } from "../api/notificationApi";
+import notify from "../utils/notify";
 
 const POLL_INTERVAL_MS = 60_000; // poll inbox every minute
+// Where we remember the highest-seen notification ID so we only toast new
+// arrivals — not the existing inbox on first load.
+const LAST_SEEN_KEY = "notif-last-seen-id";
 
 export default function NotificationBell({ keycloak }) {
   const [open, setOpen] = useState(false);
@@ -16,15 +20,72 @@ export default function NotificationBell({ keycloak }) {
   const containerRef = useRef(null);
 
   // Poll the unread count in the background so the badge stays fresh
-  // even when the dropdown is closed.
+  // even when the dropdown is closed. When the count rises since the last
+  // tick, fetch the inbox and toast each notification whose id is newer
+  // than the highest one we've ever seen (kept in localStorage so we
+  // don't re-toast after a reload).
   useEffect(() => {
     if (!keycloak?.authenticated) return;
     let cancelled = false;
+    let lastCount = -1;
+
+    const readLastSeen = () => {
+      try { return Number(localStorage.getItem(LAST_SEEN_KEY)) || 0; }
+      catch { return 0; }
+    };
+    const writeLastSeen = (id) => {
+      try { localStorage.setItem(LAST_SEEN_KEY, String(id)); } catch { /* ignore */ }
+    };
+
+    const toastNewArrivals = async () => {
+      try {
+        const list = await getNotifications(keycloak, 10);
+        const lastSeen = readLastSeen();
+        const fresh = (list || []).filter((n) => Number(n.id) > lastSeen);
+        if (fresh.length === 0) return;
+        // Toast in chronological order (oldest first) so the newest ends up
+        // on top of the stack.
+        fresh.slice().reverse().forEach((n) => {
+          // Map backend notification type → our category. Unknown types use
+          // the generic push channel.
+          const t = String(n.type || "").toLowerCase();
+          const message = n.title ? `${n.title}${n.message ? " — " + n.message : ""}` : (n.message || "Yeni bildirim");
+          if (t.includes("alert") || t.includes("price")) {
+            notify.push(message);
+          } else if (t.includes("security") || t.includes("login")) {
+            notify.security(message);
+          } else if (t.includes("news") || t.includes("market") || t.includes("offer")) {
+            notify.marketing(message);
+          } else if (t.includes("transaction") || t.includes("trade") || t.includes("order")) {
+            notify.tx(message);
+          } else {
+            notify.push(message);
+          }
+        });
+        const maxId = Math.max(...fresh.map((n) => Number(n.id)));
+        if (Number.isFinite(maxId)) writeLastSeen(maxId);
+        setItems(list || []);
+      } catch { /* ignore */ }
+    };
 
     const tick = async () => {
       try {
         const n = await getUnreadCount(keycloak);
-        if (!cancelled) setCount(n);
+        if (cancelled) return;
+        setCount(n);
+        // Only fetch the full inbox to derive new arrivals when the count
+        // actually rose — saves a request when nothing changed.
+        if (lastCount >= 0 && n > lastCount) {
+          await toastNewArrivals();
+        } else if (lastCount === -1) {
+          // First tick: seed lastSeen with the current top id so we don't
+          // toast the user's existing inbox.
+          try {
+            const list = await getNotifications(keycloak, 1);
+            if ((list || [])[0]?.id) writeLastSeen(Number(list[0].id));
+          } catch { /* ignore */ }
+        }
+        lastCount = n;
       } catch { /* ignore — likely auth refresh in progress */ }
     };
 

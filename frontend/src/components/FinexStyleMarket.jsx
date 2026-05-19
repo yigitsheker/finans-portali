@@ -7,6 +7,7 @@ import {
 import Modal from "./Modal";
 import InstrumentChartModal from "./InstrumentChartModal";
 import CompareInstrumentsModal from "./CompareInstrumentsModal";
+import notify from "../utils/notify";
 import { LWSparkline } from "./common/LWSparkline";
 import Pagination from "./common/Pagination";
 import CheckboxFilterGroup from "./common/CheckboxFilterGroup";
@@ -360,6 +361,9 @@ export default function FinexStyleMarket({
                 quantity: effectiveQty,
                 avgCost: addTarget.last,
             });
+            // Toast lives in the Notification → İşlem Bildirimleri category
+            // and is filtered by the Settings → Bildirimler preferences.
+            notify.tx(`${addTarget.symbol}: ${effectiveQty} ${t("market.qtyUnit")} alındı`);
             setAddTarget(null);
             onAdded?.();
         } catch (e) {
