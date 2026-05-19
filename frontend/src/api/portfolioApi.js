@@ -64,6 +64,24 @@ export async function getMarketHistory(symbol, period) {
     return res.data;
 }
 
+/**
+ * Batch variant — fetch history for many symbols in one HTTP round trip.
+ * Collapses N sparkline lookups from N requests into one, cutting page-load
+ * latency for instrument lists from "50 × 150ms" to a single request.
+ *
+ * Returns an object keyed by symbol; missing / failed symbols map to [].
+ *
+ *   await getMarketHistoryBatch(["THYAO", "GARAN"], "1M")
+ *   → { THYAO: [...], GARAN: [...] }
+ */
+export async function getMarketHistoryBatch(symbols, period = "30D") {
+    if (!symbols || symbols.length === 0) return {};
+    const res = await axios.get(`${API_BASE}/api/v1/market/history/batch`, {
+        params: { symbols: symbols.join(","), period },
+    });
+    return res.data || {};
+}
+
 export async function getLatestPrice(symbol, _keycloak) {
     const res = await axios.get(`${API_BASE}/api/v1/market/price`, {
         params: { symbol: symbol.toUpperCase() },

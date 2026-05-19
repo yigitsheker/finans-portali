@@ -48,4 +48,32 @@ public class MarketController {
     ) {
         return service.history(symbol, period);
     }
+
+    /**
+     * Batch variant — fetches history for up to 100 symbols in one round trip.
+     * Each symbol still goes through the cached {@code history()} call, but
+     * collapsing N sparkline lookups from N HTTP requests into one cuts the
+     * page-load wall time dramatically.
+     *
+     * <p>Symbols that throw or return no data are present in the response with
+     * an empty list — clients don't have to special-case missing keys.
+     *
+     * <p>Example: {@code /api/v1/market/history/batch?symbols=THYAO,GARAN,AKBNK&period=1M}
+     */
+    @GetMapping("/history/batch")
+    public java.util.Map<String, List<MarketHistoryPoint>> historyBatch(
+            @RequestParam String symbols,
+            @RequestParam(required = false, defaultValue = "30D") String period
+    ) {
+        java.util.Map<String, List<MarketHistoryPoint>> out = new java.util.LinkedHashMap<>();
+        String[] parts = symbols.split(",");
+        int cap = Math.min(parts.length, 100);
+        for (int i = 0; i < cap; i++) {
+            String s = parts[i].trim();
+            if (s.isEmpty()) continue;
+            try { out.put(s, service.history(s, period)); }
+            catch (Exception e) { out.put(s, List.of()); }
+        }
+        return out;
+    }
 }

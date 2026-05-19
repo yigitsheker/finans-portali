@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useState } from "react";
 import {
     getMarketSummary,
-    getMarketHistory,
+    getMarketHistoryBatch,
     upsertPosition,
 } from "../api/portfolioApi";
 import Modal from "./Modal";
 import InstrumentChartModal from "./InstrumentChartModal";
 import CompareInstrumentsModal from "./CompareInstrumentsModal";
 import notify from "../utils/notify";
+import { readHistoryCache, writeHistoryCache } from "../utils/historyCache";
 import { LWSparkline } from "./common/LWSparkline";
 import Pagination from "./common/Pagination";
 import CheckboxFilterGroup from "./common/CheckboxFilterGroup";
@@ -283,40 +284,81 @@ export default function FinexStyleMarket({
         return sorted.slice(start, start + pageSize);
     }, [sorted, groupedStocks, page, pageSize]);
 
-    // Fetch sparkline history for visible items (batched, low priority)
+    // Sparkline data loader — cache-first, then one batch network call for
+    // anything stale or missing.
+    //
+    // Previously: 50 sequential getMarketHistory calls (~7.5 s wall time)
+    //             and a hard failure when the backend / Yahoo was unreachable.
+    // Now      : (a) paint instantly from localStorage cache if present, even
+    //                if stale (offline survives on the last-known curve), and
+    //            (b) one HTTP request for the symbols whose cache is stale,
+    //                writing fresh results back to the cache.
     useEffect(() => {
         if (filtered.length === 0) return;
         let cancelled = false;
+        const PERIOD = "1M";
+        const visible = filtered.slice(0, 50);
 
-        const fetchBatch = async () => {
-            // Get items that don't have sparkline data yet
-            const itemsToFetch = filtered.slice(0, 50).filter(item => !sparklines[item.symbol]);
+        // Step 1: synchronous cache hydration. Fills sparklines from cache
+        // even for stale entries — those still render and look right while
+        // the background refresh runs.
+        const cachedSeed = {};
+        const needsFetch = [];
+        visible.forEach((item) => {
+            if (sparklines[item.symbol]) return; // already in component state
+            const cached = readHistoryCache(item.symbol, PERIOD);
+            if (cached) {
+                cachedSeed[item.symbol] = cached.data.map((h) => ({
+                    time: h.day.split("T")[0],
+                    value: h.close,
+                }));
+                if (!cached.fresh) needsFetch.push(item.symbol);
+            } else {
+                needsFetch.push(item.symbol);
+            }
+        });
+        if (Object.keys(cachedSeed).length > 0) {
+            setSparklines((prev) => ({ ...cachedSeed, ...prev }));
+        }
+        if (needsFetch.length === 0) return;
 
-            for (const item of itemsToFetch) {
-                if (cancelled) break;
-                try {
-                    const history = await getMarketHistory(item.symbol, "1M");
-                    if (!cancelled && history.length > 0) {
-                        const pts = history.map((h) => ({
+        // Step 2: one batch request for the missing/stale ones.
+        (async () => {
+            try {
+                const map = await getMarketHistoryBatch(needsFetch, PERIOD);
+                if (cancelled) return;
+                const update = {};
+                for (const sym of needsFetch) {
+                    const history = map[sym];
+                    if (Array.isArray(history) && history.length > 0) {
+                        update[sym] = history.map((h) => ({
                             time: h.day.split("T")[0],
                             value: h.close,
                         }));
-                        setSparklines((prev) => ({ ...prev, [item.symbol]: pts }));
-                    } else if (!cancelled && history.length === 0) {
-                        // Mark as attempted even if no data
-                        setSparklines((prev) => ({ ...prev, [item.symbol]: [] }));
-                    }
-                } catch (error) {
-                    // Mark as attempted to avoid infinite retries
-                    if (!cancelled) {
-                        setSparklines((prev) => ({ ...prev, [item.symbol]: [] }));
+                        writeHistoryCache(sym, PERIOD, history);
+                    } else if (!cachedSeed[sym]) {
+                        // No fresh data and no stale fallback — record empty
+                        // so we don't keep retrying within this mount.
+                        update[sym] = [];
                     }
                 }
-                await new Promise((r) => setTimeout(r, 50));
+                if (Object.keys(update).length > 0) {
+                    setSparklines((prev) => ({ ...prev, ...update }));
+                }
+            } catch {
+                // Network/backend offline. We already painted whatever the
+                // cache had; mark the rest as empty so the loop ends.
+                if (cancelled) return;
+                const update = {};
+                needsFetch.forEach((sym) => {
+                    if (!cachedSeed[sym]) update[sym] = [];
+                });
+                if (Object.keys(update).length > 0) {
+                    setSparklines((prev) => ({ ...prev, ...update }));
+                }
             }
-        };
+        })();
 
-        fetchBatch();
         return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filtered]);
