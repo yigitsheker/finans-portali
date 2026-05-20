@@ -276,22 +276,23 @@ services:
       APP_KEYCLOAK_ADMIN_CLIENT_ID: finans-backend-admin
       APP_KEYCLOAK_ADMIN_CLIENT_SECRET: ${KC_BACKEND_CLIENT_SECRET}
       
-      # Email — Brevo SMTP relay (transactional mail provider, free tier 300/day)
-      # Verified sender: portalfinans1@gmail.com (set up in Brevo's Senders page).
-      # From-address comes from SPRING_MAIL_USERNAME below.
-      SPRING_MAIL_HOST: smtp-relay.brevo.com
+      # Email — Gmail SMTP. Gmail does NOT accept regular account passwords
+      # over SMTP; you must generate an App Password (2-Step Verification
+      # has to be on first):
+      #   https://myaccount.google.com/apppasswords
+      # USERNAME is the full Gmail address; PASSWORD is the 16-char App
+      # Password (paste without spaces). APP_MAIL_FROM matches the username
+      # so the From-header is authenticated.
+      SPRING_MAIL_HOST: smtp.gmail.com
       SPRING_MAIL_PORT: 587
-      # SMTP Login is Brevo's auto-assigned address (NOT the verified sender).
-      # The actual From: address is set separately in NotificationService.
-      SPRING_MAIL_USERNAME: ${BREVO_SMTP_USERNAME}
-      SPRING_MAIL_PASSWORD: ${BREVO_SMTP_PASSWORD}
-      # Verified sender — used as the "From" address for all outgoing mail
-      APP_MAIL_FROM: ${MAIL_FROM_ADDRESS}
+      SPRING_MAIL_USERNAME: ${GMAIL_SMTP_USERNAME}
+      SPRING_MAIL_PASSWORD: ${GMAIL_SMTP_APP_PASSWORD}
+      APP_MAIL_FROM: ${GMAIL_SMTP_USERNAME}
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH: "true"
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE: "true"
       SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_REQUIRED: "true"
       SPRING_MAIL_PROPERTIES_MAIL_DEBUG: "true"
-      SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_TRUST: "smtp-relay.brevo.com"
+      SPRING_MAIL_PROPERTIES_MAIL_SMTP_SSL_TRUST: "smtp.gmail.com"
       APP_BASE_URL: http://localhost
       
       # Application
