@@ -2,6 +2,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getMarketSummary, getNews } from "../api/portfolioApi";
 import { useI18n } from "../contexts/I18nContext";
+import InstrumentChartModal from "../components/InstrumentChartModal";
+import CompareInstrumentsModal from "../components/CompareInstrumentsModal";
 
 // Map backend category slugs to i18n keys. Mirrors the table in News.jsx so
 // labels stay consistent between the home preview and the full news page.
@@ -38,6 +40,11 @@ export default function Home({ keycloak }) {
     const [summary, setSummary] = useState([]);
     const [news, setNews] = useState([]);
     const [filter, setFilter] = useState("ALL"); // ALL | UP | DOWN | VOL
+    // Chart modal targets — opened by clicking a BIST row or movers item.
+    // compareTarget seeds the compare flow when the user picks Karşılaştır
+    // from the chart modal's hero actions.
+    const [selectedInstrument, setSelectedInstrument] = useState(null);
+    const [compareTarget, setCompareTarget] = useState(null);
 
     useEffect(() => {
         Promise.all([
@@ -158,7 +165,11 @@ export default function Home({ keycloak }) {
                                 const pct = Number(m.changePct ?? 0);
                                 const up = pct >= 0;
                                 return (
-                                    <li key={m.symbol} style={s.moverRow}>
+                                    <li
+                                        key={m.symbol}
+                                        style={{ ...s.moverRow, cursor: "pointer" }}
+                                        onClick={() => setSelectedInstrument(m)}
+                                    >
                                         <span style={{ ...s.moverDot, background: up ? "var(--green, #10b981)" : "var(--red, #ef4444)" }}>
                                             {up ? "↗" : "↘"}
                                         </span>
@@ -232,7 +243,11 @@ export default function Home({ keycloak }) {
                                 const pct = Number(r.changePct ?? 0);
                                 const up = pct >= 0;
                                 return (
-                                    <tr key={r.symbol} style={s.bistTr}>
+                                    <tr
+                                        key={r.symbol}
+                                        style={{ ...s.bistTr, cursor: "pointer" }}
+                                        onClick={() => setSelectedInstrument(r)}
+                                    >
                                         <td style={s.bistTdSym}>
                                             <span style={s.bistTag}>{r.symbol.slice(0, 2)}</span>
                                             <div style={{ display: "flex", flexDirection: "column" }}>
@@ -286,6 +301,23 @@ export default function Home({ keycloak }) {
                     )}
                 </div>
             </section>
+
+            {/* Chart modal — opens when a BIST row or movers item is clicked.
+                Mirrors the Ticker / FinexStyleMarket wiring: onCompare swaps
+                from the chart modal to the compare modal in place. */}
+            <InstrumentChartModal
+                instrument={selectedInstrument}
+                onClose={() => setSelectedInstrument(null)}
+                keycloak={keycloak}
+                onCompare={(inst) => {
+                    setSelectedInstrument(null);
+                    setCompareTarget(inst);
+                }}
+            />
+            <CompareInstrumentsModal
+                baseInstrument={compareTarget}
+                onClose={() => setCompareTarget(null)}
+            />
         </div>
     );
 }
