@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { getMarketSummary, getNews } from "../api/portfolioApi";
 import { useI18n } from "../contexts/I18nContext";
+import { usePriceDisplay } from "../contexts/CurrencyDisplayContext";
 import InstrumentChartModal from "../components/InstrumentChartModal";
 import CompareInstrumentsModal from "../components/CompareInstrumentsModal";
 
@@ -33,6 +34,9 @@ const CATEGORY_LABEL_KEYS = {
  */
 export default function Home({ keycloak }) {
     const { t, lang } = useI18n();
+    // Active currency mode (Original / ₺ / $) — drives both the column
+    // header symbol and the per-row conversion below.
+    const { format: formatPrice, convert: convertPrice } = usePriceDisplay();
     // /api/v1/market/summary returns a flat array — one quote per instrument
     // with { symbol, name, type, last, changeAbs, changePct, asOf }.
     // No separate /instruments call needed; everything we render below comes
@@ -231,9 +235,9 @@ export default function Home({ keycloak }) {
                         <thead>
                             <tr>
                                 <th style={s.bistTh}>{t("home.colSymbol")}</th>
-                                <th style={{ ...s.bistTh, textAlign: "right" }}>{t("home.colPrice")} ₺</th>
+                                <th style={{ ...s.bistTh, textAlign: "right" }}>{t("home.colPrice")}</th>
                                 <th style={{ ...s.bistTh, textAlign: "right" }}>{t("home.colChangePct")}</th>
-                                <th style={{ ...s.bistTh, textAlign: "right" }}>{t("home.colChangeAbs")} ₺</th>
+                                <th style={{ ...s.bistTh, textAlign: "right" }}>{t("home.colChangeAbs")}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -242,6 +246,16 @@ export default function Home({ keycloak }) {
                             ) : bistRows.map((r) => {
                                 const pct = Number(r.changePct ?? 0);
                                 const up = pct >= 0;
+                                // Per-row conversion. BIST rows are TRY-native;
+                                // when the user picks USD, the helper divides
+                                // through the USDTRY spot. The change-abs is
+                                // also converted so the symbol matches the value.
+                                const priceConv = convertPrice(r.last, r.type, r.symbol);
+                                const changeConv = convertPrice(r.changeAbs, r.type, r.symbol);
+                                const sym = priceConv.symbol || "₺";
+                                const fmt = (v) =>
+                                    v == null || !Number.isFinite(Number(v)) ? "—" :
+                                    Number(v).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 4 });
                                 return (
                                     <tr
                                         key={r.symbol}
@@ -255,12 +269,12 @@ export default function Home({ keycloak }) {
                                                 <span style={s.bistTdName}>{r.name || ""}</span>
                                             </div>
                                         </td>
-                                        <td style={s.bistTdNum}>{fmtPrice(r.last)}</td>
+                                        <td style={s.bistTdNum}>{sym}{fmt(priceConv.value)}</td>
                                         <td style={{ ...s.bistTdNum, color: up ? "var(--green, #10b981)" : "var(--red, #ef4444)", fontWeight: 700 }}>
                                             {up ? "▲" : "▼"} {pct.toFixed(2)}
                                         </td>
                                         <td style={{ ...s.bistTdNum, color: up ? "var(--green, #10b981)" : "var(--red, #ef4444)" }}>
-                                            {up ? "+" : ""}{fmtPrice(r.changeAbs)}
+                                            {up ? "+" : ""}{sym}{fmt(changeConv.value)}
                                         </td>
                                     </tr>
                                 );
@@ -269,11 +283,15 @@ export default function Home({ keycloak }) {
                     </table>
                 </div>
 
-                {/* Right sidecards */}
+                {/* Right sidecards — formatter pipes through the currency
+                    context so the symbols match the active display mode. */}
                 <div style={s.sideCol}>
-                    <SidePanel title={t("home.fx")} chip={t("home.fxSource")} rows={fxRows} formatter={(r) => fmtPrice(r.last)} />
-                    <SidePanel title={t("home.crypto")} chip={t("home.crypto24h")} rows={cryptoRows} formatter={(r) => "$" + fmtPrice(r.last)} />
-                    <SidePanel title={t("home.commodities")} chip={t("home.spot")} rows={commodityRows} formatter={(r) => "$" + fmtPrice(r.last)} />
+                    <SidePanel title={t("home.fx")} chip={t("home.fxSource")} rows={fxRows}
+                        formatter={(r) => formatPrice(r.last, r.type, { symbol: r.symbol })} />
+                    <SidePanel title={t("home.crypto")} chip={t("home.crypto24h")} rows={cryptoRows}
+                        formatter={(r) => formatPrice(r.last, r.type, { symbol: r.symbol })} />
+                    <SidePanel title={t("home.commodities")} chip={t("home.spot")} rows={commodityRows}
+                        formatter={(r) => formatPrice(r.last, r.type, { symbol: r.symbol })} />
                 </div>
             </section>
 
