@@ -1,5 +1,8 @@
 import { useEffect, useState } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from "recharts";
+import {
+    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
+    ResponsiveContainer, Area, ComposedChart, Bar, ReferenceLine,
+} from "recharts";
 import { getTechnicalAnalysis } from "../api/portfolioApi";
 
 export default function TechnicalAnalysisPanel({ symbol, period }) {
@@ -11,6 +14,10 @@ export default function TechnicalAnalysisPanel({ symbol, period }) {
     const [showSMA7, setShowSMA7] = useState(true);
     const [showSMA20, setShowSMA20] = useState(true);
     const [showSMA50, setShowSMA50] = useState(false);
+    const [showBB, setShowBB] = useState(false);
+    // RSI + MACD live in separate subplots that the user can collapse.
+    const [showRsi, setShowRsi] = useState(true);
+    const [showMacd, setShowMacd] = useState(true);
 
     useEffect(() => {
         if (!symbol) return;
@@ -80,13 +87,20 @@ export default function TechnicalAnalysisPanel({ symbol, period }) {
         );
     }
 
-    // Prepare chart data
+    // Prepare chart data — recharts is forgiving with extra keys, the toggles
+    // gate whether a <Line> is rendered.
     const chartData = data.series.map(point => ({
         date: new Date(point.date).toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' }),
         Fiyat: point.close,
-        ...(showSMA7 && point.sma7 ? { 'SMA 7': point.sma7 } : {}),
-        ...(showSMA20 && point.sma20 ? { 'SMA 20': point.sma20 } : {}),
-        ...(showSMA50 && point.sma50 ? { 'SMA 50': point.sma50 } : {}),
+        'SMA 7':  point.sma7  ?? null,
+        'SMA 20': point.sma20 ?? null,
+        'SMA 50': point.sma50 ?? null,
+        bbUpper:  point.bbUpper ?? null,
+        bbLower:  point.bbLower ?? null,
+        rsi:      point.rsi14 ?? null,
+        macd:     point.macd ?? null,
+        macdSignal: point.macdSignal ?? null,
+        macdHist:   point.macdHist ?? null,
     }));
 
     const trendColor =
@@ -120,7 +134,7 @@ export default function TechnicalAnalysisPanel({ symbol, period }) {
                                     data.trend.direction === "DOWNWARD" ? "Düşen" : "Yatay"}
                     </div>
                     <div style={s.cardSub}>
-                        {data.trend.changePercent >= 0 ? "+" : ""}{data.trend.changePercent.toFixed(2)}%
+                        {data.trend.changePercent >= 0 ? "+" : ""}{data.trend.changePercent.toFixed(2)}% (dönem)
                     </div>
                 </div>
 
@@ -135,7 +149,7 @@ export default function TechnicalAnalysisPanel({ symbol, period }) {
                     <div style={{ ...s.cardValue, color: "#10b981" }}>
                         {data.summary.highestClose.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
                     </div>
-                    <div style={s.cardSub}>Direnç seviyesi</div>
+                    <div style={s.cardSub}>Direnç (dönem zirvesi)</div>
                 </div>
 
                 <div style={s.card}>
@@ -143,115 +157,147 @@ export default function TechnicalAnalysisPanel({ symbol, period }) {
                     <div style={{ ...s.cardValue, color: "#ef4444" }}>
                         {data.summary.lowestClose.toLocaleString('tr-TR', { maximumFractionDigits: 2 })}
                     </div>
-                    <div style={s.cardSub}>Destek seviyesi</div>
+                    <div style={s.cardSub}>Destek (dönem dibi)</div>
                 </div>
 
                 <div style={s.card}>
                     <div style={s.cardLabel}>Volatilite</div>
                     <div style={s.cardValue}>{data.summary.volatilityPercent.toFixed(2)}%</div>
-                    <div style={s.cardSub}>Standart sapma</div>
+                    <div style={s.cardSub}>Yıllıklandırılmış (σ × √252)</div>
                 </div>
+
+                {/* RSI summary — colour-coded per the classic 70/30 thresholds. */}
+                {data.summary.rsi14Latest != null && (
+                    <div style={s.card}>
+                        <div style={s.cardLabel}>RSI (14)</div>
+                        <div style={{
+                            ...s.cardValue,
+                            color: data.summary.rsi14Latest >= 70 ? "#ef4444"
+                                 : data.summary.rsi14Latest <= 30 ? "#10b981"
+                                 : "var(--text-primary)",
+                        }}>
+                            {data.summary.rsi14Latest.toFixed(1)}
+                        </div>
+                        <div style={s.cardSub}>
+                            {data.summary.rsi14Latest >= 70 ? "Aşırı alım"
+                             : data.summary.rsi14Latest <= 30 ? "Aşırı satım"
+                             : "Nötr bölge"}
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Indicator Toggles */}
             <div style={s.toggleRow}>
                 <div style={s.toggleLabel}>Göstergeler:</div>
                 <label style={s.toggle}>
-                    <input
-                        type="checkbox"
-                        checked={showSMA7}
-                        onChange={(e) => setShowSMA7(e.target.checked)}
-                        style={s.checkbox}
-                    />
+                    <input type="checkbox" checked={showSMA7} onChange={(e) => setShowSMA7(e.target.checked)} style={s.checkbox} />
                     <span style={{ color: "#3b82f6" }}>SMA 7</span>
                 </label>
                 <label style={s.toggle}>
-                    <input
-                        type="checkbox"
-                        checked={showSMA20}
-                        onChange={(e) => setShowSMA20(e.target.checked)}
-                        style={s.checkbox}
-                    />
+                    <input type="checkbox" checked={showSMA20} onChange={(e) => setShowSMA20(e.target.checked)} style={s.checkbox} />
                     <span style={{ color: "#f59e0b" }}>SMA 20</span>
                 </label>
                 <label style={s.toggle}>
-                    <input
-                        type="checkbox"
-                        checked={showSMA50}
-                        onChange={(e) => setShowSMA50(e.target.checked)}
-                        style={s.checkbox}
-                    />
+                    <input type="checkbox" checked={showSMA50} onChange={(e) => setShowSMA50(e.target.checked)} style={s.checkbox} />
                     <span style={{ color: "#8b5cf6" }}>SMA 50</span>
+                </label>
+                <label style={s.toggle}>
+                    <input type="checkbox" checked={showBB} onChange={(e) => setShowBB(e.target.checked)} style={s.checkbox} />
+                    <span style={{ color: "#94a3b8" }}>Bollinger (20, 2σ)</span>
+                </label>
+                <label style={s.toggle}>
+                    <input type="checkbox" checked={showRsi} onChange={(e) => setShowRsi(e.target.checked)} style={s.checkbox} />
+                    <span style={{ color: "#a855f7" }}>RSI alt grafik</span>
+                </label>
+                <label style={s.toggle}>
+                    <input type="checkbox" checked={showMacd} onChange={(e) => setShowMacd(e.target.checked)} style={s.checkbox} />
+                    <span style={{ color: "#06b6d4" }}>MACD alt grafik</span>
                 </label>
             </div>
 
-            {/* Chart */}
+            {/* Main price chart */}
             <div style={s.chartWrap}>
                 <ResponsiveContainer width="100%" height={350}>
-                    <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                    <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                        <XAxis
-                            dataKey="date"
-                            stroke={axisColor}
-                            style={{ fontSize: 11 }}
-                        />
-                        <YAxis
-                            stroke={axisColor}
-                            style={{ fontSize: 11 }}
-                            domain={['auto', 'auto']}
-                        />
-                        <Tooltip
-                            contentStyle={{
-                                background: tooltipBg,
-                                border: `1px solid ${tooltipBorder}`,
-                                borderRadius: 6,
-                                color: tooltipColor,
-                                fontSize: 12
-                            }}
-                        />
-                        <Legend
-                            wrapperStyle={{ fontSize: 12 }}
-                        />
-                        <Line
-                            type="monotone"
-                            dataKey="Fiyat"
-                            stroke="#10b981"
-                            strokeWidth={2}
-                            dot={false}
-                        />
+                        <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: 11 }} />
+                        <YAxis stroke={axisColor} style={{ fontSize: 11 }} domain={['auto', 'auto']} />
+                        <Tooltip contentStyle={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`,
+                            borderRadius: 6, color: tooltipColor, fontSize: 12 }} />
+                        <Legend wrapperStyle={{ fontSize: 12 }} />
+                        {/* Bollinger Bands: the upper line carries the fill that
+                            paints the channel down to the lower line. */}
+                        {showBB && (
+                            <>
+                                <Area type="monotone" dataKey="bbUpper" stroke="#94a3b8" strokeWidth={1}
+                                    fill="rgba(148, 163, 184, 0.10)" name="Bollinger Üst" dot={false}
+                                    activeDot={false} isAnimationActive={false} />
+                                <Line type="monotone" dataKey="bbLower" stroke="#94a3b8" strokeWidth={1}
+                                    strokeDasharray="2 2" dot={false} name="Bollinger Alt" />
+                            </>
+                        )}
+                        <Line type="monotone" dataKey="Fiyat" stroke="#10b981" strokeWidth={2} dot={false} />
                         {showSMA7 && (
-                            <Line
-                                type="monotone"
-                                dataKey="SMA 7"
-                                stroke="#3b82f6"
-                                strokeWidth={1.5}
-                                strokeDasharray="5 5"
-                                dot={false}
-                            />
+                            <Line type="monotone" dataKey="SMA 7" stroke="#3b82f6" strokeWidth={1.5}
+                                strokeDasharray="5 5" dot={false} />
                         )}
                         {showSMA20 && (
-                            <Line
-                                type="monotone"
-                                dataKey="SMA 20"
-                                stroke="#f59e0b"
-                                strokeWidth={1.5}
-                                strokeDasharray="5 5"
-                                dot={false}
-                            />
+                            <Line type="monotone" dataKey="SMA 20" stroke="#f59e0b" strokeWidth={1.5}
+                                strokeDasharray="5 5" dot={false} />
                         )}
                         {showSMA50 && (
-                            <Line
-                                type="monotone"
-                                dataKey="SMA 50"
-                                stroke="#8b5cf6"
-                                strokeWidth={1.5}
-                                strokeDasharray="5 5"
-                                dot={false}
-                            />
+                            <Line type="monotone" dataKey="SMA 50" stroke="#8b5cf6" strokeWidth={1.5}
+                                strokeDasharray="5 5" dot={false} />
                         )}
-                    </LineChart>
+                    </ComposedChart>
                 </ResponsiveContainer>
             </div>
+
+            {/* RSI subplot — bounded 0-100 with the canonical 70/30 reference
+                lines so overbought/oversold zones are immediately readable. */}
+            {showRsi && (
+                <div style={s.chartWrap}>
+                    <div style={s.subplotTitle}>RSI (14)</div>
+                    <ResponsiveContainer width="100%" height={140}>
+                        <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                            <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: 10 }} hide />
+                            <YAxis stroke={axisColor} style={{ fontSize: 10 }} domain={[0, 100]} ticks={[0, 30, 50, 70, 100]} />
+                            <Tooltip contentStyle={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`,
+                                borderRadius: 6, color: tooltipColor, fontSize: 12 }} />
+                            <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" />
+                            <ReferenceLine y={30} stroke="#10b981" strokeDasharray="3 3" />
+                            <Line type="monotone" dataKey="rsi" stroke="#a855f7" strokeWidth={1.8}
+                                dot={false} name="RSI" />
+                        </LineChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
+
+            {/* MACD subplot — two lines + histogram. Histogram bars colour-
+                code the sign so positive momentum (>0) reads green. */}
+            {showMacd && (
+                <div style={s.chartWrap}>
+                    <div style={s.subplotTitle}>MACD (12, 26, 9)</div>
+                    <ResponsiveContainer width="100%" height={160}>
+                        <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
+                            <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: 10 }} hide />
+                            <YAxis stroke={axisColor} style={{ fontSize: 10 }} />
+                            <Tooltip contentStyle={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`,
+                                borderRadius: 6, color: tooltipColor, fontSize: 12 }} />
+                            <ReferenceLine y={0} stroke={axisColor} />
+                            <Bar dataKey="macdHist" name="Histogram"
+                                fill="#06b6d4" fillOpacity={0.6} isAnimationActive={false} />
+                            <Line type="monotone" dataKey="macd" stroke="#06b6d4" strokeWidth={1.8}
+                                dot={false} name="MACD" />
+                            <Line type="monotone" dataKey="macdSignal" stroke="#f59e0b" strokeWidth={1.5}
+                                strokeDasharray="4 4" dot={false} name="Sinyal" />
+                        </ComposedChart>
+                    </ResponsiveContainer>
+                </div>
+            )}
 
             {/* Trend Description */}
             <div style={s.trendDescription}>
@@ -339,6 +385,14 @@ const s = {
         background: "var(--bg-panel2)",
         border: "1px solid var(--border)",
         borderRadius: 10,
+    },
+    subplotTitle: {
+        fontSize: 12,
+        fontWeight: 600,
+        color: "var(--text-muted)",
+        marginBottom: 6,
+        letterSpacing: 0.4,
+        textTransform: "uppercase",
     },
     trendDescription: {
         display: "flex",

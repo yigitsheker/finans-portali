@@ -11,245 +11,330 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Computes the classic technical-analysis bundle from a daily close series:
+ *
+ *   SMA 7 / SMA 20 / SMA 50  — trend overlays
+ *   RSI 14 (Wilder)          — momentum oscillator, 0-100
+ *   Bollinger Bands (20, 2σ) — volatility channels
+ *   MACD (12, 26, 9)         — convergence/divergence histogram
+ *   Annualised volatility    — σ of daily log-returns × √252, in %
+ *   Linear-regression trend  — slope normalised against mean price so the
+ *                              UP/DOWN/SIDEWAYS classification is scale-free
+ *
+ * Caveat: only daily closes are stored, so anything that needs intraday
+ * granularity (true range, intraday volatility) is out of scope here.
+ */
 @Service
 public class TechnicalAnalysisService {
-    
+
     private static final Logger log = LoggerFactory.getLogger(TechnicalAnalysisService.class);
-    
+
+    // Indicator periods — standard textbook defaults.
+    private static final int RSI_PERIOD = 14;
+    private static final int BB_PERIOD = 20;
+    private static final int MACD_FAST = 12;
+    private static final int MACD_SLOW = 26;
+    private static final int MACD_SIGNAL = 9;
+    private static final double BB_K = 2.0;
+    private static final double TRADING_DAYS_PER_YEAR = 252.0;
+
     private final HistoricalPriceRepository historicalPriceRepo;
     private final HistoricalPriceService historicalPriceService;
-    
+
     public TechnicalAnalysisService(HistoricalPriceRepository historicalPriceRepo,
-                                   HistoricalPriceService historicalPriceService) {
+                                    HistoricalPriceService historicalPriceService) {
         this.historicalPriceRepo = historicalPriceRepo;
         this.historicalPriceService = historicalPriceService;
     }
-    
-    /**
-     * Get comprehensive technical analysis for a symbol
-     */
+
     public TechnicalAnalysisResponse getTechnicalAnalysis(String symbol, LocalDate fromDate, LocalDate toDate) {
-        log.info("[TechnicalAnalysis] Requested for symbol={} from={} to={}", symbol, fromDate, toDate);
-        
-        // Fetch historical prices (will fetch from Yahoo if not cached)
+        log.info("[TechnicalAnalysis] symbol={} from={} to={}", symbol, fromDate, toDate);
+
         List<HistoricalPrice> prices = historicalPriceService.getHistoricalPrices(symbol, fromDate, toDate);
-        
         if (prices.isEmpty()) {
-            log.warn("[TechnicalAnalysis] No historical data found for symbol={}", symbol);
-            return createInsufficientDataResponse(symbol, fromDate, toDate);
+            log.warn("[TechnicalAnalysis] no historical data for symbol={}", symbol);
+            return insufficient(symbol, fromDate, toDate);
         }
-        
-        log.info("[TechnicalAnalysis] Processing {} data points for {}", prices.size(), symbol);
-        
-        // Calculate trend
-        TrendDto trend = calculateTrend(prices);
-        
-        // Calculate summary statistics
-        SummaryDto summary = calculateSummary(prices);
-        
-        // Calculate series with moving averages
-        List<SeriesPointDto> series = calculateSeries(prices);
-        
-        return new TechnicalAnalysisResponse(
-            symbol,
-            fromDate.toString(),
-            toDate.toString(),
-            trend,
-            summary,
-            series
-        );
+
+        double[] closes = new double[prices.size()];
+        for (int i = 0; i < prices.size(); i++) {
+            closes[i] = getClosePrice(prices.get(i)).doubleValue();
+        }
+
+        // Indicator arrays — Double[] so we can store null where the window
+        // isn't full yet.
+        Double[] sma7 = sma(closes, 7);
+        Double[] sma20 = sma(closes, 20);
+        Double[] sma50 = sma(closes, 50);
+        Double[] rsi = rsiWilder(closes, RSI_PERIOD);
+        Double[][] bb = bollingerBands(closes, BB_PERIOD, BB_K);
+        Double[][] macd = macd(closes, MACD_FAST, MACD_SLOW, MACD_SIGNAL);
+
+        List<SeriesPointDto> series = new ArrayList<>(prices.size());
+        for (int i = 0; i < prices.size(); i++) {
+            series.add(new SeriesPointDto(
+                    prices.get(i).getPriceDate().toString(),
+                    closes[i],
+                    sma7[i], sma20[i], sma50[i],
+                    rsi[i],
+                    bb[0][i], bb[1][i], bb[2][i],
+                    macd[0][i], macd[1][i], macd[2][i]
+            ));
+        }
+
+        TrendDto trend = trend(closes);
+        SummaryDto summary = summary(closes, rsi);
+        return new TechnicalAnalysisResponse(symbol, fromDate.toString(), toDate.toString(),
+                trend, summary, series);
     }
-    
-    /**
-     * Calculate Simple Moving Average (SMA)
-     */
-    private Double calculateSMA(List<HistoricalPrice> prices, int index, int period) {
-        if (index < period - 1) {
-            return null; // Not enough data points
+
+    // ── Indicators ─────────────────────────────────────────────────────
+
+    /** Simple moving average. Returns null until {@code period} closes are seen. */
+    private Double[] sma(double[] x, int period) {
+        Double[] out = new Double[x.length];
+        if (x.length < period) return out;
+        double sum = 0;
+        for (int i = 0; i < x.length; i++) {
+            sum += x[i];
+            if (i >= period) sum -= x[i - period];
+            if (i >= period - 1) out[i] = sum / period;
         }
-        
-        double sum = 0.0;
-        for (int i = index - period + 1; i <= index; i++) {
-            BigDecimal closePrice = getClosePrice(prices.get(i));
-            sum += closePrice.doubleValue();
-        }
-        
-        return sum / period;
+        return out;
     }
-    
+
     /**
-     * Calculate trend using linear regression
+     * Wilder's RSI: seeds with simple averages over the first {@code period}
+     * up/down moves, then smooths with α = 1/period thereafter. This is the
+     * canonical RSI most charting platforms use.
      */
-    private TrendDto calculateTrend(List<HistoricalPrice> prices) {
-        if (prices.size() < 2) {
-            return new TrendDto("INSUFFICIENT_DATA", 0.0, 0.0, 
-                "Trend analizi için yeterli veri yok.");
+    private Double[] rsiWilder(double[] x, int period) {
+        Double[] out = new Double[x.length];
+        if (x.length <= period) return out;
+        double gainSum = 0, lossSum = 0;
+        for (int i = 1; i <= period; i++) {
+            double diff = x[i] - x[i - 1];
+            if (diff >= 0) gainSum += diff; else lossSum -= diff;
         }
-        
-        // Linear regression: y = mx + b
-        int n = prices.size();
+        double avgGain = gainSum / period;
+        double avgLoss = lossSum / period;
+        out[period] = rsiFromAverages(avgGain, avgLoss);
+        for (int i = period + 1; i < x.length; i++) {
+            double diff = x[i] - x[i - 1];
+            double gain = diff > 0 ? diff : 0;
+            double loss = diff < 0 ? -diff : 0;
+            avgGain = (avgGain * (period - 1) + gain) / period;
+            avgLoss = (avgLoss * (period - 1) + loss) / period;
+            out[i] = rsiFromAverages(avgGain, avgLoss);
+        }
+        return out;
+    }
+
+    private double rsiFromAverages(double avgGain, double avgLoss) {
+        if (avgLoss == 0) return 100.0; // pure uptrend in window → RSI saturates
+        double rs = avgGain / avgLoss;
+        return 100.0 - (100.0 / (1.0 + rs));
+    }
+
+    /** Returns {upper[], mid[], lower[]} of period-N, k-σ Bollinger Bands. */
+    private Double[][] bollingerBands(double[] x, int period, double k) {
+        Double[] mid = sma(x, period);
+        Double[] upper = new Double[x.length];
+        Double[] lower = new Double[x.length];
+        for (int i = period - 1; i < x.length; i++) {
+            double mean = mid[i];
+            double sumSq = 0;
+            for (int j = i - period + 1; j <= i; j++) {
+                double d = x[j] - mean;
+                sumSq += d * d;
+            }
+            double sd = Math.sqrt(sumSq / period);
+            upper[i] = mean + k * sd;
+            lower[i] = mean - k * sd;
+        }
+        return new Double[][] { upper, mid, lower };
+    }
+
+    /**
+     * Exponential moving average. The standard convention is to seed with
+     * an SMA of the first {@code period} values; everything before that
+     * stays null.
+     */
+    private Double[] ema(double[] x, int period) {
+        Double[] out = new Double[x.length];
+        if (x.length < period) return out;
+        double k = 2.0 / (period + 1.0);
+        double seed = 0;
+        for (int i = 0; i < period; i++) seed += x[i];
+        out[period - 1] = seed / period;
+        for (int i = period; i < x.length; i++) {
+            out[i] = x[i] * k + out[i - 1] * (1 - k);
+        }
+        return out;
+    }
+
+    /** Same as ema but operating on an already-nullable Double[] input. */
+    private Double[] emaOf(Double[] x, int period) {
+        Double[] out = new Double[x.length];
+        // Find the first index where x has a value; that's our seed window start.
+        int firstIdx = -1;
+        for (int i = 0; i < x.length; i++) { if (x[i] != null) { firstIdx = i; break; } }
+        if (firstIdx < 0 || firstIdx + period > x.length) return out;
+        double k = 2.0 / (period + 1.0);
+        double seed = 0;
+        for (int i = firstIdx; i < firstIdx + period; i++) seed += x[i];
+        out[firstIdx + period - 1] = seed / period;
+        for (int i = firstIdx + period; i < x.length; i++) {
+            out[i] = x[i] * k + out[i - 1] * (1 - k);
+        }
+        return out;
+    }
+
+    /** Returns {macdLine[], signalLine[], histogram[]}. */
+    private Double[][] macd(double[] x, int fast, int slow, int signal) {
+        Double[] emaFast = ema(x, fast);
+        Double[] emaSlow = ema(x, slow);
+        Double[] macdLine = new Double[x.length];
+        for (int i = 0; i < x.length; i++) {
+            if (emaFast[i] != null && emaSlow[i] != null) {
+                macdLine[i] = emaFast[i] - emaSlow[i];
+            }
+        }
+        Double[] signalLine = emaOf(macdLine, signal);
+        Double[] hist = new Double[x.length];
+        for (int i = 0; i < x.length; i++) {
+            if (macdLine[i] != null && signalLine[i] != null) {
+                hist[i] = macdLine[i] - signalLine[i];
+            }
+        }
+        return new Double[][] { macdLine, signalLine, hist };
+    }
+
+    // ── Trend / summary ────────────────────────────────────────────────
+
+    /**
+     * Linear regression on closes. Slope is normalised against the mean
+     * price so the threshold is scale-free: at any price level, > 0.1%
+     * per day counts as a directional trend.
+     */
+    private TrendDto trend(double[] closes) {
+        int n = closes.length;
+        if (n < 2) {
+            return new TrendDto("INSUFFICIENT_DATA", 0.0, 0.0,
+                    "Trend analizi için yeterli veri yok.");
+        }
         double sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
-        
         for (int i = 0; i < n; i++) {
-            double x = i;
-            double y = getClosePrice(prices.get(i)).doubleValue();
-            sumX += x;
-            sumY += y;
-            sumXY += x * y;
-            sumX2 += x * x;
+            sumX += i;
+            sumY += closes[i];
+            sumXY += i * closes[i];
+            sumX2 += i * (double) i;
         }
-        
-        // Calculate slope (m)
         double slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX);
-        
-        // Calculate percentage change
-        BigDecimal firstPrice = getClosePrice(prices.get(0));
-        BigDecimal lastPrice = getClosePrice(prices.get(n - 1));
-        double changePercent = ((lastPrice.doubleValue() - firstPrice.doubleValue()) / firstPrice.doubleValue()) * 100;
-        
-        // Determine trend direction
+        double mean = sumY / n;
+        // Slope as percent of mean price, per day. 0.1% per day ≈ 25% over
+        // a 250-trading-day year — comfortably above noise.
+        double slopePctPerDay = mean == 0 ? 0 : (slope / mean) * 100.0;
+        double changePercent = ((closes[n - 1] - closes[0]) / closes[0]) * 100.0;
         String direction;
         String description;
-        double slopeThreshold = 0.01; // Adjust based on price scale
-        
-        if (slope > slopeThreshold) {
+        if (slopePctPerDay > 0.1) {
             direction = "UPWARD";
             description = "Seçilen aralıkta yükselen trend gözlemleniyor.";
-        } else if (slope < -slopeThreshold) {
+        } else if (slopePctPerDay < -0.1) {
             direction = "DOWNWARD";
             description = "Seçilen aralıkta düşen trend gözlemleniyor.";
         } else {
             direction = "SIDEWAYS";
-            description = "Seçilen aralıkta yatay trend gözlemleniyor.";
+            description = "Seçilen aralıkta yatay bir hareket gözlemleniyor.";
         }
-        
-        log.info("[TechnicalAnalysis] Trend: direction={}, slope={}, changePercent={}", 
-                 direction, slope, changePercent);
-        
+        log.info("[TechnicalAnalysis] trend={} slopePctPerDay={} changePercent={}",
+                direction, slopePctPerDay, changePercent);
         return new TrendDto(direction, slope, changePercent, description);
     }
-    
+
     /**
-     * Calculate summary statistics
+     * Volatility is computed as the standard deviation of daily log-returns,
+     * annualised by √252. This is the standard finance definition and is
+     * directly comparable between assets and across timeframes.
      */
-    private SummaryDto calculateSummary(List<HistoricalPrice> prices) {
-        if (prices.isEmpty()) {
-            return new SummaryDto(0.0, 0.0, 0.0, 0.0, 0.0);
+    private SummaryDto summary(double[] closes, Double[] rsi) {
+        int n = closes.length;
+        double sum = 0, hi = Double.NEGATIVE_INFINITY, lo = Double.POSITIVE_INFINITY;
+        for (double c : closes) {
+            sum += c;
+            if (c > hi) hi = c;
+            if (c < lo) lo = c;
         }
-        
-        double sum = 0.0;
-        double highest = Double.MIN_VALUE;
-        double lowest = Double.MAX_VALUE;
-        
-        for (HistoricalPrice price : prices) {
-            double closeValue = getClosePrice(price).doubleValue();
-            sum += closeValue;
-            highest = Math.max(highest, closeValue);
-            lowest = Math.min(lowest, closeValue);
+        double avg = sum / n;
+        double latest = closes[n - 1];
+
+        double volPctAnnualised = 0;
+        if (n >= 2) {
+            double[] logReturns = new double[n - 1];
+            double rSum = 0;
+            for (int i = 1; i < n; i++) {
+                logReturns[i - 1] = Math.log(closes[i] / closes[i - 1]);
+                rSum += logReturns[i - 1];
+            }
+            double rMean = rSum / logReturns.length;
+            double sqSum = 0;
+            for (double r : logReturns) {
+                double d = r - rMean;
+                sqSum += d * d;
+            }
+            // Sample variance (unbiased, divide by n-1) when possible.
+            double variance = logReturns.length > 1 ? sqSum / (logReturns.length - 1) : sqSum;
+            double dailyStdev = Math.sqrt(variance);
+            volPctAnnualised = dailyStdev * Math.sqrt(TRADING_DAYS_PER_YEAR) * 100.0;
         }
-        
-        double average = sum / prices.size();
-        double latest = getClosePrice(prices.get(prices.size() - 1)).doubleValue();
-        
-        // Calculate volatility (standard deviation as percentage of mean)
-        double sumSquaredDiff = 0.0;
-        for (HistoricalPrice price : prices) {
-            double diff = getClosePrice(price).doubleValue() - average;
-            sumSquaredDiff += diff * diff;
-        }
-        double stdDev = Math.sqrt(sumSquaredDiff / prices.size());
-        double volatilityPercent = (stdDev / average) * 100;
-        
-        log.info("[TechnicalAnalysis] Summary: latest={}, high={}, low={}, avg={}, volatility={}%", 
-                 latest, highest, lowest, average, volatilityPercent);
-        
-        return new SummaryDto(latest, highest, lowest, average, volatilityPercent);
+
+        Double latestRsi = rsi.length > 0 ? rsi[rsi.length - 1] : null;
+        log.info("[TechnicalAnalysis] latest={} hi={} lo={} avg={} annualisedVol={}% rsi={}",
+                latest, hi, lo, avg, volPctAnnualised, latestRsi);
+        return new SummaryDto(latest, hi, lo, avg, volPctAnnualised, latestRsi);
     }
-    
-    /**
-     * Calculate series with moving averages
-     */
-    private List<SeriesPointDto> calculateSeries(List<HistoricalPrice> prices) {
-        List<SeriesPointDto> series = new ArrayList<>();
-        
-        for (int i = 0; i < prices.size(); i++) {
-            HistoricalPrice price = prices.get(i);
-            Double close = getClosePrice(price).doubleValue();
-            Double sma7 = calculateSMA(prices, i, 7);
-            Double sma20 = calculateSMA(prices, i, 20);
-            Double sma50 = calculateSMA(prices, i, 50);
-            
-            series.add(new SeriesPointDto(
-                price.getPriceDate().toString(),
-                close,
-                sma7,
-                sma20,
-                sma50
-            ));
-        }
-        
-        return series;
+
+    private BigDecimal getClosePrice(HistoricalPrice p) {
+        return p.getAdjustedClosePrice() != null ? p.getAdjustedClosePrice() : p.getClosePrice();
     }
-    
-    /**
-     * Get close price (prefer adjusted close if available)
-     */
-    private BigDecimal getClosePrice(HistoricalPrice price) {
-        return price.getAdjustedClosePrice() != null ? 
-               price.getAdjustedClosePrice() : price.getClosePrice();
+
+    private TechnicalAnalysisResponse insufficient(String symbol, LocalDate from, LocalDate to) {
+        TrendDto trend = new TrendDto("INSUFFICIENT_DATA", 0.0, 0.0,
+                "Bu enstrüman için teknik analiz oluşturacak yeterli tarihsel veri bulunamadı.");
+        SummaryDto summary = new SummaryDto(0.0, 0.0, 0.0, 0.0, 0.0, null);
+        return new TechnicalAnalysisResponse(symbol, from.toString(), to.toString(),
+                trend, summary, new ArrayList<>());
     }
-    
-    /**
-     * Create response for insufficient data
-     */
-    private TechnicalAnalysisResponse createInsufficientDataResponse(String symbol, LocalDate fromDate, LocalDate toDate) {
-        TrendDto trend = new TrendDto("INSUFFICIENT_DATA", 0.0, 0.0, 
-            "Bu enstrüman için teknik analiz oluşturacak yeterli tarihsel veri bulunamadı.");
-        SummaryDto summary = new SummaryDto(0.0, 0.0, 0.0, 0.0, 0.0);
-        
-        return new TechnicalAnalysisResponse(
-            symbol,
-            fromDate.toString(),
-            toDate.toString(),
-            trend,
-            summary,
-            new ArrayList<>()
-        );
-    }
-    
-    // Legacy methods for backward compatibility
+
+    // ── Legacy passthrough used by older callers ───────────────────────
+
     public Map<String, Object> calculateMovingAverages(String symbol, int period) {
-        LocalDate toDate = LocalDate.now();
-        LocalDate fromDate = toDate.minusMonths(3);
-        TechnicalAnalysisResponse response = getTechnicalAnalysis(symbol, fromDate, toDate);
-        return Map.of("data", response);
+        LocalDate to = LocalDate.now();
+        return Map.of("data", getTechnicalAnalysis(symbol, to.minusMonths(3), to));
     }
-    
+
     public Map<String, Object> analyzeTrend(String symbol) {
-        LocalDate toDate = LocalDate.now();
-        LocalDate fromDate = toDate.minusMonths(3);
-        TechnicalAnalysisResponse response = getTechnicalAnalysis(symbol, fromDate, toDate);
-        return Map.of("trend", response.getTrend());
+        LocalDate to = LocalDate.now();
+        return Map.of("trend", getTechnicalAnalysis(symbol, to.minusMonths(3), to).getTrend());
     }
-    
+
     public Map<String, Object> calculateSupportResistance(String symbol) {
-        LocalDate toDate = LocalDate.now();
-        LocalDate fromDate = toDate.minusMonths(3);
-        TechnicalAnalysisResponse response = getTechnicalAnalysis(symbol, fromDate, toDate);
-        return Map.of("support", response.getSummary().getLowestClose(), 
-                     "resistance", response.getSummary().getHighestClose());
+        LocalDate to = LocalDate.now();
+        TechnicalAnalysisResponse r = getTechnicalAnalysis(symbol, to.minusMonths(3), to);
+        return Map.of("support", r.getSummary().getLowestClose(),
+                "resistance", r.getSummary().getHighestClose());
     }
-    
+
     public Map<String, Object> calculateMomentum(String symbol, int period) {
-        LocalDate toDate = LocalDate.now();
-        LocalDate fromDate = toDate.minusMonths(3);
-        TechnicalAnalysisResponse response = getTechnicalAnalysis(symbol, fromDate, toDate);
-        return Map.of("momentum", response.getTrend().getChangePercent());
+        LocalDate to = LocalDate.now();
+        return Map.of("momentum", getTechnicalAnalysis(symbol, to.minusMonths(3), to)
+                .getTrend().getChangePercent());
     }
 }
