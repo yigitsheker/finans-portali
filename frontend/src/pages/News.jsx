@@ -23,14 +23,6 @@ const CATEGORY_LABEL_KEYS = {
     'uluslararasi': 'news.catIntl',
 };
 
-const QUICK_LINKS = [
-    { path: '/stocks', labelKey: 'home.cardStocks', emoji: '📈', descKey: 'home.cardStocksSub' },
-    { path: '/crypto', labelKey: 'home.cardCrypto', emoji: '🪙', descKey: 'home.cardCryptoSub' },
-    { path: '/funds', labelKey: 'home.cardFunds', emoji: '💼', descKey: 'home.cardFundsSub' },
-    { path: '/bonds', labelKey: 'home.cardBonds', emoji: '🏛️', descKey: 'home.cardBondsSub' },
-    { path: '/market-data', labelKey: 'home.cardFx', emoji: '💱', descKey: 'home.cardFxSub' },
-];
-
 const News = ({ keycloak }) => {
     const navigate = useNavigate();
     const { t, lang } = useI18n();
@@ -174,20 +166,6 @@ const News = ({ keycloak }) => {
                 </div>
             </section>
 
-            {/* Quick links */}
-            <section style={s.quickGrid} className="home-quick-grid">
-                {QUICK_LINKS.map((link) => (
-                    <button
-                        key={link.path}
-                        style={s.quickCard}
-                        onClick={() => navigate(link.path)}
-                    >
-                        <div style={s.quickEmoji}>{link.emoji}</div>
-                        <div style={s.quickLabel}>{t(link.labelKey)}</div>
-                        <div style={s.quickDesc}>{t(link.descKey)}</div>
-                    </button>
-                ))}
-            </section>
 
             {/* Main grid: news + sidebar */}
             <section style={s.mainGrid} className="home-main-grid">
@@ -426,37 +404,6 @@ const s = {
     },
     heroStatSymbol: { fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' },
     heroStatChange: { fontSize: 13, fontWeight: 700 },
-
-    // Quick grid
-    quickGrid: {
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-        gap: 12,
-    },
-    quickCard: {
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'flex-start',
-        gap: 8,
-        padding: 18,
-        background: 'var(--bg-card)',
-        border: '1px solid var(--border-card)',
-        borderRadius: 12,
-        cursor: 'pointer',
-        textAlign: 'left',
-        transition: 'border-color 0.15s, transform 0.15s',
-    },
-    quickEmoji: { fontSize: 28 },
-    quickLabel: {
-        fontSize: 15,
-        fontWeight: 700,
-        color: 'var(--text-primary)',
-    },
-    quickDesc: {
-        fontSize: 12,
-        color: 'var(--text-muted)',
-        lineHeight: 1.4,
-    },
 
     // Main grid
     mainGrid: {
