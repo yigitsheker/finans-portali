@@ -5,6 +5,32 @@ import {
 } from "recharts";
 import { getTechnicalAnalysis } from "../api/portfolioApi";
 
+// localStorage cache for the technical-analysis response. Reads paint
+// instantly on reload and survive a backend / network outage on stale
+// data; fresh entries also short-circuit the network roundtrip.
+const TA_TTL_MS = 10 * 60 * 1000;        // 10 minutes fresh
+const TA_STALE_TTL_MS = 24 * 60 * 60 * 1000; // 1 day usable as offline fallback
+const TA_KEY = (symbol, period) => `ta-cache:${symbol}:${period}`;
+
+function readTaCache(symbol, period) {
+    try {
+        const raw = localStorage.getItem(TA_KEY(symbol, period));
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        const age = Date.now() - (parsed.ts || 0);
+        if (age > TA_STALE_TTL_MS) return null;
+        return { data: parsed.data, fresh: age < TA_TTL_MS };
+    } catch {
+        return null;
+    }
+}
+
+function writeTaCache(symbol, period, data) {
+    try {
+        localStorage.setItem(TA_KEY(symbol, period), JSON.stringify({ ts: Date.now(), data }));
+    } catch { /* quota — fail open */ }
+}
+
 export default function TechnicalAnalysisPanel({ symbol, period }) {
     const [data, setData] = useState(null);
     const [loading, setLoading] = useState(false);
@@ -21,41 +47,51 @@ export default function TechnicalAnalysisPanel({ symbol, period }) {
 
     useEffect(() => {
         if (!symbol) return;
+        let cancelled = false;
 
-        setLoading(true);
-        setError(null);
+        // Synchronously paint from cache (even stale) so the panel never
+        // shows a spinner if we've seen this symbol+period before.
+        const cached = readTaCache(symbol, period);
+        if (cached) {
+            setData(cached.data);
+            setError(null);
+            setLoading(false);
+            if (cached.fresh) return; // skip network entirely
+        } else {
+            setLoading(true);
+            setError(null);
+        }
 
         // Calculate date range based on period
         const to = new Date();
         let from = new Date();
-
         switch (period) {
-            case "1D":
-                from.setDate(to.getDate() - 1);
-                break;
-            case "5D":
-                from.setDate(to.getDate() - 5);
-                break;
-            case "30D":
-                from.setMonth(to.getMonth() - 1);
-                break;
-            case "1Y":
-                from.setFullYear(to.getFullYear() - 1);
-                break;
-            default:
-                from.setMonth(to.getMonth() - 3);
+            case "1D":  from.setDate(to.getDate() - 1); break;
+            case "5D":  from.setDate(to.getDate() - 5); break;
+            case "30D": from.setMonth(to.getMonth() - 1); break;
+            case "1Y":  from.setFullYear(to.getFullYear() - 1); break;
+            default:    from.setMonth(to.getMonth() - 3);
         }
-
         const fromStr = from.toISOString().split('T')[0];
         const toStr = to.toISOString().split('T')[0];
 
         getTechnicalAnalysis(symbol, fromStr, toStr)
-            .then(setData)
-            .catch((err) => {
-                console.error("Failed to load technical analysis:", err);
-                setError("Teknik analiz verileri yüklenemedi");
+            .then((fresh) => {
+                if (cancelled) return;
+                setData(fresh);
+                writeTaCache(symbol, period, fresh);
             })
-            .finally(() => setLoading(false));
+            .catch((err) => {
+                if (cancelled) return;
+                console.error("Failed to load technical analysis:", err);
+                // Don't overwrite a cached painted view with an error — if we
+                // had stale data, the user keeps seeing it. Otherwise surface
+                // the error.
+                if (!cached) setError("Teknik analiz verileri yüklenemedi");
+            })
+            .finally(() => { if (!cancelled) setLoading(false); });
+
+        return () => { cancelled = true; };
     }, [symbol, period]);
 
     if (loading) {

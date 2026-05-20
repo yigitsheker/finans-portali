@@ -14,9 +14,10 @@ public class CacheConfig {
     @Bean
     public CacheManager cacheManager() {
         CaffeineCacheManager mgr = new CaffeineCacheManager(
-            "marketSummary", 
-            "marketHistory", 
+            "marketSummary",
+            "marketHistory",
             "yahooChart",
+            "technicalAnalysis",
             "exchange-rates",
             "exchange-rates-by-source",
             "investment-funds",

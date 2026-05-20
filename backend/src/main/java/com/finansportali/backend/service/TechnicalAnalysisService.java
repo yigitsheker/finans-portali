@@ -8,6 +8,7 @@ import com.finansportali.backend.dto.response.SummaryDto;
 import com.finansportali.backend.repository.HistoricalPriceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -53,10 +54,30 @@ public class TechnicalAnalysisService {
         this.historicalPriceService = historicalPriceService;
     }
 
+    /**
+     * Warmup buffer. MACD needs MACD_SLOW + MACD_SIGNAL − 1 = 34 closes
+     * before its signal line starts producing values; SMA 50 needs 50.
+     * 60 is comfortable for everything we compute today.
+     */
+    private static final int WARMUP_DAYS = 60;
+
+    /**
+     * Cached for 5 minutes — the same period+symbol pair will be requested
+     * repeatedly as the user toggles indicators on/off, and the underlying
+     * historical-price service is the slow path. Cache name is reused with
+     * the existing CaffeineCacheManager; we declared "technicalAnalysis"
+     * there to match.
+     */
+    @Cacheable(cacheNames = "technicalAnalysis",
+               key = "#symbol + ':' + #fromDate + ':' + #toDate")
     public TechnicalAnalysisResponse getTechnicalAnalysis(String symbol, LocalDate fromDate, LocalDate toDate) {
         log.info("[TechnicalAnalysis] symbol={} from={} to={}", symbol, fromDate, toDate);
 
-        List<HistoricalPrice> prices = historicalPriceService.getHistoricalPrices(symbol, fromDate, toDate);
+        // Fetch a wider window than requested so the indicators have proper
+        // warmup. Without this, picking "1A" leaves MACD's signal line
+        // (which needs ~34 closes) completely empty.
+        LocalDate fetchFrom = fromDate.minusDays(WARMUP_DAYS);
+        List<HistoricalPrice> prices = historicalPriceService.getHistoricalPrices(symbol, fetchFrom, toDate);
         if (prices.isEmpty()) {
             log.warn("[TechnicalAnalysis] no historical data for symbol={}", symbol);
             return insufficient(symbol, fromDate, toDate);
@@ -67,29 +88,42 @@ public class TechnicalAnalysisService {
             closes[i] = getClosePrice(prices.get(i)).doubleValue();
         }
 
-        // Indicator arrays — Double[] so we can store null where the window
-        // isn't full yet.
         Double[] sma7 = sma(closes, 7);
         Double[] sma20 = sma(closes, 20);
         Double[] sma50 = sma(closes, 50);
         Double[] rsi = rsiWilder(closes, RSI_PERIOD);
         Double[][] bb = bollingerBands(closes, BB_PERIOD, BB_K);
-        Double[][] macd = macd(closes, MACD_FAST, MACD_SLOW, MACD_SIGNAL);
+        Double[][] macdArr = macd(closes, MACD_FAST, MACD_SLOW, MACD_SIGNAL);
 
-        List<SeriesPointDto> series = new ArrayList<>(prices.size());
+        // Find the first index whose date is on/after the user-requested
+        // start. Indicators stay computed over the full window (so MACD
+        // signal is already populated by then); we just clip the returned
+        // series so the chart doesn't show the warmup tail.
+        int startIdx = 0;
         for (int i = 0; i < prices.size(); i++) {
+            if (!prices.get(i).getPriceDate().isBefore(fromDate)) { startIdx = i; break; }
+        }
+
+        List<SeriesPointDto> series = new ArrayList<>(prices.size() - startIdx);
+        double[] visibleCloses = new double[prices.size() - startIdx];
+        Double[] visibleRsi = new Double[prices.size() - startIdx];
+        for (int i = startIdx; i < prices.size(); i++) {
             series.add(new SeriesPointDto(
                     prices.get(i).getPriceDate().toString(),
                     closes[i],
                     sma7[i], sma20[i], sma50[i],
                     rsi[i],
                     bb[0][i], bb[1][i], bb[2][i],
-                    macd[0][i], macd[1][i], macd[2][i]
+                    macdArr[0][i], macdArr[1][i], macdArr[2][i]
             ));
+            visibleCloses[i - startIdx] = closes[i];
+            visibleRsi[i - startIdx] = rsi[i];
         }
 
-        TrendDto trend = trend(closes);
-        SummaryDto summary = summary(closes, rsi);
+        // Trend + summary operate on the visible (requested) window only —
+        // we don't want warmup days bleeding into "highest/lowest in period".
+        TrendDto trend = trend(visibleCloses);
+        SummaryDto summary = summary(visibleCloses, visibleRsi);
         return new TechnicalAnalysisResponse(symbol, fromDate.toString(), toDate.toString(),
                 trend, summary, series);
     }
