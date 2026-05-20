@@ -10,6 +10,29 @@ import {
     AreaSeries,
 } from "lightweight-charts";
 
+/**
+ * Lightweight-charts paints on a canvas and can't resolve CSS variables —
+ * it'd render them as a literal string and fall back to black, which is
+ * unreadable on dark backgrounds. Compute the theme-appropriate axis
+ * colours up front and re-apply them whenever the user flips theme.
+ */
+function readChartPalette() {
+    const isLight = document.documentElement.getAttribute("data-theme") === "light";
+    return isLight
+        ? {
+            text: "#475569",
+            gridLine: "rgba(21, 128, 61, 0.10)",
+            border: "rgba(21, 128, 61, 0.20)",
+            crosshairBg: "#0f172a",
+        }
+        : {
+            text: "#a8c5a8",
+            gridLine: "rgba(34, 197, 94, 0.10)",
+            border: "rgba(34, 197, 94, 0.25)",
+            crosshairBg: "#0f1410",
+        };
+}
+
 export function LWAreaChart({ data, color = "#22c55e", height = 300 }) {
     const containerRef = useRef(null);
     const chartRef     = useRef(null);
@@ -17,29 +40,30 @@ export function LWAreaChart({ data, color = "#22c55e", height = 300 }) {
 
     useEffect(() => {
         if (!containerRef.current) return;
+        const palette = readChartPalette();
 
         const chart = createChart(containerRef.current, {
             layout: {
                 background: { type: ColorType.Solid, color: "transparent" },
-                textColor: "var(--text-muted, #6b8f6b)",
+                textColor: palette.text,
                 fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
                 fontSize: 11,
             },
             grid: {
-                vertLines: { color: "rgba(34,197,94,0.08)" },
-                horzLines: { color: "rgba(34,197,94,0.08)" },
+                vertLines: { color: palette.gridLine },
+                horzLines: { color: palette.gridLine },
             },
             crosshair: {
                 mode: CrosshairMode.Magnet,
-                vertLine: { color: color, width: 1, style: 3, labelBackgroundColor: "#0f1410" },
-                horzLine: { color: color, width: 1, style: 3, labelBackgroundColor: "#0f1410" },
+                vertLine: { color: color, width: 1, style: 3, labelBackgroundColor: palette.crosshairBg },
+                horzLine: { color: color, width: 1, style: 3, labelBackgroundColor: palette.crosshairBg },
             },
             rightPriceScale: {
-                borderColor: "rgba(34,197,94,0.15)",
+                borderColor: palette.border,
                 scaleMargins: { top: 0.1, bottom: 0.1 },
             },
             timeScale: {
-                borderColor: "rgba(34,197,94,0.15)",
+                borderColor: palette.border,
                 timeVisible: true,
                 secondsVisible: false,
             },
@@ -75,7 +99,30 @@ export function LWAreaChart({ data, color = "#22c55e", height = 300 }) {
         });
         ro.observe(containerRef.current);
 
+        // Re-apply axis colours when the user flips between light/dark.
+        // The Topbar toggle mutates `data-theme` on <html>; a MutationObserver
+        // is the simplest cross-component listener.
+        const repaintTheme = () => {
+            const p = readChartPalette();
+            chart.applyOptions({
+                layout: { textColor: p.text, background: { type: ColorType.Solid, color: "transparent" } },
+                grid: { vertLines: { color: p.gridLine }, horzLines: { color: p.gridLine } },
+                crosshair: {
+                    vertLine: { labelBackgroundColor: p.crosshairBg },
+                    horzLine: { labelBackgroundColor: p.crosshairBg },
+                },
+                rightPriceScale: { borderColor: p.border },
+                timeScale: { borderColor: p.border },
+            });
+        };
+        const themeObs = new MutationObserver(repaintTheme);
+        themeObs.observe(document.documentElement, {
+            attributes: true,
+            attributeFilter: ["data-theme"],
+        });
+
         return () => {
+            themeObs.disconnect();
             ro.disconnect();
             chart.remove();
             chartRef.current  = null;
