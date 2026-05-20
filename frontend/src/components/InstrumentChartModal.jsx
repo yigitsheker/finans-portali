@@ -138,28 +138,40 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
         }
     }, [instrument]);
 
-    const handleAddToList = async (list) => {
+    /**
+     * Toggle membership: when the symbol is already in the list, clicking
+     * the row removes it; otherwise it adds. One row, one click — the user
+     * can both add and undo from the same popover instead of needing to
+     * leave for the watchlist page to clean up.
+     */
+    const handleToggleList = async (list) => {
         if (!instrument || !keycloak) return;
-        if (list.symbols.includes(instrument.symbol)) {
-            setWatchlistFlash(`Zaten "${list.name}" listesinde`);
-            setTimeout(() => setWatchlistFlash(null), 2000);
-            return;
-        }
+        const alreadyIn = list.symbols.includes(instrument.symbol);
         try {
             setWatchlistBusy(true);
-            await watchlistApi.addToWatchlist(keycloak, {
-                watchlistId: list.id,
-                symbol: instrument.symbol,
-            });
-            setWatchlists((prev) =>
-                prev.map((w) => (w.id === list.id ? { ...w, symbols: [...w.symbols, instrument.symbol] } : w))
-            );
-            setWatchlistFlash(`"${list.name}" listesine eklendi`);
+            if (alreadyIn) {
+                await watchlistApi.removeFromWatchlist(keycloak, list.id, instrument.symbol);
+                setWatchlists((prev) =>
+                    prev.map((w) => (w.id === list.id
+                        ? { ...w, symbols: w.symbols.filter((s) => s !== instrument.symbol) }
+                        : w))
+                );
+                setWatchlistFlash(`"${list.name}" listesinden kaldırıldı`);
+            } else {
+                await watchlistApi.addToWatchlist(keycloak, {
+                    watchlistId: list.id,
+                    symbol: instrument.symbol,
+                });
+                setWatchlists((prev) =>
+                    prev.map((w) => (w.id === list.id ? { ...w, symbols: [...w.symbols, instrument.symbol] } : w))
+                );
+                setWatchlistFlash(`"${list.name}" listesine eklendi`);
+            }
             setShowWatchlistMenu(false);
             setTimeout(() => setWatchlistFlash(null), 2500);
         } catch (error) {
-            console.error("Failed to add to watchlist:", error);
-            setWatchlistFlash("Eklenemedi");
+            console.error("Failed to toggle watchlist membership:", error);
+            setWatchlistFlash(alreadyIn ? "Kaldırılamadı" : "Eklenemedi");
             setTimeout(() => setWatchlistFlash(null), 2500);
         } finally {
             setWatchlistBusy(false);
@@ -286,14 +298,21 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                                                 key={list.id}
                                                 style={{
                                                     ...s.watchlistMenuItem,
+                                                    ...(alreadyIn ? s.watchlistMenuItemActive : {}),
                                                     opacity: watchlistBusy ? 0.6 : 1,
                                                 }}
                                                 disabled={watchlistBusy}
-                                                onClick={() => handleAddToList(list)}
+                                                onClick={() => handleToggleList(list)}
+                                                title={alreadyIn ? "Listeden kaldır" : "Listeye ekle"}
                                             >
                                                 <span>{list.name}</span>
-                                                <span style={s.watchlistMenuCount}>
-                                                    {alreadyIn ? "✓" : `${list.symbols.length}`}
+                                                <span
+                                                    style={{
+                                                        ...s.watchlistMenuCount,
+                                                        ...(alreadyIn ? s.watchlistMenuCountActive : {}),
+                                                    }}
+                                                >
+                                                    {alreadyIn ? "✓ Kaldır" : `${list.symbols.length}`}
                                                 </span>
                                             </button>
                                         );
@@ -735,6 +754,11 @@ const s = {
         cursor: "pointer",
         textAlign: "left",
     },
+    watchlistMenuItemActive: {
+        // Symbol already in list — soft accent fill hints the row is now a
+        // remove-toggle rather than an add.
+        background: "rgba(34, 197, 94, 0.10)",
+    },
     watchlistMenuCount: {
         fontSize: 11,
         color: "var(--text-muted)",
@@ -743,6 +767,11 @@ const s = {
         borderRadius: 999,
         minWidth: 20,
         textAlign: "center",
+    },
+    watchlistMenuCountActive: {
+        color: "var(--danger-text, #f87171)",
+        background: "rgba(239, 68, 68, 0.14)",
+        fontWeight: 600,
     },
     watchlistNewBtn: {
         padding: "8px 10px",
