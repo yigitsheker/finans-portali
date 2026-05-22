@@ -76,7 +76,7 @@
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.session.required": "true",
         "backchannel.logout.revoke.offline.tokens": "false",
-        "post.logout.redirect.uris": "http://localhost/*"
+        "post.logout.redirect.uris": "http://localhost/*##http://localhost:5173/*"
       },
       "authenticationFlowBindingOverrides": {},
       "fullScopeAllowed": true,

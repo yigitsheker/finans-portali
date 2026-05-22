@@ -76,16 +76,14 @@ front: ## Fast frontend rebuild for code changes (uses npm cache — ~20-40s)
 	@echo ""
 	@echo "✓ Frontend rebuilt. Hard refresh the browser (Ctrl+Shift+R) to bust the asset cache."
 
-dev: ## Dev mode — frontend with HMR (code changes appear instantly, no rebuilds)
-	@echo "Starting dev stack — frontend served by Vite with HMR on http://localhost"
+dev: ## Dev mode — frontend with HMR on http://localhost:5173 (code changes auto-reload)
+	@echo "Starting dev stack — frontend served by Vite with HMR"
 	@echo "(backend, postgres, keycloak all keep their prod images)"
-	docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+	docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 	@echo ""
-	@echo "✓ Dev stack up. Frontend logs:"
-	@echo "    make logs-frontend"
-	@echo ""
-	@echo "  When you're done, switch back to prod with:"
-	@echo "    make down && make up"
+	@echo "✓ Dev stack up. Open http://localhost:5173 (prod is still on :80)"
+	@echo "  Frontend logs:  make logs-frontend"
+	@echo "  Back to prod:   make dev-down && make up"
 
 dev-down: ## Stop the dev stack
 	docker-compose -f docker-compose.yml -f docker-compose.dev.yml down

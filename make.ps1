@@ -48,11 +48,14 @@ Available targets:
     }
 
     "dev" {
-        Write-Host "Starting dev stack - frontend served by Vite with HMR on http://localhost"
+        Write-Host "Starting dev stack - frontend served by Vite with HMR"
         Write-Host "(backend, postgres, keycloak all keep their prod images)"
-        Invoke-Compose @("-f", "docker-compose.yml", "-f", "docker-compose.dev.yml", "up", "-d")
+        # --build forces compose to build the Dockerfile.dev image; without
+        # it the cached nginx prod image gets reused silently.
+        Invoke-Compose @("-f", "docker-compose.yml", "-f", "docker-compose.dev.yml", "up", "-d", "--build")
         Write-Host ""
-        Write-Host "Dev stack up. Frontend logs: .\make.ps1 logs-frontend"
+        Write-Host "Dev stack up. Open http://localhost:5173 (port 5173 - prod is still on :80)"
+        Write-Host "Frontend logs: .\make.ps1 logs-frontend"
         Write-Host "Switch back to prod: .\make.ps1 dev-down; .\make.ps1 up"
     }
 

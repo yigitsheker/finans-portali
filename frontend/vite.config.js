@@ -21,11 +21,12 @@ export default defineConfig({
         changeOrigin: true,
       },
     },
-    // Page is served on host port 80 (mapped from container port 5173);
-    // tell Vite's HMR websocket to advertise that public port so the
-    // browser's WS handshake doesn't try to reach :5173 directly.
+    // HMR websocket: the browser connects back to the host port the page
+    // was loaded from. With docker-compose.dev.yml mapping 5173:5173,
+    // clientPort matches the internal port and we don't need an explicit
+    // override here — Vite picks it up from `server.port`.
     hmr: {
-      clientPort: 80,
+      clientPort: 5173,
     },
   },
 })
