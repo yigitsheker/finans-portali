@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Routes, Route, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import Topbar from "./components/Topbar";
@@ -90,18 +90,17 @@ export default function App({ keycloak }) {
 
     const isAuthenticated = !!keycloak.authenticated;
 
-    // Sign-in security toast — once per browser session per user. Uses
-    // sessionStorage so a page reload doesn't re-fire it, but a fresh
-    // browser tab (or new login) does. Gated by Settings → Güvenlik
-    // Uyarıları.
+    // Sign-in security toast — fires exactly once per authentication
+    // transition (false → true). A ref tracks the previous state so that
+    // token refreshes (which churn `tokenParsed` while staying authenticated)
+    // don't re-fire it, and a logout → re-login DOES fire it again. Gated by
+    // Settings → Güvenlik Uyarıları.
+    const wasAuthenticatedRef = useRef(false);
     useEffect(() => {
-        if (!isAuthenticated) return;
+        const prev = wasAuthenticatedRef.current;
+        wasAuthenticatedRef.current = isAuthenticated;
+        if (!isAuthenticated || prev) return;     // only on false → true edge
         const user = keycloak.tokenParsed?.preferred_username || "user";
-        const key = `sec-greeted-${user}`;
-        try {
-            if (sessionStorage.getItem(key)) return;
-            sessionStorage.setItem(key, "1");
-        } catch { /* private mode — fail open */ }
         notify.security("Hesabınıza giriş yapıldı.", {
             title: `Hoş geldin, ${user}`,
         });
