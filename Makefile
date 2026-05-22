@@ -65,10 +65,16 @@ rebuild-backend: ## Rebuild and restart backend only
 	docker-compose build --no-cache backend
 	docker-compose up -d backend
 
-rebuild-frontend: ## Rebuild and restart frontend only
+rebuild-frontend: ## Rebuild and restart frontend (no cache — slow, full re-install)
 	docker-compose stop frontend
 	docker-compose build --no-cache frontend
 	docker-compose up -d frontend
+
+front: ## Fast frontend rebuild for code changes (uses npm cache — ~20-40s)
+	docker-compose build frontend
+	docker-compose up -d frontend
+	@echo ""
+	@echo "✓ Frontend rebuilt. Hard refresh the browser (Ctrl+Shift+R) to bust the asset cache."
 
 shell-backend: ## Open shell in backend container
 	docker-compose exec backend bash

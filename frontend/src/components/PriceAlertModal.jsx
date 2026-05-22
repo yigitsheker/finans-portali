@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Modal from "./Modal";
-import { createPriceAlert, getUserAlerts, deletePriceAlert, triggerAlertManually, searchMarketInstruments } from "../api/portfolioApi";
-import { useCurrencyDisplay, nativeCurrencyOf } from "../contexts/CurrencyDisplayContext";
+import { createPriceAlert, getLatestPrice, getUserAlerts, deletePriceAlert, triggerAlertManually, searchMarketInstruments } from "../api/portfolioApi";
+import { useCurrencyDisplay, usePriceDisplay, nativeCurrencyOf } from "../contexts/CurrencyDisplayContext";
 
 const ALERT_TYPES = [
     { value: "PRICE_ABOVE", label: "Fiyat Üstü", description: "Fiyat hedef seviyenin üzerine çıktığında" },
@@ -24,6 +24,11 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
     // "STOCK", "CRYPTO" ...). Lets us resolve the native currency when the
     // site-wide currency mode is "original".
     const [selectedType, setSelectedType] = useState(null);
+    // Resolved current price for the selected symbol, formatted in the active
+    // display currency. Shown as a "Mevcut Fiyat: …" hint below the target
+    // field; clicking it fills the target. Stays in sync with the symbol
+    // selection — clears when the user types a different symbol.
+    const [currentPriceHint, setCurrentPriceHint] = useState(null);
 
     // Autocomplete state
     const [searchResults, setSearchResults] = useState([]);
@@ -32,6 +37,12 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
 
     // Site-wide currency toggle ("original" | "TRY" | "USD")
     const { mode: currencyMode } = useCurrencyDisplay();
+    const { convert: convertPrice } = usePriceDisplay();
+
+    // Suppresses the next symbol-change search. Flipped on programmatic
+    // updates (prefill from chart, autocomplete selection) so the dropdown
+    // doesn't auto-reopen after a user just picked an item.
+    const skipNextSearchRef = useRef(false);
 
     // Effective currency this alert will be created in. PERCENT_* alerts target
     // a percentage and don't really need a currency, but we still snapshot one
@@ -45,13 +56,27 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
     useEffect(() => {
         if (open) {
             loadAlerts();
-            if (prefilledSymbol) setSymbol(prefilledSymbol);
+            if (prefilledSymbol) {
+                // Prefill from the chart's "Create alert" button is a
+                // programmatic update — don't fire the autocomplete.
+                skipNextSearchRef.current = true;
+                setSymbol(prefilledSymbol);
+            }
             if (prefilledPrice) setTargetPrice(prefilledPrice.toString());
         }
     }, [open, prefilledSymbol, prefilledPrice]);
 
-    // Search instruments when symbol changes
+    // Search instruments when symbol changes — but only when the change came
+    // from the user typing, not from prefill / autocomplete selection.
     useEffect(() => {
+        if (skipNextSearchRef.current) {
+            skipNextSearchRef.current = false;
+            return;
+        }
+
+        // User is editing the symbol → any previous price hint is stale.
+        setCurrentPriceHint(null);
+
         const searchInstruments = async () => {
             if (symbol.length < 2) {
                 setSearchResults([]);
@@ -64,6 +89,15 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                 const results = await searchMarketInstruments(symbol);
                 setSearchResults(results);
                 setShowDropdown(results.length > 0);
+
+                // If the user typed a complete symbol that matches an instrument
+                // exactly (no dropdown click required), prefill the target price
+                // and remember its type. Common case: they open this modal from
+                // an instrument's chart, then edit the symbol field directly.
+                const exact = results.find(
+                    (r) => r.symbol?.toUpperCase() === symbol.toUpperCase()
+                );
+                if (exact) autofillTargetFromInstrument(exact);
             } catch (error) {
                 console.error("Failed to search instruments:", error);
                 setSearchResults([]);
@@ -75,7 +109,52 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
 
         const timeoutId = setTimeout(searchInstruments, 300); // Debounce
         return () => clearTimeout(timeoutId);
+        // autofillTargetFromInstrument depends on `alertType` and `convertPrice`,
+        // both of which are stable across the relevant renders.
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [symbol]);
+
+    /**
+     * Fetch the latest price for `instrument`, fill the target field, AND
+     * surface the price as a visible "Mevcut Fiyat" hint so the user can see
+     * what we have even if the input value is hard to spot. PERCENT_* alerts
+     * skip the field write but still show the hint for context.
+     */
+    const autofillTargetFromInstrument = async (instrument) => {
+        setSelectedType(instrument.type || null);
+        try {
+            const native = await getLatestPrice(instrument.symbol, keycloak);
+            console.log("[AlertModal] Autofill native price for", instrument.symbol, "=", native);
+            if (!Number.isFinite(native) || native <= 0) {
+                setCurrentPriceHint(null);
+                return;
+            }
+            const conv = convertPrice(native, instrument.type, instrument.symbol);
+            const v = conv?.value;
+            if (!Number.isFinite(v) || v <= 0) {
+                setCurrentPriceHint(null);
+                return;
+            }
+            const fixed = v >= 1 ? v.toFixed(2) : v.toFixed(4);
+            const displayValue = String(parseFloat(fixed));
+
+            // Always surface the hint so the user can see it.
+            setCurrentPriceHint({
+                value: displayValue,
+                currency: conv?.currency || "TRY",
+                symbol: conv?.symbol || "₺",
+            });
+
+            // Don't overwrite percentage entries — the field is a % there.
+            if (!alertType.includes("PERCENT")) {
+                setTargetPrice(displayValue);
+                console.log("[AlertModal] Autofill target →", displayValue, conv?.currency);
+            }
+        } catch (e) {
+            console.warn("Could not prefill target price for", instrument.symbol, e);
+            setCurrentPriceHint(null);
+        }
+    };
 
     const loadAlerts = async () => {
         setLoading(true);
@@ -119,6 +198,7 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
             setNote("");
             setSelectedType(null);
             setShowDropdown(false);
+            setCurrentPriceHint(null);
 
             // Reload alerts
             console.log("[AlertModal] Reloading alerts...");
@@ -139,11 +219,14 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
     };
 
     const handleSelectInstrument = (instrument) => {
+        // Suppress the symbol-effect's search (otherwise the dropdown would
+        // re-open with a single result after we just closed it).
+        skipNextSearchRef.current = true;
         setSymbol(instrument.symbol);
-        // Remember the type — in "original" currency mode we need it to decide
-        // whether this alert is natively a TRY or USD instrument.
-        setSelectedType(instrument.type || null);
         setShowDropdown(false);
+        // setSelectedType + price fetch live in autofillTargetFromInstrument so
+        // both this path and the exact-typed-match path stay consistent.
+        autofillTargetFromInstrument(instrument);
     };
 
     const handleDeleteAlert = async (alertId) => {
@@ -291,6 +374,18 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                         required
                                     />
                                 </div>
+                                {/* Visible current-price hint — clickable to refill */}
+                                {currentPriceHint && !alertType.includes("PERCENT") && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setTargetPrice(currentPriceHint.value)}
+                                        style={s.currentPriceHint}
+                                        title="Hedef fiyatı doldur"
+                                    >
+                                        Mevcut Fiyat: {currentPriceHint.symbol}{currentPriceHint.value}
+                                        <span style={s.currentPriceHintAction}>· Kullan</span>
+                                    </button>
+                                )}
                             </div>
                             <div style={s.field}>
                                 <label style={s.label}>Not (Opsiyonel)</label>
@@ -474,6 +569,25 @@ const s = {
         fontSize: 14,
         fontWeight: 500,
         pointerEvents: "none",
+    },
+    currentPriceHint: {
+        alignSelf: "flex-start",
+        marginTop: 2,
+        padding: "4px 10px",
+        background: "rgba(34, 197, 94, 0.12)",
+        color: "#22c55e",
+        border: "1px solid rgba(34, 197, 94, 0.35)",
+        borderRadius: 6,
+        fontSize: 12,
+        fontWeight: 600,
+        cursor: "pointer",
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 4,
+    },
+    currentPriceHintAction: {
+        color: "var(--text-muted)",
+        fontWeight: 500,
     },
     select: {
         padding: "8px 12px",
