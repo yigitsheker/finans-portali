@@ -102,7 +102,9 @@ export default function App({ keycloak }) {
             if (sessionStorage.getItem(key)) return;
             sessionStorage.setItem(key, "1");
         } catch { /* private mode — fail open */ }
-        notify.security(`Giriş yapıldı: ${user}`);
+        notify.security("Hesabınıza giriş yapıldı.", {
+            title: `Hoş geldin, ${user}`,
+        });
     }, [isAuthenticated, keycloak.tokenParsed]);
 
     // Map routes to titles and subtitles
@@ -287,30 +289,15 @@ export default function App({ keycloak }) {
                     />
                 )}
             </Layout>
-            {/* Toast notifications — sağ üstte, 3 saniye sonra otomatik kaybolur.
-                Visual styling matches the rest of the app via CSS variables so
-                light/dark themes stay consistent. */}
+            {/* Toast notifications — anchored just below the navbar (ticker 40px
+                + topbar ≈60-70px = ~110px), 5s auto-dismiss. Visual is fully
+                handled by the AppToast component via notify.js; we only place
+                the Toaster container here. */}
             <Toaster
                 position="top-right"
-                toastOptions={{
-                    duration: 3000,
-                    style: {
-                        background: "var(--bg-card)",
-                        color: "var(--text-primary)",
-                        border: "1px solid var(--border-card)",
-                        borderRadius: 10,
-                        fontSize: 14,
-                        padding: "12px 14px",
-                        boxShadow: "0 8px 24px rgba(0,0,0,0.35)",
-                        maxWidth: 360,
-                    },
-                    success: {
-                        iconTheme: { primary: "#22c55e", secondary: "#fff" },
-                    },
-                    error: {
-                        iconTheme: { primary: "#ef4444", secondary: "#fff" },
-                    },
-                }}
+                gutter={10}
+                containerStyle={{ top: 110, right: 16 }}
+                toastOptions={{ duration: 5000 }}
             />
             </CurrencyDisplayProvider>
             </I18nProvider>
