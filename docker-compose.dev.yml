@@ -1,0 +1,38 @@
+# Development override — runs the frontend through Vite's dev server
+# with HMR instead of the baked nginx production build. Apply with:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Or use the Makefile shortcut: `make dev`.
+#
+# Backend, postgres, keycloak etc. all keep their production behaviour
+# from the base compose file — only the frontend is swapped.
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    # Bind-mount the source so edits on the host trigger Vite's HMR.
+    # The anonymous `/app/node_modules` volume preserves the modules
+    # installed at image-build time — without it, the host's empty
+    # node_modules would shadow them.
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    # Same external port as prod (80), but inside the container Vite
+    # serves on 5173. URL stays http://localhost.
+    ports:
+      - "80:5173"
+    # No memory/CPU limit — local dev is fine, and Vite uses more memory
+    # than the trimmed nginx prod path.
+    deploy:
+      resources:
+        limits:
+          memory: 1g
+    # nginx healthcheck doesn't apply to the Vite dev server.
+    healthcheck:
+      disable: true
+    environment:
+      # Forwarded into the container so the proxy/HMR config in
+      # vite.config.js can pick them up if we ever want overrides.
+      - VITE_DEV=true

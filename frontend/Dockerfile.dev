@@ -1,0 +1,20 @@
+# Development image — runs the Vite dev server with HMR so source-code
+# edits surface in the browser without a container rebuild.
+#
+# Used by docker-compose.dev.yml; the standard Dockerfile (multi-stage
+# build → nginx) stays the prod path.
+FROM node:20-alpine
+
+WORKDIR /app
+
+# Install deps once at image-build time; bind-mounting the source over
+# /app at runtime keeps node_modules from getting clobbered (see the
+# anonymous-volume trick in docker-compose.dev.yml).
+COPY package*.json ./
+RUN npm ci
+
+EXPOSE 5173
+
+# --host 0.0.0.0 lets the dev server bind to the container's external
+# interface so the host can reach it via the port mapping.
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
