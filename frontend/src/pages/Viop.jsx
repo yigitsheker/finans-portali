@@ -62,7 +62,8 @@ export default function Viop() {
 
     // Fetch the entire universe once; multi-select category filter is
     // applied client-side so we can flip filters instantly without re-hitting
-    // the API.
+    // the API. `loadVersion` is bumped by the retry button to re-run.
+    const [loadVersion, setLoadVersion] = useState(0);
     useEffect(() => {
         let cancelled = false;
         setLoading(true);
@@ -79,7 +80,8 @@ export default function Viop() {
                 if (!cancelled) setLoading(false);
             });
         return () => { cancelled = true; };
-    }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [loadVersion]);
 
     // Per-category row count for the filter chip badges.
     const categoryCounts = useMemo(() => {
@@ -178,7 +180,18 @@ export default function Viop() {
                 />
             </div>
 
-            {error && <div style={s.error}>{error}</div>}
+            {error && (
+                <div style={s.error}>
+                    <span>{error}</span>
+                    <button
+                        type="button"
+                        onClick={() => setLoadVersion((v) => v + 1)}
+                        style={s.retryBtn}
+                    >
+                        🔄 {t("common.retry")}
+                    </button>
+                </div>
+            )}
 
             {loading ? (
                 <div style={s.placeholder}>{t("common.loadingDots")}</div>
@@ -308,6 +321,18 @@ const s = {
         padding: 12, marginBottom: 12, borderRadius: 8,
         background: "rgba(239, 68, 68, 0.1)", color: "#ef4444",
         border: "1px solid rgba(239, 68, 68, 0.3)",
+        display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
+    },
+    retryBtn: {
+        padding: "6px 12px",
+        background: "var(--bg-panel)",
+        color: "var(--text-primary)",
+        border: "1px solid var(--border)",
+        borderRadius: 6,
+        fontSize: 12,
+        fontWeight: 500,
+        cursor: "pointer",
+        whiteSpace: "nowrap",
     },
     footer: { fontSize: 12, color: "var(--text-muted)", marginTop: 16, lineHeight: 1.5 },
 };

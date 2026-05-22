@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 import { getInflationHistory } from "../api/inflationApi";
 import { useI18n } from "../contexts/I18nContext";
 
@@ -9,13 +9,20 @@ export default function Inflation() {
   const [error, setError] = useState(null);
   const [view, setView] = useState("yearly"); // "yearly" | "monthly"
 
-  useEffect(() => {
+  // Pulled out into a callable so the error-state retry button can call
+  // exactly the same load path the initial mount does. Don't fold this
+  // into the useEffect — we want a single source of truth for "fetch
+  // inflation data".
+  const load = useCallback(() => {
     setLoading(true);
+    setError(null);
     getInflationHistory()
       .then(setRows)
-      .catch((e) => setError(e.message || "Veri çekilemedi"))
+      .catch((e) => setError(e.message || t("common.fetchError")))
       .finally(() => setLoading(false));
-  }, []);
+  }, [t]);
+
+  useEffect(() => { load(); }, [load]);
 
   const stats = useMemo(() => {
     if (!rows.length) return null;
@@ -56,6 +63,9 @@ export default function Inflation() {
       <div style={s.error}>
         <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
         <div>{error}</div>
+        <button type="button" onClick={load} style={s.retryBtn}>
+          🔄 {t("common.retry")}
+        </button>
       </div>
     );
   }
@@ -250,6 +260,17 @@ const s = {
   loading: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 400 },
   spinner: { width: 40, height: 40, border: "3px solid var(--border)", borderTop: "3px solid var(--accent-solid, #3b82f6)", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
   error: { padding: 60, textAlign: "center", color: "var(--text-primary)" },
+  retryBtn: {
+    marginTop: 16,
+    padding: "8px 16px",
+    background: "var(--bg-panel)",
+    color: "var(--text-primary)",
+    border: "1px solid var(--border)",
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 500,
+    cursor: "pointer",
+  },
   summaryGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 12 },
   summaryCard: { borderRadius: 10, border: "1px solid var(--border-card)", background: "var(--bg-card)", padding: "16px 18px" },
   summaryLabel: { fontSize: 12, color: "var(--text-muted)", marginBottom: 8 },
