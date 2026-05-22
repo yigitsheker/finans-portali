@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { applyTheme } from "../theme";
 import { useI18n } from "../contexts/I18nContext";
+import { getNotificationPrefs, putNotificationPrefs } from "../api/userPrefsApi";
 
 const NOTIF_ITEMS = [
   { key: "transactions", labelKey: "settings.txNotif",         descKey: "settings.txNotifSub",         defaultOn: true },
@@ -46,11 +47,59 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
   const [saveError, setSaveError]   = useState(null);
 
   const [notifs, setNotifs] = useState(loadNotifPrefs);
+  // Tracks whether we've already pulled the server-side copy. We don't
+  // want the initial render's localStorage value to immediately fire a
+  // PUT — that would clobber server state with stale data on every load.
+  const hydratedFromServerRef = useRef(false);
 
-  // Persist notification toggles every time they change.
+  // 1) On mount, pull the user's persisted choice from the backend.
+  //    Server wins over localStorage (it's the cross-device source of
+  //    truth). If the API is unreachable we keep whatever we hydrated
+  //    from localStorage; the user's UX isn't blocked.
+  useEffect(() => {
+    if (!keycloak?.authenticated) return;
+    let cancelled = false;
+    getNotificationPrefs(keycloak)
+      .then((server) => {
+        if (cancelled) return;
+        // Merge so a missing key on the server doesn't wipe out a default.
+        setNotifs((prev) => {
+          const merged = { ...prev };
+          NOTIF_ITEMS.forEach((item) => {
+            if (typeof server[item.key] === "boolean") {
+              merged[item.key] = server[item.key];
+            }
+          });
+          return merged;
+        });
+        hydratedFromServerRef.current = true;
+      })
+      .catch((e) => {
+        console.warn("[Settings] Could not fetch notification prefs:", e?.message);
+        // Still mark as hydrated so the local-only state can sync up
+        // when the user toggles (better to write something than nothing).
+        hydratedFromServerRef.current = true;
+      });
+    return () => { cancelled = true; };
+  }, [keycloak]);
+
+  // 2) Persist locally on every change (fast, offline-safe).
   useEffect(() => {
     try { localStorage.setItem(NOTIF_PREF_KEY, JSON.stringify(notifs)); } catch { /* ignore quota */ }
   }, [notifs]);
+
+  // 3) Push to backend, debounced 500ms so rapid toggles coalesce.
+  //    Skipped until the server hydration is done, so the first render
+  //    doesn't immediately overwrite the server copy with localStorage.
+  useEffect(() => {
+    if (!hydratedFromServerRef.current || !keycloak?.authenticated) return;
+    const id = setTimeout(() => {
+      putNotificationPrefs(keycloak, notifs).catch((e) => {
+        console.warn("[Settings] Could not save notification prefs:", e?.message);
+      });
+    }, 500);
+    return () => clearTimeout(id);
+  }, [notifs, keycloak]);
 
   const initials = useMemo(() => {
     const name = (firstName + " " + lastName).trim();
