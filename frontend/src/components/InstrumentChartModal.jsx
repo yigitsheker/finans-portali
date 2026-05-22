@@ -7,6 +7,7 @@ import {
     getMarketHistory,
 } from "../api/portfolioApi";
 import { watchlistApi } from "../api/watchlistApi";
+import { readHistoryCache, writeHistoryCache } from "../utils/historyCache";
 
 const PERIODS = [
     { label: "1G", value: "1D" },
@@ -63,6 +64,9 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
     const [loading, setLoading] = useState(false);
     const [showAlertModal, setShowAlertModal] = useState(false);
     const [activeTab, setActiveTab] = useState('chart');
+    // "fresh" → fetched this session within the cache TTL
+    // "stale" → showing cached data while a refetch is in flight, or backend is unreachable
+    const [dataStale, setDataStale] = useState(false);
 
     // Watchlist state
     const [watchlists, setWatchlists] = useState([]);
@@ -82,24 +86,63 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
 
     // Tema rengini CSS değişkeninden oku
 
+    // Stale-while-revalidate pattern: cached data paints the chart immediately
+    // (so opening the modal feels instant), then a background fetch refreshes it.
+    // When the network call fails (offline, backend down), we keep the cached
+    // copy visible instead of blanking out to "verisi bulunamadı".
     useEffect(() => {
         if (!instrument) return;
+        let cancelled = false;
 
-        setLoading(true);
-        setData([]); // Clear previous data
+        const cached = readHistoryCache(instrument.symbol, period);
+        if (cached) {
+            // Paint instantly — even if it's slightly stale.
+            setData(cached.data);
+            setDataStale(!cached.fresh);
+            // Fresh entry → skip the network round-trip entirely.
+            if (cached.fresh) {
+                setLoading(false);
+                return () => { cancelled = true; };
+            }
+            // Stale entry → keep showing it while we refetch (no flicker, no
+            // empty-state flash).
+            setLoading(false);
+        } else {
+            // No cache → show the spinner, blank the chart.
+            setLoading(true);
+            setData([]);
+            setDataStale(false);
+        }
 
-        log.info(`Fetching chart data for ${instrument.symbol} period ${period}`);
+        log.info(`Fetching chart data for ${instrument.symbol} period ${period}${cached ? " (background refresh)" : ""}`);
 
         getMarketHistory(instrument.symbol, period)
             .then((newData) => {
-                log.info(`Received ${newData.length} data points for ${instrument.symbol} period ${period}`);
-                setData(newData);
+                if (cancelled) return;
+                if (Array.isArray(newData) && newData.length > 0) {
+                    log.info(`Received ${newData.length} data points for ${instrument.symbol} period ${period}`);
+                    setData(newData);
+                    setDataStale(false);
+                    writeHistoryCache(instrument.symbol, period, newData);
+                } else if (!cached) {
+                    // Empty response and we have nothing to fall back to.
+                    setData([]);
+                }
+                // If response was empty BUT we had a cached copy, just keep it.
             })
             .catch((error) => {
+                if (cancelled) return;
                 console.error(`Failed to fetch chart data for ${instrument.symbol}:`, error);
-                setData([]);
+                // Offline / backend down: leave cached data on screen, just
+                // flag it as stale. Only blank out if there's no fallback.
+                if (!cached) setData([]);
             })
-            .finally(() => setLoading(false));
+            .finally(() => {
+                if (!cancelled) setLoading(false);
+            });
+
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [instrument, period]);
 
     // Load watchlists lazily — only when the user opens the menu the first time.
@@ -467,6 +510,20 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                             <span>{data[0]?.label} → {data[data.length - 1]?.label}</span>
                             <span style={s.footerDot}>·</span>
                             <span>Son: <strong>{currencyPrefix}{Number(data[data.length - 1]?.close ?? 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                            {dataStale && (
+                                <>
+                                    <span style={s.footerDot}>·</span>
+                                    <span
+                                        style={{
+                                            color: "#f59e0b",
+                                            fontWeight: 600,
+                                        }}
+                                        title="Çevrimdışı veri — önbellekteki son görüntü gösteriliyor. Bağlantı geri gelince otomatik yenilenir."
+                                    >
+                                        📡 Önbellekten
+                                    </span>
+                                </>
+                            )}
                         </div>
                     )}
                 </div>
