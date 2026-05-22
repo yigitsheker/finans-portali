@@ -143,11 +143,18 @@ public class PortfolioCalculationService {
                     BigDecimal.ZERO,
                     BigDecimal.ZERO,
                     BigDecimal.ZERO,
+                    List.of(),
+                    null,
                     List.of()
             );
         }
 
         List<PortfolioPositionDetail> positionDetails = new ArrayList<>();
+        // Surfaced to the UI so the user knows which symbols silently dropped
+        // out of their summary (rather than just seeing a smaller total).
+        List<String> warnings = new ArrayList<>();
+        // Freshest quote timestamp seen — shown as the "last updated" hint.
+        java.time.Instant freshestAsOf = null;
         BigDecimal totalInvested = BigDecimal.ZERO;
         BigDecimal totalCurrentValue = BigDecimal.ZERO;
 
@@ -156,17 +163,29 @@ public class PortfolioCalculationService {
                 MarketInstrument inst = instrumentRepo.findBySymbol(pos.getSymbol()).orElse(null);
                 if (inst == null) {
                     log.warn("Instrument not found for symbol={}", pos.getSymbol());
+                    warnings.add(pos.getSymbol() + ": enstrüman katalogda bulunamadı, "
+                            + "pozisyon özetten dışlandı.");
                     continue;
                 }
 
-                // Get current price (keep in original currency, don't convert)
-                BigDecimal currentPrice = quoteRepo.findTop1ByInstrumentOrderByAsOfDesc(inst)
+                var latestQuoteOpt = quoteRepo.findTop1ByInstrumentOrderByAsOfDesc(inst);
+                BigDecimal currentPrice = latestQuoteOpt
                         .map(q -> q.getLast())
                         .orElse(BigDecimal.ZERO);
 
                 if (currentPrice.compareTo(BigDecimal.ZERO) == 0) {
                     log.warn("No current price available for symbol={}", pos.getSymbol());
+                    warnings.add(pos.getSymbol() + ": güncel fiyat bulunamadı, "
+                            + "pozisyon özetten dışlandı.");
                     continue;
+                }
+
+                // Track freshness across all included positions.
+                if (latestQuoteOpt.isPresent() && latestQuoteOpt.get().getAsOf() != null) {
+                    java.time.Instant ts = latestQuoteOpt.get().getAsOf();
+                    if (freshestAsOf == null || ts.isAfter(freshestAsOf)) {
+                        freshestAsOf = ts;
+                    }
                 }
 
                 String instrumentType = inst.getInstrumentType() != null ? inst.getInstrumentType().name() : "STOCK";
@@ -186,13 +205,18 @@ public class PortfolioCalculationService {
                         .multiply(BigDecimal.valueOf(100))
                         : BigDecimal.ZERO;
 
-                // Get daily change from quote
-                BigDecimal dailyChangePercent = quoteRepo.findTop1ByInstrumentOrderByAsOfDesc(inst)
+                // Daily change pulled from the latest quote we already fetched
+                // above. Returning `null` when the quote has no changePct lets
+                // the frontend render "—" instead of a misleading "0.00%" that
+                // looks like "no movement".
+                BigDecimal dailyChangePercent = latestQuoteOpt
                         .map(q -> q.getChangePct())
-                        .orElse(BigDecimal.ZERO);
+                        .orElse(null);
 
-                BigDecimal dailyChangeValue = currentValue.multiply(dailyChangePercent)
-                        .divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP);
+                BigDecimal dailyChangeValue = dailyChangePercent == null
+                        ? null
+                        : currentValue.multiply(dailyChangePercent)
+                                .divide(BigDecimal.valueOf(100), 6, RoundingMode.HALF_UP);
 
                 java.time.LocalDate buyDate = pos.getPurchaseDate() != null ? 
                         pos.getPurchaseDate() : java.time.LocalDate.now();
@@ -241,7 +265,9 @@ public class PortfolioCalculationService {
                 totalCurrentValue,
                 totalChangeValue,
                 totalChangePercent,
-                positionDetails
+                positionDetails,
+                freshestAsOf,
+                warnings
         );
     }
 }

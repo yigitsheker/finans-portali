@@ -9,23 +9,60 @@ import { usePortfolioPage } from "../hooks/usePortfolioPage";
 export default function Portfolio({ keycloak }) {
   const portfolio = usePortfolioPage(keycloak);
 
+  // Pulled out of summaryDetail so the SummaryCards header can show
+  // "Güncelleme: HH:mm" and the warnings banner can render any
+  // server-side advisories (e.g. an instrument missing from the catalog).
+  const asOf = portfolio.summaryDetail?.asOf ?? null;
+  const warnings = portfolio.summaryDetail?.warnings ?? [];
+  const isFallbackPerf = portfolio.perfResponse?.source === "BUY_CURRENT_FALLBACK";
+
   return (
     <div style={s.root}>
-      <SummaryCards stats={portfolio.stats} loading={portfolio.loading} error={portfolio.err} />
+      <SummaryCards
+        stats={portfolio.stats}
+        loading={portfolio.loading}
+        error={portfolio.err}
+        asOf={asOf}
+        onRefresh={portfolio.refresh}
+        refreshing={portfolio.loading}
+      />
 
       {portfolio.err && <div style={s.errBox}>{portfolio.err}</div>}
 
+      {/* Server-side advisories — surfaces what would otherwise be silent
+          (e.g. a position whose instrument was deleted from the catalog). */}
+      {warnings.length > 0 && (
+        <div style={styles.warnBanner} role="alert">
+          <strong style={{ marginRight: 6 }}>⚠️ Bazı pozisyonlar gösterilmiyor:</strong>
+          <ul style={styles.warnList}>
+            {warnings.map((w, i) => (<li key={i}>{w}</li>))}
+          </ul>
+        </div>
+      )}
+
       {!portfolio.loading && portfolio.items.length > 0 && (
-        <PortfolioCharts
-          perfData={portfolio.perfData}
-          perfResponse={portfolio.perfResponse}
-          perfLoading={portfolio.perfLoading}
-          perfPeriod={portfolio.perfPeriod}
-          setPerfPeriod={portfolio.setPerfPeriod}
-          allocView={portfolio.allocView}
-          setAllocView={portfolio.setAllocView}
-          allocData={portfolio.allocData}
-        />
+        <>
+          {/* Performance fallback hint — the backend marks the response as
+              BUY_CURRENT_FALLBACK when it could only build a 2-point line
+              (cost basis vs. current). Without this hint, the chart looks
+              like real historical data and misleads the user. */}
+          {isFallbackPerf && (
+            <div style={styles.infoBanner}>
+              ℹ️ Geçmiş veri bulunamadığı için grafik sadece alış fiyatı ve güncel fiyat ile çiziliyor.
+              Fiyat geçmişi cache'lendikten sonra tam grafik görünecek.
+            </div>
+          )}
+          <PortfolioCharts
+            perfData={portfolio.perfData}
+            perfResponse={portfolio.perfResponse}
+            perfLoading={portfolio.perfLoading}
+            perfPeriod={portfolio.perfPeriod}
+            setPerfPeriod={portfolio.setPerfPeriod}
+            allocView={portfolio.allocView}
+            setAllocView={portfolio.setAllocView}
+            allocData={portfolio.allocData}
+          />
+        </>
       )}
 
       <PositionsTable
@@ -78,3 +115,29 @@ export default function Portfolio({ keycloak }) {
     </div>
   );
 }
+
+const styles = {
+  warnBanner: {
+    padding: "10px 14px",
+    background: "rgba(245, 158, 11, 0.10)",
+    color: "var(--text-primary)",
+    border: "1px solid rgba(245, 158, 11, 0.35)",
+    borderRadius: 8,
+    fontSize: 13,
+    marginBottom: 12,
+  },
+  warnList: {
+    margin: "4px 0 0 18px",
+    padding: 0,
+    color: "var(--text-muted)",
+  },
+  infoBanner: {
+    padding: "8px 12px",
+    background: "rgba(59, 130, 246, 0.10)",
+    color: "var(--text-primary)",
+    border: "1px solid rgba(59, 130, 246, 0.35)",
+    borderRadius: 8,
+    fontSize: 12,
+    marginBottom: 12,
+  },
+};

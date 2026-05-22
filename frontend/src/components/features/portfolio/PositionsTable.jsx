@@ -77,7 +77,10 @@ export function PositionsTable({
                   if (!sourcePosition) return null;
 
                   const totalChangePos = position.totalChangePercent >= 0;
-                  const dailyChangePos = position.dailyChangePercent >= 0;
+                  // Backend returns null daily change when the quote has no
+                  // changePct field — we show "—" rather than fake a 0.00%.
+                  const hasDaily = position.dailyChangePercent != null;
+                  const dailyChangePos = hasDaily && position.dailyChangePercent >= 0;
                   const purchaseDate = position.buyDate ? new Date(position.buyDate).toLocaleDateString("tr-TR") : "-";
                   // position.currency is the authoritative native currency on this path.
                   const cur = position.currency;
@@ -94,8 +97,14 @@ export function PositionsTable({
                       <td style={{ ...s.td, color: totalChangePos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
                         {totalChangePos ? "+" : ""}{position.totalChangePercent.toFixed(2)}%
                       </td>
-                      <td style={{ ...s.td, color: dailyChangePos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
-                        {dailyChangePos ? "▲ +" : "▼ "}{Math.abs(position.dailyChangePercent).toFixed(2)}%
+                      <td style={{
+                        ...s.td,
+                        color: hasDaily ? (dailyChangePos ? "var(--green)" : "var(--red)") : "var(--text-muted)",
+                        fontWeight: 600,
+                      }}>
+                        {hasDaily
+                          ? `${dailyChangePos ? "▲ +" : "▼ "}${Math.abs(position.dailyChangePercent).toFixed(2)}%`
+                          : "—"}
                       </td>
                       <td style={s.td}>
                         <button style={s.sellBtn} onClick={() => openSell(sourcePosition)}>{t("portfolio.sell")}</button>
@@ -111,8 +120,11 @@ export function PositionsTable({
                   const change = cost > 0 ? ((current - cost) / cost) * 100 : 0;
                   const totalChangePos = change >= 0;
                   const market = marketData.find((item) => item.symbol === position.symbol);
+                  // Distinguish "no quote data" from "0% change" so the column
+                  // doesn't fake movement when the scheduler hasn't run yet.
+                  const hasDaily = market?.changePct != null;
                   const dailyChangePct = market?.changePct ?? 0;
-                  const dailyChangePos = dailyChangePct >= 0;
+                  const dailyChangePos = hasDaily && dailyChangePct >= 0;
                   const purchaseDate = position.purchaseDate ? new Date(position.purchaseDate).toLocaleDateString("tr-TR") : "-";
                   const type = typeOf(position.symbol);
 
@@ -128,8 +140,14 @@ export function PositionsTable({
                       <td style={{ ...s.td, color: totalChangePos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
                         {totalChangePos ? "+" : ""}{change.toFixed(2)}%
                       </td>
-                      <td style={{ ...s.td, color: dailyChangePos ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
-                        {dailyChangePos ? "▲ +" : "▼ "}{Math.abs(dailyChangePct).toFixed(2)}%
+                      <td style={{
+                        ...s.td,
+                        color: hasDaily ? (dailyChangePos ? "var(--green)" : "var(--red)") : "var(--text-muted)",
+                        fontWeight: 600,
+                      }}>
+                        {hasDaily
+                          ? `${dailyChangePos ? "▲ +" : "▼ "}${Math.abs(dailyChangePct).toFixed(2)}%`
+                          : "—"}
                       </td>
                       <td style={s.td}>
                         <button style={s.sellBtn} onClick={() => openSell(position)}>{t("portfolio.sell")}</button>

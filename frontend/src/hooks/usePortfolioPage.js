@@ -377,6 +377,9 @@ export function usePortfolioPage(keycloak) {
     closeSellModal,
     onAdd,
     onSell,
+    // Manual refresh — wired to the refresh button in the page header so the
+    // user can pull fresh quotes without a full page reload.
+    refresh,
   };
 }
 
