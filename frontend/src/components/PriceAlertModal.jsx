@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Modal from "./Modal";
 import { createPriceAlert, getUserAlerts, deletePriceAlert, triggerAlertManually, searchMarketInstruments } from "../api/portfolioApi";
+import { useCurrencyDisplay, nativeCurrencyOf } from "../contexts/CurrencyDisplayContext";
 
 const ALERT_TYPES = [
     { value: "PRICE_ABOVE", label: "Fiyat Üstü", description: "Fiyat hedef seviyenin üzerine çıktığında" },
@@ -19,11 +20,27 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
     const [alertType, setAlertType] = useState("PRICE_ABOVE");
     const [targetPrice, setTargetPrice] = useState(prefilledPrice?.toString() || "");
     const [note, setNote] = useState("");
+    // Captured when the user picks from autocomplete (instrument.type — "BIST",
+    // "STOCK", "CRYPTO" ...). Lets us resolve the native currency when the
+    // site-wide currency mode is "original".
+    const [selectedType, setSelectedType] = useState(null);
 
     // Autocomplete state
     const [searchResults, setSearchResults] = useState([]);
     const [showDropdown, setShowDropdown] = useState(false);
     const [searchLoading, setSearchLoading] = useState(false);
+
+    // Site-wide currency toggle ("original" | "TRY" | "USD")
+    const { mode: currencyMode } = useCurrencyDisplay();
+
+    // Effective currency this alert will be created in. PERCENT_* alerts target
+    // a percentage and don't really need a currency, but we still snapshot one
+    // so the email's "current price" line shows the right symbol.
+    const effectiveCurrency = useMemo(() => {
+        if (currencyMode === "USD" || currencyMode === "TRY") return currencyMode;
+        return nativeCurrencyOf(selectedType, symbol);
+    }, [currencyMode, selectedType, symbol]);
+    const priceSymbol = effectiveCurrency === "USD" ? "$" : "₺";
 
     useEffect(() => {
         if (open) {
@@ -89,6 +106,7 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                 alertType,
                 targetPrice: parseFloat(targetPrice),
                 note: note.trim() || undefined,
+                currency: effectiveCurrency,    // ₺/$ snapshot — backend stores & emails in this
             };
 
             console.log("[AlertModal] Creating alert:", request);
@@ -99,6 +117,7 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
             setSymbol("");
             setTargetPrice("");
             setNote("");
+            setSelectedType(null);
             setShowDropdown(false);
 
             // Reload alerts
@@ -121,6 +140,9 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
 
     const handleSelectInstrument = (instrument) => {
         setSymbol(instrument.symbol);
+        // Remember the type — in "original" currency mode we need it to decide
+        // whether this alert is natively a TRY or USD instrument.
+        setSelectedType(instrument.type || null);
         setShowDropdown(false);
     };
 
@@ -155,11 +177,13 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
         }
     };
 
-    const formatPrice = (price) => {
-        return new Intl.NumberFormat('tr-TR', {
+    const formatPrice = (price, currency) => {
+        const formatted = new Intl.NumberFormat('tr-TR', {
             minimumFractionDigits: 2,
             maximumFractionDigits: 4,
         }).format(price);
+        const sym = currency === "USD" ? "$" : "₺";
+        return `${sym}${formatted}`;
     };
 
     const formatDate = (dateStr) => {
@@ -245,17 +269,28 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                         <div style={s.row}>
                             <div style={s.field}>
                                 <label style={s.label}>
-                                    Hedef {alertType.includes("PERCENT") ? "Yüzde (%)" : "Fiyat"}
+                                    Hedef {alertType.includes("PERCENT")
+                                        ? "Yüzde (%)"
+                                        : `Fiyat (${priceSymbol})`}
                                 </label>
-                                <input
-                                    type="number"
-                                    step="0.0001"
-                                    value={targetPrice}
-                                    onChange={(e) => setTargetPrice(e.target.value)}
-                                    placeholder={alertType.includes("PERCENT") ? "5.0" : "100.50"}
-                                    style={s.input}
-                                    required
-                                />
+                                <div style={s.inputWithAdornment}>
+                                    {!alertType.includes("PERCENT") && (
+                                        <span style={s.inputAdornment}>{priceSymbol}</span>
+                                    )}
+                                    <input
+                                        type="number"
+                                        step="0.0001"
+                                        value={targetPrice}
+                                        onChange={(e) => setTargetPrice(e.target.value)}
+                                        placeholder={alertType.includes("PERCENT") ? "5.0" : "100.50"}
+                                        style={{
+                                            ...s.input,
+                                            flex: 1,
+                                            paddingLeft: alertType.includes("PERCENT") ? undefined : 28,
+                                        }}
+                                        required
+                                    />
+                                </div>
                             </div>
                             <div style={s.field}>
                                 <label style={s.label}>Not (Opsiyonel)</label>
@@ -321,11 +356,15 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                         </div>
                                         <div style={s.alertRow}>
                                             <span>Hedef:</span>
-                                            <span>{formatPrice(alert.targetPrice)}</span>
+                                            <span>
+                                                {alert.alertType?.startsWith("PERCENT_")
+                                                    ? `%${alert.targetPrice}`
+                                                    : formatPrice(alert.targetPrice, alert.currency)}
+                                            </span>
                                         </div>
                                         <div style={s.alertRow}>
                                             <span>Mevcut:</span>
-                                            <span>{formatPrice(alert.currentPrice)}</span>
+                                            <span>{formatPrice(alert.currentPrice, alert.currency)}</span>
                                         </div>
                                         {alert.progressPercent !== undefined && (
                                             <div style={s.alertRow}>
@@ -421,6 +460,20 @@ const s = {
         background: "var(--input-bg)",
         color: "var(--text-primary)",
         fontSize: 14,
+    },
+    inputWithAdornment: {
+        position: "relative",
+        display: "flex",
+        alignItems: "center",
+        width: "100%",
+    },
+    inputAdornment: {
+        position: "absolute",
+        left: 10,
+        color: "var(--text-muted)",
+        fontSize: 14,
+        fontWeight: 500,
+        pointerEvents: "none",
     },
     select: {
         padding: "8px 12px",

@@ -62,6 +62,22 @@ public class PriceAlert {
     @Column(name = "user_email", length = 200)
     private String userEmail;
 
+    /** UI language captured at creation time ('tr' or 'en'). The scheduled
+     *  trigger has no UI session, so we snapshot the user's choice here.
+     *  Defaults to 'tr' for legacy rows. */
+    @Column(name = "language", nullable = false, length = 2)
+    @Builder.Default
+    private String language = "tr";
+
+    /** Currency the user picked on the site when creating the alarm
+     *  ('TRY' or 'USD'). targetPrice, creationPrice and triggeredPrice are
+     *  all interpreted in this currency. The scheduled checker converts the
+     *  native quote to this currency before comparing. Defaults to 'TRY'
+     *  for legacy rows. */
+    @Column(name = "currency", nullable = false, length = 3)
+    @Builder.Default
+    private String currency = "TRY";
+
     @PrePersist
     protected void onCreate() {
         if (createdAt == null) {

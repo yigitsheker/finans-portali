@@ -18,12 +18,16 @@ public record AlertView(
         BigDecimal triggeredPrice,
         String note,
         String status,
-        Double progressPercent
+        Double progressPercent,
+        /** "TRY" or "USD" — the currency targetPrice/creationPrice/currentPrice
+         *  are all denominated in. Frontend uses it to render ₺ or $. */
+        String currency
 ) {
     public static AlertView fromAlert(com.finansportali.backend.entity.PriceAlert alert, BigDecimal currentPrice) {
         String status = alert.getActive() ? "Aktif" : "Tetiklendi";
         Double progressPercent = calculateProgress(alert, currentPrice);
-        
+        String currency = alert.getCurrency() != null ? alert.getCurrency() : "TRY";
+
         return new AlertView(
                 alert.getId(),
                 alert.getSymbol(),
@@ -38,7 +42,8 @@ public record AlertView(
                 alert.getTriggeredPrice(),
                 alert.getNote(),
                 status,
-                progressPercent
+                progressPercent,
+                currency
         );
     }
 

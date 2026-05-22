@@ -55,6 +55,16 @@ public class NotificationService {
         sendPriceAlertInternal(alert, currentPrice, email, username);
     }
 
+    /** Returns "en" for the alert's English variant, "tr" otherwise. */
+    private static String langOf(PriceAlert alert) {
+        return "en".equalsIgnoreCase(alert.getLanguage()) ? "en" : "tr";
+    }
+
+    /** "$" for USD alerts, "₺" otherwise. */
+    private static String currencySymbol(PriceAlert alert) {
+        return "USD".equalsIgnoreCase(alert.getCurrency()) ? "$" : "₺";
+    }
+
     /**
      * Scheduled-path: a background job tripped the alert. No Authentication
      * context, so we look the email up live from Keycloak using the stored userId.
@@ -79,13 +89,17 @@ public class NotificationService {
 
     private void sendPriceAlertInternal(PriceAlert alert, BigDecimal currentPrice,
                                         String email, String username) {
-        String message = formatAlertMessage(alert, currentPrice);
+        String lang = langOf(alert);
+        String message = formatAlertMessage(alert, currentPrice, lang);
         log.info("🔔 PRICE ALERT: {}", message);
 
         // 1) Persist as in-app notification (visible in the bell dropdown).
         try {
+            String title = "en".equals(lang)
+                    ? alert.getSymbol() + " price alert triggered"
+                    : alert.getSymbol() + " fiyat alarmı tetiklendi";
             recordNotification(alert.getUserId(), "PRICE_ALERT",
-                    alert.getSymbol() + " fiyat alarmı tetiklendi",
+                    title,
                     message,
                     String.valueOf(alert.getId()));
         } catch (Exception e) {
@@ -98,8 +112,8 @@ public class NotificationService {
             return;
         }
         try {
-            sendAlertEmail(email, username, alert, currentPrice, message);
-            log.info("✅ Email notification sent to {} for alert {}", email, alert.getId());
+            sendAlertEmail(email, username, alert, currentPrice, message, lang);
+            log.info("✅ Email notification sent to {} for alert {} (lang={})", email, alert.getId(), lang);
         } catch (Exception e) {
             log.error("❌ Failed to send email to {} for alert {}: {}", email, alert.getId(), e.getMessage(), e);
         }
@@ -114,7 +128,8 @@ public class NotificationService {
         return notificationRepository.save(n);
     }
 
-    private void sendAlertEmail(String toEmail, String username, PriceAlert alert, BigDecimal currentPrice, String message) {
+    private void sendAlertEmail(String toEmail, String username, PriceAlert alert,
+                                BigDecimal currentPrice, String message, String lang) {
         try {
             MimeMessage mimeMessage = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, true, "UTF-8");
@@ -126,27 +141,63 @@ public class NotificationService {
                     : "noreply@finansportali.com";
             helper.setFrom(from);
             helper.setTo(toEmail);
-            helper.setSubject("🔔 Fiyat Alarmı Tetiklendi: " + alert.getSymbol());
-            
-            String htmlContent = buildAlertEmailHtml(username, alert, currentPrice, message);
+            String subject = "en".equals(lang)
+                    ? "🔔 Price Alert Triggered: " + alert.getSymbol()
+                    : "🔔 Fiyat Alarmı Tetiklendi: " + alert.getSymbol();
+            helper.setSubject(subject);
+
+            String htmlContent = buildAlertEmailHtml(username, alert, currentPrice, message, lang);
             helper.setText(htmlContent, true);
-            
+
             mailSender.send(mimeMessage);
         } catch (MessagingException e) {
             log.error("Failed to send email to {}: {}", toEmail, e.getMessage(), e);
-            throw new RuntimeException("Email gönderilemedi", e);
+            throw new RuntimeException(
+                    "en".equals(lang) ? "Email could not be sent" : "Email gönderilemedi", e);
         }
     }
 
-    private String buildAlertEmailHtml(String username, PriceAlert alert, BigDecimal currentPrice, String message) {
-        NumberFormat formatter = NumberFormat.getNumberInstance(Locale.forLanguageTag("tr-TR"));
+    private String buildAlertEmailHtml(String username, PriceAlert alert, BigDecimal currentPrice,
+                                       String message, String lang) {
+        boolean en = "en".equals(lang);
+        // tr-TR uses dot grouping ("1.234,5678"); en-US uses comma grouping ("1,234.5678")
+        NumberFormat formatter = NumberFormat.getNumberInstance(
+                Locale.forLanguageTag(en ? "en-US" : "tr-TR"));
         formatter.setMaximumFractionDigits(4);
-        
+
+        // PERCENT alerts: targetPrice is a percentage, so we render it as "%X"
+        // instead of "₺X". The current price snapshot stays in the alert's
+        // currency for context.
+        boolean percentAlert = alert.getAlertType() != null
+                && alert.getAlertType().name().startsWith("PERCENT_");
+        String priceSym = currencySymbol(alert);
+
         String symbol = alert.getSymbol();
         String instrumentName = alert.getInstrument().getName();
-        String current = formatter.format(currentPrice);
-        String target = formatter.format(alert.getTargetPrice());
-        String alertTypeLabel = getAlertTypeLabel(alert.getAlertType().name());
+        String current = priceSym + formatter.format(currentPrice);
+        String target = percentAlert
+                ? "%" + formatter.format(alert.getTargetPrice())
+                : priceSym + formatter.format(alert.getTargetPrice());
+        String alertTypeLabel = getAlertTypeLabel(alert.getAlertType().name(), lang);
+
+        // Localized labels
+        String headerTitle    = en ? "🔔 Price Alert Triggered"             : "🔔 Fiyat Alarmı Tetiklendi";
+        String greeting       = en ? "Hi "                                  : "Merhaba ";
+        String detailsHeader  = en ? "Alert Details"                        : "Alarm Detayları";
+        String labelType      = en ? "Alert Type:"                          : "Alarm Tipi:";
+        String labelTarget    = en ? "Target Price:"                        : "Hedef Fiyat:";
+        String labelCurrent   = en ? "Current Price:"                       : "Mevcut Fiyat:";
+        String labelCreation  = en ? "Creation Price:"                      : "Oluşturulma Fiyatı:";
+        String labelNote      = en ? "📝 Your note:"                        : "📝 Notunuz:";
+        String autoDisabled   = en
+                ? "This alert was automatically deactivated. Visit Finans Portalı to create a new one."
+                : "Bu alarm otomatik olarak devre dışı bırakıldı. Yeni bir alarm oluşturmak için Finans Portalı'nı ziyaret edin.";
+        String footerLine1    = en
+                ? "This email was sent automatically by Finans Portalı."
+                : "Bu e-posta Finans Portalı tarafından otomatik olarak gönderilmiştir.";
+        String footerLine2    = en
+                ? "© 2026 Finans Portalı. All rights reserved."
+                : "© 2026 Finans Portalı. Tüm hakları saklıdır.";
         
         StringBuilder html = new StringBuilder();
         html.append("<!DOCTYPE html>");
@@ -172,9 +223,10 @@ public class NotificationService {
         
         // Header
         html.append("<div class='header'>");
-        html.append("<h1>🔔 Fiyat Alarmı Tetiklendi</h1>");
+        html.append("<h1>").append(headerTitle).append("</h1>");
         if (username != null && !username.isEmpty()) {
-            html.append("<p style='margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;'>Merhaba ").append(username).append(",</p>");
+            html.append("<p style='margin: 10px 0 0 0; font-size: 14px; opacity: 0.9;'>")
+                .append(greeting).append(username).append(",</p>");
         }
         html.append("</div>");
         
@@ -188,51 +240,51 @@ public class NotificationService {
         
         // Details
         html.append("<div style='background: white; padding: 20px; border-radius: 5px;'>");
-        html.append("<h3 style='margin-top: 0;'>Alarm Detayları</h3>");
-        
+        html.append("<h3 style='margin-top: 0;'>").append(detailsHeader).append("</h3>");
+
         html.append("<div class='info-row'>");
-        html.append("<span class='info-label'>Alarm Tipi:</span>");
+        html.append("<span class='info-label'>").append(labelType).append("</span>");
         html.append("<span class='info-value'>").append(alertTypeLabel).append("</span>");
         html.append("</div>");
-        
+
         html.append("<div class='info-row'>");
-        html.append("<span class='info-label'>Hedef Fiyat:</span>");
+        html.append("<span class='info-label'>").append(labelTarget).append("</span>");
         html.append("<span class='info-value'>").append(target).append("</span>");
         html.append("</div>");
-        
+
         html.append("<div class='info-row'>");
-        html.append("<span class='info-label'>Mevcut Fiyat:</span>");
+        html.append("<span class='info-label'>").append(labelCurrent).append("</span>");
         html.append("<span class='info-value' style='color: #22c55e; font-weight: bold;'>").append(current).append("</span>");
         html.append("</div>");
-        
+
         if (alert.getCreationPrice() != null) {
-            String creationPrice = formatter.format(alert.getCreationPrice());
+            String creationPrice = priceSym + formatter.format(alert.getCreationPrice());
             html.append("<div class='info-row'>");
-            html.append("<span class='info-label'>Oluşturulma Fiyatı:</span>");
+            html.append("<span class='info-label'>").append(labelCreation).append("</span>");
             html.append("<span class='info-value'>").append(creationPrice).append("</span>");
             html.append("</div>");
         }
-        
+
         html.append("</div>");
-        
+
         // User note if exists
         if (alert.getNote() != null && !alert.getNote().trim().isEmpty()) {
             html.append("<div class='note-box'>");
-            html.append("<strong>📝 Notunuz:</strong><br>");
+            html.append("<strong>").append(labelNote).append("</strong><br>");
             html.append(alert.getNote());
             html.append("</div>");
         }
-        
+
         html.append("<p style='margin-top: 20px; color: #6b7280;'>");
-        html.append("Bu alarm otomatik olarak devre dışı bırakıldı. Yeni bir alarm oluşturmak için Finans Portalı'nı ziyaret edin.");
+        html.append(autoDisabled);
         html.append("</p>");
-        
+
         html.append("</div>");
-        
+
         // Footer
         html.append("<div class='footer'>");
-        html.append("<p>Bu e-posta Finans Portalı tarafından otomatik olarak gönderilmiştir.</p>");
-        html.append("<p>© 2026 Finans Portalı. Tüm hakları saklıdır.</p>");
+        html.append("<p>").append(footerLine1).append("</p>");
+        html.append("<p>").append(footerLine2).append("</p>");
         html.append("</div>");
         
         html.append("</div>");
@@ -242,36 +294,62 @@ public class NotificationService {
         return html.toString();
     }
 
-    private String formatAlertMessage(PriceAlert alert, BigDecimal currentPrice) {
-        NumberFormat formatter = NumberFormat.getNumberInstance(Locale.forLanguageTag("tr-TR"));
+    private String formatAlertMessage(PriceAlert alert, BigDecimal currentPrice, String lang) {
+        boolean en = "en".equals(lang);
+        NumberFormat formatter = NumberFormat.getNumberInstance(
+                Locale.forLanguageTag(en ? "en-US" : "tr-TR"));
         formatter.setMaximumFractionDigits(4);
-        
+
+        String priceSym = currencySymbol(alert);
         String symbol = alert.getSymbol();
         String instrumentName = alert.getInstrument().getName();
-        String current = formatter.format(currentPrice);
-        String target = formatter.format(alert.getTargetPrice());
-        
+        // PRICE_*: render as currency. PERCENT_*: targetPrice is a %, currentPrice still a money value.
+        String current = priceSym + formatter.format(currentPrice);
+        String priceTarget = priceSym + formatter.format(alert.getTargetPrice());
+        String pctTarget = formatter.format(alert.getTargetPrice());
+
+        if (en) {
+            return switch (alert.getAlertType()) {
+                case PRICE_ABOVE -> String.format(
+                    "%s (%s) price exceeded the level of %s! Current: %s, Target: %s",
+                    symbol, instrumentName, priceTarget, current, priceTarget);
+                case PRICE_BELOW -> String.format(
+                    "%s (%s) price dropped below %s! Current: %s, Target: %s",
+                    symbol, instrumentName, priceTarget, current, priceTarget);
+                case PERCENT_GAIN -> String.format(
+                    "%s (%s) reached the %%%s gain target! Current price: %s",
+                    symbol, instrumentName, pctTarget, current);
+                case PERCENT_LOSS -> String.format(
+                    "%s (%s) reached the %%%s loss level! Current price: %s",
+                    symbol, instrumentName, pctTarget, current);
+            };
+        }
         return switch (alert.getAlertType()) {
             case PRICE_ABOVE -> String.format(
-                "%s (%s) fiyatı %s seviyesini aştı! Mevcut: %s, Hedef: %s", 
-                symbol, instrumentName, target, current, target
-            );
+                "%s (%s) fiyatı %s seviyesini aştı! Mevcut: %s, Hedef: %s",
+                symbol, instrumentName, priceTarget, current, priceTarget);
             case PRICE_BELOW -> String.format(
-                "%s (%s) fiyatı %s seviyesinin altına düştü! Mevcut: %s, Hedef: %s", 
-                symbol, instrumentName, target, current, target
-            );
+                "%s (%s) fiyatı %s seviyesinin altına düştü! Mevcut: %s, Hedef: %s",
+                symbol, instrumentName, priceTarget, current, priceTarget);
             case PERCENT_GAIN -> String.format(
-                "%s (%s) %%%s kazanç hedefine ulaştı! Mevcut fiyat: %s", 
-                symbol, instrumentName, target, current
-            );
+                "%s (%s) %%%s kazanç hedefine ulaştı! Mevcut fiyat: %s",
+                symbol, instrumentName, pctTarget, current);
             case PERCENT_LOSS -> String.format(
-                "%s (%s) %%%s kayıp seviyesine ulaştı! Mevcut fiyat: %s", 
-                symbol, instrumentName, target, current
-            );
+                "%s (%s) %%%s kayıp seviyesine ulaştı! Mevcut fiyat: %s",
+                symbol, instrumentName, pctTarget, current);
         };
     }
 
-    private String getAlertTypeLabel(String alertType) {
+    private String getAlertTypeLabel(String alertType, String lang) {
+        if ("en".equals(lang)) {
+            return switch (alertType) {
+                case "PRICE_ABOVE" -> "Price Above";
+                case "PRICE_BELOW" -> "Price Below";
+                case "PERCENT_GAIN" -> "% Gain";
+                case "PERCENT_LOSS" -> "% Loss";
+                default -> alertType;
+            };
+        }
         return switch (alertType) {
             case "PRICE_ABOVE" -> "Fiyat Üstü";
             case "PRICE_BELOW" -> "Fiyat Altı";

@@ -7,7 +7,10 @@ public record CreateAlertRequest(
         String symbol,
         AlertType alertType,
         BigDecimal targetPrice,
-        String note
+        String note,
+        /** "TRY" or "USD" — currency the user picked on the site. Optional;
+         *  the service falls back to the instrument's native currency when null. */
+        String currency
 ) {
     public CreateAlertRequest {
         if (symbol == null || symbol.isBlank()) {
@@ -19,5 +22,10 @@ public record CreateAlertRequest(
         if (targetPrice == null || targetPrice.compareTo(BigDecimal.ZERO) <= 0) {
             throw new IllegalArgumentException("Target price must be positive");
         }
+    }
+
+    /** Legacy 4-arg constructor for callers/tests that pre-date the currency field. */
+    public CreateAlertRequest(String symbol, AlertType alertType, BigDecimal targetPrice, String note) {
+        this(symbol, alertType, targetPrice, note, null);
     }
 }
