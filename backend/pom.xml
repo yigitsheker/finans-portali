@@ -203,9 +203,18 @@
 				</configuration>
 			</plugin>
 			<!-- JaCoCo: attach to the test phase, write target/site/jacoco/{index.html,jacoco.xml}.
-			     Excludes things we can't meaningfully cover (DTOs, generated config,
-			     entities — Lombok-generated getters/setters drown the report
-			     otherwise). -->
+			     Excludes things we can't meaningfully unit-test:
+			       - dto/entity/config — getters/setters or no behaviour
+			       - service/client/** — external HTTP fetchers (Yahoo, TCMB,
+			         Investing, TEFAS, IsYatirim, RSS). These need WireMock
+			         per fetcher; in CI we smoke-test them against the live
+			         containers, not in the unit JVM.
+			       - service/scheduler/** — wraps @Scheduled methods with
+			         tracing; tested transitively through the services they
+			         delegate to.
+			       - filter/security/** — request filters, JWT converters,
+			         IO at the servlet boundary.
+			       - service/email & NewsContentFetcher — outbound network. -->
 			<plugin>
 				<groupId>org.jacoco</groupId>
 				<artifactId>jacoco-maven-plugin</artifactId>
@@ -213,9 +222,20 @@
 				<configuration>
 					<excludes>
 						<exclude>com/finansportali/backend/BackendApplication.class</exclude>
+						<exclude>com/finansportali/backend/CheckDatabase.class</exclude>
+						<exclude>com/finansportali/backend/ResetDatabase.class</exclude>
+						<exclude>com/finansportali/backend/FixFlywayHistory.class</exclude>
 						<exclude>com/finansportali/backend/dto/**</exclude>
 						<exclude>com/finansportali/backend/entity/**</exclude>
 						<exclude>com/finansportali/backend/config/**</exclude>
+						<exclude>com/finansportali/backend/repository/DebtInstrumentSpecifications.class</exclude>
+						<exclude>com/finansportali/backend/service/client/**</exclude>
+						<exclude>com/finansportali/backend/service/scheduler/**</exclude>
+						<exclude>com/finansportali/backend/service/market/MarketDataSeedService.class</exclude>
+						<exclude>com/finansportali/backend/service/KeycloakAdminService.class</exclude>
+						<exclude>com/finansportali/backend/filter/**</exclude>
+						<exclude>com/finansportali/backend/security/**</exclude>
+						<exclude>com/finansportali/backend/util/TefasApiTester.class</exclude>
 					</excludes>
 				</configuration>
 				<executions>
