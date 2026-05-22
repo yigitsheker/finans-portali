@@ -19,18 +19,13 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-    # Dev mode serves on host port 5173 — Vite's standard convention,
-    # and avoids fighting Windows' HTTP.sys reservation on port 80
-    # (the "Temporary_Listen_Addresses" URL-ACL prevents Docker from
-    # binding :80 even when nothing is actively listening). Prod still
-    # uses :80 via the default Dockerfile + nginx.
-    # Visit http://localhost:5173 while the dev stack is up.
-    #
-    # `!override` *replaces* the base file's [80:80] list instead of
-    # appending — without it the container would try to bind both ports,
-    # which collides with HTTP.sys on :80.
+    # Dev mode binds host port 80 → container's Vite (5173), so the URL
+    # stays http://localhost (no visible port in the address bar — port
+    # 80 is HTTP's default and browsers hide it). `!override` *replaces*
+    # the base file's [80:80] entry instead of appending; without it
+    # compose would try to bind two host ports to one container port.
     ports: !override
-      - "5173:5173"
+      - "80:5173"
     # Tag the image differently from the prod image so compose doesn't
     # silently reuse the baked nginx layer when bringing the dev stack
     # up. The Dockerfile.dev path is what makes this a Vite server image.
