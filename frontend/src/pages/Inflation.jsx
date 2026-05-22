@@ -231,10 +231,18 @@ function pctColor(v) {
 }
 
 function formatPeriod(isoDate) {
-  // "2024-01-01" → "Ocak 2024"
-  const months = ["Ocak", "Şubat", "Mart", "Nisan", "Mayıs", "Haziran", "Temmuz", "Ağustos", "Eylül", "Ekim", "Kasım", "Aralık"];
+  // Intl handles month-name localization for us — no hand-written month
+  // tables to translate. Falls back to TR if the active language is anything
+  // other than "en" (matches the rest of the app's binary-locale convention).
+  let lang = "tr";
+  try {
+    const v = (localStorage.getItem("i18n-lang") || "").toLowerCase();
+    if (v === "en") lang = "en";
+  } catch { /* ignore */ }
+  const locale = lang === "en" ? "en-US" : "tr-TR";
   const [y, m] = isoDate.split("-");
-  return `${months[Number(m) - 1]} ${y}`;
+  const date = new Date(Number(y), Number(m) - 1, 1);
+  return new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(date);
 }
 
 const s = {

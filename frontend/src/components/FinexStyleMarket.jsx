@@ -297,7 +297,15 @@ export default function FinexStyleMarket({
         if (filtered.length === 0) return;
         let cancelled = false;
         const PERIOD = "1M";
-        const visible = filtered.slice(0, 50);
+        // Previously this was capped at the first 50 rows. Stocks / Crypto
+        // listings comfortably exceed that, so anything past row 50 rendered
+        // with no sparkline — looking suspiciously flat to the user. Bumping
+        // to 200 covers BIST and the major coin universes; we still chunk the
+        // network call to keep individual responses under the backend's
+        // batch-size sweet spot.
+        const SPARKLINE_LIMIT = 200;
+        const BATCH_SIZE = 50;
+        const visible = filtered.slice(0, SPARKLINE_LIMIT);
 
         // Step 1: synchronous cache hydration. Fills sparklines from cache
         // even for stale entries — those still render and look right while
@@ -322,39 +330,46 @@ export default function FinexStyleMarket({
         }
         if (needsFetch.length === 0) return;
 
-        // Step 2: one batch request for the missing/stale ones.
+        // Step 2: batch the remaining symbols into chunks so a 200-symbol
+        // listing doesn't push one giant payload through the backend.
         (async () => {
-            try {
-                const map = await getMarketHistoryBatch(needsFetch, PERIOD);
+            for (let i = 0; i < needsFetch.length; i += BATCH_SIZE) {
                 if (cancelled) return;
-                const update = {};
-                for (const sym of needsFetch) {
-                    const history = map[sym];
-                    if (Array.isArray(history) && history.length > 0) {
-                        update[sym] = history.map((h) => ({
-                            time: h.day.split("T")[0],
-                            value: h.close,
-                        }));
-                        writeHistoryCache(sym, PERIOD, history);
-                    } else if (!cachedSeed[sym]) {
-                        // No fresh data and no stale fallback — record empty
-                        // so we don't keep retrying within this mount.
-                        update[sym] = [];
+                const chunk = needsFetch.slice(i, i + BATCH_SIZE);
+                try {
+                    const map = await getMarketHistoryBatch(chunk, PERIOD);
+                    if (cancelled) return;
+                    const update = {};
+                    for (const sym of chunk) {
+                        const history = map[sym];
+                        if (Array.isArray(history) && history.length > 0) {
+                            update[sym] = history.map((h) => ({
+                                time: h.day.split("T")[0],
+                                value: h.close,
+                            }));
+                            writeHistoryCache(sym, PERIOD, history);
+                        } else if (!cachedSeed[sym]) {
+                            // No fresh data and no stale fallback — record empty
+                            // so we don't keep retrying within this mount.
+                            update[sym] = [];
+                        }
                     }
-                }
-                if (Object.keys(update).length > 0) {
-                    setSparklines((prev) => ({ ...prev, ...update }));
-                }
-            } catch {
-                // Network/backend offline. We already painted whatever the
-                // cache had; mark the rest as empty so the loop ends.
-                if (cancelled) return;
-                const update = {};
-                needsFetch.forEach((sym) => {
-                    if (!cachedSeed[sym]) update[sym] = [];
-                });
-                if (Object.keys(update).length > 0) {
-                    setSparklines((prev) => ({ ...prev, ...update }));
+                    if (Object.keys(update).length > 0) {
+                        setSparklines((prev) => ({ ...prev, ...update }));
+                    }
+                } catch {
+                    // Network/backend offline mid-batch. We already painted
+                    // whatever the cache had; mark the rest as empty so the
+                    // loop ends, then stop.
+                    if (cancelled) return;
+                    const update = {};
+                    chunk.forEach((sym) => {
+                        if (!cachedSeed[sym]) update[sym] = [];
+                    });
+                    if (Object.keys(update).length > 0) {
+                        setSparklines((prev) => ({ ...prev, ...update }));
+                    }
+                    break;
                 }
             }
         })();
@@ -638,8 +653,15 @@ export default function FinexStyleMarket({
                                                     </div>
                                                 </div>
                                                 <div style={s.colHacim}>
-                                                    <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                                                        {(Math.random() * 100).toFixed(1)}M
+                                                    {/* Volume column: backend doesn't yet expose real volume for
+                                                        market summary items. Previously this rendered a random number
+                                                        (`Math.random() * 100`) every render — a credibility-destroying
+                                                        bug. Showing "—" until the API surfaces it. */}
+                                                    <div
+                                                        style={{ fontSize: 12, color: "var(--text-muted)" }}
+                                                        title={t("market.volumeUnavailable")}
+                                                    >
+                                                        —
                                                     </div>
                                                 </div>
                                                 <div style={s.colGrafik}>
@@ -730,8 +752,11 @@ export default function FinexStyleMarket({
                                             </div>
                                         </div>
                                         <div style={s.colHacim}>
-                                            <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
-                                                {(Math.random() * 100).toFixed(1)}M
+                                            <div
+                                                style={{ fontSize: 12, color: "var(--text-muted)" }}
+                                                title={t("market.volumeUnavailable")}
+                                            >
+                                                —
                                             </div>
                                         </div>
                                         <div style={s.colGrafik}>

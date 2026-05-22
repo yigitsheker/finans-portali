@@ -16,10 +16,19 @@ const CATEGORY_OPTIONS = [
     { key: "METAL",      label: "Metal" },
 ];
 
-const MONTH_NAMES = [
-    "Oca", "Şub", "Mar", "Nis", "May", "Haz",
-    "Tem", "Ağu", "Eyl", "Eki", "Kas", "Ara",
-];
+// Short month names localised via Intl so EN gets "Jan/Feb/..." without
+// a hand-maintained translation table. Read once per render via the helper
+// below so a language toggle updates the maturity column live.
+function shortMonthName(monthIndex) {
+    let lang = "tr";
+    try {
+        const v = (localStorage.getItem("i18n-lang") || "").toLowerCase();
+        if (v === "en") lang = "en";
+    } catch { /* ignore */ }
+    const locale = lang === "en" ? "en-US" : "tr-TR";
+    const date = new Date(2020, monthIndex, 1);
+    return new Intl.DateTimeFormat(locale, { month: "short" }).format(date);
+}
 
 const numFmt = (value, fractionDigits = 2) => {
     if (value === null || value === undefined) return "—";
@@ -199,7 +208,7 @@ export default function Viop() {
                                             <td style={s.tdSymbol}>{c.symbol}</td>
                                             <td>{c.underlying}</td>
                                             <td style={{ color: "var(--text-muted)" }}>
-                                                {MONTH_NAMES[(c.maturityMonth || 1) - 1]} {c.maturityYear}
+                                                {shortMonthName((c.maturityMonth || 1) - 1)} {c.maturityYear}
                                             </td>
                                             <td style={s.tdNum}>{numFmt(c.lastPrice, 2)}</td>
                                             <td style={{ ...s.tdNum, color: TONE_COLOR[tone], fontWeight: 600 }}>
