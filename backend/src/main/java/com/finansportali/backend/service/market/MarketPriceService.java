@@ -87,7 +87,8 @@ public class MarketPriceService {
                             quote != null ? quote.getChangePct() : BigDecimal.ZERO,
                             quote != null ? quote.getAsOf() : Instant.now(),
                             inst.isDelayed(),
-                            inst.isDelayed() ? "Gecikmeli" : null
+                            inst.isDelayed() ? "Gecikmeli" : null,
+                            quote != null ? quote.getVolume() : null
                     );
                 })
                 .collect(java.util.stream.Collectors.toList());
@@ -148,7 +149,8 @@ public class MarketPriceService {
                         changePct,
                         q.getAsOf(),
                         inst.isDelayed(),
-                        inst.isDelayed() ? "Gecikmeli" : null
+                        inst.isDelayed() ? "Gecikmeli" : null,
+                        q.getVolume()
                 ));
             });
         }

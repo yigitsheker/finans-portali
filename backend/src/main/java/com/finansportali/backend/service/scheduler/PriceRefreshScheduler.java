@@ -154,6 +154,8 @@ public class PriceRefreshScheduler {
         // Yahoo'dan gelen change/pct daha doğru — override et
         quote.setChangeAbs(q.changeAbs());
         quote.setChangePct(q.changePct());
+        // Volume optional — Yahoo'nun veremediği enstrümanlar için null kalır
+        quote.setVolume(q.volume());
         quoteRepo.save(quote);
 
         // 3) Bugünün candle'ını güncelle

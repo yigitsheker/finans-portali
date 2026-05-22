@@ -43,6 +43,14 @@ public class MarketQuote {
     @Enumerated(EnumType.STRING)
     @Column(nullable = true, length = 20)
     private MarketDataProvider provider;
+
+    /** Son trading bar'ında işlem gören lot sayısı. Yahoo "chart" endpoint'i
+     *  indicators.quote[0].volume[] altında veriyor; biz son bar'ı alıyoruz.
+     *  null kalabilir (legacy satırlar + provider'ın volume vermediği
+     *  enstrümanlar — örn. bazı FX cross'ları). */
+    @Column(nullable = true)
+    private Long volume;
+
     public MarketQuote() {}
 
     public MarketQuote(MarketInstrument instrument, BigDecimal last,
@@ -91,6 +99,7 @@ public class MarketQuote {
     public BigDecimal getChangePct() { return changePct; }
     public Instant getAsOf() { return asOf; }
     public MarketDataProvider getProvider() { return provider; }
+    public Long getVolume() { return volume; }
 
     // Setters
     public void setInstrument(MarketInstrument instrument) { this.instrument = instrument; }
@@ -100,4 +109,5 @@ public class MarketQuote {
     public void setChangePct(BigDecimal changePct) { this.changePct = changePct; }
     public void setAsOf(Instant asOf) { this.asOf = asOf; }
     public void setProvider(MarketDataProvider provider) { this.provider = provider; }
+    public void setVolume(Long volume) { this.volume = volume; }
 }

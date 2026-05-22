@@ -15,6 +15,21 @@ import CheckboxFilterGroup from "./common/CheckboxFilterGroup";
 import { usePriceDisplay } from "../contexts/CurrencyDisplayContext";
 import { useI18n } from "../contexts/I18nContext";
 
+/**
+ * Human-readable volume formatter: 1234 → "1.234", 56789 → "56,8K",
+ * 1_234_567 → "1,2M", 4_500_000_000 → "4,5B". Mirrors what BIST / Yahoo
+ * show on their public tickers. Returns "—" for null / undefined / 0.
+ */
+function formatVolume(v) {
+    if (v == null || v === 0) return "—";
+    const n = Number(v);
+    if (!Number.isFinite(n) || n <= 0) return "—";
+    if (n >= 1_000_000_000) return (n / 1_000_000_000).toFixed(n >= 10_000_000_000 ? 0 : 1).replace(".", ",") + "B";
+    if (n >= 1_000_000)     return (n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1).replace(".", ",") + "M";
+    if (n >= 1_000)         return (n / 1_000).toFixed(n >= 10_000 ? 0 : 1).replace(".", ",") + "K";
+    return String(Math.round(n));
+}
+
 // SVG Icon Components
 const AllIcon = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -653,15 +668,14 @@ export default function FinexStyleMarket({
                                                     </div>
                                                 </div>
                                                 <div style={s.colHacim}>
-                                                    {/* Volume column: backend doesn't yet expose real volume for
-                                                        market summary items. Previously this rendered a random number
-                                                        (`Math.random() * 100`) every render — a credibility-destroying
-                                                        bug. Showing "—" until the API surfaces it. */}
+                                                    {/* Real volume from Yahoo (V19 / scheduler-populated).
+                                                        Null when the provider didn't supply one for this symbol
+                                                        — typically light FX cross pairs and a few illiquid VIOPs. */}
                                                     <div
                                                         style={{ fontSize: 12, color: "var(--text-muted)" }}
-                                                        title={t("market.volumeUnavailable")}
+                                                        title={item.volume == null ? t("market.volumeUnavailable") : ""}
                                                     >
-                                                        —
+                                                        {formatVolume(item.volume)}
                                                     </div>
                                                 </div>
                                                 <div style={s.colGrafik}>
@@ -754,9 +768,9 @@ export default function FinexStyleMarket({
                                         <div style={s.colHacim}>
                                             <div
                                                 style={{ fontSize: 12, color: "var(--text-muted)" }}
-                                                title={t("market.volumeUnavailable")}
+                                                title={item.volume == null ? t("market.volumeUnavailable") : ""}
                                             >
-                                                —
+                                                {formatVolume(item.volume)}
                                             </div>
                                         </div>
                                         <div style={s.colGrafik}>

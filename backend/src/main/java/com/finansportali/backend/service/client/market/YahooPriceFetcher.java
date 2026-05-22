@@ -178,10 +178,15 @@ public class YahooPriceFetcher {
             String currency = str(meta.get("currency"));
             String exchange  = str(meta.get("exchangeName"));
 
-            log.debug("[Yahoo] OK '{}' -> price={} prev={} chg={}%",
-                    symbol, currentPrice, prevClose, chgPct.setScale(2, RoundingMode.HALF_UP));
+            // Volume lives at indicators.quote[0].volume[] — an array of
+            // per-bar volumes. Take the last non-null entry (Yahoo pads
+            // with nulls for halted sessions / pre-market gaps).
+            Long volume = parseLastVolume(results.get(0));
 
-            return Optional.of(new YahooQuote(last, prev, chgAbs, chgPct, currency, exchange));
+            log.debug("[Yahoo] OK '{}' -> price={} prev={} chg={}% vol={}",
+                    symbol, currentPrice, prevClose, chgPct.setScale(2, RoundingMode.HALF_UP), volume);
+
+            return Optional.of(new YahooQuote(last, prev, chgAbs, chgPct, currency, exchange, volume));
 
         } catch (Exception e) {
             log.warn("[Yahoo] Parse error for '{}': {}", symbol, e.getMessage());
@@ -340,6 +345,31 @@ public class YahooPriceFetcher {
         }
     }
 
+    /**
+     * Extract the most-recent non-null bar volume from a Yahoo chart result.
+     * Yahoo returns volumes at result[0].indicators.quote[0].volume[] aligned
+     * with the timestamps array; halted sessions / pre-market gaps come back
+     * as nulls so we scan from the end until we hit a real number.
+     */
+    @SuppressWarnings("unchecked")
+    private static Long parseLastVolume(Map<String, Object> result) {
+        try {
+            Map<String, Object> indicators = (Map<String, Object>) result.get("indicators");
+            if (indicators == null) return null;
+            List<Map<String, Object>> quote = (List<Map<String, Object>>) indicators.get("quote");
+            if (quote == null || quote.isEmpty()) return null;
+            List<Object> volumes = (List<Object>) quote.get(0).get("volume");
+            if (volumes == null || volumes.isEmpty()) return null;
+            for (int i = volumes.size() - 1; i >= 0; i--) {
+                Long v = num(volumes.get(i));
+                if (v != null && v > 0) return v;
+            }
+            return null;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     private static String str(Object o) {
         return o == null ? null : o.toString();
     }
@@ -352,7 +382,11 @@ public class YahooPriceFetcher {
             BigDecimal changeAbs,
             BigDecimal changePct,
             String currency,
-            String exchange
+            String exchange,
+            /** Latest trading bar volume in share/contract units. Null when
+             *  the provider didn't include it (some FX cross pairs, light
+             *  exchange listings). Stored as Long since Yahoo gives integers. */
+            Long volume
     ) {}
 
     /**
