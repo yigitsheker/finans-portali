@@ -118,14 +118,38 @@ class MarketHistoryServiceTest {
     }
 
     @Test
-    void getHistory_returns_empty_when_yahoo_returns_empty() {
-        MarketInstrument i = inst("THYAO", InstrumentType.STOCK);
-        when(instrumentRepo.findBySymbol("THYAO")).thenReturn(Optional.of(i));
-        when(instrumentService.normalizeSymbolForYahoo(anyString(), any())).thenReturn("THYAO.IS");
+    void getHistory_falls_back_to_database_when_yahoo_returns_empty() {
+        // Yahoo's chart endpoint 404s for tickers it doesn't carry (e.g.
+        // KOZAA.IS, SODA.IS) — the fetcher swallows that into an empty list
+        // rather than throwing. Without a fallback the sparkline would just
+        // be missing on the user's list page. Our cached MarketCandles fill
+        // the gap.
+        MarketInstrument i = inst("KOZAA", InstrumentType.STOCK);
+        when(instrumentRepo.findBySymbol("KOZAA")).thenReturn(Optional.of(i));
+        when(instrumentService.normalizeSymbolForYahoo(anyString(), any())).thenReturn("KOZAA.IS");
         when(yahooPriceFetcher.fetchHistory(anyString(), anyString(), anyString()))
                 .thenReturn(List.of());
+        MarketCandle c = new MarketCandle(i, LocalDate.now(), new BigDecimal("89.45"));
+        when(candleRepo.findByInstrumentAndDayBetweenOrderByDayAsc(eq(i), any(), any()))
+                .thenReturn(List.of(c));
 
-        assertThat(service.getHistory("THYAO", "30D")).isEmpty();
+        var result = service.getHistory("KOZAA", "30D");
+        assertThat(result).hasSize(1);
+        assertThat(result.get(0).close()).isEqualByComparingTo("89.45");
+    }
+
+    @Test
+    void getHistory_returns_empty_when_yahoo_AND_db_are_both_empty() {
+        // Truly-unknown ticker: nothing on Yahoo, nothing cached locally.
+        MarketInstrument i = inst("XXXXX", InstrumentType.STOCK);
+        when(instrumentRepo.findBySymbol("XXXXX")).thenReturn(Optional.of(i));
+        when(instrumentService.normalizeSymbolForYahoo(anyString(), any())).thenReturn("XXXXX.IS");
+        when(yahooPriceFetcher.fetchHistory(anyString(), anyString(), anyString()))
+                .thenReturn(List.of());
+        when(candleRepo.findByInstrumentAndDayBetweenOrderByDayAsc(eq(i), any(), any()))
+                .thenReturn(List.of());
+
+        assertThat(service.getHistory("XXXXX", "30D")).isEmpty();
     }
 
     @Test

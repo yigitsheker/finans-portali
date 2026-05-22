@@ -72,9 +72,20 @@ public class MarketHistoryService {
                     yahooSymbol, config.range(), config.interval());
 
             if (yahooData.isEmpty()) {
-                log.warn("No Yahoo data received for symbol={} yahooSymbol={} range={} interval={}",
+                // Yahoo Finance doesn't carry every BIST ticker (KOZAA, SODA,
+                // and a long tail of smaller-cap symbols return HTTP 404 on
+                // /chart/<SYMBOL>.IS). When that happens, the fetcher returns
+                // an empty list rather than throwing, so the previous
+                // implementation silently produced an empty chart — the
+                // user saw no sparkline and assumed something was broken.
+                //
+                // Fall back to our own market_candles cache (populated by
+                // PriceRefreshScheduler from successful past fetches plus the
+                // running daily snapshot). It's stale-by-design for
+                // Yahoo-missing tickers but still gives the user a usable line.
+                log.warn("No Yahoo data for symbol={} yahooSymbol={} range={} interval={} — falling back to DB candles",
                         symbol, yahooSymbol, config.range(), config.interval());
-                return List.of();
+                return getDatabaseHistory(inst, period);
             }
 
             // Clean and validate data
