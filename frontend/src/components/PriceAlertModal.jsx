@@ -2,15 +2,21 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Modal from "./Modal";
 import { createPriceAlert, getLatestPrice, getUserAlerts, deletePriceAlert, triggerAlertManually, searchMarketInstruments } from "../api/portfolioApi";
 import { useCurrencyDisplay, usePriceDisplay, nativeCurrencyOf } from "../contexts/CurrencyDisplayContext";
-
-const ALERT_TYPES = [
-    { value: "PRICE_ABOVE", label: "Fiyat Üstü", description: "Fiyat hedef seviyenin üzerine çıktığında" },
-    { value: "PRICE_BELOW", label: "Fiyat Altı", description: "Fiyat hedef seviyenin altına düştüğünde" },
-    { value: "PERCENT_GAIN", label: "% Kazanç", description: "Belirli yüzde kazanç sağlandığında" },
-    { value: "PERCENT_LOSS", label: "% Kayıp", description: "Belirli yüzde kayıp yaşandığında" },
-];
+import { useI18n } from "../contexts/I18nContext";
+import notify from "../utils/notify";
 
 export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymbol, prefilledPrice }) {
+    const { t } = useI18n();
+
+    // Built inside the component so labels/descriptions translate live when
+    // the user toggles language.
+    const ALERT_TYPES = useMemo(() => [
+        { value: "PRICE_ABOVE",  label: t("alerts.typePriceAbove"),  description: t("alerts.descPriceAbove") },
+        { value: "PRICE_BELOW",  label: t("alerts.typePriceBelow"),  description: t("alerts.descPriceBelow") },
+        { value: "PERCENT_GAIN", label: t("alerts.typePercentGain"), description: t("alerts.descPercentGain") },
+        { value: "PERCENT_LOSS", label: t("alerts.typePercentLoss"), description: t("alerts.descPercentLoss") },
+    ], [t]);
+
     const [alerts, setAlerts] = useState([]);
     const [loading, setLoading] = useState(false);
     const [creating, setCreating] = useState(false);
@@ -207,12 +213,10 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
             console.log("[AlertModal] Alert creation completed");
         } catch (error) {
             console.error("[AlertModal] Failed to create alert:", error);
-            if (error.response) {
-                console.error("[AlertModal] Create error response:", error.response.status, error.response.data);
-                alert(error.response?.data?.message || "Alarm oluşturulamadı: " + error.response.status);
-            } else {
-                alert("Alarm oluşturulamadı: " + error.message);
-            }
+            const detail = error.response
+                ? (error.response?.data?.message || `HTTP ${error.response.status}`)
+                : error.message;
+            notify(detail, { variant: "error", title: t("alerts.createFailedTitle") });
         } finally {
             setCreating(false);
         }
@@ -230,33 +234,41 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
     };
 
     const handleDeleteAlert = async (alertId) => {
-        if (!confirm("Bu alarmı silmek istediğinizden emin misiniz?")) return;
-
+        if (!confirm(t("alerts.confirmDelete"))) return;
         try {
             await deletePriceAlert(keycloak, alertId);
             await loadAlerts();
-            console.log("Alert deleted successfully");
         } catch (error) {
             console.error("Failed to delete alert:", error);
-            alert("Alarm silinemedi");
+            notify(error.message || "", {
+                variant: "error",
+                title: t("alerts.deleteFailedTitle"),
+            });
         }
     };
 
     const handleTriggerTest = async (alertId) => {
-        if (!confirm("Bu alarmı manuel olarak tetiklemek ve email göndermek istiyor musunuz?\n\nEmail, giriş yaptığınız hesabın email adresine gönderilecek.")) return;
-
+        if (!confirm(t("alerts.confirmTest"))) return;
         try {
             const result = await triggerAlertManually(keycloak, alertId);
             if (result.success) {
-                alert("✅ Başarılı!\n\n" + result.message + "\n\nEmail adresinizi kontrol edin!");
-                await loadAlerts(); // Reload to show triggered status
+                notify(t("alerts.testTriggeredMessage"), {
+                    variant: "success",
+                    title: t("alerts.testTriggeredTitle"),
+                });
+                await loadAlerts();
             } else {
-                alert("❌ Hata\n\n" + result.message);
+                notify(result.message || "", {
+                    variant: "error",
+                    title: t("alerts.testFailedTitle"),
+                });
             }
         } catch (error) {
             console.error("Failed to trigger alert:", error);
-            const errorMsg = error.response?.data?.message || error.message || "Bilinmeyen hata";
-            alert("❌ Alarm tetiklenemedi\n\n" + errorMsg);
+            notify(error.response?.data?.message || error.message || "", {
+                variant: "error",
+                title: t("alerts.testFailedTitle"),
+            });
         }
     };
 
@@ -274,7 +286,7 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
     };
 
     const getAlertTypeLabel = (type) => {
-        return ALERT_TYPES.find(t => t.value === type)?.label || type;
+        return ALERT_TYPES.find((at) => at.value === type)?.label || type;
     };
 
     const getStatusColor = (alert) => {
@@ -284,15 +296,15 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
     };
 
     return (
-        <Modal open={open} title="Fiyat Alarmları" onClose={onClose}>
+        <Modal open={open} title={t("alerts.modalTitle")} onClose={onClose}>
             <div style={s.container}>
                 {/* Create Alert Form */}
                 <div style={s.section}>
-                    <h3 style={s.sectionTitle}>Yeni Alarm Oluştur</h3>
+                    <h3 style={s.sectionTitle}>{t("alerts.newAlert")}</h3>
                     <form onSubmit={handleCreateAlert} style={s.form}>
                         <div style={s.row}>
                             <div style={s.field}>
-                                <label style={s.label}>Sembol</label>
+                                <label style={s.label}>{t("alerts.symbol")}</label>
                                 <div style={s.autocompleteContainer}>
                                     <input
                                         type="text"
@@ -303,7 +315,7 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                                 setShowDropdown(true);
                                             }
                                         }}
-                                        placeholder="AAPL, ETHUSD, KCHOL..."
+                                        placeholder={t("alerts.symbolPlaceholder")}
                                         style={s.input}
                                         required
                                     />
@@ -329,12 +341,12 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                         </div>
                                     )}
                                     {searchLoading && (
-                                        <div style={s.searchLoading}>Aranıyor...</div>
+                                        <div style={s.searchLoading}>{t("alerts.searching")}</div>
                                     )}
                                 </div>
                             </div>
                             <div style={s.field}>
-                                <label style={s.label}>Alarm Tipi</label>
+                                <label style={s.label}>{t("alerts.alertType")}</label>
                                 <select
                                     value={alertType}
                                     onChange={(e) => setAlertType(e.target.value)}
@@ -352,9 +364,9 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                         <div style={s.row}>
                             <div style={s.field}>
                                 <label style={s.label}>
-                                    Hedef {alertType.includes("PERCENT")
-                                        ? "Yüzde (%)"
-                                        : `Fiyat (${priceSymbol})`}
+                                    {alertType.includes("PERCENT")
+                                        ? t("alerts.targetPercentLabel")
+                                        : t("alerts.targetPriceLabel", { symbol: priceSymbol })}
                                 </label>
                                 <div style={s.inputWithAdornment}>
                                     {!alertType.includes("PERCENT") && (
@@ -365,7 +377,11 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                         step="0.0001"
                                         value={targetPrice}
                                         onChange={(e) => setTargetPrice(e.target.value)}
-                                        placeholder={alertType.includes("PERCENT") ? "5.0" : "100.50"}
+                                        placeholder={
+                                            alertType.includes("PERCENT")
+                                                ? t("alerts.targetPercentPlaceholder")
+                                                : t("alerts.targetPricePlaceholder")
+                                        }
                                         style={{
                                             ...s.input,
                                             flex: 1,
@@ -380,20 +396,23 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                         type="button"
                                         onClick={() => setTargetPrice(currentPriceHint.value)}
                                         style={s.currentPriceHint}
-                                        title="Hedef fiyatı doldur"
                                     >
-                                        Mevcut Fiyat: {currentPriceHint.symbol}{currentPriceHint.value}
-                                        <span style={s.currentPriceHintAction}>· Kullan</span>
+                                        {t("alerts.currentPriceHint", {
+                                            value: `${currentPriceHint.symbol}${currentPriceHint.value}`,
+                                        })}
+                                        <span style={s.currentPriceHintAction}>
+                                            · {t("alerts.currentPriceHintUse")}
+                                        </span>
                                     </button>
                                 )}
                             </div>
                             <div style={s.field}>
-                                <label style={s.label}>Not (Opsiyonel)</label>
+                                <label style={s.label}>{t("alerts.note")}</label>
                                 <input
                                     type="text"
                                     value={note}
                                     onChange={(e) => setNote(e.target.value)}
-                                    placeholder="Alarm notu..."
+                                    placeholder={t("alerts.notePlaceholder")}
                                     style={s.input}
                                     maxLength={200}
                                 />
@@ -401,7 +420,7 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                         </div>
 
                         <div style={s.typeDescription}>
-                            {ALERT_TYPES.find(t => t.value === alertType)?.description}
+                            {ALERT_TYPES.find((at) => at.value === alertType)?.description}
                         </div>
 
                         <button
@@ -412,19 +431,21 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                 ...(creating ? s.createButtonDisabled : {})
                             }}
                         >
-                            {creating ? "Oluşturuluyor..." : "Alarm Oluştur"}
+                            {creating ? t("alerts.submitting") : t("alerts.submit")}
                         </button>
                     </form>
                 </div>
 
                 {/* Alerts List */}
                 <div style={s.section}>
-                    <h3 style={s.sectionTitle}>Mevcut Alarmlar ({alerts.length})</h3>
+                    <h3 style={s.sectionTitle}>
+                        {t("alerts.existingTitle", { count: alerts.length })}
+                    </h3>
 
                     {loading ? (
-                        <div style={s.loading}>Yükleniyor...</div>
+                        <div style={s.loading}>{t("alerts.loading")}</div>
                     ) : alerts.length === 0 ? (
-                        <div style={s.empty}>Henüz alarm oluşturmadınız</div>
+                        <div style={s.empty}>{t("alerts.empty")}</div>
                     ) : (
                         <div style={s.alertsList}>
                             {alerts.map(alert => (
@@ -440,17 +461,17 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                                 color: getStatusColor(alert)
                                             }}
                                         >
-                                            {alert.status}
+                                            {alert.active ? t("alerts.statusActive") : t("alerts.statusTriggered")}
                                         </div>
                                     </div>
 
                                     <div style={s.alertDetails}>
                                         <div style={s.alertRow}>
-                                            <span>Tip:</span>
+                                            <span>{t("alerts.rowType")}</span>
                                             <span>{getAlertTypeLabel(alert.alertType)}</span>
                                         </div>
                                         <div style={s.alertRow}>
-                                            <span>Hedef:</span>
+                                            <span>{t("alerts.rowTarget")}</span>
                                             <span>
                                                 {alert.alertType?.startsWith("PERCENT_")
                                                     ? `%${alert.targetPrice}`
@@ -458,12 +479,12 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                             </span>
                                         </div>
                                         <div style={s.alertRow}>
-                                            <span>Mevcut:</span>
+                                            <span>{t("alerts.rowCurrent")}</span>
                                             <span>{formatPrice(alert.currentPrice, alert.currency)}</span>
                                         </div>
                                         {alert.progressPercent !== undefined && (
                                             <div style={s.alertRow}>
-                                                <span>İlerleme:</span>
+                                                <span>{t("alerts.rowProgress")}</span>
                                                 <span>%{alert.progressPercent.toFixed(1)}</span>
                                             </div>
                                         )}
@@ -482,16 +503,15 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                                 <button
                                                     onClick={() => handleTriggerTest(alert.id)}
                                                     style={s.testButton}
-                                                    title="Alarmı manuel olarak tetikle ve test email'i gönder"
                                                 >
-                                                    🧪 Test Et
+                                                    🧪 {t("alerts.actionTest")}
                                                 </button>
                                             )}
                                             <button
                                                 onClick={() => handleDeleteAlert(alert.id)}
                                                 style={s.deleteButton}
                                             >
-                                                Sil
+                                                {t("alerts.actionDelete")}
                                             </button>
                                         </div>
                                     </div>

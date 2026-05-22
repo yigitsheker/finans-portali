@@ -94,16 +94,25 @@ export default function App({ keycloak }) {
     // transition (false → true). A ref tracks the previous state so that
     // token refreshes (which churn `tokenParsed` while staying authenticated)
     // don't re-fire it, and a logout → re-login DOES fire it again. Gated by
-    // Settings → Güvenlik Uyarıları.
+    // Settings → Güvenlik Uyarıları. App sits outside I18nProvider so we
+    // read the language directly from localStorage here rather than via
+    // useI18n(); notify.js does the same trick for its type labels.
     const wasAuthenticatedRef = useRef(false);
     useEffect(() => {
         const prev = wasAuthenticatedRef.current;
         wasAuthenticatedRef.current = isAuthenticated;
         if (!isAuthenticated || prev) return;     // only on false → true edge
         const user = keycloak.tokenParsed?.preferred_username || "user";
-        notify.security("Hesabınıza giriş yapıldı.", {
-            title: `Hoş geldin, ${user}`,
-        });
+        let lang = "tr";
+        try {
+            const stored = (localStorage.getItem("i18n-lang") || "").toLowerCase();
+            if (stored === "en") lang = "en";
+        } catch { /* private mode — fall back to Turkish */ }
+        const title = lang === "en" ? `Welcome, ${user}` : `Hoş geldin, ${user}`;
+        const message = lang === "en"
+            ? "You have signed in to your account."
+            : "Hesabınıza giriş yapıldı.";
+        notify.security(message, { title });
     }, [isAuthenticated, keycloak.tokenParsed]);
 
     // Map routes to titles and subtitles
