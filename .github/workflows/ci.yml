@@ -27,11 +27,50 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # Tests are skipped for now: BackendApplicationTests is the default
-      # @SpringBootTest stub that needs Postgres + Keycloak running.
-      # When real sliced tests land, swap -DskipTests for `verify`.
-      - name: Build (no tests)
-        run: ./mvnw -B -ntp -DskipTests package
+      # `verify` runs unit + slice tests AND generates the JaCoCo report.
+      # The full @SpringBootTest is @Disabled (needs live Keycloak); everything
+      # else runs against H2 + mocked HTTP clients.
+      - name: Build + test
+        run: ./mvnw -B -ntp verify
+
+      # Surface coverage in the GitHub UI without needing the artifact.
+      - name: Coverage summary
+        if: always()
+        run: |
+          if [ -f target/site/jacoco/jacoco.xml ]; then
+            python3 - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import xml.etree.ElementTree as ET
+          root = ET.parse('target/site/jacoco/jacoco.xml').getroot()
+          print("### JaCoCo coverage\n")
+          print("| Metric | Covered / Total | % |")
+          print("|---|---:|---:|")
+          for c in root.findall('counter'):
+              cov = int(c.get('covered')); miss = int(c.get('missed'))
+              tot = cov + miss
+              pct = (100.0 * cov / tot) if tot else 0
+              print(f"| {c.get('type').title()} | {cov} / {tot} | {pct:.2f}% |")
+          PY
+          else
+            echo "JaCoCo report missing — tests may have failed before the report phase." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload JaCoCo report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jacoco-report
+          path: backend/target/site/jacoco/
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload surefire reports
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: surefire-reports
+          path: backend/target/surefire-reports/
+          if-no-files-found: ignore
+          retention-days: 7
 
   frontend:
     name: Frontend (Vite build)
