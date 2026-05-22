@@ -1,0 +1,54 @@
+# Test-only application config — used automatically by @SpringBootTest /
+# @DataJpaTest / @WebMvcTest when src/test/resources is on the classpath.
+#
+# Goals: keep the JVM-side dependencies (H2 in-memory, no Kafka, no OTLP)
+# so unit + slice + light integration tests can run without docker.
+
+spring:
+  # H2 instead of Postgres, in-memory, schema auto-derived from JPA so we
+  # don't have to maintain Flyway-compatible H2 scripts.
+  datasource:
+    url: jdbc:h2:mem:test;MODE=PostgreSQL;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password:
+  jpa:
+    database-platform: org.hibernate.dialect.H2Dialect
+    hibernate:
+      ddl-auto: create-drop
+    open-in-view: false
+  flyway:
+    enabled: false                 # JPA creates the schema instead
+  kafka:
+    bootstrap-servers: ""          # disable
+  mail:
+    host: localhost
+    port: 25
+    username: ""
+    password: ""
+  cache:
+    type: simple                    # bypass Caffeine in tests for determinism
+  # Skip the OAuth2 resource-server bean wiring in unit slices. The test
+  # SecurityFilterChain (TestSecurityConfig) replaces it.
+  security:
+    oauth2:
+      resourceserver:
+        jwt:
+          issuer-uri: ""
+
+management:
+  health:
+    mail:
+      enabled: false
+    db:
+      enabled: false
+
+# Disable scheduled jobs in tests so nothing tries to hit Yahoo / EVDS /
+# Investing during a maven test run.
+app:
+  bonds:
+    scheduler-enabled: false
+  funds:
+    scheduler-enabled: false
+  news:
+    scheduler-enabled: false

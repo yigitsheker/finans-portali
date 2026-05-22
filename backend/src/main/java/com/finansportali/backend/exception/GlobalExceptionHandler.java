@@ -9,8 +9,10 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
+import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 
 import java.time.Instant;
 import java.util.LinkedHashMap;
@@ -58,6 +60,27 @@ public class GlobalExceptionHandler {
                 req.getRequestURI(),
                 fields
         );
+        return ResponseEntity.badRequest().body(body);
+    }
+
+    /**
+     * Map common request-binding failures (required query param missing,
+     * type mismatch like a malformed date) to 400 instead of letting them
+     * fall through to the generic 500 catch-all. These are always client
+     * errors, never server bugs.
+     */
+    @ExceptionHandler({MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class})
+    public ResponseEntity<ApiError> handleBinding(Exception ex, HttpServletRequest req) {
+        log.warn("Binding error: {} - Endpoint: {} - RequestId: {}",
+                ex.getMessage(), req.getRequestURI(), CorrelationIdUtil.getCorrelationId());
+
+        ApiError body = new ApiError(
+                Instant.now(),
+                HttpStatus.BAD_REQUEST.value(),
+                "BAD_REQUEST",
+                ex.getMessage(),
+                req.getRequestURI(),
+                null);
         return ResponseEntity.badRequest().body(body);
     }
 

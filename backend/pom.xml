@@ -167,6 +167,13 @@
 			<artifactId>spring-security-test</artifactId>
 			<scope>test</scope>
 		</dependency>
+		<!-- H2 in-memory database for repository / @SpringBootTest integration
+		     tests so we don't need PostgreSQL running. -->
+		<dependency>
+			<groupId>com.h2database</groupId>
+			<artifactId>h2</artifactId>
+			<scope>test</scope>
+		</dependency>
 	</dependencies>
 
 	<build>
@@ -194,6 +201,38 @@
 						</exclude>
 					</excludes>
 				</configuration>
+			</plugin>
+			<!-- JaCoCo: attach to the test phase, write target/site/jacoco/{index.html,jacoco.xml}.
+			     Excludes things we can't meaningfully cover (DTOs, generated config,
+			     entities — Lombok-generated getters/setters drown the report
+			     otherwise). -->
+			<plugin>
+				<groupId>org.jacoco</groupId>
+				<artifactId>jacoco-maven-plugin</artifactId>
+				<version>0.8.12</version>
+				<configuration>
+					<excludes>
+						<exclude>com/finansportali/backend/BackendApplication.class</exclude>
+						<exclude>com/finansportali/backend/dto/**</exclude>
+						<exclude>com/finansportali/backend/entity/**</exclude>
+						<exclude>com/finansportali/backend/config/**</exclude>
+					</excludes>
+				</configuration>
+				<executions>
+					<execution>
+						<id>jacoco-prepare-agent</id>
+						<goals>
+							<goal>prepare-agent</goal>
+						</goals>
+					</execution>
+					<execution>
+						<id>jacoco-report</id>
+						<phase>test</phase>
+						<goals>
+							<goal>report</goal>
+						</goals>
+					</execution>
+				</executions>
 			</plugin>
 		</plugins>
 	</build>
