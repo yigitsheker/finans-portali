@@ -1,6 +1,7 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { getExchangeRates } from '../api/portfolioApi';
 import CurrencyConverter from '../components/CurrencyConverter';
+import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
 import { useI18n } from "../contexts/I18nContext";
 
 const MarketData = () => {
@@ -58,8 +59,21 @@ const MarketData = () => {
         );
     }
 
+    // Freshest rateDate across all FX rows — surfaced as the "Son güncelleme"
+    // chip. TCMB ships daily rates so we expect this to bump once per day.
+    const asOf = exchangeRates.reduce((freshest, r) => {
+        const d = r?.rateDate ? new Date(r.rateDate).getTime() : 0;
+        return d > freshest ? d : freshest;
+    }, 0);
+
     return (
         <div style={s.root}>
+            <DataFreshnessHeader
+                asOf={asOf > 0 ? new Date(asOf) : null}
+                onRefresh={loadData}
+                refreshing={loading}
+            />
+
             {/* Live FX converter — sits above the table for quick access */}
             <CurrencyConverter rates={exchangeRates} />
 

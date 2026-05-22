@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { getInflationHistory } from "../api/inflationApi";
+import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
 import { useI18n } from "../contexts/I18nContext";
 
 export default function Inflation() {
@@ -85,8 +86,14 @@ export default function Inflation() {
   // Last 24 months in chronological order for the chart
   const last24 = rows.slice(-24);
 
+  // Latest periodDate doubles as our "as of" — TCMB publishes monthly, so the
+  // chip shows e.g. "Son güncelleme: Mayıs 2026" once the May print lands.
+  const asOf = stats?.latestPeriod ? new Date(stats.latestPeriod) : null;
+
   return (
     <div style={s.root}>
+      <DataFreshnessHeader asOf={asOf} onRefresh={load} refreshing={loading} />
+
       {/* Summary cards */}
       <div style={s.summaryGrid}>
         <SCard

@@ -6,6 +6,7 @@ import {
 } from "../api/bondApi";
 import BondDetailModal from "../components/BondDetailModal";
 import DepositRatesCard from "../components/DepositRatesCard";
+import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
 import { useI18n } from "../contexts/I18nContext";
 
 const TYPE_KEYS = {
@@ -131,6 +132,15 @@ export default function Bonds({ keycloak }) {
             {refreshMessage && (
                 <div style={s.refreshMessage}>{refreshMessage}</div>
             )}
+
+            {/* Freshness chip — visible to everyone, including non-admins who
+                can't trigger a TCMB refresh but can still re-pull what the
+                backend already has cached. */}
+            <DataFreshnessHeader
+                asOf={summary?.lastUpdateDate}
+                onRefresh={loadData}
+                refreshing={loading}
+            />
 
             {/* Data-quality disclosure — bond yields here are derived from EVDS3's
                 "dirty price" series via a textbook YTM approximation. Both inputs
