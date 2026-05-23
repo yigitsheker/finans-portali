@@ -11,7 +11,10 @@ WORKDIR /app
 # /app at runtime keeps node_modules from getting clobbered (see the
 # anonymous-volume trick in docker-compose.dev.yml).
 COPY package*.json ./
-RUN npm ci
+# --ignore-scripts blocks lifecycle hooks (preinstall/postinstall) from
+# running during image build — supply-chain hardening, esbuild and vite
+# don't need their postinstall steps inside the dev image.
+RUN npm ci --ignore-scripts
 
 EXPOSE 5173
 

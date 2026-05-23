@@ -30,7 +30,9 @@ public class NotificationController {
     public List<NotificationDto> list(@RequestParam(defaultValue = "30") int limit) {
         String userId = userService.getCurrentUserId();
         if (userId == null) return List.of();
-        int n = (int) Math.clamp((long) limit, 1, 100);
+        // Math.clamp(long, int, int) returns int in Java 21 — `limit` widens
+        // implicitly, no explicit casts needed.
+        int n = Math.clamp(limit, 1, 100);
         return repo.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, n))
                 .stream().map(NotificationDto::from).toList();
     }

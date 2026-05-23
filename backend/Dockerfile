@@ -18,19 +18,22 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# Install curl and wget for healthcheck and downloading agent
-RUN apk add --no-cache curl wget
+# Install curl for healthcheck (wget no longer needed — ADD fetches the
+# OpenTelemetry agent below).
+RUN apk add --no-cache curl
 
 # Create non-root user, logs directory, and otel directory
 RUN addgroup -S appuser && adduser -S appuser -G appuser && \
     mkdir -p /app/logs /otel && \
     chown -R appuser:appuser /app /otel
 
-# Download OpenTelemetry Java Agent
-RUN wget -O /otel/opentelemetry-javaagent.jar \
-    https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.0.0/opentelemetry-javaagent.jar && \
-    chmod 644 /otel/opentelemetry-javaagent.jar && \
-    chown appuser:appuser /otel/opentelemetry-javaagent.jar
+# Download OpenTelemetry Java Agent at build time. ADD with an HTTPS URL
+# is the Sonar-recommended replacement for wget/curl invocations
+# (S6504) — fewer layers, no extra package install, ownership + mode
+# applied atomically.
+ADD --chown=appuser:appuser --chmod=644 \
+    https://github.com/open-telemetry/opentelemetry-java-instrumentation/releases/download/v2.0.0/opentelemetry-javaagent.jar \
+    /otel/opentelemetry-javaagent.jar
 
 # Copy jar from builder stage
 COPY --from=builder /app/target/*.jar app.jar

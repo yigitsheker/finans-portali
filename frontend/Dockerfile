@@ -6,8 +6,10 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install all dependencies (including devDependencies for build)
-RUN npm ci
+# Install all dependencies (including devDependencies for build).
+# --ignore-scripts: block pre/post-install lifecycle hooks so a poisoned
+# transitive dep can't run arbitrary code inside the build image.
+RUN npm ci --ignore-scripts
 
 # Copy source code
 COPY . .
