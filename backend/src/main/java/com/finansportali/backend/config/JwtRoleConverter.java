@@ -7,8 +7,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.util.Collection;
 import java.util.Collections;
-import java.util.List;
-import java.util.stream.Collectors;
 
 /**
  * Converts JWT token roles to Spring Security GrantedAuthority objects.
@@ -38,8 +36,8 @@ public class JwtRoleConverter implements Converter<Jwt, Collection<GrantedAuthor
         
         // Convert roles to GrantedAuthority with ROLE_ prefix
         return roles.stream()
-                .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
-                .collect(Collectors.toList());
+                .map(role -> (GrantedAuthority) new SimpleGrantedAuthority("ROLE_" + role))
+                .toList();
     }
 
     /**
@@ -48,13 +46,14 @@ public class JwtRoleConverter implements Converter<Jwt, Collection<GrantedAuthor
     @SuppressWarnings("unchecked")
     private Collection<String> extractRolesFromClaim(Jwt jwt, String claimName) {
         Object rolesClaim = jwt.getClaim(claimName);
-        
-        if (rolesClaim instanceof Collection) {
-            return (Collection<String>) rolesClaim;
-        } else if (rolesClaim instanceof String) {
-            return Collections.singletonList((String) rolesClaim);
+
+        if (rolesClaim instanceof Collection<?> rolesCollection) {
+            return (Collection<String>) rolesCollection;
         }
-        
+        if (rolesClaim instanceof String role) {
+            return Collections.singletonList(role);
+        }
+
         return Collections.emptyList();
     }
 
@@ -65,18 +64,18 @@ public class JwtRoleConverter implements Converter<Jwt, Collection<GrantedAuthor
     @SuppressWarnings("unchecked")
     private Collection<String> extractRolesFromRealmAccess(Jwt jwt) {
         Object realmAccess = jwt.getClaim("realm_access");
-        
-        if (realmAccess instanceof java.util.Map) {
-            java.util.Map<String, Object> realmAccessMap = (java.util.Map<String, Object>) realmAccess;
+
+        if (realmAccess instanceof java.util.Map<?, ?> realmAccessMap) {
             Object roles = realmAccessMap.get("roles");
-            
-            if (roles instanceof Collection) {
-                return (Collection<String>) roles;
-            } else if (roles instanceof String) {
-                return Collections.singletonList((String) roles);
+
+            if (roles instanceof Collection<?> rolesCollection) {
+                return (Collection<String>) rolesCollection;
+            }
+            if (roles instanceof String role) {
+                return Collections.singletonList(role);
             }
         }
-        
+
         return Collections.emptyList();
     }
 }

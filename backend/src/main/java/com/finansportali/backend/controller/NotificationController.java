@@ -30,7 +30,7 @@ public class NotificationController {
     public List<NotificationDto> list(@RequestParam(defaultValue = "30") int limit) {
         String userId = userService.getCurrentUserId();
         if (userId == null) return List.of();
-        int n = Math.max(1, Math.min(100, limit));
+        int n = (int) Math.clamp((long) limit, 1, 100);
         return repo.findByUserIdOrderByCreatedAtDesc(userId, PageRequest.of(0, n))
                 .stream().map(NotificationDto::from).toList();
     }

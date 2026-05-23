@@ -61,17 +61,19 @@ public record AlertView(
                 if (target.compareTo(creation) <= 0) yield 100.0;
                 BigDecimal totalDistance = target.subtract(creation);
                 BigDecimal currentDistance = current.subtract(creation);
-                yield Math.min(100.0, Math.max(0.0, 
+                yield Math.clamp(
                     currentDistance.divide(totalDistance, 4, java.math.RoundingMode.HALF_UP)
-                    .multiply(BigDecimal.valueOf(100)).doubleValue()));
+                        .multiply(BigDecimal.valueOf(100)).doubleValue(),
+                    0.0, 100.0);
             }
             case PRICE_BELOW -> {
                 if (target.compareTo(creation) >= 0) yield 100.0;
                 BigDecimal totalDistance = creation.subtract(target);
                 BigDecimal currentDistance = creation.subtract(current);
-                yield Math.min(100.0, Math.max(0.0, 
+                yield Math.clamp(
                     currentDistance.divide(totalDistance, 4, java.math.RoundingMode.HALF_UP)
-                    .multiply(BigDecimal.valueOf(100)).doubleValue()));
+                        .multiply(BigDecimal.valueOf(100)).doubleValue(),
+                    0.0, 100.0);
             }
             case PERCENT_GAIN, PERCENT_LOSS -> {
                 // Yüzde bazlı alarmlar için basit hesaplama

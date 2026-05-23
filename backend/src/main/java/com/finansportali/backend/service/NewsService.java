@@ -305,7 +305,8 @@ public class NewsService {
 
     private String stripCdata(String s) {
         if (s == null) return "";
-        return s.replaceAll("<!\\[CDATA\\[", "").replaceAll("\\]\\]>", "").trim();
+        // Plain replace — these are literal markers, not regex.
+        return s.replace("<![CDATA[", "").replace("]]>", "").trim();
     }
 
     private String stripHtml(String s) {

@@ -21,7 +21,6 @@ import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 public class DebtInstrumentService {
@@ -54,7 +53,7 @@ public class DebtInstrumentService {
 
         return instruments.stream()
             .map(this::mapToListItem)
-            .collect(Collectors.toList());
+            .toList();
     }
 
     /**
@@ -118,7 +117,7 @@ public class DebtInstrumentService {
                 dto.setVolume(q.getVolume());
                 return dto;
             })
-            .collect(Collectors.toList());
+            .toList();
     }
 
     /**
