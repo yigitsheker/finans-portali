@@ -222,12 +222,12 @@ export async function getNewsCategoryCounts() {
 }
 
 export async function fetchNewsContent(id) {
-    const res = await axios.post(`${API_BASE}/api/v1/news/${id}/fetch-content`);
+    const res = await axios.post(`${API_BASE}/api/v1/news/${encodeURIComponent(id)}/fetch-content`);
     return res.data;
 }
 
 export async function getNewsById(id) {
-    const res = await axios.get(`${API_BASE}/api/v1/news/${id}`);
+    const res = await axios.get(`${API_BASE}/api/v1/news/${encodeURIComponent(id)}`);
     return res.data;
 }
 

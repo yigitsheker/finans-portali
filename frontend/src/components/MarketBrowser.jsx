@@ -76,7 +76,7 @@ export default function MarketBrowser({ keycloak, onAdded }) {
     );
 
     const types = useMemo(
-        () => ["ALL", ...Array.from(new Set(items.filter((i) => i.type !== "INDEX").map((i) => i.type))).sort()],
+        () => ["ALL", ...Array.from(new Set(items.filter((i) => i.type !== "INDEX").map((i) => i.type))).sort((a, b) => a.localeCompare(b))],
         [items]
     );
 

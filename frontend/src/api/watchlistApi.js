@@ -17,7 +17,7 @@ export const watchlistApi = {
 
   getWatchlist: async (keycloak, id) => {
     const headers = await authHeader(keycloak);
-    const response = await axios.get(`${API_BASE}/api/v1/watchlists/${id}`, { headers });
+    const response = await axios.get(`${API_BASE}/api/v1/watchlists/${encodeURIComponent(id)}`, { headers });
     return response.data;
   },
 
@@ -29,13 +29,13 @@ export const watchlistApi = {
 
   updateWatchlist: async (keycloak, id, request) => {
     const headers = await authHeader(keycloak);
-    const response = await axios.put(`${API_BASE}/api/v1/watchlists/${id}`, request, { headers });
+    const response = await axios.put(`${API_BASE}/api/v1/watchlists/${encodeURIComponent(id)}`, request, { headers });
     return response.data;
   },
 
   deleteWatchlist: async (keycloak, id) => {
     const headers = await authHeader(keycloak);
-    await axios.delete(`${API_BASE}/api/v1/watchlists/${id}`, { headers });
+    await axios.delete(`${API_BASE}/api/v1/watchlists/${encodeURIComponent(id)}`, { headers });
   },
 
   addToWatchlist: async (keycloak, request) => {
@@ -45,6 +45,9 @@ export const watchlistApi = {
 
   removeFromWatchlist: async (keycloak, watchlistId, symbol) => {
     const headers = await authHeader(keycloak);
-    await axios.delete(`${API_BASE}/api/v1/watchlists/${watchlistId}/items/${symbol}`, { headers });
+    await axios.delete(
+      `${API_BASE}/api/v1/watchlists/${encodeURIComponent(watchlistId)}/items/${encodeURIComponent(symbol)}`,
+      { headers }
+    );
   },
 };

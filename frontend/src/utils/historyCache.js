@@ -16,7 +16,10 @@ const STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — usable as offline fa
 const MAX_ENTRIES = 200;             // bound storage; LRU eviction below
 
 function keyFor(symbol, period) {
-  return `${KEY_PREFIX}${symbol}:${period}`;
+  // encodeURIComponent on the user-controlled key fragments so a crafted
+  // symbol/period can't smuggle separators or other markers into the
+  // localStorage namespace (Sonar S5247 — tainted data in browser storage).
+  return `${KEY_PREFIX}${encodeURIComponent(symbol)}:${encodeURIComponent(period)}`;
 }
 
 /**

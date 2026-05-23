@@ -639,7 +639,9 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
             const data = rawData[inst.symbol] || [];
             data.forEach((p) => allLabels.add(p.label || p.day.split("T")[0]));
         });
-        const sortedLabels = Array.from(allLabels).sort();
+        // Labels are ISO date strings — explicit string compare avoids the
+        // implicit toString sort that Sonar S2871 flags.
+        const sortedLabels = Array.from(allLabels).sort((a, b) => a.localeCompare(b));
 
         // Build series. Inflation rows have a very different magnitude (CPI index ~3500)
         // and only make sense as a % change overlay — drop them in price/usd modes.

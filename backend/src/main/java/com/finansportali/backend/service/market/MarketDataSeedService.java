@@ -20,6 +20,10 @@ import java.time.LocalDate;
 public class MarketDataSeedService {
 
     private static final Logger log = LoggerFactory.getLogger(MarketDataSeedService.class);
+    // SecureRandom is constructed once and re-used (Sonar S2119). Instances are
+    // thread-safe and the entropy gather is non-trivial — recreating it per
+    // seedCandles() call would add startup cost for no benefit.
+    private static final SecureRandom RANDOM = new SecureRandom();
 
     private final MarketInstrumentRepository instrumentRepo;
     private final MarketQuoteRepository quoteRepo;
@@ -493,14 +497,10 @@ public class MarketDataSeedService {
     private void seedCandles(MarketInstrument inst, String base) {
         LocalDate today = LocalDate.now();
         LocalDate start = today.minusDays(30);
-        // SecureRandom over java.util.Random per Sonar S2245. The seed data
-        // is one-off bootstrap noise but the crypto-grade RNG costs nothing
-        // here and keeps the scanner clean.
-        SecureRandom rnd = new SecureRandom();
         BigDecimal basePrice = bd(base);
 
         for (LocalDate d = start; !d.isAfter(today); d = d.plusDays(1)) {
-            double variation = (rnd.nextDouble() - 0.5) * 0.04;
+            double variation = (RANDOM.nextDouble() - 0.5) * 0.04;
             BigDecimal close = basePrice.multiply(BigDecimal.valueOf(1 + variation));
             candleRepo.save(new MarketCandle(inst, d, close));
         }
