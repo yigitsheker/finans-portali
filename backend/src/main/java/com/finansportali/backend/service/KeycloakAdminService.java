@@ -39,6 +39,15 @@ public class KeycloakAdminService {
     private static final Logger log = LoggerFactory.getLogger(KeycloakAdminService.class);
     private static final int DEFAULT_PAGE_SIZE = 100;
 
+    private static final String AUTH_HEADER = "Authorization";
+    private static final String BEARER_PREFIX = "Bearer ";
+    private static final String USER_BY_ID_URI = "/admin/realms/{realm}/users/{id}";
+    private static final String FIELD_EMAIL = "email";
+    private static final String FIELD_REQUIRED_ACTIONS = "requiredActions";
+    private static final String FIELD_PHONE = "phone";
+    private static final String ERR_USER_NOT_FOUND = "Kullanıcı bulunamadı";
+    private static final String ERR_USER_FETCH_FAILED = "Kullanıcı alınamadı";
+
     private final KeycloakAdminProperties props;
     private WebClient webClient;
 
@@ -71,7 +80,7 @@ public class KeycloakAdminService {
                     }
                     return b.build(props.getRealm());
                 })
-                .header("Authorization", "Bearer " + token)
+                .header(AUTH_HEADER, BEARER_PREFIX + token)
                 .retrieve()
                 .bodyToFlux(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
                 .collectList()
@@ -99,13 +108,13 @@ public class KeycloakAdminService {
         String token = getAdminToken();
         try {
             Map<String, Object> user = webClient.get()
-                    .uri("/admin/realms/{realm}/users/{id}", props.getRealm(), userId)
-                    .header("Authorization", "Bearer " + token)
+                    .uri(USER_BY_ID_URI, props.getRealm(), userId)
+                    .header(AUTH_HEADER, BEARER_PREFIX + token)
                     .retrieve()
                     .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
                     .block();
             if (user == null) return null;
-            Object email = user.get("email");
+            Object email = user.get(FIELD_EMAIL);
             return email == null ? null : email.toString();
         } catch (WebClientResponseException e) {
             log.warn("Could not fetch email for user {}: {} - {}", userId, e.getStatusCode(), e.getMessage());
@@ -132,23 +141,23 @@ public class KeycloakAdminService {
         Map<String, Object> current;
         try {
             current = webClient.get()
-                    .uri("/admin/realms/{realm}/users/{id}", props.getRealm(), userId)
-                    .header("Authorization", "Bearer " + token)
+                    .uri(USER_BY_ID_URI, props.getRealm(), userId)
+                    .header(AUTH_HEADER, BEARER_PREFIX + token)
                     .retrieve()
                     .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
                     .block();
         } catch (WebClientResponseException e) {
-            throw translate(e, "Kullanıcı alınamadı");
+            throw translate(e, ERR_USER_FETCH_FAILED);
         }
         if (current == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Kullanıcı bulunamadı");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ERR_USER_NOT_FOUND);
         }
 
         java.util.LinkedHashMap<String, Object> body = new java.util.LinkedHashMap<>(current);
         if (firstName != null && !firstName.isBlank()) body.put("firstName", firstName.trim());
         if (lastName != null && !lastName.isBlank()) body.put("lastName", lastName.trim());
         if (email != null && !email.isBlank()) {
-            body.put("email", email.trim());
+            body.put(FIELD_EMAIL, email.trim());
             body.put("emailVerified", true); // self-edit, trust it
         }
 
@@ -156,15 +165,15 @@ public class KeycloakAdminService {
             @SuppressWarnings("unchecked")
             Map<String, Object> attrs = (Map<String, Object>) body.getOrDefault("attributes", new java.util.LinkedHashMap<>());
             java.util.LinkedHashMap<String, Object> newAttrs = new java.util.LinkedHashMap<>(attrs);
-            if (phone.isBlank()) newAttrs.remove("phone");
-            else newAttrs.put("phone", java.util.List.of(phone.trim()));
+            if (phone.isBlank()) newAttrs.remove(FIELD_PHONE);
+            else newAttrs.put(FIELD_PHONE, java.util.List.of(phone.trim()));
             body.put("attributes", newAttrs);
         }
 
         try {
             webClient.put()
-                    .uri("/admin/realms/{realm}/users/{id}", props.getRealm(), userId)
-                    .header("Authorization", "Bearer " + token)
+                    .uri(USER_BY_ID_URI, props.getRealm(), userId)
+                    .header(AUTH_HEADER, BEARER_PREFIX + token)
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(body)
                     .retrieve()
@@ -182,8 +191,8 @@ public class KeycloakAdminService {
 
         try {
             webClient.put()
-                    .uri("/admin/realms/{realm}/users/{id}", props.getRealm(), userId)
-                    .header("Authorization", "Bearer " + token)
+                    .uri(USER_BY_ID_URI, props.getRealm(), userId)
+                    .header(AUTH_HEADER, BEARER_PREFIX + token)
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(body)
                     .retrieve()
@@ -201,31 +210,31 @@ public class KeycloakAdminService {
         Map<String, Object> current;
         try {
             current = webClient.get()
-                    .uri("/admin/realms/{realm}/users/{id}", props.getRealm(), userId)
-                    .header("Authorization", "Bearer " + token)
+                    .uri(USER_BY_ID_URI, props.getRealm(), userId)
+                    .header(AUTH_HEADER, BEARER_PREFIX + token)
                     .retrieve()
                     .bodyToMono(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
                     .block();
         } catch (WebClientResponseException e) {
-            throw translate(e, "Kullanıcı alınamadı");
+            throw translate(e, ERR_USER_FETCH_FAILED);
         }
 
         if (current == null) {
-            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Kullanıcı bulunamadı");
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, ERR_USER_NOT_FOUND);
         }
 
         @SuppressWarnings("unchecked")
-        List<String> existing = (List<String>) current.getOrDefault("requiredActions", Collections.emptyList());
+        List<String> existing = (List<String>) current.getOrDefault(FIELD_REQUIRED_ACTIONS, Collections.emptyList());
         List<String> merged = new ArrayList<>(existing);
         if (!merged.contains(action)) {
             merged.add(action);
         }
 
-        Map<String, Object> body = Map.of("requiredActions", merged);
+        Map<String, Object> body = Map.of(FIELD_REQUIRED_ACTIONS, merged);
         try {
             webClient.put()
-                    .uri("/admin/realms/{realm}/users/{id}", props.getRealm(), userId)
-                    .header("Authorization", "Bearer " + token)
+                    .uri(USER_BY_ID_URI, props.getRealm(), userId)
+                    .header(AUTH_HEADER, BEARER_PREFIX + token)
                     .contentType(MediaType.APPLICATION_JSON)
                     .bodyValue(body)
                     .retrieve()
@@ -244,7 +253,7 @@ public class KeycloakAdminService {
         try {
             creds = webClient.get()
                     .uri("/admin/realms/{realm}/users/{id}/credentials", props.getRealm(), userId)
-                    .header("Authorization", "Bearer " + token)
+                    .header(AUTH_HEADER, BEARER_PREFIX + token)
                     .retrieve()
                     .bodyToFlux(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
                     .collectList()
@@ -268,7 +277,7 @@ public class KeycloakAdminService {
                 webClient.delete()
                         .uri("/admin/realms/{realm}/users/{uid}/credentials/{cid}",
                                 props.getRealm(), userId, credId)
-                        .header("Authorization", "Bearer " + token)
+                        .header(AUTH_HEADER, BEARER_PREFIX + token)
                         .retrieve()
                         .toBodilessEntity()
                         .block();
@@ -316,7 +325,7 @@ public class KeycloakAdminService {
 
     @SuppressWarnings("unchecked")
     private KeycloakUserDto toDto(Map<String, Object> u) {
-        List<String> requiredActions = (List<String>) u.getOrDefault("requiredActions", Collections.emptyList());
+        List<String> requiredActions = (List<String>) u.getOrDefault(FIELD_REQUIRED_ACTIONS, Collections.emptyList());
 
         boolean totpEnabled = false;
         Object totp = u.get("totp");
@@ -335,7 +344,7 @@ public class KeycloakAdminService {
         return new KeycloakUserDto(
                 Objects.toString(u.get("id"), null),
                 Objects.toString(u.get("username"), null),
-                Objects.toString(u.get("email"), null),
+                Objects.toString(u.get(FIELD_EMAIL), null),
                 Objects.toString(u.get("firstName"), null),
                 Objects.toString(u.get("lastName"), null),
                 u.get("enabled") instanceof Boolean be ? be : true,
@@ -349,7 +358,7 @@ public class KeycloakAdminService {
     private ResponseStatusException translate(WebClientResponseException e, String fallback) {
         log.warn("Keycloak admin API error: {} - {}", e.getStatusCode(), e.getResponseBodyAsString());
         if (e.getStatusCode().value() == 404) {
-            return new ResponseStatusException(HttpStatus.NOT_FOUND, "Kullanıcı bulunamadı");
+            return new ResponseStatusException(HttpStatus.NOT_FOUND, ERR_USER_NOT_FOUND);
         }
         if (e.getStatusCode().value() == 403) {
             return new ResponseStatusException(HttpStatus.FORBIDDEN,

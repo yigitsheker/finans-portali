@@ -28,57 +28,76 @@ public class NewsService {
 
     private static final Logger log = LoggerFactory.getLogger(NewsService.class);
 
+    // ── Category slugs ──────────────────────────────────────────────────────
+    // These are the values stored in news_articles.category and used by the
+    // /api/v1/news?category=... query param.
+    private static final String CAT_GENEL_EKONOMI = "genel-ekonomi";
+    private static final String CAT_HISSE = "hisse";
+    private static final String CAT_DOVIZ = "doviz";
+    private static final String CAT_TAHVIL = "tahvil";
+    private static final String CAT_KRIPTO = "kripto";
+    private static final String CAT_EMTIA = "emtia";
+    private static final String CAT_FONLAR = "fonlar";
+    private static final String CAT_BORSA = "borsa";
+    private static final String CAT_TCMB = "tcmb";
+    private static final String CAT_ULUSLARARASI = "uluslararasi";
+
+    // ── Source display names (high-frequency only) ──────────────────────────
+    private static final String SRC_DUNYA = "Dünya Gazetesi";
+    private static final String SRC_BLOOMBERG_HT = "Bloomberg HT";
+    private static final String SRC_INVESTING = "Investing.com";
+
     private static final List<String[]> FEEDS = List.of(
         // Genel Ekonomi
-        new String[]{"https://www.aa.com.tr/tr/rss/default?cat=ekonomi", "genel-ekonomi", "Anadolu Ajansı"},
-        new String[]{"https://www.hurriyet.com.tr/rss/ekonomi", "genel-ekonomi", "Hürriyet"},
-        new String[]{"https://www.milliyet.com.tr/rss/rssNew/ekonomiRss.xml", "genel-ekonomi", "Milliyet"},
-        new String[]{"https://www.sabah.com.tr/rss/ekonomi.xml", "genel-ekonomi", "Sabah"},
-        new String[]{"https://www.dunya.com/rss/ekonomi.xml", "genel-ekonomi", "Dünya Gazetesi"},
+        new String[]{"https://www.aa.com.tr/tr/rss/default?cat=ekonomi", CAT_GENEL_EKONOMI, "Anadolu Ajansı"},
+        new String[]{"https://www.hurriyet.com.tr/rss/ekonomi", CAT_GENEL_EKONOMI, "Hürriyet"},
+        new String[]{"https://www.milliyet.com.tr/rss/rssNew/ekonomiRss.xml", CAT_GENEL_EKONOMI, "Milliyet"},
+        new String[]{"https://www.sabah.com.tr/rss/ekonomi.xml", CAT_GENEL_EKONOMI, "Sabah"},
+        new String[]{"https://www.dunya.com/rss/ekonomi.xml", CAT_GENEL_EKONOMI, SRC_DUNYA},
         
         // Hisse Senetleri
-        new String[]{"https://www.bloomberght.com/rss", "hisse", "Bloomberg HT"},
-        new String[]{"https://www.foreks.com/rss/news", "hisse", "Foreks"},
-        new String[]{"https://www.investing.com/rss/news_285.rss", "hisse", "Investing.com"},
-        new String[]{"https://www.investing.com/rss/news_25.rss", "hisse", "Investing.com"},
+        new String[]{"https://www.bloomberght.com/rss", CAT_HISSE, SRC_BLOOMBERG_HT},
+        new String[]{"https://www.foreks.com/rss/news", CAT_HISSE, "Foreks"},
+        new String[]{"https://www.investing.com/rss/news_285.rss", CAT_HISSE, SRC_INVESTING},
+        new String[]{"https://www.investing.com/rss/news_25.rss", CAT_HISSE, SRC_INVESTING},
         
         // Döviz
-        new String[]{"https://www.dunya.com/rss/doviz.xml", "doviz", "Dünya Gazetesi"},
-        new String[]{"https://www.bloomberght.com/rss/doviz", "doviz", "Bloomberg HT"},
-        new String[]{"https://www.investing.com/rss/forex.rss", "doviz", "Investing.com"},
+        new String[]{"https://www.dunya.com/rss/doviz.xml", CAT_DOVIZ, SRC_DUNYA},
+        new String[]{"https://www.bloomberght.com/rss/doviz", CAT_DOVIZ, SRC_BLOOMBERG_HT},
+        new String[]{"https://www.investing.com/rss/forex.rss", CAT_DOVIZ, SRC_INVESTING},
         
         // Tahvil & Bono
-        new String[]{"https://www.bloomberght.com/rss/tahvil", "tahvil", "Bloomberg HT"},
-        new String[]{"https://www.investing.com/rss/news_95.rss", "tahvil", "Investing.com"},
+        new String[]{"https://www.bloomberght.com/rss/tahvil", CAT_TAHVIL, SRC_BLOOMBERG_HT},
+        new String[]{"https://www.investing.com/rss/news_95.rss", CAT_TAHVIL, SRC_INVESTING},
         
         // Kripto Para
-        new String[]{"https://cointelegraph.com/rss", "kripto", "Cointelegraph"},
-        new String[]{"https://www.coindesk.com/arc/outboundfeeds/rss/", "kripto", "CoinDesk"},
-        new String[]{"https://feeds.finance.yahoo.com/rss/2.0/headline?s=BTC-USD&region=US&lang=en-US", "kripto", "Yahoo Finance"},
-        new String[]{"https://www.investing.com/rss/news_301.rss", "kripto", "Investing.com"},
+        new String[]{"https://cointelegraph.com/rss", CAT_KRIPTO, "Cointelegraph"},
+        new String[]{"https://www.coindesk.com/arc/outboundfeeds/rss/", CAT_KRIPTO, "CoinDesk"},
+        new String[]{"https://feeds.finance.yahoo.com/rss/2.0/headline?s=BTC-USD&region=US&lang=en-US", CAT_KRIPTO, "Yahoo Finance"},
+        new String[]{"https://www.investing.com/rss/news_301.rss", CAT_KRIPTO, SRC_INVESTING},
         
         // Emtia
-        new String[]{"https://www.bloomberght.com/rss/emtia", "emtia", "Bloomberg HT"},
-        new String[]{"https://www.investing.com/rss/commodities.rss", "emtia", "Investing.com"},
-        new String[]{"https://www.dunya.com/rss/emtia.xml", "emtia", "Dünya Gazetesi"},
+        new String[]{"https://www.bloomberght.com/rss/emtia", CAT_EMTIA, SRC_BLOOMBERG_HT},
+        new String[]{"https://www.investing.com/rss/commodities.rss", CAT_EMTIA, SRC_INVESTING},
+        new String[]{"https://www.dunya.com/rss/emtia.xml", CAT_EMTIA, SRC_DUNYA},
         
         // Yatırım Fonları
-        new String[]{"https://www.bloomberght.com/rss/fonlar", "fonlar", "Bloomberg HT"},
-        new String[]{"https://www.dunya.com/rss/fonlar.xml", "fonlar", "Dünya Gazetesi"},
+        new String[]{"https://www.bloomberght.com/rss/fonlar", CAT_FONLAR, SRC_BLOOMBERG_HT},
+        new String[]{"https://www.dunya.com/rss/fonlar.xml", CAT_FONLAR, SRC_DUNYA},
         
         // Borsa Haberleri
-        new String[]{"https://www.bloomberght.com/rss/borsa", "borsa", "Bloomberg HT"},
-        new String[]{"https://www.dunya.com/rss/borsa.xml", "borsa", "Dünya Gazetesi"},
-        new String[]{"https://www.investing.com/rss/stock_brokers.rss", "borsa", "Investing.com"},
+        new String[]{"https://www.bloomberght.com/rss/borsa", CAT_BORSA, SRC_BLOOMBERG_HT},
+        new String[]{"https://www.dunya.com/rss/borsa.xml", CAT_BORSA, SRC_DUNYA},
+        new String[]{"https://www.investing.com/rss/stock_brokers.rss", CAT_BORSA, SRC_INVESTING},
         
         // TCMB Kararları
-        new String[]{"https://www.tcmb.gov.tr/rss/tcmb.xml", "tcmb", "TCMB"},
-        new String[]{"https://www.bloomberght.com/rss/merkez-bankasi", "tcmb", "Bloomberg HT"},
+        new String[]{"https://www.tcmb.gov.tr/rss/tcmb.xml", CAT_TCMB, "TCMB"},
+        new String[]{"https://www.bloomberght.com/rss/merkez-bankasi", CAT_TCMB, SRC_BLOOMBERG_HT},
         
         // Uluslararası Piyasalar
-        new String[]{"https://feeds.finance.yahoo.com/rss/2.0/headline?s=AAPL,TSLA,NVDA&region=US&lang=en-US", "uluslararasi", "Yahoo Finance"},
-        new String[]{"https://www.investing.com/rss/news_1.rss", "uluslararasi", "Investing.com"},
-        new String[]{"https://www.bloomberght.com/rss/dunya", "uluslararasi", "Bloomberg HT"}
+        new String[]{"https://feeds.finance.yahoo.com/rss/2.0/headline?s=AAPL,TSLA,NVDA&region=US&lang=en-US", CAT_ULUSLARARASI, "Yahoo Finance"},
+        new String[]{"https://www.investing.com/rss/news_1.rss", CAT_ULUSLARARASI, SRC_INVESTING},
+        new String[]{"https://www.bloomberght.com/rss/dunya", CAT_ULUSLARARASI, SRC_BLOOMBERG_HT}
     );
 
     private final NewsArticleRepository repo;
@@ -124,8 +143,8 @@ public class NewsService {
 
     public List<String> getCategories() {
         return List.of(
-            "genel-ekonomi", "hisse", "doviz", "tahvil", "kripto", 
-            "emtia", "fonlar", "borsa", "tcmb", "uluslararasi"
+            CAT_GENEL_EKONOMI, CAT_HISSE, CAT_DOVIZ, CAT_TAHVIL, CAT_KRIPTO, 
+            CAT_EMTIA, CAT_FONLAR, CAT_BORSA, CAT_TCMB, CAT_ULUSLARARASI
         );
     }
 
@@ -332,10 +351,10 @@ public class NewsService {
                 "Günün ilk yarısında yatay seyreden endeks, öğleden sonra alıcılı bir seyir izledi. Özellikle bankacılık hisselerindeki yükseliş endeksi destekledi.\n\n" +
                 "Analistler, TCMB'nin faiz politikasındaki kararlı duruşun piyasalara güven verdiğini belirtiyor. Yabancı yatırımcıların da Türk varlıklarına ilgisinin arttığı gözlemleniyor.\n\n" +
                 "Teknik analistler, endeksin 15.000 seviyesini test edebileceğini öngörüyor. Ancak kar realizasyonlarının da gündeme gelebileceği uyarısı yapılıyor.",
-                "borsa",
+                CAT_BORSA,
                 now.minusSeconds(3600),
                 "https://example.com/bist-100-rekor",
-                "Bloomberg HT"
+                SRC_BLOOMBERG_HT
         ));
         
         // Örnek Haber 2 - Döviz
@@ -346,7 +365,7 @@ public class NewsService {
                 "TCMB'nin brüt döviz rezervleri son haftalarda önemli artış gösterdi. Bu durum, piyasalarda güven ortamının oluşmasına katkı sağladı.\n\n" +
                 "Ekonomistler, enflasyonla mücadelede kararlı duruşun sürmesi halinde kurlarda daha fazla gerileme görülebileceğini ifade ediyor.\n\n" +
                 "Öte yandan, küresel piyasalardaki gelişmeler ve Fed'in faiz politikası da döviz kurları üzerinde etkili olmaya devam ediyor.",
-                "doviz",
+                CAT_DOVIZ,
                 now.minusSeconds(7200),
                 "https://example.com/dolar-tl-kuru",
                 "Anadolu Ajansı"
@@ -360,7 +379,7 @@ public class NewsService {
                 "Kurumsal yatırımcıların Bitcoin ETF'lerine olan ilgisi artmaya devam ediyor. Bu durum, Bitcoin fiyatını yukarı taşıyan en önemli faktörlerden biri.\n\n" +
                 "Ethereum da Bitcoin'i takip ederek 2.400 dolar seviyesini aştı. Altcoin'lerde de genel olarak yükseliş trendi gözlemleniyor.\n\n" +
                 "Analistler, Bitcoin'in 80.000 dolar seviyesine ulaşabileceğini öngörüyor. Ancak volatilitenin yüksek olduğu ve risk yönetiminin önemli olduğu vurgulanıyor.",
-                "kripto",
+                CAT_KRIPTO,
                 now.minusSeconds(10800),
                 "https://example.com/bitcoin-75000",
                 "Cointelegraph"
@@ -374,10 +393,10 @@ public class NewsService {
                 "Özellikle yazılım ve e-ticaret şirketlerinin kar artışları yatırımcıların dikkatini çekti. Bu sektördeki şirketlerin hisseleri çift haneli getiriler sağladı.\n\n" +
                 "Sektör temsilcileri, dijital dönüşümün hızlanmasıyla birlikte büyüme potansiyelinin devam edeceğini belirtiyor.\n\n" +
                 "Analistler, teknoloji sektörünün uzun vadede yatırımcılar için cazip fırsatlar sunabileceğini değerlendiriyor.",
-                "hisse",
+                CAT_HISSE,
                 now.minusSeconds(14400),
                 "https://example.com/teknoloji-hisseleri",
-                "Investing.com"
+                SRC_INVESTING
         ));
         
         // Örnek Haber 5 - TCMB
@@ -388,7 +407,7 @@ public class NewsService {
                 "Merkez Bankası'nın açıklamasında, enflasyonla mücadelede kararlı duruşun sürdürüleceği vurgulandı. Sıkı para politikasının enflasyon beklentilerini düşürmede etkili olduğu belirtildi.\n\n" +
                 "Ekonomistler, faiz kararının beklentiler doğrultusunda olduğunu ve piyasalarda olumlu karşılandığını ifade ediyor.\n\n" +
                 "TCMB, enflasyon görünümünde kalıcı bir iyileşme sağlanana kadar sıkı para politikası duruşunu koruyacağını açıkladı.",
-                "tcmb",
+                CAT_TCMB,
                 now.minusSeconds(18000),
                 "https://example.com/tcmb-faiz-karari",
                 "TCMB"
@@ -402,10 +421,10 @@ public class NewsService {
                 "Hazine'nin düzenli ihalelerinde güçlü talep görülüyor. Yabancı yatırımcıların Türk tahvillerine ilgisi artmaya devam ediyor.\n\n" +
                 "Analistler, enflasyon beklentilerindeki iyileşmenin tahvil faizlerini aşağı çektiğini belirtiyor. Merkez Bankası'nın kararlı duruşu piyasalara güven veriyor.\n\n" +
                 "Uzmanlar, tahvil faizlerinde daha fazla gerileme görülebileceğini, ancak küresel gelişmelerin de takip edilmesi gerektiğini vurguluyor.",
-                "tahvil",
+                CAT_TAHVIL,
                 now.minusSeconds(21600),
                 "https://example.com/tahvil-faizleri",
-                "Bloomberg HT"
+                SRC_BLOOMBERG_HT
         ));
         
         // Örnek Haber 7 - Emtia
@@ -416,10 +435,10 @@ public class NewsService {
                 "Jeopolitik riskler ve enflasyon endişeleri yatırımcıları güvenli liman olarak görülen altına yönlendiriyor. Merkez bankaları da rezervlerini çeşitlendirmek için altın alımlarını artırıyor.\n\n" +
                 "Türkiye'de gram altın fiyatları da yeni zirvelere ulaştı. Yatırımcılar altını hem değer koruma hem de getiri aracı olarak görüyor.\n\n" +
                 "Analistler, altın fiyatlarının kısa vadede yüksek seyretmeye devam edebileceğini, ancak kar realizasyonlarının da gündeme gelebileceğini belirtiyor.",
-                "emtia",
+                CAT_EMTIA,
                 now.minusSeconds(25200),
                 "https://example.com/altin-fiyatlari",
-                "Investing.com"
+                SRC_INVESTING
         ));
         
         // Örnek Haber 8 - Yatırım Fonları
@@ -430,10 +449,10 @@ public class NewsService {
                 "Borsa İstanbul'daki yükseliş trendi, hisse senedi fonlarının performansını olumlu etkiledi. Özellikle teknoloji ve finans sektörüne yatırım yapan fonlar öne çıktı.\n\n" +
                 "Fon yöneticileri, portföylerini aktif olarak yöneterek piyasa ortalamasının üzerinde getiri elde ettiler. Yatırımcıların fonlara ilgisi artmaya devam ediyor.\n\n" +
                 "Uzmanlar, uzun vadeli yatırımcılar için hisse senedi fonlarının cazip fırsatlar sunabileceğini, ancak risk yönetiminin önemli olduğunu vurguluyor.",
-                "fonlar",
+                CAT_FONLAR,
                 now.minusSeconds(28800),
                 "https://example.com/yatirim-fonlari",
-                "Dünya Gazetesi"
+                SRC_DUNYA
         ));
         
         log.info("Seeded {} sample news articles", 8);
