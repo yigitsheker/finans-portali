@@ -497,10 +497,13 @@ services:
     environment:
       - 'OPENSEARCH_HOSTS=["http://opensearch:9200"]'
       - "DISABLE_SECURITY_DASHBOARDS_PLUGIN=true"
-      # Disable telemetry/sample data fetches that burn CPU when idle
-      - "TELEMETRY_OPTIN=false"
-      - "TELEMETRY_ENABLED=false"
-      - "NEWSFEED_ENABLED=false"
+      # Note: don't try to pass NEWSFEED_ENABLED / TELEMETRY_* — OpenSearch
+      # Dashboards 2.x removed those config keys entirely (they were Kibana
+      # 7.x carry-overs). Setting them aborts boot with exit 64:
+      #   "InvalidConfigurationError: Unknown configuration key(s):
+      #    newsfeed.enabled, telemetry.enabled, telemetry.optIn"
+      # Telemetry / newsfeed don't ship in OpenSearch Dashboards anyway,
+      # so removing the env vars is the fix — not adding new ones.
     ports:
       - "5601:5601"
     depends_on:
@@ -646,13 +649,18 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
+      # Public URL reflects the published host port. Hyper-V on Windows
+      # reserves 2954-3053 as its dynamic NAT range, which traps the
+      # default :3000 (we hit "bind: An attempt was made to access a
+      # socket in a way forbidden by its access permissions"). Moving
+      # to :3100 sidesteps the reserved range entirely.
+      - GF_SERVER_ROOT_URL=http://localhost:3100
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     ports:
-      - "3000:3000"
+      - "3100:3000"
     depends_on:
       - prometheus
     networks:
