@@ -165,8 +165,10 @@ jobs:
         working-directory: backend
         run: ./mvnw -B -ntp verify
 
+      # v4 is deprecated (security advisory); v6 is the current LTS.
+      # See https://community.sonarsource.com/gha-v6-update
       - name: SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@v4
+        uses: SonarSource/sonarqube-scan-action@v6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
