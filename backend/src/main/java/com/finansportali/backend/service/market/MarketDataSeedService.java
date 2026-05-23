@@ -10,8 +10,8 @@ import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.security.SecureRandom;
 import java.time.LocalDate;
-import java.util.Random;
 
 /**
  * Seeds default market instruments, fallback quotes, and fallback candles.
@@ -493,7 +493,10 @@ public class MarketDataSeedService {
     private void seedCandles(MarketInstrument inst, String base) {
         LocalDate today = LocalDate.now();
         LocalDate start = today.minusDays(30);
-        Random rnd = new Random();
+        // SecureRandom over java.util.Random per Sonar S2245. The seed data
+        // is one-off bootstrap noise but the crypto-grade RNG costs nothing
+        // here and keeps the scanner clean.
+        SecureRandom rnd = new SecureRandom();
         BigDecimal basePrice = bd(base);
 
         for (LocalDate d = start; !d.isAfter(today); d = d.plusDays(1)) {

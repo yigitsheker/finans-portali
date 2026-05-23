@@ -3,6 +3,7 @@ package com.finansportali.backend.service;
 import com.finansportali.backend.entity.Notification;
 import com.finansportali.backend.entity.PriceAlert;
 import com.finansportali.backend.repository.NotificationRepository;
+import com.finansportali.backend.util.LogSanitizer;
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
@@ -78,11 +79,15 @@ public class NotificationService {
         String liveEmail = keycloakAdminService.getUserEmailById(alert.getUserId());
         String email = (liveEmail != null && !liveEmail.isBlank()) ? liveEmail : alert.getUserEmail();
         if (liveEmail == null) {
+            // Email comes from a JWT claim / user-edited profile; sanitize
+            // before logging to defuse CRLF injection (S5145).
             log.warn("Falling back to stored email {} for alert {} (Keycloak lookup failed)",
-                    email, alert.getId());
+                    LogSanitizer.sanitize(email), alert.getId());
         } else if (alert.getUserEmail() != null && !liveEmail.equalsIgnoreCase(alert.getUserEmail())) {
             log.info("Email for alert {} updated in Keycloak: stored={} → live={}",
-                    alert.getId(), alert.getUserEmail(), liveEmail);
+                    alert.getId(),
+                    LogSanitizer.sanitize(alert.getUserEmail()),
+                    LogSanitizer.sanitize(liveEmail));
         }
         sendPriceAlertInternal(alert, currentPrice, email, null);
     }
@@ -113,9 +118,11 @@ public class NotificationService {
         }
         try {
             sendAlertEmail(email, username, alert, currentPrice, message, lang);
-            log.info("✅ Email notification sent to {} for alert {} (lang={})", email, alert.getId(), lang);
+            log.info("✅ Email notification sent to {} for alert {} (lang={})",
+                    LogSanitizer.sanitize(email), alert.getId(), lang);
         } catch (Exception e) {
-            log.error("❌ Failed to send email to {} for alert {}: {}", email, alert.getId(), e.getMessage(), e);
+            log.error("❌ Failed to send email to {} for alert {}: {}",
+                    LogSanitizer.sanitize(email), alert.getId(), LogSanitizer.sanitize(e.getMessage()), e);
         }
     }
 

@@ -10,9 +10,9 @@ import org.springframework.stereotype.Service;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
+import java.security.SecureRandom;
 import java.util.List;
 import java.util.Optional;
-import java.util.Random;
 
 /**
  * Demo/fallback tahvil veri sağlayıcısı.
@@ -24,7 +24,10 @@ import java.util.Random;
 public class DemoBondDataProvider implements BondDataProvider {
 
     private static final Logger log = LoggerFactory.getLogger(DemoBondDataProvider.class);
-    private final Random random = new Random();
+    // SecureRandom (not java.util.Random) per Sonar S2245 — this stream
+    // only feeds demo/test rows, but using the crypto-grade RNG keeps the
+    // scanner quiet without measurable cost (one-time seeding).
+    private final SecureRandom random = new SecureRandom();
 
     @Override
     public String getProviderName() {

@@ -1,6 +1,7 @@
 package com.finansportali.backend.filter;
 
 import com.finansportali.backend.util.CorrelationIdUtil;
+import com.finansportali.backend.util.LogSanitizer;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -123,10 +124,12 @@ public class LoggingFilter extends OncePerRequestFilter {
     }
 
     private void logRequest(HttpServletRequest request) {
+        // Client IP is read from attacker-controlled X-Forwarded-For;
+        // sanitize to defuse log-injection via CRLF (S5145).
         log.info("HTTP Request: {} {} from {}",
                 request.getMethod(),
                 request.getRequestURI(),
-                getClientIp(request));
+                LogSanitizer.sanitize(getClientIp(request)));
     }
 
     private void logResponse(HttpServletRequest request, HttpServletResponse response, long durationMs) {

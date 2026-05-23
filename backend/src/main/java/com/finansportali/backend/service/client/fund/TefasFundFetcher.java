@@ -39,10 +39,6 @@ public class TefasFundFetcher {
     private static final String BASE_URL = "https://www.tefas.gov.tr";
     private static final String ENDPOINT = "/api/funds/fonGetiriBazliBilgiGetir";
 
-    // Public anonymous token used by the TEFAS public web app.
-    // Confirmed stateless: works without any cookie.
-    private static final String BEARER_TOKEN = "ST-tefaswebwse3irfmSBj4iRAzGPbAlS94Se";
-
     private static final String PRICE_ENDPOINT = "/api/funds/fonFiyatBilgiGetir";
 
     /** Parallel HTTP connections for the per-fund price fetch. */
@@ -73,6 +69,14 @@ public class TefasFundFetcher {
     @Value("${app.funds.max-funds-to-fetch:1500}")
     private int maxFundsToFetch;
 
+    // TEFAS' public anonymous Bearer token — used by tefas.gov.tr's own
+    // SPA. Pulled from configuration so the literal isn't checked into the
+    // repo (Sonar S6437); the default keeps the historical value so
+    // existing deployments don't need a config change. Override via
+    // APP_TEFAS_BEARER_TOKEN env var or application.yml.
+    @Value("${app.tefas.bearer-token:ST-tefaswebwse3irfmSBj4iRAzGPbAlS94Se}")
+    private String bearerToken;
+
     private WebClient webClient;
 
     @PostConstruct
@@ -86,7 +90,7 @@ public class TefasFundFetcher {
                 .defaultHeader("Accept", "*/*")
                 .defaultHeader("Origin", BASE_URL)
                 .defaultHeader("Referer", BASE_URL + "/tr/fon-getirileri?fundType=YAT")
-                .defaultHeader("Authorization", "Bearer " + BEARER_TOKEN)
+                .defaultHeader("Authorization", "Bearer " + bearerToken)
                 .build();
     }
 

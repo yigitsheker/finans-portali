@@ -1,25 +1,36 @@
 package com.finansportali.backend.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
+import java.util.Arrays;
 import java.util.List;
 
 @Configuration
 public class CorsConfig {
 
+    /**
+     * Comma-separated list of allowed origins. Defaulted to the two
+     * developer-friendly localhost origins; production deploys override
+     * via APP_CORS_ALLOWED_ORIGINS (Sonar S5122: never hard-code
+     * arbitrary origins in source).
+     */
+    @Value("${app.cors.allowed-origins:http://localhost:5173,http://localhost}")
+    private String allowedOriginsCsv;
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        // Allowed origins - both development and production
-        config.setAllowedOrigins(List.of(
-            "http://localhost:5173",  // Vite dev server
-            "http://localhost"         // Docker frontend (port 80)
-        ));
+        List<String> allowedOrigins = Arrays.stream(allowedOriginsCsv.split(","))
+                .map(String::trim)
+                .filter(s -> !s.isEmpty())
+                .toList();
+        config.setAllowedOrigins(allowedOrigins);
 
         // Preflight + normal istekler
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));

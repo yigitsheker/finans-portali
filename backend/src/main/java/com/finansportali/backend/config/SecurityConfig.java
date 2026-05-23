@@ -16,6 +16,13 @@ public class SecurityConfig {
     @Bean
     SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
+                // CSRF is disabled because this is a stateless REST API
+                // authenticated exclusively via JWT bearer tokens (no session
+                // cookies, no form login). With no cookies in play, a
+                // cross-site request can't smuggle credentials in the first
+                // place — the classic CSRF threat model doesn't apply. Sonar
+                // S4502 flags every disable() call, so this comment is the
+                // documented justification per the rule's compliant solution.
                 .csrf(csrf -> csrf.disable())
                 .formLogin(form -> form.disable())
                 .cors(Customizer.withDefaults())

@@ -201,6 +201,15 @@ public class NewsContentFetcher {
         }
     }
 
+    // Restrict the curl fallback to plain http(s) URLs so we can never feed
+    // ProcessBuilder anything that looks like a flag or shell metacharacter.
+    // Belt + braces against S2076: ProcessBuilder's argv form already blocks
+    // shell expansion, but Sonar still flags external input flowing into a
+    // process exec — the pre-check here is the simplest way to silence the
+    // finding while documenting the intent.
+    private static final java.util.regex.Pattern SAFE_HTTP_URL =
+            java.util.regex.Pattern.compile("^https?://[A-Za-z0-9._~%!$&'()*+,;=:@/?#\\-\\[\\]]+$");
+
     /**
      * Fallback fetcher using system curl. Cloudflare and similar CDNs
      * fingerprint Java's TLS stack and serve a 403 to Jsoup; curl has a
@@ -208,6 +217,11 @@ public class NewsContentFetcher {
      * Returns null if curl is missing, times out, or returns non-2xx.
      */
     private String fetchWithCurl(String url) {
+        if (url == null || !SAFE_HTTP_URL.matcher(url).matches()) {
+            log.warn("curl fallback refused for non-http(s) URL: {}",
+                    com.finansportali.backend.util.LogSanitizer.sanitize(url));
+            return null;
+        }
         try {
             ProcessBuilder pb = new ProcessBuilder(
                     "curl", "-sSL",
@@ -215,6 +229,7 @@ public class NewsContentFetcher {
                     "-A", USER_AGENT,
                     "-H", "Accept: text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
                     "-H", "Accept-Language: tr-TR,tr;q=0.9,en;q=0.8",
+                    "--",
                     url
             );
             pb.redirectErrorStream(false);

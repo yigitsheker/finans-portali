@@ -2,6 +2,7 @@ package com.finansportali.backend.exception;
 
 import com.finansportali.backend.dto.ApiError;
 import com.finansportali.backend.util.CorrelationIdUtil;
+import com.finansportali.backend.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletRequest;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,8 +26,10 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<ApiError> handleIllegalArgument(IllegalArgumentException ex, HttpServletRequest req) {
+        // Exception message can echo user input (parameter value, etc.); sanitize
+        // before logging to defuse CRLF injection (S5145).
         log.warn("Bad request: {} - Endpoint: {} - RequestId: {}",
-                ex.getMessage(),
+                LogSanitizer.sanitize(ex.getMessage()),
                 req.getRequestURI(),
                 CorrelationIdUtil.getCorrelationId());
 
@@ -72,7 +75,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler({MissingServletRequestParameterException.class, MethodArgumentTypeMismatchException.class})
     public ResponseEntity<ApiError> handleBinding(Exception ex, HttpServletRequest req) {
         log.warn("Binding error: {} - Endpoint: {} - RequestId: {}",
-                ex.getMessage(), req.getRequestURI(), CorrelationIdUtil.getCorrelationId());
+                LogSanitizer.sanitize(ex.getMessage()), req.getRequestURI(), CorrelationIdUtil.getCorrelationId());
 
         ApiError body = new ApiError(
                 Instant.now(),
@@ -87,7 +90,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiError> handleAccessDenied(AccessDeniedException ex, HttpServletRequest req) {
         log.warn("Access denied: {} - Endpoint: {} - RequestId: {}",
-                ex.getMessage(),
+                LogSanitizer.sanitize(ex.getMessage()),
                 req.getRequestURI(),
                 CorrelationIdUtil.getCorrelationId());
 
@@ -107,7 +110,7 @@ public class GlobalExceptionHandler {
         log.error("Unexpected error occurred - Endpoint: {} - RequestId: {} - Error: {}",
                 req.getRequestURI(),
                 CorrelationIdUtil.getCorrelationId(),
-                ex.getMessage(),
+                LogSanitizer.sanitize(ex.getMessage()),
                 ex);
 
         ApiError body = new ApiError(

@@ -1,5 +1,6 @@
 package com.finansportali.backend.config;
 
+import com.finansportali.backend.util.LogSanitizer;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
@@ -32,12 +33,13 @@ public class LoggingConfig implements WebMvcConfigurer {
             long startTime = System.currentTimeMillis();
             request.setAttribute("startTime", startTime);
             
-            // Log request details
-            log.info("REQUEST: {} {} | IP: {} | User-Agent: {} | RequestId: {}", 
-                    request.getMethod(), 
+            // Log request details. User-Agent + client IP are attacker-
+            // controlled headers — sanitize through LogSanitizer (S5145).
+            log.info("REQUEST: {} {} | IP: {} | User-Agent: {} | RequestId: {}",
+                    request.getMethod(),
                     request.getRequestURI(),
-                    getClientIpAddress(request),
-                    request.getHeader("User-Agent"),
+                    LogSanitizer.sanitize(getClientIpAddress(request)),
+                    LogSanitizer.sanitize(request.getHeader("User-Agent")),
                     requestId);
             
             return true;
@@ -53,13 +55,13 @@ public class LoggingConfig implements WebMvcConfigurer {
                 String requestId = MDC.get("requestId");
                 
                 if (ex != null) {
-                    log.error("RESPONSE: {} {} | Status: {} | Duration: {}ms | RequestId: {} | Error: {}", 
+                    log.error("RESPONSE: {} {} | Status: {} | Duration: {}ms | RequestId: {} | Error: {}",
                             request.getMethod(),
                             request.getRequestURI(),
                             response.getStatus(),
                             duration,
                             requestId,
-                            ex.getMessage());
+                            LogSanitizer.sanitize(ex.getMessage()));
                 } else {
                     log.info("RESPONSE: {} {} | Status: {} | Duration: {}ms | RequestId: {}", 
                             request.getMethod(),
