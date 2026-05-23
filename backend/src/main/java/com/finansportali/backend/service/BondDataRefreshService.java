@@ -80,43 +80,54 @@ public class BondDataRefreshService {
      */
     @Transactional
     public int refreshBondData() {
-        return refreshDurationTimer.record(() -> {
-            log.info("[BOND-REFRESH] Starting bond data refresh with provider: {}", activeProviderName);
+        return refreshDurationTimer.record(this::runRefresh);
+    }
 
-            try {
-                BondDataProvider provider = selectProvider();
-                if (provider == null || !provider.isEnabled()) {
-                    log.warn("[BOND-REFRESH] No active provider available");
-                    refreshFailureCounter.increment();
-                    return 0;
-                }
-
-                log.info("[BOND-REFRESH] Using provider: {}", provider.getProviderName());
-
-                List<BondQuoteDto> quotes = provider.fetchLatestBondQuotes();
-                log.info("[BOND-REFRESH] Fetched {} bond quotes from {}", quotes.size(), provider.getProviderName());
-
-                int updatedCount = 0;
-                for (BondQuoteDto dto : quotes) {
-                    try {
-                        upsertInstrumentAndQuote(dto);
-                        updatedCount++;
-                        instrumentsFetchedCounter.increment();
-                    } catch (Exception e) {
-                        log.error("[BOND-REFRESH] Failed to upsert bond: {}", dto.getSymbol(), e);
-                    }
-                }
-
-                log.info("[BOND-REFRESH] Successfully updated {} bond instruments", updatedCount);
-                refreshSuccessCounter.increment();
-                return updatedCount;
-
-            } catch (Exception e) {
-                log.error("[BOND-REFRESH] Bond data refresh failed", e);
+    private int runRefresh() {
+        log.info("[BOND-REFRESH] Starting bond data refresh with provider: {}", activeProviderName);
+        try {
+            BondDataProvider provider = selectProvider();
+            if (provider == null || !provider.isEnabled()) {
+                log.warn("[BOND-REFRESH] No active provider available");
                 refreshFailureCounter.increment();
                 return 0;
             }
-        });
+
+            log.info("[BOND-REFRESH] Using provider: {}", provider.getProviderName());
+            List<BondQuoteDto> quotes = provider.fetchLatestBondQuotes();
+            log.info("[BOND-REFRESH] Fetched {} bond quotes from {}",
+                    quotes.size(), provider.getProviderName());
+
+            int updatedCount = applyQuotes(quotes);
+            log.info("[BOND-REFRESH] Successfully updated {} bond instruments", updatedCount);
+            refreshSuccessCounter.increment();
+            return updatedCount;
+        } catch (Exception e) {
+            log.error("[BOND-REFRESH] Bond data refresh failed", e);
+            refreshFailureCounter.increment();
+            return 0;
+        }
+    }
+
+    private int applyQuotes(List<BondQuoteDto> quotes) {
+        int updatedCount = 0;
+        for (BondQuoteDto dto : quotes) {
+            if (applyQuoteSafely(dto)) {
+                updatedCount++;
+                instrumentsFetchedCounter.increment();
+            }
+        }
+        return updatedCount;
+    }
+
+    private boolean applyQuoteSafely(BondQuoteDto dto) {
+        try {
+            upsertInstrumentAndQuote(dto);
+            return true;
+        } catch (Exception e) {
+            log.error("[BOND-REFRESH] Failed to upsert bond: {}", dto.getSymbol(), e);
+            return false;
+        }
     }
 
     /**

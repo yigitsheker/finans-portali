@@ -215,86 +215,80 @@ public class NewsService {
         }
     }
 
+    private static final int MAX_PER_CATEGORY = 50;
+    private static final int MIN_CONTENT_CHARS = 400;
+    private static final int MAX_TITLE_CHARS = 295;
+    private static final int MAX_SUMMARY_CHARS = 1990;
+    private static final int MAX_CONTENT_CHARS = 10000;
+    private static final Pattern ITEM_PATTERN = Pattern.compile("<item>(.*?)</item>", Pattern.DOTALL);
+
     private void fetchRss(String url, String category, String sourceName) {
-        // Eğer bu kategori zaten 50'ye ulaştıysa yeni veri çekmenin anlamı yok; cleanup
-        // sonradan eskileri silecek olsa bile gereksiz HTTP/parse maliyetinden kaçınalım.
+        // Bu kategori zaten dolduysa fetch'i atla — cleanup sonradan halletse de
+        // gereksiz HTTP/parse maliyetinden kaçınalım.
         long existingCount = repo.countByCategory(category);
-        if (existingCount >= 50) {
+        if (existingCount >= MAX_PER_CATEGORY) {
             log.debug("Category {} already has {} articles, skipping {}", category, existingCount, url);
             return;
         }
 
-        String xml = client.get()
-                .uri(url)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
-
+        String xml = client.get().uri(url).retrieve().bodyToMono(String.class).block();
         if (xml == null || xml.isBlank()) return;
 
-        // Duplicate check kategoriye özel — global top 50 ile karşılaştırmak yetmiyor
-        // çünkü tek kategori son haberleri domine edebilir.
+        // Duplicate check kategoriye özel — global top 50 ile karşılaştırmak yetmiyor.
         List<String> existingTitles = repo.findTop50ByCategoryOrderByPublishedAtDesc(category)
                 .stream().map(NewsArticle::getTitle).toList();
+        int budget = (int) (MAX_PER_CATEGORY - existingCount);
 
-        int budget = (int) (50 - existingCount); // bu kategoriye kaç haber daha sığar
-
-        Pattern itemPat = Pattern.compile("<item>(.*?)</item>", Pattern.DOTALL);
-        Matcher itemMatcher = itemPat.matcher(xml);
-
+        Matcher itemMatcher = ITEM_PATTERN.matcher(xml);
         int saved = 0;
-        while (itemMatcher.find()) {
-            if (saved >= budget) break; // bu kategori için yer kalmadı
-
-            String item    = itemMatcher.group(1);
-            String title   = extractTag(item, "title");
-            String summary = extractTag(item, "description");
-            String content = extractTag(item, "content:encoded"); // Try to get full content
-            String pubDate = extractTag(item, "pubDate");
-            String link    = extractTag(item, "link");
-
-            if (title == null || title.isBlank()) continue;
-            title = stripCdata(title).trim();
-            if (existingTitles.contains(title)) continue;
-
-            if (summary == null || summary.isBlank()) summary = title;
-            summary = stripCdata(stripHtml(summary)).trim();
-
-            // If no full content, use summary as content
-            if (content == null || content.isBlank()) {
-                content = summary;
-            } else {
-                content = stripCdata(stripHtml(content)).trim();
+        while (itemMatcher.find() && saved < budget) {
+            NewsArticle article = parseItem(itemMatcher.group(1), category, sourceName, existingTitles);
+            if (article != null) {
+                repo.save(article);
+                saved++;
             }
-
-            if (title.length()   > 295)  title   = title.substring(0, 295);
-            if (summary.length() > 1990) summary = summary.substring(0, 1990);
-
-            // Require a source URL — without it we can't fetch full content and the
-            // detail page would just echo the headline.
-            if (link == null || link.isBlank()) {
-                log.debug("Skipping article without source URL: {}", title);
-                continue;
-            }
-
-            // Fetch real body from source. If we can't pull substantial content
-            // (≥ 400 chars), drop the article entirely — readers shouldn't be
-            // sent to a detail page that only repeats the headline.
-            String fetchedContent = contentFetcher.fetchArticleContent(link);
-            final int MIN_CONTENT_CHARS = 400;
-            if (fetchedContent == null || fetchedContent.isBlank()
-                    || fetchedContent.length() < MIN_CONTENT_CHARS) {
-                log.debug("Dropping article — no fetchable body (len={}): {}",
-                        fetchedContent == null ? 0 : fetchedContent.length(), link);
-                continue;
-            }
-            content = fetchedContent;
-            if (content.length() > 10000) content = content.substring(0, 10000);
-
-            repo.save(new NewsArticle(title, summary, content, category, parseRssDate(pubDate), link, sourceName));
-            saved++;
         }
         log.info("Saved {} new {} articles (only items with fetched full body)", saved, category);
+    }
+
+    /**
+     * Parse one RSS <item> block into a NewsArticle, fetching the full body
+     * from the source URL. Returns null (and logs at debug) for any item that
+     * fails the title / link / fetched-body requirements — the loop in
+     * fetchRss treats null as "skip and try the next one".
+     */
+    private NewsArticle parseItem(String item, String category, String sourceName, List<String> existingTitles) {
+        String title = extractTag(item, "title");
+        if (title == null || title.isBlank()) return null;
+        title = stripCdata(title).trim();
+        if (existingTitles.contains(title)) return null;
+
+        String link = extractTag(item, "link");
+        if (link == null || link.isBlank()) {
+            log.debug("Skipping article without source URL: {}", title);
+            return null;
+        }
+
+        // Fetch real body from source — without ≥ MIN_CONTENT_CHARS the detail
+        // page would only echo the headline, so drop the article entirely.
+        String fetchedContent = contentFetcher.fetchArticleContent(link);
+        if (fetchedContent == null || fetchedContent.isBlank() || fetchedContent.length() < MIN_CONTENT_CHARS) {
+            log.debug("Dropping article — no fetchable body (len={}): {}",
+                    fetchedContent == null ? 0 : fetchedContent.length(), link);
+            return null;
+        }
+
+        String summary = extractTag(item, "description");
+        summary = (summary == null || summary.isBlank()) ? title : stripCdata(stripHtml(summary)).trim();
+
+        if (title.length() > MAX_TITLE_CHARS) title = title.substring(0, MAX_TITLE_CHARS);
+        if (summary.length() > MAX_SUMMARY_CHARS) summary = summary.substring(0, MAX_SUMMARY_CHARS);
+        String content = fetchedContent.length() > MAX_CONTENT_CHARS
+                ? fetchedContent.substring(0, MAX_CONTENT_CHARS)
+                : fetchedContent;
+
+        String pubDate = extractTag(item, "pubDate");
+        return new NewsArticle(title, summary, content, category, parseRssDate(pubDate), link, sourceName);
     }
 
     private String extractTag(String xml, String tag) {

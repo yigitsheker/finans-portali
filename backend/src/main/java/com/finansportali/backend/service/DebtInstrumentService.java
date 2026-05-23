@@ -126,50 +126,62 @@ public class DebtInstrumentService {
     @Transactional(readOnly = true)
     public BondSummaryDto getSummary() {
         List<DebtInstrument> allInstruments = instrumentRepo.findByActiveTrue();
-        
+
         BondSummaryDto summary = new BondSummaryDto();
         summary.setTotalInstruments(allInstruments.size());
 
-        // Calculate average yield
-        List<BigDecimal> yields = new ArrayList<>();
-        BigDecimal maxYield = BigDecimal.ZERO;
-        LocalDate nearestMaturity = null;
-        LocalDate farthestMaturity = null;
-
+        SummaryStats stats = new SummaryStats();
         for (DebtInstrument inst : allInstruments) {
-            DebtInstrumentQuote quote = quoteRepo.findLatestByInstrument(inst).orElse(null);
-            if (quote != null && quote.getYieldRate() != null) {
-                yields.add(quote.getYieldRate());
-                if (quote.getYieldRate().compareTo(maxYield) > 0) {
-                    maxYield = quote.getYieldRate();
-                }
-            }
-
-            if (inst.getMaturityDate() != null) {
-                if (nearestMaturity == null || inst.getMaturityDate().isBefore(nearestMaturity)) {
-                    nearestMaturity = inst.getMaturityDate();
-                }
-                if (farthestMaturity == null || inst.getMaturityDate().isAfter(farthestMaturity)) {
-                    farthestMaturity = inst.getMaturityDate();
-                }
-            }
+            accumulateYield(stats, inst);
+            accumulateMaturity(stats, inst.getMaturityDate());
         }
+        stats.applyTo(summary);
 
-        if (!yields.isEmpty()) {
-            BigDecimal avgYield = yields.stream()
-                .reduce(BigDecimal.ZERO, BigDecimal::add)
-                .divide(BigDecimal.valueOf(yields.size()), 2, RoundingMode.HALF_UP);
-            summary.setAverageYield(avgYield);
-        }
-
-        summary.setHighestYield(maxYield);
-        summary.setNearestMaturity(nearestMaturity);
-        summary.setFarthestMaturity(farthestMaturity);
-
-        // Last update time
         quoteRepo.findLatestQuoteDate().ifPresent(summary::setLastUpdateDate);
-
         return summary;
+    }
+
+    private void accumulateYield(SummaryStats stats, DebtInstrument inst) {
+        DebtInstrumentQuote quote = quoteRepo.findLatestByInstrument(inst).orElse(null);
+        if (quote == null || quote.getYieldRate() == null) return;
+        stats.yields.add(quote.getYieldRate());
+        if (quote.getYieldRate().compareTo(stats.maxYield) > 0) {
+            stats.maxYield = quote.getYieldRate();
+        }
+    }
+
+    private static void accumulateMaturity(SummaryStats stats, LocalDate maturity) {
+        if (maturity == null) return;
+        if (stats.nearestMaturity == null || maturity.isBefore(stats.nearestMaturity)) {
+            stats.nearestMaturity = maturity;
+        }
+        if (stats.farthestMaturity == null || maturity.isAfter(stats.farthestMaturity)) {
+            stats.farthestMaturity = maturity;
+        }
+    }
+
+    /**
+     * Mutable accumulator threaded through the per-instrument loop in
+     * getSummary(). Kept local because nothing outside the service needs to
+     * see these intermediate stats.
+     */
+    private static final class SummaryStats {
+        final List<BigDecimal> yields = new ArrayList<>();
+        BigDecimal maxYield = BigDecimal.ZERO;
+        LocalDate nearestMaturity;
+        LocalDate farthestMaturity;
+
+        void applyTo(BondSummaryDto summary) {
+            if (!yields.isEmpty()) {
+                BigDecimal avg = yields.stream()
+                        .reduce(BigDecimal.ZERO, BigDecimal::add)
+                        .divide(BigDecimal.valueOf(yields.size()), 2, RoundingMode.HALF_UP);
+                summary.setAverageYield(avg);
+            }
+            summary.setHighestYield(maxYield);
+            summary.setNearestMaturity(nearestMaturity);
+            summary.setFarthestMaturity(farthestMaturity);
+        }
     }
 
     private BondListItemDto mapToListItem(DebtInstrument instrument) {
