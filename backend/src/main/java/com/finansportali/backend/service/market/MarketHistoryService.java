@@ -49,74 +49,66 @@ public class MarketHistoryService {
         MarketInstrument inst = instrumentRepo.findBySymbol(symbol)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown symbol: " + symbol));
 
-        // For instrument types without Yahoo Finance support, use database candles directly
-        if (inst.getInstrumentType() == InstrumentType.FUND ||
-                inst.getInstrumentType() == InstrumentType.BOND ||
-                inst.getInstrumentType() == InstrumentType.VIOP) {
+        if (usesDatabaseCandles(inst.getInstrumentType())) {
             log.info("Using database candles for {} (type: {})", symbol, inst.getInstrumentType());
             return getDatabaseHistory(inst, period);
         }
 
-        // Normalize symbol for Yahoo Finance
-        String yahooSymbol = instrumentService.normalizeSymbolForYahoo(inst.getSymbol(), inst.getInstrumentType());
+        List<MarketHistoryPoint> yahooHistory = fetchYahooHistory(inst, period);
+        return yahooHistory.isEmpty() ? getDatabaseHistory(inst, period) : yahooHistory;
+    }
 
-        // Map UI periods to Yahoo Finance range and interval
+    private static boolean usesDatabaseCandles(InstrumentType type) {
+        return type == InstrumentType.FUND || type == InstrumentType.BOND || type == InstrumentType.VIOP;
+    }
+
+    /**
+     * Fetch + clean Yahoo Finance history. Returns an empty list if Yahoo
+     * has nothing for this ticker (404'd BIST symbols like KOZAA / SODA) or
+     * if the upstream call blows up — the caller falls back to DB candles.
+     */
+    private List<MarketHistoryPoint> fetchYahooHistory(MarketInstrument inst, String period) {
+        String symbol = inst.getSymbol();
+        String yahooSymbol = instrumentService.normalizeSymbolForYahoo(symbol, inst.getInstrumentType());
         YahooRangeConfig config = mapPeriodToYahooRange(period);
 
         log.info("Fetching chart data: symbol={} yahooSymbol={} period={} range={} interval={}",
                 symbol, yahooSymbol, period, config.range(), config.interval());
 
+        List<YahooPriceFetcher.DayClose> yahooData;
         try {
-            // Fetch fresh historical data from Yahoo Finance
-            List<YahooPriceFetcher.DayClose> yahooData = yahooPriceFetcher.fetchHistory(
-                    yahooSymbol, config.range(), config.interval());
-
-            if (yahooData.isEmpty()) {
-                // Yahoo Finance doesn't carry every BIST ticker (KOZAA, SODA,
-                // and a long tail of smaller-cap symbols return HTTP 404 on
-                // /chart/<SYMBOL>.IS). When that happens, the fetcher returns
-                // an empty list rather than throwing, so the previous
-                // implementation silently produced an empty chart — the
-                // user saw no sparkline and assumed something was broken.
-                //
-                // Fall back to our own market_candles cache (populated by
-                // PriceRefreshScheduler from successful past fetches plus the
-                // running daily snapshot). It's stale-by-design for
-                // Yahoo-missing tickers but still gives the user a usable line.
-                log.warn("No Yahoo data for symbol={} yahooSymbol={} range={} interval={} — falling back to DB candles",
-                        symbol, yahooSymbol, config.range(), config.interval());
-                return getDatabaseHistory(inst, period);
-            }
-
-            // Clean and validate data
-            List<YahooPriceFetcher.DayClose> cleanedData = cleanHistoricalData(yahooData, symbol);
-
-            // Convert to MarketHistoryPoint DTOs — pass real Unix timestamp for LW Charts
-            List<MarketHistoryPoint> result = cleanedData.stream()
-                    .map(d -> new MarketHistoryPoint(d.day(), d.close(), d.label(), d.timestamp()))
-                    .toList();
-
-            log.info("Chart data processed: symbol={} yahooSymbol={} period={} -> {} clean points",
-                    symbol, yahooSymbol, period, result.size());
-
-            // Log first and last points for debugging
-            if (!result.isEmpty()) {
-                MarketHistoryPoint first = result.get(0);
-                MarketHistoryPoint last = result.get(result.size() - 1);
-                log.info("Chart range: {} (close={}) to {} (close={})",
-                        first.label(), first.close(), last.label(), last.close());
-            }
-
-            return result;
-
+            yahooData = yahooPriceFetcher.fetchHistory(yahooSymbol, config.range(), config.interval());
         } catch (Exception e) {
             log.error("Failed to fetch Yahoo chart data for symbol={} yahooSymbol={}: {}",
                     symbol, yahooSymbol, e.getMessage(), e);
-
-            // Fallback to database candles if Yahoo fails
-            log.info("Falling back to database candles for symbol={}", symbol);
-            return getDatabaseHistory(inst, period);
+            return List.of();
         }
+
+        if (yahooData.isEmpty()) {
+            log.warn("No Yahoo data for symbol={} yahooSymbol={} range={} interval={} — falling back to DB candles",
+                    symbol, yahooSymbol, config.range(), config.interval());
+            return List.of();
+        }
+
+        List<MarketHistoryPoint> result = cleanHistoricalData(yahooData, symbol).stream()
+                .map(d -> new MarketHistoryPoint(d.day(), d.close(), d.label(), d.timestamp()))
+                .toList();
+
+        logChartSummary(symbol, yahooSymbol, period, result);
+        return result;
+    }
+
+    private static void logChartSummary(String symbol, String yahooSymbol, String period,
+                                        List<MarketHistoryPoint> result) {
+        log.info("Chart data processed: symbol={} yahooSymbol={} period={} -> {} clean points",
+                symbol, yahooSymbol, period, result.size());
+        if (result.isEmpty()) {
+            return;
+        }
+        MarketHistoryPoint first = result.get(0);
+        MarketHistoryPoint last = result.get(result.size() - 1);
+        log.info("Chart range: {} (close={}) to {} (close={})",
+                first.label(), first.close(), last.label(), last.close());
     }
 
     /**

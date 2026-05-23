@@ -351,21 +351,30 @@ public class YahooPriceFetcher {
      * with the timestamps array; halted sessions / pre-market gaps come back
      * as nulls so we scan from the end until we hit a real number.
      */
-    @SuppressWarnings("unchecked")
     private static Long parseLastVolume(Map<String, Object> result) {
+        // ClassCastException is the only failure mode worth catching: Yahoo
+        // occasionally returns a malformed payload where `indicators.quote`
+        // isn't shaped how we expect. NPE / IndexOutOfBounds are guarded
+        // inline with null/empty checks.
         try {
-            Map<String, Object> indicators = (Map<String, Object>) result.get("indicators");
-            if (indicators == null) return null;
-            List<Map<String, Object>> quote = (List<Map<String, Object>>) indicators.get("quote");
-            if (quote == null || quote.isEmpty()) return null;
-            List<Object> volumes = (List<Object>) quote.get(0).get("volume");
-            if (volumes == null || volumes.isEmpty()) return null;
+            Object indicatorsObj = result.get("indicators");
+            if (!(indicatorsObj instanceof Map<?, ?> indicators)) return null;
+
+            Object quoteObj = indicators.get("quote");
+            if (!(quoteObj instanceof List<?> quote) || quote.isEmpty()) return null;
+
+            Object firstQuote = quote.get(0);
+            if (!(firstQuote instanceof Map<?, ?> firstQuoteMap)) return null;
+
+            Object volumesObj = firstQuoteMap.get("volume");
+            if (!(volumesObj instanceof List<?> volumes) || volumes.isEmpty()) return null;
+
             for (int i = volumes.size() - 1; i >= 0; i--) {
                 Long v = num(volumes.get(i));
                 if (v != null && v > 0) return v;
             }
             return null;
-        } catch (Exception e) {
+        } catch (ClassCastException e) {
             return null;
         }
     }
