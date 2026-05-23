@@ -10,7 +10,7 @@
 - ✅ Package naming: `api` → should be `controller`, `domain` → should be `entity`, `repo` → should be `repository`
 - ✅ DTOs mixed in one package
 - ✅ GlobalExceptionHandler in api package
-- ✅ Utility classes (CheckDatabase, ResetDatabase, FixFlywayHistory) in main package
+- ✅ ~~Utility classes (CheckDatabase, ResetDatabase, FixFlywayHistory) in main package~~ — deleted (unused diagnostic scripts; replaceable with `docker exec ... psql`)
 
 ### Frontend Issues (Confirmed)
 - ✅ Portfolio.tsx: **823 lines** - Too large, needs splitting

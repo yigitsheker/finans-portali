@@ -222,9 +222,6 @@
 				<configuration>
 					<excludes>
 						<exclude>com/finansportali/backend/BackendApplication.class</exclude>
-						<exclude>com/finansportali/backend/CheckDatabase.class</exclude>
-						<exclude>com/finansportali/backend/ResetDatabase.class</exclude>
-						<exclude>com/finansportali/backend/FixFlywayHistory.class</exclude>
 						<exclude>com/finansportali/backend/dto/**</exclude>
 						<exclude>com/finansportali/backend/entity/**</exclude>
 						<exclude>com/finansportali/backend/config/**</exclude>
