@@ -73,4 +73,117 @@ class ExchangeRateServiceTest {
         // outer try/catch swallows the exception. The service should remain healthy.
         service.fetchTcmbRates();
     }
+
+    // ── parseTcmbXml / saveCurrencyFromXml helpers ──────────────────────
+    // Reached via reflection so we don't have to stand up a mocked WebClient
+    // just to drive the XML parser. Each test pins one branch of the
+    // currency-row handler so coverage on the new helpers stays high.
+
+    @Test
+    void parseTcmbXml_saves_each_new_currency() {
+        String xml =
+                "<Currency CrossOrder=\"1\" CurrencyCode=\"USD\">"
+                + "  <CurrencyName>US Dollar</CurrencyName>"
+                + "  <BanknoteBuying>34.10</BanknoteBuying>"
+                + "  <BanknoteSelling>34.30</BanknoteSelling>"
+                + "  <ForexBuying>34.05</ForexBuying>"
+                + "  <ForexSelling>34.35</ForexSelling>"
+                + "</Currency>";
+        org.mockito.Mockito.when(
+                        repository.findBySourceAndRateDate(org.mockito.ArgumentMatchers.eq("TCMB"),
+                                org.mockito.ArgumentMatchers.any(LocalDate.class)))
+                .thenReturn(java.util.List.of());
+
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                service, "parseTcmbXml", xml, LocalDate.now());
+
+        verify(repository).save(any(ExchangeRate.class));
+    }
+
+    @Test
+    void parseTcmbXml_skips_already_existing_currency() {
+        String xml =
+                "<Currency CrossOrder=\"1\" CurrencyCode=\"USD\">"
+                + "  <CurrencyName>US Dollar</CurrencyName>"
+                + "  <BanknoteBuying>34.10</BanknoteBuying>"
+                + "  <BanknoteSelling>34.30</BanknoteSelling>"
+                + "</Currency>";
+        ExchangeRate existing = new ExchangeRate("USD", "US Dollar",
+                BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE, BigDecimal.ONE,
+                LocalDate.now(), "TCMB");
+        org.mockito.Mockito.when(
+                        repository.findBySourceAndRateDate(org.mockito.ArgumentMatchers.eq("TCMB"),
+                                org.mockito.ArgumentMatchers.any(LocalDate.class)))
+                .thenReturn(java.util.List.of(existing));
+
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                service, "parseTcmbXml", xml, LocalDate.now());
+
+        verify(repository, never()).save(any(ExchangeRate.class));
+    }
+
+    @Test
+    void parseTcmbXml_skips_currency_with_missing_banknote_buying() {
+        // BanknoteBuying tag absent → saveCurrencyFromXml short-circuits to false.
+        String xml =
+                "<Currency CrossOrder=\"1\" CurrencyCode=\"USD\">"
+                + "  <CurrencyName>US Dollar</CurrencyName>"
+                + "  <BanknoteSelling>34.30</BanknoteSelling>"
+                + "</Currency>";
+        org.mockito.Mockito.when(
+                        repository.findBySourceAndRateDate(org.mockito.ArgumentMatchers.eq("TCMB"),
+                                org.mockito.ArgumentMatchers.any(LocalDate.class)))
+                .thenReturn(java.util.List.of());
+
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                service, "parseTcmbXml", xml, LocalDate.now());
+
+        verify(repository, never()).save(any(ExchangeRate.class));
+    }
+
+    @Test
+    void parseTcmbXml_falls_back_to_buying_when_forex_rate_missing() {
+        // No ForexBuying / ForexSelling → effectiveBuying/Selling fall back
+        // to banknote values. The save still happens.
+        String xml =
+                "<Currency CrossOrder=\"1\" CurrencyCode=\"USD\">"
+                + "  <CurrencyName>US Dollar</CurrencyName>"
+                + "  <BanknoteBuying>34.10</BanknoteBuying>"
+                + "  <BanknoteSelling>34.30</BanknoteSelling>"
+                + "</Currency>";
+        org.mockito.Mockito.when(
+                        repository.findBySourceAndRateDate(org.mockito.ArgumentMatchers.eq("TCMB"),
+                                org.mockito.ArgumentMatchers.any(LocalDate.class)))
+                .thenReturn(java.util.List.of());
+
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                service, "parseTcmbXml", xml, LocalDate.now());
+
+        verify(repository).save(any(ExchangeRate.class));
+    }
+
+    @Test
+    void parseTcmbXml_swallows_invalid_number_format_and_continues() {
+        // Bad decimal in BanknoteBuying triggers the saveCurrencyFromXml
+        // RuntimeException catch — service should not bubble it out and the
+        // second valid currency should still be saved.
+        String xml =
+                "<Currency CrossOrder=\"1\" CurrencyCode=\"USD\">"
+                + "  <BanknoteBuying>not-a-number</BanknoteBuying>"
+                + "  <BanknoteSelling>34.30</BanknoteSelling>"
+                + "</Currency>"
+                + "<Currency CrossOrder=\"2\" CurrencyCode=\"EUR\">"
+                + "  <BanknoteBuying>37.10</BanknoteBuying>"
+                + "  <BanknoteSelling>37.30</BanknoteSelling>"
+                + "</Currency>";
+        org.mockito.Mockito.when(
+                        repository.findBySourceAndRateDate(org.mockito.ArgumentMatchers.eq("TCMB"),
+                                org.mockito.ArgumentMatchers.any(LocalDate.class)))
+                .thenReturn(java.util.List.of());
+
+        org.springframework.test.util.ReflectionTestUtils.invokeMethod(
+                service, "parseTcmbXml", xml, LocalDate.now());
+
+        verify(repository, times(1)).save(any(ExchangeRate.class));
+    }
 }

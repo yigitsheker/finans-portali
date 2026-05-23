@@ -128,7 +128,10 @@ public class ExchangeRateService {
                     buying, selling, effectiveBuying, effectiveSelling,
                     date, SRC_TCMB));
             return true;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
+            // BigDecimal(String) throws NumberFormatException for malformed
+            // TCMB rates and JPA save can blow up on constraint hits — both
+            // are RuntimeExceptions. Skip the bad currency and continue.
             log.warn("Failed to parse currency data for {}: {}", currencyCode, e.getMessage());
             return false;
         }

@@ -243,4 +243,104 @@ class NewsServiceTest {
         verify(repo, times(8)).save(any(NewsArticle.class));
         verify(repo, never()).deleteAll(any());
     }
+
+    // ── parseItem helper ────────────────────────────────────────────────
+    // parseItem() is package-private's the wrong tier — it's `private`, so
+    // we go through ReflectionTestUtils.invokeMethod. Each test pins one
+    // branch of the helper so we don't have to drag the WebClient into the
+    // suite just to exercise the per-<item> parsing.
+
+    private NewsArticle invokeParseItem(String item, List<String> existingTitles) {
+        return ReflectionTestUtils.invokeMethod(
+                service, "parseItem", item, "borsa", "TestSrc", existingTitles);
+    }
+
+    @Test
+    void parseItem_returns_null_when_title_missing() {
+        // No <title> tag → extractTag returns null → early return.
+        NewsArticle result = invokeParseItem(
+                "<description>desc</description><link>http://x.com</link>", List.of());
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void parseItem_returns_null_when_title_already_seen() {
+        NewsArticle result = invokeParseItem(
+                "<title>Existing</title><link>http://x.com</link>",
+                List.of("Existing"));
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void parseItem_returns_null_when_link_missing() {
+        // Title present but no <link> → can't fetch body → drop.
+        NewsArticle result = invokeParseItem(
+                "<title>Fresh</title><description>summary</description>", List.of());
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void parseItem_returns_null_when_fetched_content_too_short() {
+        when(contentFetcher.fetchArticleContent("http://x.com")).thenReturn("too short");
+        NewsArticle result = invokeParseItem(
+                "<title>Fresh</title><link>http://x.com</link>", List.of());
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void parseItem_returns_null_when_fetched_content_null() {
+        when(contentFetcher.fetchArticleContent("http://x.com")).thenReturn(null);
+        NewsArticle result = invokeParseItem(
+                "<title>Fresh</title><link>http://x.com</link>", List.of());
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void parseItem_returns_article_when_all_required_fields_present() {
+        // 400+ char body satisfies MIN_CONTENT_CHARS.
+        String body = "x".repeat(500);
+        when(contentFetcher.fetchArticleContent("http://x.com")).thenReturn(body);
+
+        NewsArticle result = invokeParseItem(
+                "<title>Fresh Title</title>"
+                        + "<link>http://x.com</link>"
+                        + "<description>desc snippet</description>"
+                        + "<pubDate>Mon, 01 Jan 2026 12:00:00 +0000</pubDate>",
+                List.of());
+
+        assertThat(result).isNotNull();
+        assertThat(result.getTitle()).isEqualTo("Fresh Title");
+        assertThat(result.getCategory()).isEqualTo("borsa");
+        assertThat(result.getSourceName()).isEqualTo("TestSrc");
+        assertThat(result.getSourceUrl()).isEqualTo("http://x.com");
+        assertThat(result.getContent()).isEqualTo(body);
+    }
+
+    @Test
+    void parseItem_falls_back_to_title_when_description_blank() {
+        // Blank description path → summary = stripped title.
+        String body = "y".repeat(500);
+        when(contentFetcher.fetchArticleContent("http://x.com")).thenReturn(body);
+
+        NewsArticle result = invokeParseItem(
+                "<title>Only Title</title><link>http://x.com</link>", List.of());
+
+        assertThat(result).isNotNull();
+        assertThat(result.getSummary()).isEqualTo("Only Title");
+    }
+
+    @Test
+    void parseItem_truncates_overlong_title_and_content() {
+        // Title > 295 chars and body > 10_000 chars exercise the trim branches.
+        String longTitle = "T".repeat(400);
+        String longBody = "B".repeat(15_000);
+        when(contentFetcher.fetchArticleContent("http://x.com")).thenReturn(longBody);
+
+        NewsArticle result = invokeParseItem(
+                "<title>" + longTitle + "</title><link>http://x.com</link>", List.of());
+
+        assertThat(result).isNotNull();
+        assertThat(result.getTitle()).hasSize(295);
+        assertThat(result.getContent()).hasSize(10_000);
+    }
 }

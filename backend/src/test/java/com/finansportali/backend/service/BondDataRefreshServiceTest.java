@@ -154,4 +154,20 @@ class BondDataRefreshServiceTest {
         String msg = service.triggerManualRefresh();
         assertThat(msg).contains("Updated 0 instruments");
     }
+
+    @Test
+    void refresh_returns_zero_when_provider_fetch_throws() {
+        // Provider blows up at the fetchLatestBondQuotes() boundary — covers
+        // the outer RuntimeException catch in runRefresh() that bumps the
+        // failure counter and returns 0 (different code path from the
+        // per-DTO catch tested above).
+        when(primaryProvider.getProviderName()).thenReturn("DEMO");
+        when(primaryProvider.isEnabled()).thenReturn(true);
+        when(primaryProvider.fetchLatestBondQuotes())
+                .thenThrow(new RuntimeException("upstream down"));
+
+        BondDataRefreshService service = newService(List.of(primaryProvider), "DEMO", true);
+        assertThat(service.refreshBondData()).isZero();
+        verify(instrumentRepo, never()).save(any());
+    }
 }

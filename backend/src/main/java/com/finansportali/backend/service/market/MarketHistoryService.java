@@ -78,7 +78,12 @@ public class MarketHistoryService {
         List<YahooPriceFetcher.DayClose> yahooData;
         try {
             yahooData = yahooPriceFetcher.fetchHistory(yahooSymbol, config.range(), config.interval());
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
+            // WebClient + reactor wrap upstream HTTP / parsing failures in
+            // various RuntimeException subclasses (WebClientResponseException,
+            // DecodingException, IllegalStateException for block-timeout etc.).
+            // Catching the base RuntimeException lets us fall back to DB
+            // candles without coupling to every WebClient internal type.
             log.error("Failed to fetch Yahoo chart data for symbol={} yahooSymbol={}: {}",
                     symbol, yahooSymbol, e.getMessage(), e);
             return List.of();

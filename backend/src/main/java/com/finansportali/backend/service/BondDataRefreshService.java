@@ -102,7 +102,11 @@ public class BondDataRefreshService {
             log.info("[BOND-REFRESH] Successfully updated {} bond instruments", updatedCount);
             refreshSuccessCounter.increment();
             return updatedCount;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
+            // Provider network IO, JSON parsing, and JPA save all surface as
+            // RuntimeException. We deliberately swallow + record-and-move-on
+            // here because this is a scheduled job — a single bad fetch
+            // shouldn't kill the loop or take the app down.
             log.error("[BOND-REFRESH] Bond data refresh failed", e);
             refreshFailureCounter.increment();
             return 0;
@@ -124,7 +128,11 @@ public class BondDataRefreshService {
         try {
             upsertInstrumentAndQuote(dto);
             return true;
-        } catch (Exception e) {
+        } catch (RuntimeException e) {
+            // JPA DataAccessException + constraint violations + null edge cases
+            // all surface as RuntimeException; skip the bad row and let the
+            // outer loop move on so one corrupt feed entry doesn't poison the
+            // whole batch.
             log.error("[BOND-REFRESH] Failed to upsert bond: {}", dto.getSymbol(), e);
             return false;
         }
