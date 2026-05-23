@@ -210,7 +210,16 @@ services:
       - finans-network
     command: ["start-dev", "--import-realm"]
     healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+      # Keycloak 26's UBI-minimal image ships without curl or wget, so the
+      # original `curl -f` probe failed with "command not found" on every
+      # tick and the container sat "unhealthy" forever despite serving
+      # traffic just fine (host hits :8090/realms/finans → HTTP 200).
+      #
+      # bash's built-in /dev/tcp/<host>/<port> redirection opens a raw TCP
+      # connection and closes it — no helper binaries needed. Good enough
+      # for a "is Keycloak's HTTP listener accepting?" probe; the kc.sh
+      # CLI doesn't have a `health` subcommand on 26.x.
+      test: ["CMD-SHELL", "exec 3<>/dev/tcp/127.0.0.1/8080 && exec 3<&- 3>&- || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 5
