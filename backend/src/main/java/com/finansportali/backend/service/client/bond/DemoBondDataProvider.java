@@ -160,7 +160,9 @@ public class DemoBondDataProvider implements BondDataProvider {
         dto.setPrice(new BigDecimal("98.50").add(BigDecimal.valueOf(random.nextDouble() * 3 - 1.5)));
         dto.setCleanPrice(dto.getPrice());
         dto.setDirtyPrice(dto.getPrice().add(new BigDecimal("0.50")));
-        dto.setVolume(BigDecimal.valueOf(random.nextInt(1000000) + 500000));
+        // Long literal forces the addition into long arithmetic so Sonar
+        // S2184 doesn't flag an int+int overflow risk on the operand.
+        dto.setVolume(BigDecimal.valueOf(random.nextInt(1_000_000) + 500_000L));
         dto.setChangeRate(BigDecimal.valueOf(random.nextDouble() * 1 - 0.5));
         dto.setSource("DEMO");
         
