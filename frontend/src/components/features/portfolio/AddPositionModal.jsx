@@ -40,6 +40,17 @@ export function AddPositionModal({
     currentPriceAmt: `${reactId}-current-price-amt`,
     total: `${reactId}-total`,
   };
+  // Flat formatter for the read-only "Guncel Fiyat" cell — Sonar S3358
+  // dings nested ternaries inline, and this expression appears twice in
+  // the two input modes below.
+  let currentPriceDisplay;
+  if (priceLoading) {
+    currentPriceDisplay = "Yukleniyor...";
+  } else if (price > 0) {
+    currentPriceDisplay = price.toLocaleString("tr-TR");
+  } else {
+    currentPriceDisplay = "-";
+  }
   const tabBtn = (active) => ({
     flex: 1,
     padding: "8px 12px",
@@ -113,7 +124,7 @@ export function AddPositionModal({
             </div>
             <div style={{ display: "grid", gap: 6 }}>
               <label htmlFor={ids.currentPriceQty} style={s.label}>Guncel Fiyat</label>
-              <input id={ids.currentPriceQty} value={priceLoading ? "Yukleniyor..." : price > 0 ? price.toLocaleString("tr-TR") : "-"} readOnly style={{ ...s.input, opacity: 0.75 }} />
+              <input id={ids.currentPriceQty} value={currentPriceDisplay} readOnly style={{ ...s.input, opacity: 0.75 }} />
             </div>
           </>
         ) : (
@@ -133,7 +144,7 @@ export function AddPositionModal({
             </div>
             <div style={{ display: "grid", gap: 6 }}>
               <label htmlFor={ids.currentPriceAmt} style={s.label}>Guncel Fiyat</label>
-              <input id={ids.currentPriceAmt} value={priceLoading ? "Yukleniyor..." : price > 0 ? price.toLocaleString("tr-TR") : "-"} readOnly style={{ ...s.input, opacity: 0.75 }} />
+              <input id={ids.currentPriceAmt} value={currentPriceDisplay} readOnly style={{ ...s.input, opacity: 0.75 }} />
             </div>
             <div style={{ gridColumn: "span 2", display: "grid", gap: 6 }}>
               <div style={{
