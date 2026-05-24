@@ -87,7 +87,7 @@ export default function TradingViewWidget({ symbol, theme = "dark" }) {
         script.async = true;
         script.crossOrigin = "anonymous";
         script.onload = () => {
-            if (typeof globalThis.TradingView !== "undefined") {
+            if (globalThis.TradingView !== undefined) {
                 // Hold the widget instance in a ref so the unmount cleanup
                 // below can call .remove() on it — turns the "useless
                 // instantiation" (Sonar S1848) into a real handle without
