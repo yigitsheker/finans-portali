@@ -122,8 +122,8 @@ public class DemoBondDataProvider implements BondDataProvider {
                 BondQuoteDto quote = new BondQuoteDto();
                 quote.setSymbol(symbol);
                 quote.setQuoteDate(current);
-                quote.setYieldRate(baseYield.add(new BigDecimal(random.nextDouble() * 2 - 1)));
-                quote.setPrice(new BigDecimal("98.00").add(new BigDecimal(random.nextDouble() * 4 - 2)));
+                quote.setYieldRate(baseYield.add(BigDecimal.valueOf(random.nextDouble() * 2 - 1)));
+                quote.setPrice(new BigDecimal("98.00").add(BigDecimal.valueOf(random.nextDouble() * 4 - 2)));
                 quote.setSource("DEMO");
                 history.add(quote);
             }
@@ -157,11 +157,11 @@ public class DemoBondDataProvider implements BondDataProvider {
         // Quote data
         dto.setQuoteDate(LocalDate.now());
         dto.setYieldRate(yieldRate);
-        dto.setPrice(new BigDecimal("98.50").add(new BigDecimal(random.nextDouble() * 3 - 1.5)));
+        dto.setPrice(new BigDecimal("98.50").add(BigDecimal.valueOf(random.nextDouble() * 3 - 1.5)));
         dto.setCleanPrice(dto.getPrice());
         dto.setDirtyPrice(dto.getPrice().add(new BigDecimal("0.50")));
-        dto.setVolume(new BigDecimal(random.nextInt(1000000) + 500000));
-        dto.setChangeRate(new BigDecimal(random.nextDouble() * 1 - 0.5));
+        dto.setVolume(BigDecimal.valueOf(random.nextInt(1000000) + 500000));
+        dto.setChangeRate(BigDecimal.valueOf(random.nextDouble() * 1 - 0.5));
         dto.setSource("DEMO");
         
         return dto;

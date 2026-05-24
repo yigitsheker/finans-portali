@@ -94,7 +94,14 @@ public class TefasApiTester {
                         
                         // Rate limiting - API'yi yormamak için
                         Thread.sleep(500);
-                        
+
+                    } catch (InterruptedException ie) {
+                        // Preserve interrupt status (Sonar S2142) and bail out of
+                        // the test loop — a cancelled diagnostic run shouldn't
+                        // keep hammering TEFAS.
+                        Thread.currentThread().interrupt();
+                        log.warn("⚠️ TEFAS test interrupted at: {}", url);
+                        return;
                     } catch (Exception e) {
                         log.error("❌ ERROR: {} - {}", url, e.getMessage());
                         failCount++;

@@ -196,6 +196,12 @@ public class PriceRefreshScheduler {
     }
 
     private void sleep(long ms) {
-        try { Thread.sleep(ms); } catch (InterruptedException ignored) {}
+        try {
+            Thread.sleep(ms);
+        } catch (InterruptedException ie) {
+            // Preserve interrupt status so a shutting-down scheduler pool
+            // sees the cancellation on the next tick (Sonar S2142).
+            Thread.currentThread().interrupt();
+        }
     }
 }

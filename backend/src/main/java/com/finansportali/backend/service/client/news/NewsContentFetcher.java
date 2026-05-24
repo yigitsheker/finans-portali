@@ -255,6 +255,12 @@ public class NewsContentFetcher {
             }
             String body = out.toString();
             return body.isBlank() ? null : body;
+        } catch (InterruptedException ie) {
+            // Restore the interrupt flag so any outer pool / orchestrator
+            // sees the cancellation (Sonar S2142).
+            Thread.currentThread().interrupt();
+            log.warn("curl fallback interrupted for {}", url);
+            return null;
         } catch (Exception e) {
             log.warn("curl fallback failed for {}: {}", url, e.getMessage());
             return null;
