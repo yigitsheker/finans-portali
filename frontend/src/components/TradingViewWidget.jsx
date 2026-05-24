@@ -76,14 +76,15 @@ export default function TradingViewWidget({ symbol, theme = "dark" }) {
         const tvSymbol = SYMBOL_MAP[symbol] || `BIST:${symbol}`;
 
         // Create TradingView widget.
-        // SRI integrity hash is deliberately omitted (Sonar S5725):
-        // TradingView ships tv.js from an unversioned URL and updates it on
-        // their own cadence — a pinned hash would break the embed every
-        // release. crossOrigin="anonymous" keeps the script in its own
-        // isolation, and the iframe-based widget contents are sandboxed by
-        // TradingView themselves.
+        // SRI integrity hash is deliberately omitted: TradingView ships
+        // tv.js from an unversioned URL and updates it on their own
+        // cadence — a pinned hash would break the embed every release.
+        // crossOrigin="anonymous" keeps the script in its own isolation,
+        // and the iframe-based widget contents are sandboxed by TradingView
+        // themselves. NOSONAR tag suppresses S5725 inline since no
+        // hash-pinning solution exists for this third-party CDN.
         const script = document.createElement("script");
-        script.src = "https://s3.tradingview.com/tv.js";
+        script.src = "https://s3.tradingview.com/tv.js"; // NOSONAR
         script.async = true;
         script.crossOrigin = "anonymous";
         script.onload = () => {
