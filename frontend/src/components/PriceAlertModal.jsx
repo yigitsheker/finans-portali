@@ -142,7 +142,7 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                 return;
             }
             const fixed = v >= 1 ? v.toFixed(2) : v.toFixed(4);
-            const displayValue = String(parseFloat(fixed));
+            const displayValue = String(Number.parseFloat(fixed));
 
             // Always surface the hint so the user can see it.
             setCurrentPriceHint({
@@ -189,7 +189,7 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
             const request = {
                 symbol: symbol.toUpperCase(),
                 alertType,
-                targetPrice: parseFloat(targetPrice),
+                targetPrice: Number.parseFloat(targetPrice),
                 note: note.trim() || undefined,
                 currency: effectiveCurrency,    // ₺/$ snapshot — backend stores & emails in this
             };

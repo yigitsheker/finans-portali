@@ -19,7 +19,7 @@ function toDate(time) {
   if (time && typeof time === "object" && "year" in time) {
     return new Date(Date.UTC(time.year, time.month - 1, time.day));
   }
-  return new Date(NaN);
+  return new Date(Number.NaN);
 }
 
 export function PortfolioAreaChart({ data, isIntraday = false, height = 200 }) {

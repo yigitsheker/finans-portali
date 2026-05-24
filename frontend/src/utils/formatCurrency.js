@@ -70,7 +70,7 @@ export const formatCompactCurrency = (
  */
 export const parseCurrency = (value) => {
   const cleaned = value.replace(/[₺$€,]/g, '').trim();
-  return parseFloat(cleaned) || 0;
+  return Number.parseFloat(cleaned) || 0;
 };
 
 /**

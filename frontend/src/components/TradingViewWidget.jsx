@@ -87,7 +87,11 @@ export default function TradingViewWidget({ symbol, theme = "dark" }) {
         script.crossOrigin = "anonymous";
         script.onload = () => {
             if (typeof window.TradingView !== "undefined") {
-                new window.TradingView.widget({
+                // The widget constructor's side effect IS the chart embed —
+                // it injects the iframe into container_id. We don't need the
+                // returned handle, so explicitly discard it with `void`
+                // (Sonar S1848 — "useless object instantiation").
+                void new window.TradingView.widget({
                     container_id: containerRef.current?.id || "tradingview_widget",
                     autosize: true,
                     symbol: tvSymbol,

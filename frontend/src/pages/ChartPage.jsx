@@ -100,9 +100,11 @@ export default function ChartPage() {
             container.innerHTML = '';
         }
 
-        // Create new widget
+        // Create new widget. The constructor's side effect IS the chart
+        // embed — we discard the handle with `void` so Sonar S1848 ("useless
+        // object instantiation") doesn't fire on this third-party API.
         if (window.TradingView) {
-            new window.TradingView.widget({
+            void new window.TradingView.widget({
                 container_id: 'tradingview_widget',
                 autosize: true,
                 symbol: tvSymbol,

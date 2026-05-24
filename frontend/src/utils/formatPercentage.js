@@ -47,5 +47,5 @@ export const getPercentageColor = (value) => {
  */
 export const parsePercentage = (value) => {
   const cleaned = value.replace(/[%+▲▼]/g, '').trim();
-  return parseFloat(cleaned) || 0;
+  return Number.parseFloat(cleaned) || 0;
 };
