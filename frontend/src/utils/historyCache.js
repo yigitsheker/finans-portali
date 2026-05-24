@@ -50,22 +50,30 @@ export function readHistoryCache(symbol, period) {
   }
 }
 
+// Project each incoming row to a strict primitive shape before persisting.
+// Stops any extra fields (or weird shapes from a mocked API) leaking into
+// localStorage and gives Sonar's taint tracker (S5247) an explicit
+// sanitization boundary — every field is forced to a known scalar type.
+function sanitizeSeries(data) {
+  return data.map((d) => ({
+    day: String(d?.day ?? ""),
+    close: Number(d?.close),
+    label: String(d?.label ?? ""),
+    timestamp: Number(d?.timestamp),
+  }));
+}
+
 export function writeHistoryCache(symbol, period, data) {
   if (!Array.isArray(data) || data.length === 0) return;
+  const payload = JSON.stringify({ ts: Date.now(), data: sanitizeSeries(data) });
   try {
-    localStorage.setItem(
-      keyFor(symbol, period),
-      JSON.stringify({ ts: Date.now(), data })
-    );
+    localStorage.setItem(keyFor(symbol, period), payload);
     enforceCap();
   } catch {
     // Quota exceeded — drop everything and retry once.
     try {
       clearHistoryCache();
-      localStorage.setItem(
-        keyFor(symbol, period),
-        JSON.stringify({ ts: Date.now(), data })
-      );
+      localStorage.setItem(keyFor(symbol, period), payload);
     } catch { /* give up */ }
   }
 }
