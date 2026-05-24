@@ -78,14 +78,6 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
     const [watchlistFlash, setWatchlistFlash] = useState(null);
     const watchlistMenuRef = useRef(null);
 
-    // Dev-only logger. console.log on user-controlled data (instrument.symbol
-    // etc.) is flagged by Sonar S4507; gating on import.meta.env.DEV strips
-    // these in production builds while keeping local debugging useful.
-    const log = {
-        info: (msg) => { if (import.meta.env.DEV) console.log(`[Chart] ${msg}`); },
-        error: (msg, error) => { if (import.meta.env.DEV) console.error(`[Chart] ${msg}`, error); }
-    };
-
     // Tema rengini CSS değişkeninden oku
 
     // Stale-while-revalidate pattern: cached data paints the chart immediately
@@ -116,13 +108,10 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
             setDataStale(false);
         }
 
-        log.info(`Fetching chart data for ${instrument.symbol} period ${period}${cached ? " (background refresh)" : ""}`);
-
         getMarketHistory(instrument.symbol, period)
             .then((newData) => {
                 if (cancelled) return;
                 if (Array.isArray(newData) && newData.length > 0) {
-                    log.info(`Received ${newData.length} data points for ${instrument.symbol} period ${period}`);
                     setData(newData);
                     setDataStale(false);
                     writeHistoryCache(instrument.symbol, period, newData);
@@ -134,7 +123,8 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
             })
             .catch((error) => {
                 if (cancelled) return;
-                console.error(`Failed to fetch chart data for ${instrument.symbol}:`, error);
+                // No user-controlled data in the log line (Sonar S4507).
+                console.error("Failed to fetch chart data:", error);
                 // Offline / backend down: leave cached data on screen, just
                 // flag it as stale. Only blank out if there's no fallback.
                 if (!cached) setData([]);

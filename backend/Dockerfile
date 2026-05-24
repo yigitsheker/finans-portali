@@ -18,12 +18,12 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# Install curl for healthcheck (wget no longer needed — ADD fetches the
-# OpenTelemetry agent below).
-RUN apk add --no-cache curl
-
-# Create non-root user, logs directory, and otel directory
-RUN addgroup -S appuser && adduser -S appuser -G appuser && \
+# Bundle the apk install + user/dir setup into a single RUN so we don't
+# spawn an extra layer just for `apk add curl` (Sonar S6470 — merge
+# consecutive RUN instructions). curl is kept for the HEALTHCHECK; the
+# OpenTelemetry agent comes in via the ADD instruction below.
+RUN apk add --no-cache curl && \
+    addgroup -S appuser && adduser -S appuser -G appuser && \
     mkdir -p /app/logs /otel && \
     chown -R appuser:appuser /app /otel
 
