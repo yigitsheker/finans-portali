@@ -78,10 +78,12 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
     const [watchlistFlash, setWatchlistFlash] = useState(null);
     const watchlistMenuRef = useRef(null);
 
-    // Add console logging for debugging
+    // Dev-only logger. console.log on user-controlled data (instrument.symbol
+    // etc.) is flagged by Sonar S4507; gating on import.meta.env.DEV strips
+    // these in production builds while keeping local debugging useful.
     const log = {
-        info: (msg) => console.log(`[Chart] ${msg}`),
-        error: (msg, error) => console.error(`[Chart] ${msg}`, error)
+        info: (msg) => { if (import.meta.env.DEV) console.log(`[Chart] ${msg}`); },
+        error: (msg, error) => { if (import.meta.env.DEV) console.error(`[Chart] ${msg}`, error); }
     };
 
     // Tema rengini CSS değişkeninden oku
@@ -252,8 +254,6 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
 
     const positive = instrument.changePct >= 0;
     const color = positive ? "#4ade80" : "#f87171";
-
-    console.log('[InstrumentChartModal] Rendering with instrument:', instrument.symbol, 'data points:', data.length);
 
     const priceFmt = instrument.last != null
         ? Number(instrument.last).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })

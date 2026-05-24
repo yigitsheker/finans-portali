@@ -95,7 +95,10 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
     if (!hydratedFromServerRef.current || !keycloak?.authenticated) return;
     const id = setTimeout(() => {
       putNotificationPrefs(keycloak, notifs).catch((e) => {
-        console.warn("[Settings] Could not save notification prefs:", e?.message);
+        // Dev-only: error message may contain server-echoed user data.
+        if (import.meta.env.DEV) {
+          console.warn("[Settings] Could not save notification prefs:", e?.message);
+        }
       });
     }, 500);
     return () => clearTimeout(id);

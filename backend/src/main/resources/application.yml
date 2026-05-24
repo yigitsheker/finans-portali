@@ -8,9 +8,14 @@ spring:
           jwk-set-uri: http://localhost:8090/realms/finans/protocol/openid-connect/certs
           issuer-uri: http://localhost:8090/realms/finans
   datasource:
-    url: jdbc:postgresql://localhost:5432/finans
-    username: finans
-    password: finans
+    # Datasource credentials are read from the Spring-standard env vars
+    # SPRING_DATASOURCE_URL / _USERNAME / _PASSWORD. The defaults match the
+    # docker-compose dev stack so local `./mvnw spring-boot:run` keeps working
+    # out of the box; production overrides via env (Sonar S6437 — no literal
+    # secrets in source).
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/finans}
+    username: ${SPRING_DATASOURCE_USERNAME:finans}
+    password: ${SPRING_DATASOURCE_PASSWORD:finans}
   jpa:
     hibernate:
       ddl-auto: update  # Temporarily set to update to fix schema mismatches
