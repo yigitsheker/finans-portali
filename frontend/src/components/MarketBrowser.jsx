@@ -6,6 +6,7 @@ import Modal from "./Modal";
 import PriceAlertModal from "./PriceAlertModal";
 import InstrumentChartModal from "./InstrumentChartModal";
 import CompareInstrumentsModal from "./CompareInstrumentsModal";
+import { clickable } from "../utils/clickable";
 
 const TYPE_LABELS = {
     STOCK: "Hisse", BIST: "BIST", CRYPTO: "Kripto",
@@ -140,7 +141,7 @@ export default function MarketBrowser({ keycloak, onAdded }) {
                                     ...s.tickerCard,
                                     ...(isActive ? s.tickerCardActive : {})
                                 }}
-                                onClick={() => {
+                                {...clickable(() => {
                                     // Toggle index filter
                                     if (indexFilter === idx.symbol) {
                                         setIndexFilter(null);
@@ -148,7 +149,7 @@ export default function MarketBrowser({ keycloak, onAdded }) {
                                         setIndexFilter(idx.symbol);
                                         setFilter("BIST"); // Auto-select BIST filter
                                     }
-                                }}
+                                })}
                             >
                                 <div style={s.tickerLabel}>{idx.symbol}</div>
                                 <div style={s.tickerPrice}>{idx.last?.toLocaleString("tr-TR")}</div>
@@ -219,7 +220,7 @@ export default function MarketBrowser({ keycloak, onAdded }) {
                                     key={item.symbol}
                                     className="market-card"
                                     style={s.card}
-                                    onClick={() => setSelected(item)}
+                                    {...clickable(() => setSelected(item))}
                                 >
                                     <div style={s.cardTop}>
                                         <div>

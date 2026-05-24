@@ -94,12 +94,10 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
   useEffect(() => {
     if (!hydratedFromServerRef.current || !keycloak?.authenticated) return;
     const id = setTimeout(() => {
-      putNotificationPrefs(keycloak, notifs).catch((e) => {
-        // Dev-only: error message may contain server-echoed user data.
-        if (import.meta.env.DEV) {
-          console.warn("[Settings] Could not save notification prefs:", e?.message);
-        }
-      });
+      // Silently swallow — the server keeps the previous prefs and the UI
+      // will retry on the next change. Logging e?.message would echo
+      // server-side user data through console (Sonar S4507).
+      putNotificationPrefs(keycloak, notifs).catch(() => { /* ignore */ });
     }, 500);
     return () => clearTimeout(id);
   }, [notifs, keycloak]);

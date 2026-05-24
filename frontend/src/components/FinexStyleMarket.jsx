@@ -10,6 +10,7 @@ import CompareInstrumentsModal from "./CompareInstrumentsModal";
 import notify from "../utils/notify";
 import { readHistoryCache, writeHistoryCache } from "../utils/historyCache";
 import { LWSparkline } from "./common/LWSparkline";
+import { clickable } from "../utils/clickable";
 import Pagination from "./common/Pagination";
 import CheckboxFilterGroup from "./common/CheckboxFilterGroup";
 import { usePriceDisplay } from "../contexts/CurrencyDisplayContext";
@@ -531,14 +532,14 @@ export default function FinexStyleMarket({
                                             ...(isActive ? s.indexCardActive : {}),
                                             cursor: "pointer",
                                         }}
-                                        onClick={() => {
+                                        {...clickable(() => {
                                             if (indexFilter === idx.symbol) {
                                                 setIndexFilter(null);
                                             } else {
                                                 setIndexFilter(idx.symbol);
                                                 setCategoryFilters([]); // Clear category filter when index is selected
                                             }
-                                        }}
+                                        })}
                                     >
                                         <div style={s.indexLabel}>
                                             {idx.symbol}
@@ -614,7 +615,7 @@ export default function FinexStyleMarket({
                         <div style={s.colHisse}>{t("market.colSymbol")}</div>
                         <div
                             style={{ ...s.colFiyat, ...s.sortableHeader, ...(sortField === "price" ? s.sortableHeaderActive : {}) }}
-                            onClick={() => toggleSort("price")}
+                            {...clickable(() => toggleSort("price"))}
                             title={t("market.sortByPrice")}
                         >
                             {t("market.colPrice")}
@@ -624,7 +625,7 @@ export default function FinexStyleMarket({
                         </div>
                         <div
                             style={{ ...s.colDegisim, ...s.sortableHeader, ...(sortField === "change" ? s.sortableHeaderActive : {}) }}
-                            onClick={() => toggleSort("change")}
+                            {...clickable(() => toggleSort("change"))}
                             title={t("market.sortByChange")}
                         >
                             {t("market.colChange")}
@@ -650,7 +651,7 @@ export default function FinexStyleMarket({
                                             <div
                                                 key={item.symbol}
                                                 style={s.tableRow}
-                                                onClick={() => setSelected(item)}
+                                                {...clickable(() => setSelected(item))}
                                             >
                                                 <div style={s.colHisse}>
                                                     <div style={s.stockSymbol}>{item.symbol}</div>
@@ -748,7 +749,7 @@ export default function FinexStyleMarket({
                                     <div
                                         key={item.symbol}
                                         style={s.tableRow}
-                                        onClick={() => setSelected(item)}
+                                        {...clickable(() => setSelected(item))}
                                     >
                                         <div style={s.colHisse}>
                                             <div style={s.stockSymbol}>{item.symbol}</div>

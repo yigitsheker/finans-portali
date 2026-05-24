@@ -221,13 +221,26 @@ export async function getNewsCategoryCounts() {
     return res.data;
 }
 
+// News IDs are integer primary keys from the backend. Cast + validate so
+// Sonar's taint tracker (S5247) sees a guaranteed-safe primitive before
+// it lands in the URL.
+function safeNewsId(value) {
+    const n = Number(value);
+    if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) {
+        throw new Error('Invalid news id');
+    }
+    return n;
+}
+
 export async function fetchNewsContent(id) {
-    const res = await axios.post(`${API_BASE}/api/v1/news/${encodeURIComponent(id)}/fetch-content`);
+    const safeId = safeNewsId(id);
+    const res = await axios.post(`${API_BASE}/api/v1/news/${safeId}/fetch-content`);
     return res.data;
 }
 
 export async function getNewsById(id) {
-    const res = await axios.get(`${API_BASE}/api/v1/news/${encodeURIComponent(id)}`);
+    const safeId = safeNewsId(id);
+    const res = await axios.get(`${API_BASE}/api/v1/news/${safeId}`);
     return res.data;
 }
 

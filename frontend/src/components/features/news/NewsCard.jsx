@@ -1,10 +1,12 @@
+import { clickable } from '../../../utils/clickable';
+
 export const NewsCard = ({ article, onClick }) => {
   const hasImage = article.imageUrl && article.imageUrl.trim() !== '';
 
   return (
     <article
       className="bg-dark-surface border border-dark-border rounded-lg overflow-hidden hover:border-primary-500/50 transition-all duration-200 cursor-pointer group"
-      onClick={onClick}
+      {...clickable(onClick)}
     >
       {/* Image or Gradient Placeholder */}
       <div className="relative h-48 overflow-hidden">

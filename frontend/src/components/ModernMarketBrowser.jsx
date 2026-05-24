@@ -6,6 +6,7 @@ import {
 import Modal from "./Modal";
 import InstrumentChartModal from "./InstrumentChartModal";
 import CompareInstrumentsModal from "./CompareInstrumentsModal";
+import { clickable } from "../utils/clickable";
 
 const TYPE_LABELS = {
     STOCK: "Hisse",
@@ -163,7 +164,7 @@ export default function ModernMarketBrowser({ keycloak, onAdded }) {
                             <div
                                 key={item.symbol}
                                 style={s.stockRow}
-                                onClick={() => setSelected(item)}
+                                {...clickable(() => setSelected(item))}
                             >
                                 <div style={s.stockLeft}>
                                     <div style={s.stockSymbol}>{item.symbol}</div>

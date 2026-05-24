@@ -5,6 +5,7 @@ import { useI18n } from "../contexts/I18nContext";
 import { usePriceDisplay } from "../contexts/CurrencyDisplayContext";
 import InstrumentChartModal from "../components/InstrumentChartModal";
 import CompareInstrumentsModal from "../components/CompareInstrumentsModal";
+import { clickable } from "../utils/clickable";
 
 // Map backend category slugs to i18n keys. Mirrors the table in News.jsx so
 // labels stay consistent between the home preview and the full news page.
@@ -172,7 +173,7 @@ export default function Home({ keycloak }) {
                                     <li
                                         key={m.symbol}
                                         style={{ ...s.moverRow, cursor: "pointer" }}
-                                        onClick={() => setSelectedInstrument(m)}
+                                        {...clickable(() => setSelectedInstrument(m))}
                                     >
                                         <span style={{ ...s.moverDot, background: up ? "var(--green, #10b981)" : "var(--red, #ef4444)" }}>
                                             {up ? "↗" : "↘"}

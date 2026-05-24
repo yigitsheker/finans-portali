@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useRef, useCallback } from "react";
 import Modal from "./Modal";
 import { getMarketHistory, getMarketSummary } from "../api/portfolioApi";
 import { getInflationHistory } from "../api/inflationApi";
+import { clickable } from "../utils/clickable";
 
 // Instrument types whose prices are denominated in TRY. When the user picks
 // "USD Bazlı" view we need to divide these by the historical USDTRY rate of
@@ -893,7 +894,7 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
                         {searchTerm && (
                             <div style={s.searchResults}>
                                 {filteredInstruments.slice(0, 8).map((inst) => (
-                                    <div key={inst.symbol} style={s.searchItem} onClick={() => addInstrument(inst)}>
+                                    <div key={inst.symbol} style={s.searchItem} {...clickable(() => addInstrument(inst))}>
                                         <div>
                                             <div style={s.searchSymbol}>{inst.symbol}</div>
                                             <div style={s.searchName}>{inst.name}</div>

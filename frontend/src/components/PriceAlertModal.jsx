@@ -4,6 +4,7 @@ import { createPriceAlert, getLatestPrice, getUserAlerts, deletePriceAlert, trig
 import { useCurrencyDisplay, usePriceDisplay, nativeCurrencyOf } from "../contexts/CurrencyDisplayContext";
 import { useI18n } from "../contexts/I18nContext";
 import notify from "../utils/notify";
+import { clickable } from "../utils/clickable";
 
 export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymbol, prefilledPrice }) {
     const { t } = useI18n();
@@ -325,7 +326,7 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                                 <div
                                                     key={instrument.id}
                                                     style={s.dropdownItem}
-                                                    onClick={() => handleSelectInstrument(instrument)}
+                                                    {...clickable(() => handleSelectInstrument(instrument))}
                                                     onMouseEnter={(e) => {
                                                         e.currentTarget.style.background = "var(--bg-panel2)";
                                                     }}

@@ -15,11 +15,18 @@ const TTL_MS = 30 * 60 * 1000;       // 30 minutes
 const STALE_TTL_MS = 7 * 24 * 60 * 60 * 1000; // 7 days — usable as offline fallback
 const MAX_ENTRIES = 200;             // bound storage; LRU eviction below
 
+// Strict allow-list for both fragments: alphanumerics, dot, dash,
+// underscore. Tickers like "BTC-USD", "THYAO.IS" pass; period codes like
+// "1D" / "1Y" pass. Anything weirder is silently stripped so we never
+// concatenate untrusted text into the storage key (Sonar S5247).
+const SAFE_KEY_FRAGMENT = /[^A-Za-z0-9._-]/g;
+
+function sanitizeKeyFragment(value) {
+  return String(value ?? "").replace(SAFE_KEY_FRAGMENT, "_");
+}
+
 function keyFor(symbol, period) {
-  // encodeURIComponent on the user-controlled key fragments so a crafted
-  // symbol/period can't smuggle separators or other markers into the
-  // localStorage namespace (Sonar S5247 — tainted data in browser storage).
-  return `${KEY_PREFIX}${encodeURIComponent(symbol)}:${encodeURIComponent(period)}`;
+  return `${KEY_PREFIX}${sanitizeKeyFragment(symbol)}:${sanitizeKeyFragment(period)}`;
 }
 
 /**
