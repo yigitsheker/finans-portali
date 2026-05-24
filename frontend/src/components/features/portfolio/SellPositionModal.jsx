@@ -1,3 +1,4 @@
+import { useId } from "react";
 import Modal from "../../Modal";
 import { InfoRow } from "./InfoRow";
 import { portfolioStyles as s } from "./portfolioStyles";
@@ -15,6 +16,7 @@ export function SellPositionModal({
   onSell,
   onClose,
 }) {
+  const quantityId = `${useId()}-sell-qty`;
   const { format: formatPrice } = usePriceDisplay();
   // Price values are in the position's native currency (TRY for BIST, USD for AAPL...).
   // Use symbol-based inference because PortfolioPosition doesn't carry an explicit type.
@@ -41,9 +43,10 @@ export function SellPositionModal({
             <InfoRow label="Guncel Fiyat" value={fmt(currentPrice)} />
           </div>
           <div style={{ display: "grid", gap: 6 }}>
-            <label style={s.label}>Satilacak Adet</label>
+            <label htmlFor={quantityId} style={s.label}>Satilacak Adet</label>
             <div style={{ display: "flex", gap: 8 }}>
               <input
+                id={quantityId}
                 type="number"
                 value={quantity}
                 min={1}

@@ -189,53 +189,55 @@ const News = ({ keycloak }) => {
                         <div style={s.emptyState}>{t('news.emptyCat')}</div>
                     ) : (
                         <>
-                            {/* Featured news card */}
+                            {/* Featured news card — <button> wraps an <article>
+                                for both interactive semantics (Sonar S6843)
+                                and native keyboard/focus handling. */}
                             {featured && (
-                                <article
-                                    style={s.featured}
+                                <button
+                                    type="button"
                                     onClick={() => openArticle(featured)}
-                                    role="link"
-                                    tabIndex={0}
-                                    onKeyDown={(e) => { if (e.key === 'Enter') openArticle(featured); }}
+                                    style={{ all: "unset", display: "block", width: "100%", cursor: "pointer", textAlign: "left" }}
                                 >
-                                    <div style={s.featuredMeta}>
-                                        <span style={s.featuredCategory}>
-                                            {CATEGORY_LABEL_KEYS[featured.category] ? t(CATEGORY_LABEL_KEYS[featured.category]) : featured.category}
-                                        </span>
-                                        <span style={s.dot}>•</span>
-                                        <span style={s.muted}>{featured.sourceName || t('news.markets')}</span>
-                                        <span style={s.dot}>•</span>
-                                        <span style={s.muted}>{formatRelativeTime(featured.publishedAt)}</span>
-                                    </div>
-                                    <h3 style={s.featuredTitle}>{featured.title}</h3>
-                                    <p style={s.featuredSummary}>{featured.summary}</p>
-                                    <span style={s.readMore}>{t('news.readMore')}</span>
-                                </article>
+                                    <article style={s.featured}>
+                                        <div style={s.featuredMeta}>
+                                            <span style={s.featuredCategory}>
+                                                {CATEGORY_LABEL_KEYS[featured.category] ? t(CATEGORY_LABEL_KEYS[featured.category]) : featured.category}
+                                            </span>
+                                            <span style={s.dot}>•</span>
+                                            <span style={s.muted}>{featured.sourceName || t('news.markets')}</span>
+                                            <span style={s.dot}>•</span>
+                                            <span style={s.muted}>{formatRelativeTime(featured.publishedAt)}</span>
+                                        </div>
+                                        <h3 style={s.featuredTitle}>{featured.title}</h3>
+                                        <p style={s.featuredSummary}>{featured.summary}</p>
+                                        <span style={s.readMore}>{t('news.readMore')}</span>
+                                    </article>
+                                </button>
                             )}
 
                             {/* Other news — paginated below */}
                             <div style={s.list}>
                                 {rest.map((a) => (
-                                    <article
+                                    <button
                                         key={a.id}
-                                        style={s.listItem}
+                                        type="button"
                                         onClick={() => openArticle(a)}
-                                        role="link"
-                                        tabIndex={0}
-                                        onKeyDown={(e) => { if (e.key === 'Enter') openArticle(a); }}
+                                        style={{ all: "unset", display: "block", width: "100%", cursor: "pointer", textAlign: "left" }}
                                     >
-                                        <div style={s.listMeta}>
-                                            <span style={s.listCategory}>
-                                                {CATEGORY_LABEL_KEYS[a.category] ? t(CATEGORY_LABEL_KEYS[a.category]) : a.category}
-                                            </span>
-                                            <span style={s.dot}>•</span>
-                                            <span style={s.muted}>{a.sourceName || t('news.markets')}</span>
-                                            <span style={s.dot}>•</span>
-                                            <span style={s.muted}>{formatRelativeTime(a.publishedAt)}</span>
-                                        </div>
-                                        <h4 style={s.listTitle}>{a.title}</h4>
-                                        <p style={s.listSummary}>{a.summary}</p>
-                                    </article>
+                                        <article style={s.listItem}>
+                                            <div style={s.listMeta}>
+                                                <span style={s.listCategory}>
+                                                    {CATEGORY_LABEL_KEYS[a.category] ? t(CATEGORY_LABEL_KEYS[a.category]) : a.category}
+                                                </span>
+                                                <span style={s.dot}>•</span>
+                                                <span style={s.muted}>{a.sourceName || t('news.markets')}</span>
+                                                <span style={s.dot}>•</span>
+                                                <span style={s.muted}>{formatRelativeTime(a.publishedAt)}</span>
+                                            </div>
+                                            <h4 style={s.listTitle}>{a.title}</h4>
+                                            <p style={s.listSummary}>{a.summary}</p>
+                                        </article>
+                                    </button>
                                 ))}
                             </div>
                             {totalRest > NEWS_PAGE_SIZE && (

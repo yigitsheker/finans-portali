@@ -1,3 +1,4 @@
+import { useId } from "react";
 import Modal from "../../Modal";
 import { portfolioStyles as s } from "./portfolioStyles";
 
@@ -26,6 +27,19 @@ export function AddPositionModal({
   setInputMode = () => {},
   setAmount = () => {},
 }) {
+  // Stable per-instance IDs so <label htmlFor> can target each <input>
+  // (Sonar S6819 — accessibility: every form control needs a programmatic
+  // label association). useId is the React-blessed way to avoid clashes
+  // with other modals on the page.
+  const reactId = useId();
+  const ids = {
+    symbol: `${reactId}-symbol`,
+    quantity: `${reactId}-quantity`,
+    currentPriceQty: `${reactId}-current-price-qty`,
+    amount: `${reactId}-amount`,
+    currentPriceAmt: `${reactId}-current-price-amt`,
+    total: `${reactId}-total`,
+  };
   const tabBtn = (active) => ({
     flex: 1,
     padding: "8px 12px",
@@ -54,9 +68,10 @@ export function AddPositionModal({
     >
       <div style={s.formGrid}>
         <div style={{ gridColumn: "span 2", display: "grid", gap: 6 }}>
-          <label style={s.label}>Sembol</label>
+          <label htmlFor={ids.symbol} style={s.label}>Sembol</label>
           <div style={{ position: "relative" }}>
             <input
+              id={ids.symbol}
               value={symbol}
               onChange={(event) => {
                 setSymbol(event.target.value);
@@ -93,19 +108,20 @@ export function AddPositionModal({
         {inputMode === "quantity" ? (
           <>
             <div style={{ display: "grid", gap: 6 }}>
-              <label style={s.label}>Adet</label>
-              <input type="number" value={quantity} min={1} onChange={(event) => setQuantity(Number(event.target.value))} style={s.input} />
+              <label htmlFor={ids.quantity} style={s.label}>Adet</label>
+              <input id={ids.quantity} type="number" value={quantity} min={1} onChange={(event) => setQuantity(Number(event.target.value))} style={s.input} />
             </div>
             <div style={{ display: "grid", gap: 6 }}>
-              <label style={s.label}>Guncel Fiyat</label>
-              <input value={priceLoading ? "Yukleniyor..." : price > 0 ? price.toLocaleString("tr-TR") : "-"} readOnly style={{ ...s.input, opacity: 0.75 }} />
+              <label htmlFor={ids.currentPriceQty} style={s.label}>Guncel Fiyat</label>
+              <input id={ids.currentPriceQty} value={priceLoading ? "Yukleniyor..." : price > 0 ? price.toLocaleString("tr-TR") : "-"} readOnly style={{ ...s.input, opacity: 0.75 }} />
             </div>
           </>
         ) : (
           <>
             <div style={{ display: "grid", gap: 6 }}>
-              <label style={s.label}>Tutar</label>
+              <label htmlFor={ids.amount} style={s.label}>Tutar</label>
               <input
+                id={ids.amount}
                 type="number"
                 value={amount || ""}
                 min={0}
@@ -116,8 +132,8 @@ export function AddPositionModal({
               />
             </div>
             <div style={{ display: "grid", gap: 6 }}>
-              <label style={s.label}>Guncel Fiyat</label>
-              <input value={priceLoading ? "Yukleniyor..." : price > 0 ? price.toLocaleString("tr-TR") : "-"} readOnly style={{ ...s.input, opacity: 0.75 }} />
+              <label htmlFor={ids.currentPriceAmt} style={s.label}>Guncel Fiyat</label>
+              <input id={ids.currentPriceAmt} value={priceLoading ? "Yukleniyor..." : price > 0 ? price.toLocaleString("tr-TR") : "-"} readOnly style={{ ...s.input, opacity: 0.75 }} />
             </div>
             <div style={{ gridColumn: "span 2", display: "grid", gap: 6 }}>
               <div style={{
@@ -146,8 +162,8 @@ export function AddPositionModal({
         )}
 
         <div style={{ gridColumn: "span 2", display: "grid", gap: 6 }}>
-          <label style={s.label}>Toplam Tutar</label>
-          <input value={total > 0 ? total.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"} readOnly style={{ ...s.input, opacity: 0.75, fontWeight: 600 }} />
+          <label htmlFor={ids.total} style={s.label}>Toplam Tutar</label>
+          <input id={ids.total} value={total > 0 ? total.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"} readOnly style={{ ...s.input, opacity: 0.75, fontWeight: 600 }} />
         </div>
       </div>
       {error && <div style={{ color: "var(--danger-text)", marginTop: 8, fontSize: 13 }}>{error}</div>}
