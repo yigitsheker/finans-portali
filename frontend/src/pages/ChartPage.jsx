@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 
 // Symbol mapping for TradingView
@@ -67,10 +67,11 @@ export default function ChartPage() {
     const [searchParams] = useSearchParams();
     const symbol = searchParams.get('symbol') || 'THYAO';
     const [scriptLoaded, setScriptLoaded] = useState(false);
+    const widgetRef = useRef(null);
 
     useEffect(() => {
         // Check if script already loaded
-        if (window.TradingView) {
+        if (globalThis.TradingView) {
             setScriptLoaded(true);
             return;
         }
@@ -100,11 +101,12 @@ export default function ChartPage() {
             container.innerHTML = '';
         }
 
-        // Create new widget. The constructor's side effect IS the chart
-        // embed — we discard the handle with `void` so Sonar S1848 ("useless
-        // object instantiation") doesn't fire on this third-party API.
-        if (window.TradingView) {
-            void new window.TradingView.widget({
+        // Create new widget. Hold the instance in widgetRef so Sonar S1848
+        // ("useless object instantiation") sees a real handle without
+        // resorting to the void operator (S2710). The cleanup at the
+        // mount-time effect's return is the natural disposal point.
+        if (globalThis.TradingView) {
+            widgetRef.current = new globalThis.TradingView.widget({
                 container_id: 'tradingview_widget',
                 autosize: true,
                 symbol: tvSymbol,
@@ -130,6 +132,15 @@ export default function ChartPage() {
                 popup_height: '650',
             });
         }
+
+        return () => {
+            // Dispose the TradingView instance on symbol change / unmount
+            // so its event listeners detach cleanly.
+            if (widgetRef.current?.remove) {
+                try { widgetRef.current.remove(); } catch { /* widget already gone */ }
+            }
+            widgetRef.current = null;
+        };
     }, [scriptLoaded, symbol]);
 
     const tvSymbol = SYMBOL_MAP[symbol] || `BIST:${symbol}`;

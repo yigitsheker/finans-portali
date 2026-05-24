@@ -64,6 +64,7 @@ const SYMBOL_MAP = {
 
 export default function TradingViewWidget({ symbol, theme = "dark" }) {
     const containerRef = useRef(null);
+    const widgetRef = useRef(null);
 
     useEffect(() => {
         if (!containerRef.current) return;
@@ -86,12 +87,12 @@ export default function TradingViewWidget({ symbol, theme = "dark" }) {
         script.async = true;
         script.crossOrigin = "anonymous";
         script.onload = () => {
-            if (typeof window.TradingView !== "undefined") {
-                // The widget constructor's side effect IS the chart embed —
-                // it injects the iframe into container_id. We don't need the
-                // returned handle, so explicitly discard it with `void`
-                // (Sonar S1848 — "useless object instantiation").
-                void new window.TradingView.widget({
+            if (typeof globalThis.TradingView !== "undefined") {
+                // Hold the widget instance in a ref so the unmount cleanup
+                // below can call .remove() on it — turns the "useless
+                // instantiation" (Sonar S1848) into a real handle without
+                // leaning on the void operator (S2710).
+                widgetRef.current = new globalThis.TradingView.widget({
                     container_id: containerRef.current?.id || "tradingview_widget",
                     autosize: true,
                     symbol: tvSymbol,
@@ -121,6 +122,12 @@ export default function TradingViewWidget({ symbol, theme = "dark" }) {
         document.head.appendChild(script);
 
         return () => {
+            // Dispose the TradingView instance first so it can detach its
+            // event listeners cleanly, then drop the script tag we added.
+            if (widgetRef.current?.remove) {
+                try { widgetRef.current.remove(); } catch { /* widget already gone */ }
+            }
+            widgetRef.current = null;
             if (script.parentNode) {
                 script.parentNode.removeChild(script);
             }
