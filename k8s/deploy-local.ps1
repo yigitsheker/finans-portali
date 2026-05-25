@@ -61,15 +61,27 @@ if (-not (Get-Command kind -ErrorAction SilentlyContinue)) {
 Write-Host 'OK - kind is available'
 
 # 2. Cluster exists? ----------------------------------------------------
+# `kind get clusters` writes "No kind clusters found." to stderr when the
+# list is empty. Under $ErrorActionPreference = 'Stop' PowerShell 5.1
+# treats that as a terminating error, so we briefly relax the policy
+# around the call and filter the merged output by hand.
 Write-Step '2/8  Ensuring kind cluster exists'
-$existing = (kind get clusters 2>$null) -split "`n" | ForEach-Object { $_.Trim() }
+$prevErr = $ErrorActionPreference
+$ErrorActionPreference = 'Continue'
+$kindClustersOutput = & kind get clusters 2>&1 | Out-String
+$ErrorActionPreference = $prevErr
+
+$existing = $kindClustersOutput -split "`r?`n" |
+    ForEach-Object { $_.Trim() } |
+    Where-Object { $_ -and $_ -notmatch '^No kind clusters' }
+
 if ($Clean -and ($existing -contains $cluster)) {
     Write-Host 'Tearing down previous cluster (-Clean passed)'
     kind delete cluster --name $cluster
     $existing = @()
 }
 if ($existing -notcontains $cluster) {
-    Write-Host "Creating kind cluster '$cluster' (first time can take ~1 min)..."
+    Write-Host "Creating kind cluster '$cluster' (first time can take ~1 min, ~150MB node image download)..."
     kind create cluster --name $cluster
     if ($LASTEXITCODE -ne 0) { throw 'kind create cluster failed' }
 } else {
