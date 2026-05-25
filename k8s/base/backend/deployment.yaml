@@ -33,13 +33,16 @@ spec:
             - name: SERVER_PORT
               value: "8080"
             # Datasource — points at the in-cluster postgres Service.
-            - name: SPRING_DATASOURCE_URL
-              value: jdbc:postgresql://postgres:5432/$(POSTGRES_DB)
+            # POSTGRES_DB MUST appear before SPRING_DATASOURCE_URL: K8s env
+            # substitution `$(VAR)` only resolves against variables declared
+            # earlier in the same container's env list (no forward refs).
             - name: POSTGRES_DB
               valueFrom:
                 secretKeyRef:
                   name: postgres-secret
                   key: POSTGRES_DB
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/$(POSTGRES_DB)
             - name: SPRING_DATASOURCE_USERNAME
               valueFrom:
                 secretKeyRef:
