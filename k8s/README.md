@@ -16,24 +16,26 @@ container from `docker-compose.yml`).
 
 ---
 
-## Quick start (Docker Desktop)
+## Quick start (kind, Kubernetes IN Docker)
 
-### 1. Turn on Kubernetes + containerd image store
+We use **kind** rather than Docker Desktop's built-in Kubernetes because
+kind ships with `kind load docker-image`, which explicitly pushes a
+locally-built image into the cluster's containerd cache. Docker Desktop
+K8s keeps its containerd separate from the docker daemon's image store
+even with the "Use containerd for pulling and storing images" toggle
+on, so locally-built tags fail with `ErrImageNeverPull` on pods. kind
+solves that with one command.
 
-Docker Desktop → **Settings**:
+### 1. Install kind (one-time)
 
-1. **Kubernetes** → tick **"Enable Kubernetes"** → **Apply & restart**.
-   Wait ~30 sec for the bottom-left status to show `Kubernetes running`.
-
-2. **General** → tick **"Use containerd for pulling and storing images"**
-   → **Apply & restart**. **This is required** — when off, Docker keeps
-   images in the legacy moby store, separate from the K8s containerd
-   store, and pods fail with `ErrImageNeverPull` on locally-built images.
-
-Verify from PowerShell:
 ```powershell
-kubectl config current-context   # should print "docker-desktop"
-kubectl get nodes                # should list one node "Ready"
+winget install Kubernetes.kind
+# or:  choco install kind
+```
+
+Verify (open a fresh PowerShell window after install):
+```powershell
+kind version       # should print v0.x
 ```
 
 ### 2. Run the deploy script
