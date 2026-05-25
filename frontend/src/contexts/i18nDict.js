@@ -243,6 +243,15 @@ export const dict = {
       bidEff: "Efektif Alış",
       askEff: "Efektif Satış",
       empty: "Henüz döviz kuru verisi bulunmuyor.",
+      // CurrencyConverter component
+      title: "Döviz Çevirici",
+      subtitle: "TCMB güncel kurlarıyla anlık dönüşüm",
+      amountToConvert: "Çevrilecek miktar",
+      result: "Sonuç",
+      swapTitle: "Para birimlerini değiştir",
+      swapAria: "Para birimlerini değiştir",
+      sourceNote: "Kaynak: TCMB döviz alış/satış oranları. Çapraz kurlar TRY üzerinden hesaplanır (alış kuruyla satılır, satış kuruyla alınır).",
+      turkishLira: "Türk Lirası",
     },
     viop: {
       title: "VIOP — Vadeli İşlem Kontratları",
@@ -820,6 +829,15 @@ export const dict = {
       bidEff: "Effective Bid",
       askEff: "Effective Ask",
       empty: "No FX rate data yet.",
+      // CurrencyConverter component
+      title: "Currency Converter",
+      subtitle: "Real-time conversion with the latest TCMB rates",
+      amountToConvert: "Amount to convert",
+      result: "Result",
+      swapTitle: "Swap currencies",
+      swapAria: "Swap currencies",
+      sourceNote: "Source: TCMB FX buying/selling rates. Cross rates are calculated through TRY (sold at the buying rate, bought at the selling rate).",
+      turkishLira: "Turkish Lira",
     },
     viop: {
       title: "VIOP — Futures Contracts",

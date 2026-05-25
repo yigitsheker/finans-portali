@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { useI18n } from "../contexts/I18nContext";
 
 /**
  * Bidirectional FX converter built on top of the TCMB exchange-rate table.
@@ -13,12 +14,13 @@ import { useEffect, useMemo, useState } from "react";
  * what a customer would actually pay at a desk.
  */
 export default function CurrencyConverter({ rates }) {
+  const { t, lang } = useI18n();
   const TRY_ROW = useMemo(() => ({
     currencyCode: "TRY",
-    currencyName: "Türk Lirası",
+    currencyName: t("fx.turkishLira"),
     buyingRate: 1,
     sellingRate: 1,
-  }), []);
+  }), [t]);
 
   // Build a TRY-inclusive option list, deduped by code.
   const options = useMemo(() => {
@@ -73,7 +75,7 @@ export default function CurrencyConverter({ rates }) {
 
   const fmt = (v, opts = {}) => {
     if (v == null || !Number.isFinite(v)) return "—";
-    return new Intl.NumberFormat("tr-TR", {
+    return new Intl.NumberFormat(lang === "en" ? "en-US" : "tr-TR", {
       minimumFractionDigits: opts.minDigits ?? 2,
       maximumFractionDigits: opts.maxDigits ?? 4,
     }).format(v);
@@ -83,15 +85,15 @@ export default function CurrencyConverter({ rates }) {
     <div style={s.card}>
       <div style={s.header}>
         <div>
-          <div style={s.title}>💱 Döviz Çevirici</div>
-          <div style={s.sub}>TCMB güncel kurlarıyla anlık dönüşüm</div>
+          <div style={s.title}>💱 {t("fx.title")}</div>
+          <div style={s.sub}>{t("fx.subtitle")}</div>
         </div>
       </div>
 
       <div style={s.row}>
         {/* FROM */}
         <div style={s.field}>
-          <div style={s.label}>Çevrilecek miktar</div>
+          <div style={s.label}>{t("fx.amountToConvert")}</div>
           <div style={s.combo}>
             <input
               type="number"
@@ -112,7 +114,7 @@ export default function CurrencyConverter({ rates }) {
           </div>
         </div>
 
-        <button type="button" onClick={swap} style={s.swapBtn} title="Para birimlerini değiştir" aria-label="Swap">
+        <button type="button" onClick={swap} style={s.swapBtn} title={t("fx.swapTitle")} aria-label={t("fx.swapAria")}>
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
             <path d="M7 16V4M7 4 3 8M7 4l4 4M17 8v12M17 20l4-4M17 20l-4-4"/>
@@ -121,7 +123,7 @@ export default function CurrencyConverter({ rates }) {
 
         {/* TO */}
         <div style={s.field}>
-          <div style={s.label}>Sonuç</div>
+          <div style={s.label}>{t("fx.result")}</div>
           <div style={s.combo}>
             <div style={s.resultBox} title={converted != null ? fmt(converted, { maxDigits: 6 }) : ""}>
               {converted != null ? fmt(converted) : "—"}
@@ -154,8 +156,7 @@ export default function CurrencyConverter({ rates }) {
       )}
 
       <div style={s.footnote}>
-        Kaynak: TCMB döviz alış/satış oranları. Çapraz kurlar TRY üzerinden hesaplanır
-        (alış kuruyla satılır, satış kuruyla alınır).
+        {t("fx.sourceNote")}
       </div>
     </div>
   );
