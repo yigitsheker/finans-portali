@@ -62,34 +62,64 @@ if (-not $SkipBuild) {
     docker build -t finans-frontend:local "$repoRoot\frontend"
     if ($LASTEXITCODE -ne 0) { throw 'frontend build failed' }
 
-    # Docker Desktop K8s uses its own containerd image store (different from
-    # the docker daemon's). If they aren't unified, K8s sees ErrImageNeverPull
-    # on our locally-built images. Pre-check: try `docker exec` into the
-    # control-plane container; if it fails, we're on the split setup and the
-    # user needs to enable "Use containerd for pulling and storing images"
-    # in Docker Desktop settings.
+    # Verify the cluster can actually see the just-built images. Docker
+    # Desktop K8s runs containerd that's *supposed* to share state with the
+    # docker daemon when "Use containerd for pulling and storing images"
+    # is enabled. When it's off, or when Docker Desktop hasn't been fully
+    # restarted after toggling it, K8s sees ErrImageNeverPull on locally-
+    # built tags.
+    #
+    # We can't `docker exec` the K8s node (it's not in `docker ps`), so the
+    # check runs a one-shot Pod with imagePullPolicy:Never and watches the
+    # result for ~10 seconds. Clean + reliable across Docker Desktop versions.
     Write-Host ''
-    Write-Host 'Checking image visibility to the cluster...'
-    $ctrCheck = docker exec desktop-control-plane crictl images 2>&1 | Out-String
-    if ($LASTEXITCODE -ne 0 -or $ctrCheck -notmatch 'finans-backend.*local') {
+    Write-Host 'Probing image visibility to the cluster...'
+    kubectl delete pod k8s-image-probe -n default --ignore-not-found --wait=false 2>$null | Out-Null
+    $probeYaml = @'
+apiVersion: v1
+kind: Pod
+metadata:
+  name: k8s-image-probe
+spec:
+  restartPolicy: Never
+  containers:
+    - name: probe
+      image: finans-backend:local
+      imagePullPolicy: Never
+      command: ["/bin/sh", "-c", "echo ok && exit 0"]
+'@
+    $probeYaml | kubectl apply -f - 2>$null | Out-Null
+
+    $imageVisible = $false
+    for ($i = 0; $i -lt 15; $i++) {
+        Start-Sleep 1
+        $phase  = kubectl get pod k8s-image-probe -o jsonpath="{.status.phase}" 2>$null
+        $reason = kubectl get pod k8s-image-probe -o jsonpath="{.status.containerStatuses[0].state.waiting.reason}" 2>$null
+        if ($phase -in 'Succeeded','Running') { $imageVisible = $true; break }
+        if ($reason -eq 'ErrImageNeverPull')  { $imageVisible = $false; break }
+    }
+    kubectl delete pod k8s-image-probe --ignore-not-found --wait=false 2>$null | Out-Null
+
+    if (-not $imageVisible) {
         Write-Host ''
-        Write-Host 'WARNING: cluster cannot see finans-backend:local in its image store.' -ForegroundColor Yellow
+        Write-Host 'WARNING: cluster cannot see finans-backend:local.' -ForegroundColor Yellow
         Write-Host ''
-        Write-Host 'Most likely cause: Docker Desktop is using the legacy moby image' -ForegroundColor Yellow
+        Write-Host 'Most likely cause: Docker Desktop has the legacy moby image' -ForegroundColor Yellow
         Write-Host 'store, separate from the K8s containerd store.' -ForegroundColor Yellow
         Write-Host ''
-        Write-Host 'Fix: Docker Desktop -> Settings -> General ->' -ForegroundColor Cyan
-        Write-Host '     check "Use containerd for pulling and storing images"' -ForegroundColor Cyan
-        Write-Host '     -> Apply & restart (~30 sec).' -ForegroundColor Cyan
+        Write-Host 'Fix:' -ForegroundColor Cyan
+        Write-Host '  1. Docker Desktop -> Settings -> General' -ForegroundColor Cyan
+        Write-Host '     -> tick "Use containerd for pulling and storing images"' -ForegroundColor Cyan
+        Write-Host '  2. FULLY quit Docker Desktop (tray icon -> Quit Docker Desktop).' -ForegroundColor Cyan
+        Write-Host '     Apply&restart is NOT enough; the engine must come back fresh.' -ForegroundColor Cyan
+        Write-Host '  3. Re-launch Docker Desktop, wait for K8s green status.' -ForegroundColor Cyan
+        Write-Host '  4. Re-run this script. Build cache is preserved so it is fast.' -ForegroundColor Cyan
         Write-Host ''
-        Write-Host 'After that, re-run this script. Build cache will be reused.' -ForegroundColor Cyan
-        Write-Host ''
-        Write-Host 'Continuing anyway in case the check is wrong; pods may go' -ForegroundColor Yellow
-        Write-Host 'into ErrImageNeverPull. Watch with:' -ForegroundColor Yellow
-        Write-Host '   kubectl -n finans-portali-dev get pods -w' -ForegroundColor Yellow
-    } else {
-        Write-Host 'OK - cluster can see the local images.'
+        Write-Host 'Aborting before applying the overlay so you can fix without' -ForegroundColor Yellow
+        Write-Host 'piling up ErrImageNeverPull pods.' -ForegroundColor Yellow
+        exit 1
     }
+    Write-Host 'OK - cluster can see the local images.'
 } else {
     Write-Step '2-3/6  (Skipping image builds, -SkipBuild passed)'
 }
