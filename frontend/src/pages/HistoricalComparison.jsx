@@ -3,9 +3,27 @@ import Modal from "../components/Modal";
 import { getLatestPrice, getMarketInstruments } from "../api/portfolioApi";
 import { compareInflation } from "../api/inflationApi";
 import { useI18n } from "../contexts/I18nContext";
+import { useCurrencyDisplay } from "../contexts/CurrencyDisplayContext";
 
 export default function HistoricalComparison({ keycloak }) {
   const { t } = useI18n();
+  // Mode comes from the topbar toggle (Original | ₺ | $). Original is
+  // treated as TRY here because that's the user's home currency for this
+  // page — we never want to sum mixed currencies in the totals card.
+  const { mode, usdRate } = useCurrencyDisplay();
+  const effectiveCurrency = mode === "USD" ? "USD" : "TRY";
+  const effectiveSym = effectiveCurrency === "USD" ? "$" : "₺";
+  // Locale-aware numeric formatter for the active display currency.
+  const fmt = (n) => Number(n).toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+  // Convert a value stored in `nativeCurrency` ("TRY" | "USD") into the
+  // active display currency. Uses the spot USDTRY cached on the context.
+  function toEffective(value, nativeCurrency) {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return 0;
+    if (effectiveCurrency === nativeCurrency) return n;
+    if (effectiveCurrency === "TRY") return n * usdRate;          // USD → TRY
+    return usdRate > 0 ? n / usdRate : 0;                          // TRY → USD
+  }
   const [positions, setPositions] = useState([]);
   const [instruments, setInstruments] = useState([]);
 
@@ -45,13 +63,19 @@ export default function HistoricalComparison({ keycloak }) {
     return instruments.filter((i) => i.symbol.includes(q) || i.name.toUpperCase().includes(q)).slice(0, 8);
   }, [addSymbol, instruments]);
 
-  // Determine currency based on symbol
+  // Determine native storage currency for a symbol (used at add-time so
+  // the stored row knows what currency its buyPrice/currentPrice are in).
+  // Returns "₺" or "$" — the historical schema kept these symbol literals.
   const getCurrency = (symbol) => {
-    // BIST stocks end with .IS or are Turkish symbols
-    if (symbol.endsWith(".IS") || /^[A-Z]{3,5}$/.test(symbol)) {
-      // Check if it's a known Turkish stock
+    if (!symbol) return "$";
+    const s = symbol.toUpperCase();
+    // FX pairs vs TRY (USDTRY, EURTRY, GBPTRY, ...) — quoted in TRY.
+    if (s.endsWith("TRY")) return "₺";
+    // BIST stocks: .IS suffix or 3-5 caps that match the known list.
+    if (s.endsWith(".IS")) return "₺";
+    if (/^[A-Z]{3,5}$/.test(s)) {
       const turkishStocks = ["THYAO", "AKBNK", "GARAN", "ISCTR", "YKBNK", "SAHOL", "TUPRS", "ASELS", "KCHOL", "PETKM"];
-      if (turkishStocks.some(ts => symbol.startsWith(ts))) {
+      if (turkishStocks.some(ts => s.startsWith(ts))) {
         return "₺";
       }
     }
@@ -173,42 +197,22 @@ export default function HistoricalComparison({ keycloak }) {
     }
   }
 
-  // Calculate totals
+  // Single-currency totals in the active display currency. Each row's
+  // invested/current is converted from its native currency through
+  // toEffective() before summing — mixed-currency portfolios stay coherent.
   const totals = useMemo(() => {
-    let totalInvestedTRY = 0;
-    let totalInvestedUSD = 0;
-    let totalCurrentTRY = 0;
-    let totalCurrentUSD = 0;
-
-    positions.forEach(p => {
-      const invested = p.buyPrice * p.lots;
-      const current = p.currentPrice * p.lots;
-
-      if (p.currency === "₺") {
-        totalInvestedTRY += invested;
-        totalCurrentTRY += current;
-      } else {
-        totalInvestedUSD += invested;
-        totalCurrentUSD += current;
-      }
-    });
-
-    const totalChangeTRY = totalCurrentTRY - totalInvestedTRY;
-    const totalChangeUSD = totalCurrentUSD - totalInvestedUSD;
-    const totalChangePctTRY = totalInvestedTRY > 0 ? (totalChangeTRY / totalInvestedTRY) * 100 : 0;
-    const totalChangePctUSD = totalInvestedUSD > 0 ? (totalChangeUSD / totalInvestedUSD) * 100 : 0;
-
-    return {
-      totalInvestedTRY,
-      totalInvestedUSD,
-      totalCurrentTRY,
-      totalCurrentUSD,
-      totalChangeTRY,
-      totalChangeUSD,
-      totalChangePctTRY,
-      totalChangePctUSD
-    };
-  }, [positions]);
+    let invested = 0;
+    let current = 0;
+    for (const p of positions) {
+      const native = p.currency === "₺" ? "TRY" : "USD";
+      invested += toEffective(p.buyPrice * p.lots, native);
+      current += toEffective(p.currentPrice * p.lots, native);
+    }
+    const change = current - invested;
+    const changePct = invested > 0 ? (change / invested) * 100 : 0;
+    return { invested, current, change, changePct };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [positions, effectiveCurrency, usdRate]);
 
   return (
     <div style={s.root}>
@@ -239,42 +243,20 @@ export default function HistoricalComparison({ keycloak }) {
       {/* Summary Cards */}
       {positions.length > 0 && (
         <div style={s.summaryGrid}>
-          {totals.totalInvestedTRY > 0 && (
-            <>
-              <SCard
-                label={`${t("historical.totalInvest")} (TRY)`}
-                value={"₺" + totals.totalInvestedTRY.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
-              />
-              <SCard
-                label={`${t("historical.currentValue")} (TRY)`}
-                value={"₺" + totals.totalCurrentTRY.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
-              />
-              <SCard
-                label={`${t("historical.pnl")} (TRY)`}
-                value={(totals.totalChangeTRY >= 0 ? "+₺" : "-₺") + Math.abs(totals.totalChangeTRY).toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
-                sub={(totals.totalChangeTRY >= 0 ? "+" : "") + totals.totalChangePctTRY.toFixed(2) + "%"}
-                valueColor={totals.totalChangeTRY >= 0 ? "var(--green)" : "var(--red)"}
-              />
-            </>
-          )}
-          {totals.totalInvestedUSD > 0 && (
-            <>
-              <SCard
-                label={`${t("historical.totalInvest")} (USD)`}
-                value={"$" + totals.totalInvestedUSD.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
-              />
-              <SCard
-                label={`${t("historical.currentValue")} (USD)`}
-                value={"$" + totals.totalCurrentUSD.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
-              />
-              <SCard
-                label={`${t("historical.pnl")} (USD)`}
-                value={(totals.totalChangeUSD >= 0 ? "+$" : "-$") + Math.abs(totals.totalChangeUSD).toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
-                sub={(totals.totalChangeUSD >= 0 ? "+" : "") + totals.totalChangePctUSD.toFixed(2) + "%"}
-                valueColor={totals.totalChangeUSD >= 0 ? "var(--green)" : "var(--red)"}
-              />
-            </>
-          )}
+          <SCard
+            label={`${t("historical.totalInvest")} (${effectiveCurrency})`}
+            value={effectiveSym + fmt(totals.invested)}
+          />
+          <SCard
+            label={`${t("historical.currentValue")} (${effectiveCurrency})`}
+            value={effectiveSym + fmt(totals.current)}
+          />
+          <SCard
+            label={`${t("historical.pnl")} (${effectiveCurrency})`}
+            value={(totals.change >= 0 ? "+" : "-") + effectiveSym + fmt(Math.abs(totals.change))}
+            sub={(totals.change >= 0 ? "+" : "") + totals.changePct.toFixed(2) + "%"}
+            valueColor={totals.change >= 0 ? "var(--green)" : "var(--red)"}
+          />
         </div>
       )}
 
@@ -303,8 +285,11 @@ export default function HistoricalComparison({ keycloak }) {
               </thead>
               <tbody>
                 {positions.map((p) => {
-                  const invested = p.buyPrice * p.lots;
-                  const current = p.currentPrice * p.lots;
+                  const native = p.currency === "₺" ? "TRY" : "USD";
+                  const buyPx = toEffective(p.buyPrice, native);
+                  const curPx = toEffective(p.currentPrice, native);
+                  const invested = toEffective(p.buyPrice * p.lots, native);
+                  const current = toEffective(p.currentPrice * p.lots, native);
                   const change = current - invested;
                   const changePct = invested > 0 ? (change / invested) * 100 : 0;
                   const isPositive = change >= 0;
@@ -320,19 +305,19 @@ export default function HistoricalComparison({ keycloak }) {
                       </td>
                       <td style={s.td}>{p.lots.toLocaleString("tr-TR")}</td>
                       <td style={s.td}>
-                        {p.currency}{p.buyPrice.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
+                        {effectiveSym}{fmt(buyPx)}
                       </td>
                       <td style={s.td}>
-                        {p.currency}{p.currentPrice.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
+                        {effectiveSym}{fmt(curPx)}
                       </td>
                       <td style={s.td}>
-                        {p.currency}{invested.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
+                        {effectiveSym}{fmt(invested)}
                       </td>
                       <td style={{ ...s.td, fontWeight: 600 }}>
-                        {p.currency}{current.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
+                        {effectiveSym}{fmt(current)}
                       </td>
                       <td style={{ ...s.td, color: isPositive ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
-                        {isPositive ? "+" : ""}{p.currency}{change.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}
+                        {isPositive ? "+" : ""}{effectiveSym}{fmt(change)}
                       </td>
                       <td style={{ ...s.td, color: isPositive ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
                         {isPositive ? "▲ +" : "▼ "}{Math.abs(changePct).toFixed(2)}%
