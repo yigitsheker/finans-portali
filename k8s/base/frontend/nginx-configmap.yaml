@@ -1,0 +1,46 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: frontend-nginx-conf
+  labels:
+    app.kubernetes.io/name: frontend
+data:
+  default.conf: |
+    # nginx config for the React SPA. Two responsibilities:
+    #   1. Serve the static Vite build with SPA-fallback routing.
+    #   2. Reverse-proxy /api/* to the backend Service.
+    server {
+        listen       80;
+        server_name  _;
+
+        root   /usr/share/nginx/html;
+        index  index.html;
+
+        # SPA fallback — any non-file URL serves index.html so client-side
+        # routing (React Router) gets to handle it.
+        location / {
+            try_files $uri $uri/ /index.html;
+        }
+
+        # Backend API proxy. Within the cluster the backend is reachable
+        # at http://backend:8080 via its Service DNS.
+        location /api/ {
+            proxy_pass         http://backend:8080;
+            proxy_http_version 1.1;
+            proxy_set_header   Host              $host;
+            proxy_set_header   X-Real-IP         $remote_addr;
+            proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+            proxy_set_header   X-Forwarded-Proto $scheme;
+            proxy_set_header   Upgrade           $http_upgrade;
+            proxy_set_header   Connection        "upgrade";
+            proxy_read_timeout 60s;
+        }
+
+        # Same for actuator (health probes go elsewhere; this is for the
+        # admin UI to peek at /actuator/prometheus, /actuator/health, etc.)
+        location /actuator/ {
+            proxy_pass         http://backend:8080;
+            proxy_http_version 1.1;
+            proxy_set_header   Host              $host;
+        }
+    }

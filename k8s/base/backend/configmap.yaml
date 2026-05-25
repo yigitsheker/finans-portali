@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: backend-config
+  labels:
+    app.kubernetes.io/name: backend
+data:
+  # Comma-separated allowed origins for CORS. Base value matches the in-cluster
+  # frontend Service for sanity; real-world setups override this in the overlay
+  # to add the public ingress hostname (e.g. https://app.example.com).
+  cors-allowed-origins: "http://frontend"

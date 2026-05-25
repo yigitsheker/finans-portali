@@ -1,0 +1,38 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# All base manifests live under this namespace. Overlays override via
+# their own `namespace:` if they want a per-environment isolation prefix.
+namespace: finans-portali
+
+# Common labels applied to every resource — handy for `kubectl get all -l ...`
+# and for Network Policies down the line. Use the new `labels:` syntax
+# (commonLabels is deprecated as of kustomize 5.x).
+labels:
+  - pairs:
+      app.kubernetes.io/part-of: finans-portali
+    includeSelectors: false
+
+resources:
+  - namespace.yaml
+
+  - postgres/statefulset.yaml
+  - postgres/service.yaml
+
+  - keycloak/deployment.yaml
+  - keycloak/service.yaml
+
+  - backend/deployment.yaml
+  - backend/service.yaml
+  - backend/configmap.yaml
+
+  - frontend/deployment.yaml
+  - frontend/service.yaml
+  - frontend/nginx-configmap.yaml
+
+  - ingress.yaml
+
+# secret.example.yaml files are deliberately NOT included — real Secret
+# resources are applied out-of-band (copy each example to secret.yaml with
+# real values, then `kubectl apply -f` it). Keeps cleartext credentials
+# out of git.

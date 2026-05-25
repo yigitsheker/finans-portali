@@ -1,0 +1,121 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Prod overlay — more replicas, anti-affinity for spread, real domain names
+# in the ingress, HPA for the backend. Adjust to your cluster's specifics
+# (cert-manager + Let's Encrypt for TLS, your domain, your image registry).
+
+namespace: finans-portali
+
+resources:
+  - ../../base
+  - hpa-backend.yaml
+
+# Replica + ingress + image overrides via patches.
+patches:
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 3
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 768Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 300m
+      - op: add
+        path: /spec/template/spec/affinity
+        value:
+          podAntiAffinity:
+            preferredDuringSchedulingIgnoredDuringExecution:
+              - weight: 100
+                podAffinityTerm:
+                  topologyKey: topology.kubernetes.io/zone
+                  labelSelector:
+                    matchLabels:
+                      app.kubernetes.io/name: backend
+
+  - target:
+      kind: Deployment
+      name: frontend
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 2
+
+  # Replace the placeholder ingress with the real hostnames + TLS cert.
+  # cert-manager's annotation kicks off a Let's Encrypt cert request when
+  # the Ingress is first applied.
+  - target:
+      kind: Ingress
+      name: finans-portali
+    patch: |
+      - op: replace
+        path: /metadata/annotations
+        value:
+          kubernetes.io/ingress.class: nginx
+          cert-manager.io/cluster-issuer: letsencrypt-prod
+      - op: add
+        path: /spec/tls
+        value:
+          - hosts:
+              - app.example.com
+              - auth.example.com
+            secretName: finans-portali-tls
+      - op: replace
+        path: /spec/rules/0/host
+        value: app.example.com
+      - op: replace
+        path: /spec/rules/1/host
+        value: auth.example.com
+
+  # Override Keycloak's KC_HOSTNAME so the `iss` claim in tokens matches
+  # what the browser sees. Strategic merge patch — env entries matched
+  # by name (more robust than array-index JSON patches when env lists
+  # get reordered in base/).
+  - target:
+      kind: Deployment
+      name: keycloak
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: keycloak
+      spec:
+        template:
+          spec:
+            containers:
+              - name: keycloak
+                env:
+                  - name: KC_HOSTNAME
+                    value: auth.example.com
+
+  # Backend's OAuth2 issuer-uri must match what Keycloak signs into the
+  # `iss` claim of tokens — i.e. the public hostname users browse to.
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: backend
+      spec:
+        template:
+          spec:
+            containers:
+              - name: backend
+                env:
+                  - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+                    value: https://auth.example.com/realms/finans
+
+images:
+  - name: <registry>/finans-backend
+    newName: ghcr.io/yigitsheker/finans-backend
+    newTag: v1.0.0          # bump per release — never use `latest` in prod
+  - name: <registry>/finans-frontend
+    newName: ghcr.io/yigitsheker/finans-frontend
+    newTag: v1.0.0

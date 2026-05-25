@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: finans-portali
+  labels:
+    app.kubernetes.io/name: finans-portali
+    app.kubernetes.io/part-of: finans-portali

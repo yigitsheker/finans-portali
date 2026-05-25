@@ -1,0 +1,35 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: finans-portali
+  labels:
+    app.kubernetes.io/name: finans-portali
+  annotations:
+    # Default to nginx ingress controller — swap with your cloud's value
+    # (e.g. "alb" for AWS, "gce" for GCP) in the overlay.
+    kubernetes.io/ingress.class: nginx
+spec:
+  # Hostnames are placeholders — replace in the overlay with real domains.
+  # Keycloak gets its own subdomain so KC_HOSTNAME matches what's in the
+  # `iss` claim of issued tokens.
+  rules:
+    - host: app.finans-portali.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+    - host: auth.finans-portali.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: keycloak
+                port:
+                  number: 8080

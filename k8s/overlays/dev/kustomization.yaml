@@ -1,0 +1,60 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# Dev overlay — lower replica counts, smaller resource requests, NodePort
+# Service fallbacks so the stack runs on a single-node cluster (minikube,
+# kind, Docker Desktop) without an ingress controller.
+
+namespace: finans-portali-dev
+
+resources:
+  - ../../base
+
+# Override Service types: NodePort lets you `minikube service frontend` or
+# `kubectl port-forward` without setting up ingress + DNS first.
+patches:
+  - target:
+      kind: Service
+      name: frontend
+    patch: |
+      - op: replace
+        path: /spec/type
+        value: NodePort
+  - target:
+      kind: Service
+      name: keycloak
+    patch: |
+      - op: replace
+        path: /spec/type
+        value: NodePort
+
+  # Smaller resource requests for dev clusters.
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 256Mi
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/cpu
+        value: 100m
+
+  - target:
+      kind: Deployment
+      name: keycloak
+    patch: |
+      - op: replace
+        path: /spec/template/spec/containers/0/resources/requests/memory
+        value: 384Mi
+
+# Dev image tags — overlays expect images named the same way and tagged
+# `dev`. Swap to a local registry (e.g. `localhost:5000/...`) or skip if
+# you've already pushed under the same name.
+images:
+  - name: <registry>/finans-backend
+    newName: finans-backend
+    newTag: dev
+  - name: <registry>/finans-frontend
+    newName: finans-frontend
+    newTag: dev

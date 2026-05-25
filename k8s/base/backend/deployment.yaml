@@ -1,0 +1,111 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/component: api
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: backend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: backend
+        app.kubernetes.io/component: api
+    spec:
+      containers:
+        - name: backend
+          # Replace <registry> with your image registry path before applying:
+          #   docker tag finans-backend:latest <registry>/finans-backend:VERSION
+          #   docker push <registry>/finans-backend:VERSION
+          # Then either patch this in the overlay (recommended) or edit here.
+          image: <registry>/finans-backend:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            - name: SERVER_PORT
+              value: "8080"
+            # Datasource — points at the in-cluster postgres Service.
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/$(POSTGRES_DB)
+            - name: POSTGRES_DB
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_DB
+            - name: SPRING_DATASOURCE_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_USER
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-secret
+                  key: POSTGRES_PASSWORD
+
+            # Keycloak — JWK + issuer URIs go through the in-cluster Service.
+            # Production overlays should override APP_KEYCLOAK_ISSUER_URI to
+            # match the public-facing token issuer (what's stamped into the
+            # `iss` claim of access tokens).
+            - name: APP_KEYCLOAK_SERVER_URL
+              value: http://keycloak:8080
+            - name: APP_KEYCLOAK_REALM
+              value: finans
+            - name: APP_KEYCLOAK_ADMIN_CLIENT_ID
+              value: finans-backend-admin
+            - name: APP_KEYCLOAK_ADMIN_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: keycloak-secret
+                  key: KC_BACKEND_CLIENT_SECRET
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_JWK_SET_URI
+              value: http://keycloak:8080/realms/finans/protocol/openid-connect/certs
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: http://keycloak:8080/realms/finans
+
+            # CORS — populated by the overlay (dev allows localhost; prod
+            # restricts to the public frontend hostname).
+            - name: APP_CORS_ALLOWED_ORIGINS
+              valueFrom:
+                configMapKeyRef:
+                  name: backend-config
+                  key: cors-allowed-origins
+
+            # Bonds / Funds providers — kept on TCMB / TEFAS in cluster too.
+            - name: BONDS_PROVIDER
+              value: TCMB
+            - name: FUNDS_PROVIDER
+              value: TEFAS
+          envFrom:
+            # External API keys (TCMB / FRED / Gmail SMTP / TEFAS).
+            # Provisioned out-of-band — see secret.example.yaml.
+            - secretRef:
+                name: backend-secret
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 30
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1500m
+              memory: 1500Mi
