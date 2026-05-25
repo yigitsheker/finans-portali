@@ -1,18 +1,54 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
-# Dev overlay — lower replica counts, smaller resource requests, NodePort
-# Service fallbacks so the stack runs on a single-node cluster (minikube,
-# kind, Docker Desktop) without an ingress controller.
+# Dev overlay tailored to Docker Desktop's built-in Kubernetes.
+# Docker Desktop's K8s shares the host's Docker daemon, so any image we
+# build locally is already visible to the cluster — no registry, no push,
+# no `kind load docker-image`. We just have to tell the pod NOT to try
+# pulling from a registry (imagePullPolicy: Never), and reference the
+# image by its local tag.
 
 namespace: finans-portali-dev
 
 resources:
   - ../../base
 
-# Override Service types: NodePort lets you `minikube service frontend` or
-# `kubectl port-forward` without setting up ingress + DNS first.
 patches:
+  # Use local image names + Never-pull policy. Combined with the `images:`
+  # block below this lets us iterate fast: docker build → kubectl apply
+  # → rolling restart, with no registry round-trip.
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: backend
+      spec:
+        template:
+          spec:
+            containers:
+              - name: backend
+                imagePullPolicy: Never
+  - target:
+      kind: Deployment
+      name: frontend
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: frontend
+      spec:
+        template:
+          spec:
+            containers:
+              - name: frontend
+                imagePullPolicy: Never
+
+  # NodePort Services so the stack is reachable without an ingress
+  # controller. Use `kubectl port-forward` for a friendlier port mapping
+  # (see deploy-local.ps1).
   - target:
       kind: Service
       name: frontend
@@ -28,7 +64,7 @@ patches:
         path: /spec/type
         value: NodePort
 
-  # Smaller resource requests for dev clusters.
+  # Smaller resource requests so a laptop cluster can actually schedule.
   - target:
       kind: Deployment
       name: backend
@@ -39,7 +75,6 @@ patches:
       - op: replace
         path: /spec/template/spec/containers/0/resources/requests/cpu
         value: 100m
-
   - target:
       kind: Deployment
       name: keycloak
@@ -48,13 +83,12 @@ patches:
         path: /spec/template/spec/containers/0/resources/requests/memory
         value: 384Mi
 
-# Dev image tags — overlays expect images named the same way and tagged
-# `dev`. Swap to a local registry (e.g. `localhost:5000/...`) or skip if
-# you've already pushed under the same name.
+# Map the registry-style image references in base/ to the local tags we
+# build with `docker build -t finans-{backend,frontend}:local`.
 images:
   - name: <registry>/finans-backend
     newName: finans-backend
-    newTag: dev
+    newTag: local
   - name: <registry>/finans-frontend
     newName: finans-frontend
-    newTag: dev
+    newTag: local

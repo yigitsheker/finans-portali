@@ -20,8 +20,16 @@ spec:
     spec:
       containers:
         - name: keycloak
-          image: quay.io/keycloak/keycloak:25.0
-          args: ["start"]
+          image: quay.io/keycloak/keycloak:26.5.1
+          # --import-realm picks up any JSON files in /opt/keycloak/data/import
+          # on first start, then no-ops on subsequent boots (Keycloak detects
+          # the realm already exists). The bootstrap Job patches realm
+          # settings + creates the backend-admin client afterwards.
+          args: ["start-dev", "--import-realm"]
+          volumeMounts:
+            - name: realm-import
+              mountPath: /opt/keycloak/data/import
+              readOnly: true
           env:
             # Database — points at the in-cluster postgres Service.
             - name: KC_DB
@@ -90,3 +98,7 @@ spec:
             limits:
               cpu: 1500m
               memory: 1500Mi
+      volumes:
+        - name: realm-import
+          configMap:
+            name: keycloak-realm-import

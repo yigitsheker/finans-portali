@@ -21,6 +21,7 @@ resources:
 
   - keycloak/deployment.yaml
   - keycloak/service.yaml
+  - keycloak/bootstrap-job.yaml
 
   - backend/deployment.yaml
   - backend/service.yaml
@@ -31,6 +32,16 @@ resources:
   - frontend/nginx-configmap.yaml
 
   - ingress.yaml
+
+# Generated ConfigMaps — kustomize hashes the file contents into the
+# resource name so any change to the underlying file forces a rollout.
+configMapGenerator:
+  - name: keycloak-realm-import
+    files:
+      - keycloak/finans-realm.json
+  - name: keycloak-bootstrap-script
+    files:
+      - keycloak/keycloak-bootstrap.sh
 
 # secret.example.yaml files are deliberately NOT included — real Secret
 # resources are applied out-of-band (copy each example to secret.yaml with
