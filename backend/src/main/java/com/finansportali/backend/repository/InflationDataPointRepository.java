@@ -11,17 +11,29 @@ import java.util.Optional;
 
 public interface InflationDataPointRepository extends JpaRepository<InflationDataPoint, Long> {
 
-    Optional<InflationDataPoint> findByPeriodDate(LocalDate periodDate);
+    // ── Country-aware queries (preferred — call these from the service) ─────
 
-    List<InflationDataPoint> findAllByOrderByPeriodDateAsc();
+    Optional<InflationDataPoint> findByPeriodDateAndCountry(LocalDate periodDate, String country);
 
-    @Query("SELECT i FROM InflationDataPoint i ORDER BY i.periodDate DESC")
-    List<InflationDataPoint> findAllOrderByPeriodDateDesc();
+    List<InflationDataPoint> findAllByCountryOrderByPeriodDateAsc(String country);
 
-    /**
-     * Find the row whose periodDate is the largest one not after the given target.
-     * Used when comparing a historical buy date to the closest available inflation month.
-     */
-    @Query("SELECT i FROM InflationDataPoint i WHERE i.periodDate <= :target ORDER BY i.periodDate DESC LIMIT 1")
-    Optional<InflationDataPoint> findLatestOnOrBefore(@Param("target") LocalDate target);
+    @Query("SELECT i FROM InflationDataPoint i WHERE i.country = :country AND i.periodDate <= :target ORDER BY i.periodDate DESC LIMIT 1")
+    Optional<InflationDataPoint> findLatestOnOrBefore(@Param("target") LocalDate target,
+                                                     @Param("country") String country);
+
+    // ── Legacy single-country wrappers (default to TR for back-compat) ──────
+    // Old callers still exist in compare() etc.; these keep them working
+    // while we migrate the call sites in the service.
+
+    default Optional<InflationDataPoint> findByPeriodDate(LocalDate periodDate) {
+        return findByPeriodDateAndCountry(periodDate, "TR");
+    }
+
+    default List<InflationDataPoint> findAllByOrderByPeriodDateAsc() {
+        return findAllByCountryOrderByPeriodDateAsc("TR");
+    }
+
+    default Optional<InflationDataPoint> findLatestOnOrBefore(LocalDate target) {
+        return findLatestOnOrBefore(target, "TR");
+    }
 }

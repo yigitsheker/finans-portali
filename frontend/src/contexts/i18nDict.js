@@ -274,6 +274,8 @@ export const dict = {
     inflation: {
       empty: "Henüz enflasyon verisi yok.",
       emptyHint: "TCMB EVDS3 erişimi sağlandığında otomatik dolacak.",
+      countryTR: "Türkiye (TÜFE)",
+      countryUS: "ABD (CPI)",
       yearlyTitle: "Son Yıllık Enflasyon (TÜFE)",
       lastData: "Son veri",
       monthlyTitle: "Son Aylık Enflasyon",
@@ -860,6 +862,8 @@ export const dict = {
     inflation: {
       empty: "No inflation data yet.",
       emptyHint: "It will populate automatically once TCMB EVDS3 access is set up.",
+      countryTR: "Türkiye (CPI)",
+      countryUS: "USA (CPI)",
       yearlyTitle: "Latest Yearly Inflation (CPI)",
       lastData: "Last data",
       monthlyTitle: "Latest Monthly Inflation",

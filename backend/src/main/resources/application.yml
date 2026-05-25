@@ -72,6 +72,12 @@ app:
     fallback-enabled: ${FUNDS_FALLBACK_ENABLED:false}  # Do not use sample data in production
     tefas:
       base-url: https://www.tefas.gov.tr
+  fred:
+    # FRED (Federal Reserve Economic Data) API key for US CPI history.
+    # Get one free at https://fred.stlouisfed.org/docs/api/api_key.html.
+    # If unset, the inflation refresh skips the US series and the /api/v1/
+    # inflation?country=US endpoint returns whatever was persisted last.
+    api-key: ${APP_FRED_API_KEY:}
 
 management:
   endpoints:

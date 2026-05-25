@@ -20,8 +20,16 @@ public class InflationDataPoint {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(name = "period_date", nullable = false, unique = true)
+    @Column(name = "period_date", nullable = false)
     private LocalDate periodDate;
+
+    /**
+     * ISO 3166-1 alpha-2 country code. {@code "TR"} for TCMB-sourced
+     * Turkish CPI, {@code "US"} for FRED CPIAUCSL. The natural key is
+     * the (period_date, country) pair — see V20 migration.
+     */
+    @Column(name = "country", nullable = false, length = 2)
+    private String country = "TR";
 
     @Column(name = "cpi_index", precision = 15, scale = 4)
     private BigDecimal cpiIndex;
@@ -50,8 +58,14 @@ public class InflationDataPoint {
         this.periodDate = periodDate;
     }
 
+    public InflationDataPoint(LocalDate periodDate, String country) {
+        this.periodDate = periodDate;
+        this.country = country;
+    }
+
     public Long getId() { return id; }
     public LocalDate getPeriodDate() { return periodDate; }
+    public String getCountry() { return country; }
     public BigDecimal getCpiIndex() { return cpiIndex; }
     public BigDecimal getCpiYearlyChange() { return cpiYearlyChange; }
     public BigDecimal getCpiMonthlyChange() { return cpiMonthlyChange; }
@@ -61,6 +75,7 @@ public class InflationDataPoint {
     public LocalDateTime getUpdatedAt() { return updatedAt; }
 
     public void setPeriodDate(LocalDate periodDate) { this.periodDate = periodDate; }
+    public void setCountry(String country) { this.country = country; }
     public void setCpiIndex(BigDecimal cpiIndex) { this.cpiIndex = cpiIndex; }
     public void setCpiYearlyChange(BigDecimal cpiYearlyChange) { this.cpiYearlyChange = cpiYearlyChange; }
     public void setCpiMonthlyChange(BigDecimal cpiMonthlyChange) { this.cpiMonthlyChange = cpiMonthlyChange; }

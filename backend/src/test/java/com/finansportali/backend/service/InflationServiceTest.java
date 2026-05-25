@@ -3,6 +3,7 @@ package com.finansportali.backend.service;
 import com.finansportali.backend.dto.response.inflation.InflationCompareDto;
 import com.finansportali.backend.entity.InflationDataPoint;
 import com.finansportali.backend.repository.InflationDataPointRepository;
+import com.finansportali.backend.service.client.inflation.FredInflationFetcher;
 import com.finansportali.backend.service.client.inflation.TcmbInflationFetcher;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -10,6 +11,8 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.mockito.junit.jupiter.MockitoSettings;
+import org.mockito.quality.Strictness;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -18,26 +21,30 @@ import java.util.Optional;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
+@MockitoSettings(strictness = Strictness.LENIENT)
 class InflationServiceTest {
 
     @Mock private InflationDataPointRepository repo;
     @Mock private TcmbInflationFetcher fetcher;
+    @Mock private FredInflationFetcher fredFetcher;
     @InjectMocks private InflationService service;
 
     private static InflationDataPoint point(LocalDate d, String cpi) {
-        InflationDataPoint p = new InflationDataPoint(d);
+        InflationDataPoint p = new InflationDataPoint(d, "TR");
         p.setCpiIndex(new BigDecimal(cpi));
         return p;
     }
 
     @Test
-    void refresh_returns_zero_when_fetcher_empty_and_does_not_save() {
+    void refresh_returns_zero_when_fetchers_empty_and_does_not_save() {
         when(fetcher.fetchInflationHistory(any(), any())).thenReturn(List.of());
+        when(fredFetcher.fetchInflationHistory(any(), any())).thenReturn(List.of());
         assertThat(service.refresh()).isZero();
         verify(repo, never()).save(any());
     }
@@ -48,7 +55,9 @@ class InflationServiceTest {
         p.setCpiYearlyChange(new BigDecimal("65"));
         p.setCpiMonthlyChange(new BigDecimal("3"));
         when(fetcher.fetchInflationHistory(any(), any())).thenReturn(List.of(p));
-        when(repo.findByPeriodDate(LocalDate.of(2026, 1, 1))).thenReturn(Optional.empty());
+        when(fredFetcher.fetchInflationHistory(any(), any())).thenReturn(List.of());
+        when(repo.findByPeriodDateAndCountry(LocalDate.of(2026, 1, 1), "TR"))
+                .thenReturn(Optional.empty());
 
         int n = service.refresh();
         assertThat(n).isEqualTo(1);
@@ -63,13 +72,33 @@ class InflationServiceTest {
     void refresh_updates_existing_row_in_place() {
         InflationDataPoint fresh = point(LocalDate.of(2026, 1, 1), "200");
         when(fetcher.fetchInflationHistory(any(), any())).thenReturn(List.of(fresh));
+        when(fredFetcher.fetchInflationHistory(any(), any())).thenReturn(List.of());
 
         InflationDataPoint existing = point(LocalDate.of(2026, 1, 1), "100");
-        when(repo.findByPeriodDate(LocalDate.of(2026, 1, 1))).thenReturn(Optional.of(existing));
+        when(repo.findByPeriodDateAndCountry(LocalDate.of(2026, 1, 1), "TR"))
+                .thenReturn(Optional.of(existing));
 
         service.refresh();
         // Update in-place — same instance, with new CPI value.
         assertThat(existing.getCpiIndex()).isEqualByComparingTo("200");
+    }
+
+    @Test
+    void refresh_upserts_us_rows_with_FRED_source() {
+        InflationDataPoint us = new InflationDataPoint(LocalDate.of(2026, 1, 1), "US");
+        us.setCpiIndex(new BigDecimal("310"));
+        us.setSource("FRED_CPIAUCSL");
+        when(fetcher.fetchInflationHistory(any(), any())).thenReturn(List.of());
+        when(fredFetcher.fetchInflationHistory(any(), any())).thenReturn(List.of(us));
+        when(repo.findByPeriodDateAndCountry(LocalDate.of(2026, 1, 1), "US"))
+                .thenReturn(Optional.empty());
+
+        assertThat(service.refresh()).isEqualTo(1);
+
+        ArgumentCaptor<InflationDataPoint> cap = ArgumentCaptor.forClass(InflationDataPoint.class);
+        verify(repo).save(cap.capture());
+        assertThat(cap.getValue().getCountry()).isEqualTo("US");
+        assertThat(cap.getValue().getSource()).isEqualTo("FRED_CPIAUCSL");
     }
 
     @Test
@@ -81,27 +110,36 @@ class InflationServiceTest {
 
     @Test
     void getAllAscending_returns_repo_results() {
-        when(repo.findAllByOrderByPeriodDateAsc()).thenReturn(List.of());
+        when(repo.findAllByCountryOrderByPeriodDateAsc("TR")).thenReturn(List.of());
         assertThat(service.getAllAscending()).isEmpty();
     }
 
     @Test
+    void getAllAscending_passes_country_through() {
+        when(repo.findAllByCountryOrderByPeriodDateAsc("US")).thenReturn(List.of());
+        assertThat(service.getAllAscending("US")).isEmpty();
+        verify(repo).findAllByCountryOrderByPeriodDateAsc("US");
+    }
+
+    @Test
     void getLatest_returns_repo_result() {
-        when(repo.findLatestOnOrBefore(any())).thenReturn(Optional.empty());
+        when(repo.findLatestOnOrBefore(any(), eq("TR"))).thenReturn(Optional.empty());
         assertThat(service.getLatest()).isEmpty();
     }
 
     @Test
     void getOnOrBefore_returns_repo_result() {
         InflationDataPoint p = point(LocalDate.of(2026, 1, 1), "100");
-        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 1, 5))).thenReturn(Optional.of(p));
+        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 1, 5), "TR"))
+                .thenReturn(Optional.of(p));
         assertThat(service.getOnOrBefore(LocalDate.of(2026, 1, 5))).isPresent();
     }
 
     @Test
     void compare_returns_empty_when_no_from_point() {
-        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 1, 1))).thenReturn(Optional.empty());
-        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 2, 1)))
+        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 1, 1), "TR"))
+                .thenReturn(Optional.empty());
+        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 2, 1), "TR"))
                 .thenReturn(Optional.of(point(LocalDate.of(2026, 2, 1), "100")));
         assertThat(service.compare(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 1), null))
                 .isEmpty();
@@ -109,9 +147,10 @@ class InflationServiceTest {
 
     @Test
     void compare_returns_empty_when_cpiFrom_is_null() {
-        InflationDataPoint from = new InflationDataPoint(LocalDate.of(2026, 1, 1));
-        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 1, 1))).thenReturn(Optional.of(from));
-        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 2, 1)))
+        InflationDataPoint from = new InflationDataPoint(LocalDate.of(2026, 1, 1), "TR");
+        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 1, 1), "TR"))
+                .thenReturn(Optional.of(from));
+        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 2, 1), "TR"))
                 .thenReturn(Optional.of(point(LocalDate.of(2026, 2, 1), "100")));
         assertThat(service.compare(LocalDate.of(2026, 1, 1), LocalDate.of(2026, 2, 1), null))
                 .isEmpty();
@@ -119,9 +158,9 @@ class InflationServiceTest {
 
     @Test
     void compare_returns_cumulative_inflation_without_nominal() {
-        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 1, 1)))
+        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 1, 1), "TR"))
                 .thenReturn(Optional.of(point(LocalDate.of(2026, 1, 1), "100")));
-        when(repo.findLatestOnOrBefore(LocalDate.of(2027, 1, 1)))
+        when(repo.findLatestOnOrBefore(LocalDate.of(2027, 1, 1), "TR"))
                 .thenReturn(Optional.of(point(LocalDate.of(2027, 1, 1), "150")));
 
         Optional<InflationCompareDto> dto = service.compare(LocalDate.of(2026, 1, 1),
@@ -134,9 +173,9 @@ class InflationServiceTest {
 
     @Test
     void compare_computes_real_return_with_nominal() {
-        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 1, 1)))
+        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 1, 1), "TR"))
                 .thenReturn(Optional.of(point(LocalDate.of(2026, 1, 1), "100")));
-        when(repo.findLatestOnOrBefore(LocalDate.of(2027, 1, 1)))
+        when(repo.findLatestOnOrBefore(LocalDate.of(2027, 1, 1), "TR"))
                 .thenReturn(Optional.of(point(LocalDate.of(2027, 1, 1), "120")));
 
         // Nominal +50%, inflation +20% → real = (1.5/1.2 - 1)*100 = 25%

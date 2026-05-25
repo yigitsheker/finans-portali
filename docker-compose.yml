@@ -314,6 +314,12 @@ services:
       TCMB_EVDS3_JSESSIONID: ${TCMB_EVDS3_JSESSIONID:-}
       TCMB_EVDS3_TS_COOKIE: ${TCMB_EVDS3_TS_COOKIE:-}
 
+      # FRED (Federal Reserve Economic Data) API key for US CPI on the
+      # inflation page. Free key — register at fred.stlouisfed.org. When
+      # empty the US series is skipped on refresh and the API returns an
+      # empty list for ?country=US.
+      APP_FRED_API_KEY: ${APP_FRED_API_KEY:-}
+
       # Headless-browser fetcher — used as a last-resort fallback for
       # Cloudflare-protected pages (e.g. some news sites) when both Jsoup
       # and system curl get blocked.

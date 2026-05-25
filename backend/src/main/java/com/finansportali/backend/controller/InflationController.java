@@ -21,18 +21,24 @@ public class InflationController {
         this.service = service;
     }
 
-    /** Full monthly history (ascending by period). */
+    /**
+     * Full monthly history (ascending by period). Accepts an optional
+     * {@code country} query param (ISO 3166-1 alpha-2, default {@code TR}).
+     * Use {@code ?country=US} for the FRED CPIAUCSL series.
+     */
     @GetMapping
-    public List<InflationPointDto> getAll() {
-        return service.getAllAscending().stream()
+    public List<InflationPointDto> getAll(
+            @RequestParam(value = "country", defaultValue = "TR") String country) {
+        return service.getAllAscending(country.toUpperCase()).stream()
                 .map(InflationPointDto::from)
                 .toList();
     }
 
-    /** Most recent published month. */
+    /** Most recent published month for the given country (default TR). */
     @GetMapping("/latest")
-    public ResponseEntity<InflationPointDto> getLatest() {
-        return service.getLatest()
+    public ResponseEntity<InflationPointDto> getLatest(
+            @RequestParam(value = "country", defaultValue = "TR") String country) {
+        return service.getLatest(country.toUpperCase())
                 .map(InflationPointDto::from)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());

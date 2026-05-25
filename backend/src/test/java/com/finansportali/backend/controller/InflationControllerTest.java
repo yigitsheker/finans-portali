@@ -42,7 +42,7 @@ class InflationControllerTest {
 
     @Test
     void list_returns_dto_array() throws Exception {
-        when(service.getAllAscending()).thenReturn(List.of(
+        when(service.getAllAscending("TR")).thenReturn(List.of(
                 point(LocalDate.of(2026, 1, 1), 3500.0, 35.2),
                 point(LocalDate.of(2026, 2, 1), 3600.0, 33.0)));
 
@@ -53,8 +53,18 @@ class InflationControllerTest {
     }
 
     @Test
+    void list_passes_country_query_param_through_to_service() throws Exception {
+        when(service.getAllAscending("US")).thenReturn(List.of(
+                point(LocalDate.of(2026, 1, 1), 310.0, 3.2)));
+
+        mvc.perform(get("/api/v1/inflation").param("country", "us"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].cpiIndex").value(310.0));
+    }
+
+    @Test
     void latest_returns_200_when_present() throws Exception {
-        when(service.getLatest()).thenReturn(Optional.of(
+        when(service.getLatest("TR")).thenReturn(Optional.of(
                 point(LocalDate.of(2026, 5, 1), 3700.0, 30.5)));
 
         mvc.perform(get("/api/v1/inflation/latest"))
@@ -64,7 +74,7 @@ class InflationControllerTest {
 
     @Test
     void latest_returns_204_when_absent() throws Exception {
-        when(service.getLatest()).thenReturn(Optional.empty());
+        when(service.getLatest("TR")).thenReturn(Optional.empty());
 
         mvc.perform(get("/api/v1/inflation/latest"))
                 .andExpect(status().isNoContent());

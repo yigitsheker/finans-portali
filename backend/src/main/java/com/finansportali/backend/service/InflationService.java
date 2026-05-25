@@ -3,6 +3,7 @@ package com.finansportali.backend.service;
 import com.finansportali.backend.dto.response.inflation.InflationCompareDto;
 import com.finansportali.backend.entity.InflationDataPoint;
 import com.finansportali.backend.repository.InflationDataPointRepository;
+import com.finansportali.backend.service.client.inflation.FredInflationFetcher;
 import com.finansportali.backend.service.client.inflation.TcmbInflationFetcher;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -24,18 +25,25 @@ public class InflationService {
 
     private static final Logger log = LoggerFactory.getLogger(InflationService.class);
 
+    public static final String COUNTRY_TR = "TR";
+    public static final String COUNTRY_US = "US";
+
     private final InflationDataPointRepository repo;
     private final TcmbInflationFetcher fetcher;
+    private final FredInflationFetcher fredFetcher;
 
-    public InflationService(InflationDataPointRepository repo, TcmbInflationFetcher fetcher) {
+    public InflationService(InflationDataPointRepository repo,
+                            TcmbInflationFetcher fetcher,
+                            FredInflationFetcher fredFetcher) {
         this.repo = repo;
         this.fetcher = fetcher;
+        this.fredFetcher = fredFetcher;
     }
 
     @PostConstruct
     void onStartup() {
         if (repo.count() == 0) {
-            log.info("[Inflation] DB empty — triggering first sync from TCMB");
+            log.info("[Inflation] DB empty — triggering first sync from TCMB + FRED");
             try {
                 refresh();
             } catch (Exception e) {
@@ -44,34 +52,44 @@ public class InflationService {
         }
     }
 
-    /** Refresh ~10 years of monthly history from TCMB EVDS3. Idempotent. */
+    /**
+     * Refresh ~10 years of monthly history from BOTH TCMB EVDS3 (Turkey CPI)
+     * and FRED CPIAUCSL (US CPI). Idempotent — re-running upserts on the
+     * (period_date, country) natural key.
+     */
     @Transactional
     @CacheEvict(value = {"inflation-all", "inflation-latest"}, allEntries = true)
     public int refresh() {
         LocalDate to = LocalDate.now();
         LocalDate from = to.minusYears(10).withDayOfMonth(1);
 
-        List<InflationDataPoint> fresh = fetcher.fetchInflationHistory(from, to);
+        int total = 0;
+        total += upsertCountry(COUNTRY_TR, "TCMB_EVDS3", fetcher.fetchInflationHistory(from, to));
+        total += upsertCountry(COUNTRY_US, "FRED_CPIAUCSL", fredFetcher.fetchInflationHistory(from, to));
+        log.info("[Inflation] Refreshed {} monthly rows across TR + US", total);
+        return total;
+    }
+
+    private int upsertCountry(String country, String fallbackSource, List<InflationDataPoint> fresh) {
         if (fresh.isEmpty()) {
-            log.warn("[Inflation] No data from TCMB; DB left untouched");
+            log.warn("[Inflation] No data from {} source; rows for {} left untouched", fallbackSource, country);
             return 0;
         }
-
         int upserts = 0;
         for (InflationDataPoint p : fresh) {
-            InflationDataPoint persisted = repo.findByPeriodDate(p.getPeriodDate())
-                    .orElseGet(() -> new InflationDataPoint(p.getPeriodDate()));
+            InflationDataPoint persisted = repo.findByPeriodDateAndCountry(p.getPeriodDate(), country)
+                    .orElseGet(() -> new InflationDataPoint(p.getPeriodDate(), country));
             persisted.setCpiIndex(p.getCpiIndex());
             persisted.setCpiYearlyChange(p.getCpiYearlyChange());
             persisted.setCpiMonthlyChange(p.getCpiMonthlyChange());
             persisted.setPpiIndex(p.getPpiIndex());
             persisted.setPpiYearlyChange(p.getPpiYearlyChange());
-            persisted.setSource("TCMB_EVDS3");
+            persisted.setSource(p.getSource() != null ? p.getSource() : fallbackSource);
             persisted.setUpdatedAt(java.time.LocalDateTime.now());
             repo.save(persisted);
             upserts++;
         }
-        log.info("[Inflation] Refreshed {} monthly rows", upserts);
+        log.info("[Inflation] Upserted {} monthly rows for {}", upserts, country);
         return upserts;
     }
 
@@ -88,18 +106,27 @@ public class InflationService {
         }
     }
 
-    @Cacheable("inflation-all")
-    public List<InflationDataPoint> getAllAscending() {
-        return repo.findAllByOrderByPeriodDateAsc();
+    @Cacheable(value = "inflation-all", key = "#country")
+    public List<InflationDataPoint> getAllAscending(String country) {
+        return repo.findAllByCountryOrderByPeriodDateAsc(country);
     }
 
-    @Cacheable("inflation-latest")
+    /** Back-compat overload — defaults to Turkey. */
+    public List<InflationDataPoint> getAllAscending() {
+        return getAllAscending(COUNTRY_TR);
+    }
+
+    @Cacheable(value = "inflation-latest", key = "#country")
+    public Optional<InflationDataPoint> getLatest(String country) {
+        return repo.findLatestOnOrBefore(LocalDate.now(), country);
+    }
+
     public Optional<InflationDataPoint> getLatest() {
-        return repo.findLatestOnOrBefore(LocalDate.now());
+        return getLatest(COUNTRY_TR);
     }
 
     public Optional<InflationDataPoint> getOnOrBefore(LocalDate target) {
-        return repo.findLatestOnOrBefore(target);
+        return repo.findLatestOnOrBefore(target, COUNTRY_TR);
     }
 
     /**

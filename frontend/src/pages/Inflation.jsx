@@ -9,6 +9,7 @@ export default function Inflation() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [view, setView] = useState("yearly"); // "yearly" | "monthly"
+  const [country, setCountry] = useState("TR"); // "TR" | "US"
 
   // Pulled out into a callable so the error-state retry button can call
   // exactly the same load path the initial mount does. Don't fold this
@@ -17,11 +18,11 @@ export default function Inflation() {
   const load = useCallback(() => {
     setLoading(true);
     setError(null);
-    getInflationHistory()
+    getInflationHistory(country)
       .then(setRows)
       .catch((e) => setError(e.message || t("common.fetchError")))
       .finally(() => setLoading(false));
-  }, [t]);
+  }, [t, country]);
 
   useEffect(() => { load(); }, [load]);
 
@@ -93,6 +94,24 @@ export default function Inflation() {
   return (
     <div style={s.root}>
       <DataFreshnessHeader asOf={asOf} onRefresh={load} refreshing={loading} />
+
+      {/* Country selector — TCMB (TR) vs FRED (US) */}
+      <div style={s.countryToggle}>
+        <button
+          type="button"
+          style={{ ...s.countryBtn, ...(country === "TR" ? s.countryBtnActive : {}) }}
+          onClick={() => setCountry("TR")}
+        >
+          🇹🇷 {t("inflation.countryTR")}
+        </button>
+        <button
+          type="button"
+          style={{ ...s.countryBtn, ...(country === "US" ? s.countryBtnActive : {}) }}
+          onClick={() => setCountry("US")}
+        >
+          🇺🇸 {t("inflation.countryUS")}
+        </button>
+      </div>
 
       {/* Summary cards */}
       <div style={s.summaryGrid}>
@@ -290,6 +309,24 @@ const s = {
   toggle: { display: "flex", background: "var(--bg-panel)", borderRadius: 6, padding: 2, gap: 2 },
   toggleBtn: { padding: "5px 12px", border: "none", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 600, cursor: "pointer", borderRadius: 4 },
   toggleBtnActive: { background: "var(--accent-solid, #3b82f6)", color: "#fff" },
+  countryToggle: { display: "flex", gap: 8 },
+  countryBtn: {
+    flex: "0 0 auto",
+    padding: "8px 16px",
+    border: "1px solid var(--border-card)",
+    background: "var(--bg-card)",
+    color: "var(--text-muted)",
+    borderRadius: 8,
+    fontSize: 14,
+    fontWeight: 600,
+    cursor: "pointer",
+    transition: "all 0.15s",
+  },
+  countryBtnActive: {
+    background: "var(--accent-solid, #3b82f6)",
+    color: "#fff",
+    borderColor: "var(--accent-solid, #3b82f6)",
+  },
   tableWrap: { overflowX: "auto", marginTop: 12 },
   table: { width: "100%", borderCollapse: "collapse" },
   th: { textAlign: "left", padding: "8px 12px", fontSize: 11, fontWeight: 600, color: "var(--text-muted)", borderBottom: "1px solid var(--border)", textTransform: "uppercase" },
