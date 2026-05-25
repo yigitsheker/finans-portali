@@ -81,10 +81,10 @@ export default function TradingViewWidget({ symbol, theme = "dark" }) {
         // cadence — a pinned hash would break the embed every release.
         // crossOrigin="anonymous" keeps the script in its own isolation,
         // and the iframe-based widget contents are sandboxed by TradingView
-        // themselves. NOSONAR tag suppresses S5725 inline since no
-        // hash-pinning solution exists for this third-party CDN.
+        // themselves. The S5725 rule is suppressed for this file via
+        // sonar.issue.ignore.multicriteria in sonar-project.properties.
         const script = document.createElement("script");
-        script.src = "https://s3.tradingview.com/tv.js"; // NOSONAR
+        script.src = "https://s3.tradingview.com/tv.js";
         script.async = true;
         script.crossOrigin = "anonymous";
         script.onload = () => {
