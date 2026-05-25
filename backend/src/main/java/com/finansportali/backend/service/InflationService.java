@@ -42,8 +42,17 @@ public class InflationService {
 
     @PostConstruct
     void onStartup() {
-        if (repo.count() == 0) {
-            log.info("[Inflation] DB empty — triggering first sync from TCMB + FRED");
+        // Trigger a refresh when:
+        //   (a) the table is empty (first-ever boot), OR
+        //   (b) we have TR rows but no US rows yet — happens the first time
+        //       the FRED integration ships into a deployment that already had
+        //       a populated Turkish series.
+        boolean tableEmpty = repo.count() == 0;
+        boolean missingUs = !tableEmpty
+                && repo.findAllByCountryOrderByPeriodDateAsc(COUNTRY_US).isEmpty();
+        if (tableEmpty || missingUs) {
+            log.info("[Inflation] DB needs sync ({}); triggering refresh",
+                    tableEmpty ? "empty" : "US series missing");
             try {
                 refresh();
             } catch (Exception e) {
