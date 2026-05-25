@@ -18,6 +18,7 @@ resources:
 
   - postgres/statefulset.yaml
   - postgres/service.yaml
+  - postgres/init-configmap.yaml
 
   - keycloak/deployment.yaml
   - keycloak/service.yaml

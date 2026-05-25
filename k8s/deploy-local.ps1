@@ -61,6 +61,35 @@ if (-not $SkipBuild) {
     Write-Step '3/6  Building frontend image'
     docker build -t finans-frontend:local "$repoRoot\frontend"
     if ($LASTEXITCODE -ne 0) { throw 'frontend build failed' }
+
+    # Docker Desktop K8s uses its own containerd image store (different from
+    # the docker daemon's). If they aren't unified, K8s sees ErrImageNeverPull
+    # on our locally-built images. Pre-check: try `docker exec` into the
+    # control-plane container; if it fails, we're on the split setup and the
+    # user needs to enable "Use containerd for pulling and storing images"
+    # in Docker Desktop settings.
+    Write-Host ''
+    Write-Host 'Checking image visibility to the cluster...'
+    $ctrCheck = docker exec desktop-control-plane crictl images 2>&1 | Out-String
+    if ($LASTEXITCODE -ne 0 -or $ctrCheck -notmatch 'finans-backend.*local') {
+        Write-Host ''
+        Write-Host 'WARNING: cluster cannot see finans-backend:local in its image store.' -ForegroundColor Yellow
+        Write-Host ''
+        Write-Host 'Most likely cause: Docker Desktop is using the legacy moby image' -ForegroundColor Yellow
+        Write-Host 'store, separate from the K8s containerd store.' -ForegroundColor Yellow
+        Write-Host ''
+        Write-Host 'Fix: Docker Desktop -> Settings -> General ->' -ForegroundColor Cyan
+        Write-Host '     check "Use containerd for pulling and storing images"' -ForegroundColor Cyan
+        Write-Host '     -> Apply & restart (~30 sec).' -ForegroundColor Cyan
+        Write-Host ''
+        Write-Host 'After that, re-run this script. Build cache will be reused.' -ForegroundColor Cyan
+        Write-Host ''
+        Write-Host 'Continuing anyway in case the check is wrong; pods may go' -ForegroundColor Yellow
+        Write-Host 'into ErrImageNeverPull. Watch with:' -ForegroundColor Yellow
+        Write-Host '   kubectl -n finans-portali-dev get pods -w' -ForegroundColor Yellow
+    } else {
+        Write-Host 'OK - cluster can see the local images.'
+    }
 } else {
     Write-Step '2-3/6  (Skipping image builds, -SkipBuild passed)'
 }

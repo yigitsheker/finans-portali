@@ -18,11 +18,17 @@ container from `docker-compose.yml`).
 
 ## Quick start (Docker Desktop)
 
-### 1. Turn on Kubernetes
+### 1. Turn on Kubernetes + containerd image store
 
-Docker Desktop → **Settings** → **Kubernetes** → tick **"Enable Kubernetes"**
-→ **Apply & restart**. Wait ~30 sec for the bottom-left whale-with-K8s icon
-to turn green.
+Docker Desktop → **Settings**:
+
+1. **Kubernetes** → tick **"Enable Kubernetes"** → **Apply & restart**.
+   Wait ~30 sec for the bottom-left status to show `Kubernetes running`.
+
+2. **General** → tick **"Use containerd for pulling and storing images"**
+   → **Apply & restart**. **This is required** — when off, Docker keeps
+   images in the legacy moby store, separate from the K8s containerd
+   store, and pods fail with `ErrImageNeverPull` on locally-built images.
 
 Verify from PowerShell:
 ```powershell

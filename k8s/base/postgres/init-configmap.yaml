@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/component: database
+# Postgres entrypoint runs every *.sql / *.sh under
+# /docker-entrypoint-initdb.d/ on FIRST start of an empty PGDATA. Mount
+# this ConfigMap there to seed companion databases the apps expect:
+#   - finans_db   (already created by POSTGRES_DB env) -> the app's data
+#   - keycloak_db (added below) -> Keycloak's own schema, kept separate
+data:
+  10-create-keycloak-db.sql: |
+    -- Keycloak insists on its own database; sharing PGDATA but a fresh
+    -- schema keeps its tables out of finans_db migrations.
+    CREATE DATABASE keycloak_db OWNER finans_user;
+    GRANT ALL PRIVILEGES ON DATABASE keycloak_db TO finans_user;
