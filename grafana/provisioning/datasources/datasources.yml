@@ -4,8 +4,13 @@
 apiVersion: 1
 
 datasources:
-  # Prometheus datasource for metrics
+  # Prometheus datasource for metrics.
+  # Explicit `uid: prometheus` so the provisioned dashboards (which hard-code
+  # this UID in every panel's "datasource" field) bind to it. Without an
+  # explicit UID Grafana generates a random one and the dashboards render
+  # "No data" because they reference a UID that doesn't exist.
   - name: Prometheus
+    uid: prometheus
     type: prometheus
     access: proxy
     url: http://prometheus:9090
@@ -19,6 +24,7 @@ datasources:
 
   # Jaeger datasource for traces
   - name: Jaeger
+    uid: jaeger
     type: jaeger
     access: proxy
     url: http://jaeger:16686
