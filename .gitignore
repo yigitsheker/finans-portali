@@ -2,6 +2,9 @@
 .idea/
 .vscode/
 
+# Claude Code local settings (per-machine)
+.claude/
+
 # Kiro temporary files
 .kiro_tmp/
 
