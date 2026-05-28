@@ -32,6 +32,22 @@ public class NewsArticle {
     @Column(nullable = false)
     private Instant publishedAt;
 
+    // Translation cache. `sourceLang` is "tr" or "en" — set lazily on first
+    // read when NewsService asks LibreTranslate to detect it. The three
+    // *Translated columns hold the article rendered in the OTHER language;
+    // they remain null until a reader in that language asks for the row.
+    @Column(length = 2)
+    private String sourceLang;
+
+    @Column(length = 300)
+    private String titleTranslated;
+
+    @Column(length = 2000)
+    private String summaryTranslated;
+
+    @Column(columnDefinition = "TEXT")
+    private String contentTranslated;
+
     public NewsArticle() {
     }
 
@@ -77,4 +93,16 @@ public class NewsArticle {
     public void setPublishedAt(Instant publishedAt) { this.publishedAt = publishedAt; }
     public void setSourceUrl(String sourceUrl) { this.sourceUrl = sourceUrl; }
     public void setSourceName(String sourceName) { this.sourceName = sourceName; }
+
+    public String getSourceLang() { return sourceLang; }
+    public void setSourceLang(String sourceLang) { this.sourceLang = sourceLang; }
+
+    public String getTitleTranslated() { return titleTranslated; }
+    public void setTitleTranslated(String titleTranslated) { this.titleTranslated = titleTranslated; }
+
+    public String getSummaryTranslated() { return summaryTranslated; }
+    public void setSummaryTranslated(String summaryTranslated) { this.summaryTranslated = summaryTranslated; }
+
+    public String getContentTranslated() { return contentTranslated; }
+    public void setContentTranslated(String contentTranslated) { this.contentTranslated = contentTranslated; }
 }

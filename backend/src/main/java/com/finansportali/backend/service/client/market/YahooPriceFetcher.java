@@ -62,10 +62,17 @@ public class YahooPriceFetcher {
 
     public Optional<YahooQuote> fetchQuote(String yahooSymbol) {
         try {
+            // `range=1d`, not `2d`. With range=2d Yahoo reports
+            // chartPreviousClose as TODAY's open instead of YESTERDAY's
+            // close, which collapses our daily change to zero for any
+            // stock that hasn't moved off its open (e.g. most BIST .IS
+            // tickers between sessions). 1d gives the correct yesterday
+            // close in chartPreviousClose, which is what fromPreviousClose
+            // needs.
             Map<?, ?> resp = client.get()
                     .uri(u -> u.path("/v8/finance/chart/{symbol}")
                             .queryParam("interval", "1d")
-                            .queryParam("range", "2d")
+                            .queryParam("range", "1d")
                             .build(yahooSymbol))
                     .retrieve()
                     .bodyToMono(Map.class)

@@ -2,6 +2,9 @@ package com.finansportali.backend.service;
 
 import com.finansportali.backend.entity.ExchangeRate;
 import com.finansportali.backend.repository.ExchangeRateRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.cache.annotation.Cacheable;
@@ -33,7 +36,13 @@ public class ExchangeRateService {
     private final ExchangeRateRepository repository;
     private final WebClient webClient;
 
-    public ExchangeRateService(ExchangeRateRepository repository) {
+    // Business metrics — mirrors BondDataRefreshService convention.
+    private final Counter refreshSuccessCounter;
+    private final Counter refreshFailureCounter;
+    private final Counter currenciesFetchedCounter;
+    private final Timer refreshDurationTimer;
+
+    public ExchangeRateService(ExchangeRateRepository repository, MeterRegistry meterRegistry) {
         this.repository = repository;
         HttpClient httpClient = HttpClient.create()
                 .responseTimeout(Duration.ofSeconds(10))
@@ -45,6 +54,19 @@ public class ExchangeRateService {
                 .clientConnector(new ReactorClientHttpConnector(httpClient))
                 .defaultHeader("User-Agent", "Mozilla/5.0 (compatible; FinansPortali/1.0)")
                 .build();
+
+        this.refreshSuccessCounter = Counter.builder("fx_refresh_success_total")
+                .description("Total successful TCMB FX rate refreshes")
+                .register(meterRegistry);
+        this.refreshFailureCounter = Counter.builder("fx_refresh_failure_total")
+                .description("Total failed TCMB FX rate refreshes")
+                .register(meterRegistry);
+        this.currenciesFetchedCounter = Counter.builder("fx_currencies_fetched_total")
+                .description("Total currency rows persisted across all refreshes")
+                .register(meterRegistry);
+        this.refreshDurationTimer = Timer.builder("fx_refresh_duration_seconds")
+                .description("Duration of a TCMB FX refresh cycle")
+                .register(meterRegistry);
     }
 
     @Cacheable("exchange-rates")
@@ -68,6 +90,10 @@ public class ExchangeRateService {
 
     @Scheduled(initialDelay = 10_000, fixedDelay = 4 * 60 * 60 * 1000L) // Every 4 hours
     public void fetchTcmbRates() {
+        refreshDurationTimer.record(this::doFetchTcmbRates);
+    }
+
+    private void doFetchTcmbRates() {
         log.info("Fetching TCMB exchange rates...");
         try {
             LocalDate today = LocalDate.now();
@@ -79,9 +105,13 @@ public class ExchangeRateService {
 
             if (xml != null && !xml.isBlank()) {
                 parseTcmbXml(xml, today);
+                refreshSuccessCounter.increment();
+            } else {
+                refreshFailureCounter.increment();
             }
         } catch (Exception e) {
             log.error("Failed to fetch TCMB rates: {}", e.getMessage());
+            refreshFailureCounter.increment();
         }
     }
 
@@ -95,6 +125,7 @@ public class ExchangeRateService {
         while (matcher.find()) {
             if (saveCurrencyFromXml(matcher.group(2), matcher.group(3), date, existing)) {
                 saved++;
+                currenciesFetchedCounter.increment();
             }
         }
         log.info("Saved {} TCMB exchange rates for {}", saved, date);

@@ -1,6 +1,14 @@
 spring:
   application:
     name: finans-backend
+  # Multi-thread scheduler. Default pool size is 1, which serialises every
+  # @Scheduled method — news fetch (~150 s) ends up blocking price refresh
+  # for minutes. Pool of 4 lets news/bond/price/inflation tasks run in
+  # parallel without piling up.
+  task:
+    scheduling:
+      pool:
+        size: 4
   security:
     oauth2:
       resourceserver:
@@ -78,6 +86,22 @@ app:
     # If unset, the inflation refresh skips the US series and the /api/v1/
     # inflation?country=US endpoint returns whatever was persisted last.
     api-key: ${APP_FRED_API_KEY:}
+
+  # Analysis-page AI chatbot. Configured to talk to any OpenAI-compatible
+  # /v1/chat/completions endpoint, so the same code drives Groq (free) or
+  # OpenAI. Leave `api-key` empty to fall back to the local mock responder
+  # in AiAnalysisService.
+  #
+  # Defaults: Groq's free endpoint with llama-3.3-70b — sign up at
+  # https://console.groq.com/keys, paste the gsk_... key into the
+  # APP_LLM_API_KEY env var, and the chatbot starts answering for real.
+  llm:
+    base-url: ${APP_LLM_BASE_URL:https://api.groq.com/openai/v1}
+    api-key:  ${APP_LLM_API_KEY:}
+    model:    ${APP_LLM_MODEL:llama-3.3-70b-versatile}
+    max-tokens: ${APP_LLM_MAX_TOKENS:600}
+    temperature: ${APP_LLM_TEMPERATURE:0.4}
+    timeout-seconds: ${APP_LLM_TIMEOUT_SECONDS:30}
 
 management:
   endpoints:

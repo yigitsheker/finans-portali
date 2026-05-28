@@ -7,9 +7,14 @@ import com.finansportali.backend.repository.MarketQuoteRepository;
 import com.finansportali.backend.service.MarketService;
 import com.finansportali.backend.service.PriceAlertService;
 import com.finansportali.backend.service.client.market.YahooPriceFetcher;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.cache.CacheManager;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -41,13 +46,32 @@ public class PriceRefreshScheduler {
     private final PriceAlertService          priceAlertService;
     private final CacheManager               cacheManager;
 
+    // Self-reference via Spring proxy. We need this because refreshAll()
+    // calls refreshInstrumentInTransaction(...) from the same bean — a
+    // plain `this.refreshInstrumentInTransaction(...)` skips the AOP
+    // proxy, which means @Transactional is silently ignored and downstream
+    // @Modifying deletes (candleRepo.deleteByInstrumentAndDay) blow up
+    // with "No EntityManager with actual transaction". @Lazy breaks the
+    // circular constructor dependency.
+    @Autowired
+    @Lazy
+    private PriceRefreshScheduler self;
+
+    // Business metrics — outcome counters from refreshAll() + duration timer.
+    private final Counter instrumentsUpdatedCounter;
+    private final Counter instrumentsFailedCounter;
+    private final Counter instrumentsSkippedCounter;
+    private final Counter alertCheckFailureCounter;
+    private final Timer refreshDurationTimer;
+
     public PriceRefreshScheduler(MarketInstrumentRepository instrumentRepo,
                                  MarketQuoteRepository quoteRepo,
                                  MarketCandleRepository candleRepo,
                                  YahooPriceFetcher yahoo,
                                  MarketService marketService,
                                  PriceAlertService priceAlertService,
-                                 CacheManager cacheManager) {
+                                 CacheManager cacheManager,
+                                 MeterRegistry meterRegistry) {
         this.instrumentRepo = instrumentRepo;
         this.quoteRepo      = quoteRepo;
         this.candleRepo     = candleRepo;
@@ -55,6 +79,22 @@ public class PriceRefreshScheduler {
         this.marketService  = marketService;
         this.priceAlertService = priceAlertService;
         this.cacheManager   = cacheManager;
+
+        this.instrumentsUpdatedCounter = Counter.builder("price_instruments_updated_total")
+                .description("Market instruments whose price was refreshed successfully")
+                .register(meterRegistry);
+        this.instrumentsFailedCounter = Counter.builder("price_instruments_failed_total")
+                .description("Market instruments that failed to refresh")
+                .register(meterRegistry);
+        this.instrumentsSkippedCounter = Counter.builder("price_instruments_skipped_total")
+                .description("Market instruments skipped (no provider symbol)")
+                .register(meterRegistry);
+        this.alertCheckFailureCounter = Counter.builder("price_alert_check_failure_total")
+                .description("Post-refresh alert evaluation failures")
+                .register(meterRegistry);
+        this.refreshDurationTimer = Timer.builder("price_refresh_duration_seconds")
+                .description("Duration of a full price refresh cycle (all instruments + alert check)")
+                .register(meterRegistry);
     }
 
     /** Günlük periyodik güncelleme — 18:00 UTC */
@@ -76,6 +116,10 @@ public class PriceRefreshScheduler {
 
     /** Admin endpoint'ten manuel tetikleme */
     public void refreshAll() {
+        refreshDurationTimer.record(this::doRefreshAll);
+    }
+
+    private void doRefreshAll() {
         List<MarketInstrument> instruments = instrumentRepo.findAll();
         int updated = 0;
         int skipped = 0;
@@ -84,20 +128,29 @@ public class PriceRefreshScheduler {
         for (MarketInstrument inst : instruments) {
             // Use centralized symbol normalization
             String yahooSym = marketService.normalizeSymbolForYahoo(inst.getSymbol(), inst.getInstrumentType());
-            
+
             if (yahooSym == null || yahooSym.isBlank()) {
                 log.debug("[Scheduler] Skipping {} — no provider symbol", inst.getSymbol());
                 skipped++;
+                instrumentsSkippedCounter.increment();
                 continue;
             }
 
             try {
-                // Her instrument için ayrı transaction
-                boolean ok = refreshInstrumentInTransaction(inst, yahooSym);
-                if (ok) updated++; else failed++;
+                // Her instrument için ayrı transaction — `self` proxy
+                // sayesinde @Transactional gerçekten devreye girer.
+                boolean ok = self.refreshInstrumentInTransaction(inst, yahooSym);
+                if (ok) {
+                    updated++;
+                    instrumentsUpdatedCounter.increment();
+                } else {
+                    failed++;
+                    instrumentsFailedCounter.increment();
+                }
             } catch (Exception e) {
                 log.error("[Scheduler] Unexpected error for {}: {}", inst.getSymbol(), e.getMessage());
                 failed++;
+                instrumentsFailedCounter.increment();
             }
 
             // Yahoo rate limit yok ama nezaket olarak küçük bekleme
@@ -105,16 +158,17 @@ public class PriceRefreshScheduler {
         }
 
         evictAllCaches();
-        
+
         // Fiyat güncellemesi sonrası alarm kontrolü yap (ayrı transaction)
         log.info("=== Fiyat alarmları kontrol ediliyor ===");
         try {
-            checkAlertsInTransaction();
+            self.checkAlertsInTransaction();
             log.info("=== Alarm kontrolü tamamlandı ===");
         } catch (Exception e) {
             log.error("Alarm kontrolü sırasında hata: {}", e.getMessage(), e);
+            alertCheckFailureCounter.increment();
         }
-        
+
         log.info("=== Güncelleme tamamlandı. Güncellenen: {}, Başarısız: {}, Atlanan: {} ===",
                 updated, failed, skipped);
     }
@@ -158,23 +212,31 @@ public class PriceRefreshScheduler {
         quote.setVolume(q.volume());
         quoteRepo.save(quote);
 
-        // 3) Bugünün candle'ını güncelle
+        // 3) Bugünün candle'ını güncelle. Upsert: aynı (instrument, day)
+        // satırı tekrar tekrar refresh'lerde geliyor, delete+insert dener
+        // yerine var olanı update ediyoruz — aksi halde Hibernate'in
+        // insert-before-delete sıralaması (instrument_id, day) unique
+        // constraint'i kırıyor.
         LocalDate today = LocalDate.now();
-        candleRepo.deleteByInstrumentAndDay(inst, today);
-        candleRepo.save(new MarketCandle(inst, today, q.last()));
+        upsertCandle(inst, today, q.last());
 
-        // 4) Tarihsel candle eksikse 1 yıllık veri çek
+        // 4) Tarihsel candle eksikse 1 yıllık veri çek. Eski mantık "son
+        //    yıl içinde 30'dan az candle varsa 1y fetch" idi; bu, sadece
+        //    son ayın candle'larına sahip enstrümanları (49 candle) bile
+        //    "yeterli" sayıyordu ve Analiz sayfasındaki Yıllık kolonunu
+        //    boş bırakıyordu. Artık tetiği DERİNLİĞE bağladık: yıl önceki
+        //    ±30 gün aralığında hiç candle yoksa demek ki gerçekten 1
+        //    yıllık geçmişimiz yok — fetch.
         LocalDate yearAgo = today.minusDays(365);
-        long existingCount = candleRepo
-                .findByInstrumentAndDayBetweenOrderByDayAsc(inst, yearAgo, today)
-                .size();
+        boolean hasYearOldCandle = !candleRepo
+                .findByInstrumentAndDayBetweenOrderByDayAsc(inst, yearAgo.minusDays(30), yearAgo.plusDays(30))
+                .isEmpty();
 
-        if (existingCount < 30) {
-            log.info("[Scheduler] Tarihsel veri eksik, {} için 1y veri çekiliyor...", inst.getSymbol());
+        if (!hasYearOldCandle) {
+            log.info("[Scheduler] Tarihsel veri eksik (yıllık kapsam yok), {} için 1y veri çekiliyor...", inst.getSymbol());
             List<YahooPriceFetcher.DayClose> history = yahoo.fetchDailyHistory(yahooSym, "1y");
             for (YahooPriceFetcher.DayClose dc : history) {
-                candleRepo.deleteByInstrumentAndDay(inst, dc.day());
-                candleRepo.save(new MarketCandle(inst, dc.day(), dc.close()));
+                upsertCandle(inst, dc.day(), dc.close());
             }
             log.info("[Scheduler] {} için {} candle kaydedildi", inst.getSymbol(), history.size());
             sleep(300);
@@ -183,6 +245,19 @@ public class PriceRefreshScheduler {
         log.info("[Scheduler] Güncellendi: {} → {} ({})",
                 inst.getSymbol(), q.last(), q.currency() != null ? q.currency() : "?");
         return true;
+    }
+
+    /**
+     * Idempotent candle write. Looks for an existing row for
+     * (instrument, day); if present updates close+day, otherwise inserts a
+     * fresh one. Avoids the delete+insert pattern's unique-constraint race
+     * inside a single transaction.
+     */
+    private void upsertCandle(MarketInstrument inst, LocalDate day, java.math.BigDecimal close) {
+        MarketCandle candle = candleRepo.findByInstrumentAndDay(inst, day)
+                .orElseGet(() -> new MarketCandle(inst, day, close));
+        candle.setClose(close);
+        candleRepo.save(candle);
     }
 
     private void evictAllCaches() {

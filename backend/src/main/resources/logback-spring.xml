@@ -12,42 +12,20 @@
         </encoder>
     </appender>
 
-    <!-- JSON File Appender - For OpenSearch -->
-    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/app/logs/application.json</file>
-        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>/app/logs/application.json.%d{yyyy-MM-dd}.%i.gz</fileNamePattern>
-            <maxFileSize>50MB</maxFileSize>
-            <maxHistory>3</maxHistory>
-            <totalSizeCap>200MB</totalSizeCap>
-        </rollingPolicy>
-        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-            <customFields>{"service":"${serviceName}","environment":"${environment}"}</customFields>
-            <includeMdcKeyName>requestId</includeMdcKeyName>
-            <includeMdcKeyName>userId</includeMdcKeyName>
-            <includeMdcKeyName>username</includeMdcKeyName>
-            <includeMdcKeyName>endpoint</includeMdcKeyName>
-            <includeMdcKeyName>httpMethod</includeMdcKeyName>
-            <includeMdcKeyName>statusCode</includeMdcKeyName>
-            <includeMdcKeyName>durationMs</includeMdcKeyName>
-            <includeMdcKeyName>clientIp</includeMdcKeyName>
-            <includeMdcKeyName>traceId</includeMdcKeyName>
-            <includeMdcKeyName>spanId</includeMdcKeyName>
-            <!-- OpenTelemetry trace context -->
-            <includeMdcKeyName>trace_id</includeMdcKeyName>
-            <includeMdcKeyName>span_id</includeMdcKeyName>
-            <fieldNames>
-                <timestamp>timestamp</timestamp>
-                <version>[ignore]</version>
-                <levelValue>[ignore]</levelValue>
-            </fieldNames>
-        </encoder>
-    </appender>
+    <!-- Kafka Appender - canonical log path: backend -> Kafka topic 'finans-logs'
+         -> log-consumer -> OpenSearch index finans-logs-YYYY-MM-DD.
 
-    <!-- Kafka Appender - For streaming logs to Kafka -->
+         Note on `customFields`: do NOT add `environment` here. The
+         springProperty above already puts `environment` on the logger
+         context, which the LogstashEncoder emits as a top-level JSON
+         field. Adding it again here produces a JSON document with a
+         duplicate `environment` key, which OpenSearch rejects with
+         "Duplicate field 'environment'" -> the consumer crashes and the
+         finans-logs-* index stays empty. `service` is safe because the
+         context variable is named `serviceName` (different key). -->
     <appender name="KAFKA" class="com.github.danielwegener.logback.kafka.KafkaAppender">
         <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-            <customFields>{"service":"${serviceName}","environment":"${environment}"}</customFields>
+            <customFields>{"service":"${serviceName}"}</customFields>
             <includeMdcKeyName>requestId</includeMdcKeyName>
             <includeMdcKeyName>userId</includeMdcKeyName>
             <includeMdcKeyName>username</includeMdcKeyName>
@@ -84,20 +62,18 @@
     <logger name="org.hibernate.SQL" level="WARN"/>
     <logger name="org.hibernate.orm.jdbc.bind" level="WARN"/>
     
-    <!-- Prevent Kafka appender from logging its own messages (avoid infinite loop) -->
+    <!-- Prevent Kafka appender from logging its own messages (avoid infinite loop).
+         These loggers also skip KAFKA so that Kafka client errors during
+         broker outages cannot recurse back into the appender. -->
     <logger name="org.apache.kafka" level="WARN" additivity="false">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="JSON_FILE"/>
     </logger>
     <logger name="com.github.danielwegener.logback.kafka" level="WARN" additivity="false">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="JSON_FILE"/>
     </logger>
-    
-    <!-- Root logger -->
+
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>
-        <appender-ref ref="JSON_FILE"/>
         <appender-ref ref="KAFKA"/>
     </root>
 </configuration>

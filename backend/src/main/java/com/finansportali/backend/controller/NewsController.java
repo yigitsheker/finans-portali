@@ -18,8 +18,9 @@ public class NewsController {
     }
 
     @GetMapping
-    public List<NewsArticle> latest(@RequestParam(required = false) String category) {
-        return service.latest(category);
+    public List<NewsArticle> latest(@RequestParam(required = false) String category,
+                                    @RequestParam(required = false) String lang) {
+        return service.latest(category, lang);
     }
 
     @GetMapping("/categories")
@@ -33,8 +34,9 @@ public class NewsController {
     }
 
     @GetMapping("/{id}")
-    public NewsArticle getById(@PathVariable Long id) {
-        return service.getById(id);
+    public NewsArticle getById(@PathVariable Long id,
+                               @RequestParam(required = false) String lang) {
+        return service.getById(id, lang);
     }
 
     @PostMapping("/{id}/fetch-content")

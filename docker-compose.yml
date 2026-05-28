@@ -324,6 +324,19 @@ services:
       # Cloudflare-protected pages (e.g. some news sites) when both Jsoup
       # and system curl get blocked.
       APP_PLAYWRIGHT_SERVICE_URL: http://playwright-service:3000
+
+      # LibreTranslate — self-hosted translation API for the news pipeline
+      # (TR↔EN). Empty string disables translation entirely (articles will be
+      # served in their source language regardless of the user's lang pref).
+      APP_LIBRETRANSLATE_URL: http://libretranslate:5000
+
+      # Analysis-page AI chatbot. OpenAI-compatible endpoint. Defaults to
+      # Groq's free /openai/v1 with llama-3.3-70b — drop a key into
+      # APP_LLM_API_KEY (e.g. from https://console.groq.com/keys) to enable
+      # real LLM replies; leave empty to fall back to the local mock.
+      APP_LLM_BASE_URL: ${APP_LLM_BASE_URL:-https://api.groq.com/openai/v1}
+      APP_LLM_API_KEY: ${APP_LLM_API_KEY:-}
+      APP_LLM_MODEL: ${APP_LLM_MODEL:-llama-3.3-70b-versatile}
       
       # Logging
       LOGGING_LEVEL_ROOT: INFO
@@ -367,8 +380,6 @@ services:
         condition: service_started
     networks:
       - finans-network
-    volumes:
-      - backend_logs:/app/logs
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
       interval: 30s
@@ -399,6 +410,43 @@ services:
       timeout: 5s
       retries: 3
       start_period: 30s
+
+  # LibreTranslate — self-hosted FOSS translation API. Used by NewsService to
+  # translate Turkish RSS articles to English (and vice-versa) on demand,
+  # caching results back into news_articles.{title,summary,content}_translated.
+  #
+  # `LT_LOAD_ONLY=tr,en` pre-downloads ONLY the TR↔EN model on first boot
+  # (one ~70MB file) instead of pulling every Argos language pair (~2GB total).
+  # `LT_DISABLE_WEB_UI=true` strips the demo UI since we only consume the API.
+  # Models persist in libretranslate_data volume so subsequent restarts skip
+  # the download.
+  libretranslate:
+    image: libretranslate/libretranslate:latest
+    container_name: finans-libretranslate
+    logging: *default-logging
+    restart: unless-stopped
+    environment:
+      LT_LOAD_ONLY: "tr,en"
+      LT_DISABLE_WEB_UI: "true"
+      LT_UPDATE_MODELS: "false"
+    deploy:
+      resources:
+        limits:
+          cpus: "1.0"
+          memory: 1.5G
+    # Intentionally no model-cache volume. A named-volume mount lands owned by
+    # root, but LibreTranslate runs as the `libretranslate` user inside the
+    # image and fails with PermissionError trying to write to ~/.local/share.
+    # The tr+en model is ~70MB and downloads in ~30s, so re-downloading on
+    # container restart is the cheapest fix for dev.
+    networks:
+      - finans-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:5000/languages || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 8
+      start_period: 120s
 
   # React Frontend with Nginx
   frontend:
@@ -533,26 +581,11 @@ services:
       retries: 5
       start_period: 60s
 
-  # Fluent Bit - Log Shipper
-  fluent-bit:
-    image: fluent/fluent-bit:2.2.0
-    container_name: finans-fluent-bit
-    logging: *default-logging
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "0.25"
-          memory: 128M
-    volumes:
-      - ./fluent-bit/fluent-bit.conf:/fluent-bit/etc/fluent-bit.conf:ro
-      - backend_logs:/app/logs:ro
-    depends_on:
-      opensearch:
-        condition: service_healthy
-    networks:
-      - finans-network
-    command: /fluent-bit/bin/fluent-bit -c /fluent-bit/etc/fluent-bit.conf
+  # NOTE: fluent-bit was removed on 2026-05-26. The canonical log pipeline
+  # is now backend (logback KafkaAppender) -> Kafka topic `finans-logs`
+  # -> log-consumer -> OpenSearch index `finans-logs-YYYY-MM-DD`. Keeping
+  # two parallel shippers wrote to two separate indices and made queries
+  # ambiguous. See log-consumer/ for the consumer side.
 
   # Jaeger - Distributed Tracing Backend
   jaeger:
@@ -716,8 +749,6 @@ networks:
 
 volumes:
   postgres_data:
-    driver: local
-  backend_logs:
     driver: local
   ldap_data:
     driver: local

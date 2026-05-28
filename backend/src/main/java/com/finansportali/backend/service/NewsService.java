@@ -4,7 +4,11 @@ import com.finansportali.backend.entity.NewsArticle;
 import com.finansportali.backend.entity.NewsFeed;
 import com.finansportali.backend.repository.NewsArticleRepository;
 import com.finansportali.backend.repository.NewsFeedRepository;
+import com.finansportali.backend.service.client.news.LibreTranslateClient;
 import com.finansportali.backend.service.client.news.NewsContentFetcher;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,6 +24,8 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -104,16 +110,43 @@ public class NewsService {
     private final NewsFeedRepository feedRepo;
     private final WebClient client;
     private final NewsContentFetcher contentFetcher;
+    private final LibreTranslateClient translator;
+
+    // Business metrics — refresh cycle stats and per-article saved counter.
+    private final Counter refreshSuccessCounter;
+    private final Counter refreshFailureCounter;
+    private final Counter articlesSavedCounter;
+    private final Counter feedFailureCounter;
+    private final Timer refreshDurationTimer;
 
     public NewsService(NewsArticleRepository repo,
                        NewsFeedRepository feedRepo,
-                       NewsContentFetcher contentFetcher) {
+                       NewsContentFetcher contentFetcher,
+                       LibreTranslateClient translator,
+                       MeterRegistry meterRegistry) {
         this.repo = repo;
         this.feedRepo = feedRepo;
         this.contentFetcher = contentFetcher;
+        this.translator = translator;
         this.client = WebClient.builder()
                 .defaultHeader("User-Agent", "Mozilla/5.0 (compatible; FinansPortali/1.0)")
                 .build();
+
+        this.refreshSuccessCounter = Counter.builder("news_refresh_success_total")
+                .description("Total successful news refresh cycles (across all feeds)")
+                .register(meterRegistry);
+        this.refreshFailureCounter = Counter.builder("news_refresh_failure_total")
+                .description("Total fully-failed news refresh cycles")
+                .register(meterRegistry);
+        this.articlesSavedCounter = Counter.builder("news_articles_saved_total")
+                .description("Total news articles persisted")
+                .register(meterRegistry);
+        this.feedFailureCounter = Counter.builder("news_feed_failure_total")
+                .description("Per-feed fetch failures (one cycle can produce many)")
+                .register(meterRegistry);
+        this.refreshDurationTimer = Timer.builder("news_refresh_duration_seconds")
+                .description("Duration of a full news refresh cycle (all feeds)")
+                .register(meterRegistry);
     }
 
     /**
@@ -134,11 +167,223 @@ public class NewsService {
         }
     }
 
+    /**
+     * Schedules a one-shot background translation warmup ~30s after the
+     * backend boots. The warmup pages through articles that don't yet have a
+     * cross-language title cached, picks the OTHER language as the target,
+     * and calls {@link #ensureTranslationCached(NewsArticle, String, boolean)}
+     * one row at a time. LibreTranslate runs at ~3s per translate call, so
+     * the whole backlog can take 5+ minutes for a fresh DB — running it off
+     * the user request path is the only way to keep the news endpoint
+     * responsive on the first call.
+     */
+    @PostConstruct
+    void schedulePrewarmAfterStartup() {
+        new Thread(() -> {
+            try {
+                Thread.sleep(30_000L);
+                runTranslationPrewarm();
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+        }, "news-translation-prewarm-startup").start();
+    }
+
+    /**
+     * Walks the untranslated backlog in 50-row chunks until empty. Each
+     * batch resolves the row's source language (we already set it at fetch
+     * time from the feed URL, but legacy rows persist with it unset), then
+     * translates title + summary to the opposite language. Content stays
+     * deferred — the detail endpoint fills that on the first reader. The
+     * prewarmRunning flag guards against overlapping runs (PostConstruct +
+     * post-fetch trigger could otherwise race).
+     */
+    public void runTranslationPrewarm() {
+        if (!translator.isEnabled()) {
+            log.info("[Translate] Prewarm skipped — LibreTranslate disabled");
+            return;
+        }
+        if (!prewarmRunning.compareAndSet(false, true)) {
+            log.info("[Translate] Prewarm already running, skip");
+            return;
+        }
+        try {
+            // English-source first: this pool is ~10x smaller AND it's the
+            // one Turkish readers stumble on most often, since Investing.com
+            // / CoinDesk articles get top spots in the "latest" list. Doing
+            // these first lands the biggest UX win in the first ~10 minutes.
+            prewarmBySource("en", "tr");
+            // Then Turkish-source so the English readers see their entire
+            // feed in English too.
+            prewarmBySource("tr", "en");
+        } finally {
+            prewarmRunning.set(false);
+        }
+    }
+
+    private void prewarmBySource(String sourceLang, String target) {
+        int processed = 0;
+        while (true) {
+            List<NewsArticle> batch = repo
+                    .findTop50ByTitleTranslatedIsNullAndSourceLangOrderByPublishedAtDesc(sourceLang);
+            if (batch.isEmpty()) break;
+            for (NewsArticle a : batch) {
+                try {
+                    ensureTranslationCached(a, target, /*includeContent=*/false);
+                } catch (RuntimeException e) {
+                    log.warn("[Translate] Prewarm article {} failed: {}", a.getId(), e.getMessage());
+                }
+                processed++;
+            }
+            log.info("[Translate] Prewarm progress [{}→{}]: {} rows", sourceLang, target, processed);
+            // If the same untranslated batch keeps coming back (every call
+            // returned null), bail to avoid an infinite loop on a downed
+            // LibreTranslate.
+            if (batch.stream().allMatch(a -> a.getTitleTranslated() == null)) {
+                log.warn("[Translate] Prewarm [{}→{}] stalled — translator unreachable, abort",
+                        sourceLang, target);
+                break;
+            }
+        }
+        log.info("[Translate] Prewarm pass [{}→{}] finished, {} rows updated",
+                sourceLang, target, processed);
+    }
+
+    // Host substrings that mark a feed as English-source. Anything else is
+    // assumed Turkish — the seed list is overwhelmingly TR press, and the
+    // background prewarmer corrects misclassifications by calling
+    // LibreTranslate's /detect on rows whose source_lang stays unset.
+    private static final Set<String> EN_FEED_HOST_HINTS = Set.of(
+            "cointelegraph.com",
+            "coindesk.com",
+            "feeds.finance.yahoo.com",
+            "www.investing.com"
+    );
+
+    private static String guessSourceLangFromUrl(String url) {
+        if (url == null) return "tr";
+        String lower = url.toLowerCase(Locale.ROOT);
+        for (String hint : EN_FEED_HOST_HINTS) {
+            if (lower.contains(hint)) return "en";
+        }
+        return "tr";
+    }
+
+    // Single-shot flag — prewarm should never run twice in parallel. Set on
+    // the first @PostConstruct fire and after each fetchAndSaveNews cycle.
+    private final AtomicBoolean prewarmRunning = new AtomicBoolean(false);
+
     public List<NewsArticle> latest(String category) {
         if (category == null || category.isBlank()) {
             return repo.findTop50ByOrderByPublishedAtDesc();
         }
         return repo.findTop50ByCategoryOrderByPublishedAtDesc(category);
+    }
+
+    /**
+     * Locale-aware overload: returns the same list as {@link #latest(String)}
+     * but with each article rendered in {@code lang} ("tr" or "en"). Articles
+     * already in the requested language pass through untouched; others are
+     * lazily translated via LibreTranslate and cached on the row so the next
+     * call hits the DB only.
+     *
+     * <p>The base {@code title/summary/content} fields on the returned
+     * entities are SWAPPED to the translated text after the transactional
+     * cache-fill exits — that swap happens on detached objects, so it never
+     * flushes back to the row. The frontend keeps consuming the same JSON
+     * shape it already does.
+     */
+    public List<NewsArticle> latest(String category, String lang) {
+        List<NewsArticle> articles = latest(category);
+        String target = normalizeLang(lang);
+        if (target == null || !translator.isEnabled()) {
+            return articles;
+        }
+        // List endpoint stays cache-only: each LibreTranslate round-trip is
+        // ~3s, so synchronously translating 50 articles × (title + summary)
+        // = 100 calls would block the response for 5 minutes — easily past
+        // any browser timeout. Instead we only swap in already-cached
+        // translations here and rely on the background prewarmer (kicked off
+        // at startup and after every fetch cycle) to fill the gaps. The
+        // detail endpoint `getById()` still translates inline because a
+        // single article finishes in ~10s.
+        for (NewsArticle a : articles) {
+            applyTranslationToBaseFields(a, target);
+        }
+        return articles;
+    }
+
+    private static String normalizeLang(String lang) {
+        if (lang == null) return null;
+        String s = lang.toLowerCase();
+        if (s.startsWith("en")) return "en";
+        if (s.startsWith("tr")) return "tr";
+        return null;
+    }
+
+    /**
+     * Persists the source-language detection (one-time, on first read of an
+     * article) and the translated columns (one-time per row+target pair) so
+     * subsequent reads are free. Runs inside its own short transaction; the
+     * passed entity is re-attached, saved, and detaches again on exit — that
+     * detachment is what lets the caller mutate base fields without a flush.
+     */
+    /**
+     * Lazily caches translation columns for the article. When
+     * {@code includeContent} is false we skip the expensive content
+     * translation (multi-KB body) — list views only display
+     * title + summary, and the detail page makes a separate call that
+     * back-fills content_translated on demand.
+     *
+     * <p>Idempotent: re-running on a row that already has a title_translated
+     * but missing content_translated will just fill in the content if the
+     * caller now asks for it.
+     */
+    @Transactional
+    public void ensureTranslationCached(NewsArticle a, String target, boolean includeContent) {
+        String sourceLang = a.getSourceLang();
+        if (sourceLang == null) {
+            String detected = translator.detect(a.getTitle());
+            sourceLang = (detected != null) ? detected : "tr";
+            a.setSourceLang(sourceLang);
+            repo.save(a);
+        }
+        if (sourceLang.equals(target)) return;
+
+        boolean needsTitleSummary = a.getTitleTranslated() == null;
+        boolean needsContent = includeContent
+                && a.getContent() != null
+                && a.getContentTranslated() == null;
+
+        if (!needsTitleSummary && !needsContent) return;
+
+        if (needsTitleSummary) {
+            String tt = translator.translate(a.getTitle(), sourceLang, target);
+            String st = a.getSummary() != null
+                    ? translator.translate(a.getSummary(), sourceLang, target) : null;
+            // Only persist if at least the title translation succeeded —
+            // partial failures (LibreTranslate down mid-call) shouldn't
+            // poison the cache by leaving title_translated null while the
+            // calling view falls back to original.
+            if (tt != null) {
+                a.setTitleTranslated(tt);
+                a.setSummaryTranslated(st);
+            }
+        }
+        if (needsContent) {
+            String ct = translator.translate(a.getContent(), sourceLang, target);
+            if (ct != null) a.setContentTranslated(ct);
+        }
+        repo.save(a);
+    }
+
+    private void applyTranslationToBaseFields(NewsArticle a, String target) {
+        // Detached after ensureTranslationCached's transaction closed, so
+        // these setters don't propagate to the DB.
+        if (a.getSourceLang() == null || a.getSourceLang().equals(target)) return;
+        if (a.getTitleTranslated() != null)   a.setTitle(a.getTitleTranslated());
+        if (a.getSummaryTranslated() != null) a.setSummary(a.getSummaryTranslated());
+        if (a.getContentTranslated() != null) a.setContent(a.getContentTranslated());
     }
 
     public List<String> getCategories() {
@@ -170,6 +415,22 @@ public class NewsService {
         return repo.findById(id).orElse(null);
     }
 
+    /**
+     * Locale-aware variant of {@link #getById(Long)} — used by the detail
+     * page so a single article opens in the reader's chosen language.
+     */
+    public NewsArticle getById(Long id, String lang) {
+        NewsArticle a = repo.findById(id).orElse(null);
+        if (a == null) return null;
+        String target = normalizeLang(lang);
+        if (target != null && translator.isEnabled()) {
+            // Detail page needs the full body, so opt into content translation.
+            ensureTranslationCached(a, target, /*includeContent=*/true);
+            applyTranslationToBaseFields(a, target);
+        }
+        return a;
+    }
+
     public NewsArticle fetchContentForArticle(Long id) {
         NewsArticle article = repo.findById(id).orElse(null);
         if (article == null) {
@@ -196,15 +457,28 @@ public class NewsService {
 
     @Scheduled(initialDelay = 5_000, fixedDelay = 6 * 60 * 60 * 1000L)
     public void fetchAndSaveNews() {
+        refreshDurationTimer.record(this::doFetchAndSaveNews);
+    }
+
+    private void doFetchAndSaveNews() {
         // Pull the currently-enabled feed list from the admin-managed table.
         List<NewsFeed> feeds = feedRepo.findByEnabledTrueOrderByCategoryAscSourceAsc();
         log.info("Fetching news from {} active RSS feeds...", feeds.size());
+        int feedFailures = 0;
         for (NewsFeed feed : feeds) {
             try {
                 fetchRss(feed.getUrl(), feed.getCategory(), feed.getSource());
             } catch (Exception e) {
                 log.warn("RSS fetch failed for {}: {}", feed.getUrl(), e.getMessage());
+                feedFailureCounter.increment();
+                feedFailures++;
             }
+        }
+        // Every feed failed -> cycle is a wash; otherwise treat as success.
+        if (!feeds.isEmpty() && feedFailures == feeds.size()) {
+            refreshFailureCounter.increment();
+        } else {
+            refreshSuccessCounter.increment();
         }
         // Her döngünün sonunda kategoriler 50 ile sınırlandırılsın; eski haberler silinir
         // ve içerikleri olmayanlar ayıklanır. Bu DB'nin sınırsız büyümesini engeller.
@@ -213,6 +487,11 @@ public class NewsService {
         } catch (Exception e) {
             log.warn("Post-fetch cleanup failed: {}", e.getMessage());
         }
+        // Fire-and-forget background translation. The scheduler thread that
+        // owns fetchAndSaveNews shouldn't block on a few-minute LibreTranslate
+        // pass; we hand the work off to a dedicated thread and let it finish
+        // on its own.
+        new Thread(this::runTranslationPrewarm, "news-translation-prewarm-postfetch").start();
     }
 
     private static final int MAX_PER_CATEGORY = 50;
@@ -246,6 +525,7 @@ public class NewsService {
             if (article != null) {
                 repo.save(article);
                 saved++;
+                articlesSavedCounter.increment();
             }
         }
         log.info("Saved {} new {} articles (only items with fetched full body)", saved, category);
@@ -288,7 +568,9 @@ public class NewsService {
                 : fetchedContent;
 
         String pubDate = extractTag(item, "pubDate");
-        return new NewsArticle(title, summary, content, category, parseRssDate(pubDate), link, sourceName);
+        NewsArticle article = new NewsArticle(title, summary, content, category, parseRssDate(pubDate), link, sourceName);
+        article.setSourceLang(guessSourceLangFromUrl(link));
+        return article;
     }
 
     private String extractTag(String xml, String tag) {

@@ -22,4 +22,20 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
     @Modifying
     @Query("delete from NewsArticle a where a.category = :category and a.id not in :keepIds")
     int deleteByCategoryAndIdNotIn(@Param("category") String category, @Param("keepIds") List<Long> keepIds);
+
+    /**
+     * Backlog used by the background translation prewarm — articles whose
+     * cross-language title cache is still empty. We page in batches of 50
+     * to bound memory while the warmer is grinding through a few thousand
+     * rows.
+     */
+    List<NewsArticle> findTop50ByTitleTranslatedIsNullOrderByPublishedAtDesc();
+
+    /**
+     * Same backlog, scoped to a specific source language. Used by the
+     * prewarm to prefer the smaller English-source pool first: TR readers
+     * see English-source articles as "untranslated" most often, so filling
+     * that 4k-row pool earns the biggest UX win.
+     */
+    List<NewsArticle> findTop50ByTitleTranslatedIsNullAndSourceLangOrderByPublishedAtDesc(String sourceLang);
 }

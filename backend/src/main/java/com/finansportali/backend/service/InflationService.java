@@ -5,6 +5,9 @@ import com.finansportali.backend.entity.InflationDataPoint;
 import com.finansportali.backend.repository.InflationDataPointRepository;
 import com.finansportali.backend.service.client.inflation.FredInflationFetcher;
 import com.finansportali.backend.service.client.inflation.TcmbInflationFetcher;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import jakarta.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,12 +35,35 @@ public class InflationService {
     private final TcmbInflationFetcher fetcher;
     private final FredInflationFetcher fredFetcher;
 
+    // Business metrics — country tag separates TR (TCMB) vs US (FRED) sources
+    // so a single PromQL query can break them out: sum by(country) (rate(...)).
+    private final Counter trUpsertCounter;
+    private final Counter usUpsertCounter;
+    private final Counter refreshFailureCounter;
+    private final Timer refreshDurationTimer;
+
     public InflationService(InflationDataPointRepository repo,
                             TcmbInflationFetcher fetcher,
-                            FredInflationFetcher fredFetcher) {
+                            FredInflationFetcher fredFetcher,
+                            MeterRegistry meterRegistry) {
         this.repo = repo;
         this.fetcher = fetcher;
         this.fredFetcher = fredFetcher;
+
+        this.trUpsertCounter = Counter.builder("inflation_rows_upserted_total")
+                .tag("country", COUNTRY_TR)
+                .description("Inflation data points upserted per refresh")
+                .register(meterRegistry);
+        this.usUpsertCounter = Counter.builder("inflation_rows_upserted_total")
+                .tag("country", COUNTRY_US)
+                .description("Inflation data points upserted per refresh")
+                .register(meterRegistry);
+        this.refreshFailureCounter = Counter.builder("inflation_refresh_failure_total")
+                .description("Total failed inflation refresh cycles (TCMB + FRED combined)")
+                .register(meterRegistry);
+        this.refreshDurationTimer = Timer.builder("inflation_refresh_duration_seconds")
+                .description("Duration of full TR+US inflation refresh")
+                .register(meterRegistry);
     }
 
     @PostConstruct
@@ -69,14 +95,23 @@ public class InflationService {
     @Transactional
     @CacheEvict(value = {"inflation-all", "inflation-latest"}, allEntries = true)
     public int refresh() {
-        LocalDate to = LocalDate.now();
-        LocalDate from = to.minusYears(10).withDayOfMonth(1);
+        return refreshDurationTimer.record(this::doRefresh);
+    }
 
-        int total = 0;
-        total += upsertCountry(COUNTRY_TR, "TCMB_EVDS3", fetcher.fetchInflationHistory(from, to));
-        total += upsertCountry(COUNTRY_US, "FRED_CPIAUCSL", fredFetcher.fetchInflationHistory(from, to));
-        log.info("[Inflation] Refreshed {} monthly rows across TR + US", total);
-        return total;
+    private int doRefresh() {
+        try {
+            LocalDate to = LocalDate.now();
+            LocalDate from = to.minusYears(10).withDayOfMonth(1);
+
+            int total = 0;
+            total += upsertCountry(COUNTRY_TR, "TCMB_EVDS3", fetcher.fetchInflationHistory(from, to));
+            total += upsertCountry(COUNTRY_US, "FRED_CPIAUCSL", fredFetcher.fetchInflationHistory(from, to));
+            log.info("[Inflation] Refreshed {} monthly rows across TR + US", total);
+            return total;
+        } catch (RuntimeException e) {
+            refreshFailureCounter.increment();
+            throw e;
+        }
     }
 
     private int upsertCountry(String country, String fallbackSource, List<InflationDataPoint> fresh) {
@@ -84,6 +119,7 @@ public class InflationService {
             log.warn("[Inflation] No data from {} source; rows for {} left untouched", fallbackSource, country);
             return 0;
         }
+        Counter counter = COUNTRY_TR.equals(country) ? trUpsertCounter : usUpsertCounter;
         int upserts = 0;
         for (InflationDataPoint p : fresh) {
             InflationDataPoint persisted = repo.findByPeriodDateAndCountry(p.getPeriodDate(), country)
@@ -97,6 +133,7 @@ public class InflationService {
             persisted.setUpdatedAt(java.time.LocalDateTime.now());
             repo.save(persisted);
             upserts++;
+            counter.increment();
         }
         log.info("[Inflation] Upserted {} monthly rows for {}", upserts, country);
         return upserts;
