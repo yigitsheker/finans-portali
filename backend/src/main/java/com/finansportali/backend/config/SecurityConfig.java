@@ -63,6 +63,12 @@ public class SecurityConfig {
                         // Self-service profile (user edits their own data)
                         .requestMatchers("/api/v1/users/me/**").authenticated()
 
+                        // Analysis page (cross-asset grid + AI chatbot).
+                        // Authenticated only — the chatbot must not be a
+                        // public endpoint, and the data view is gated to
+                        // logged-in users by product requirement.
+                        .requestMatchers("/api/v1/analysis/**").authenticated()
+
                         // Technical analysis - public GET access
                         .requestMatchers(HttpMethod.GET, "/api/v1/technical-analysis/**").permitAll()
 

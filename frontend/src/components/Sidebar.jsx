@@ -103,6 +103,14 @@ const InflationIcon = () => (
     </svg>
 );
 
+const AnalysisIcon = () => (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M4 4V20H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <path d="M7 14L11 10L14 13L20 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+        <circle cx="20" cy="7" r="2" fill="currentColor"/>
+    </svg>
+);
+
 const SettingsIcon = () => (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
         <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
@@ -123,6 +131,7 @@ const PUBLIC_NAV_ITEMS = [
 ];
 
 const PRIVATE_NAV_ITEMS = [
+    { id: "analysis", i18nKey: "nav.analysis", icon: <AnalysisIcon />, path: "/analysis", requiresAuth: true },
     { id: "portfolio", i18nKey: "nav.portfolioFull", icon: <PortfolioIcon />, path: "/portfolio", requiresAuth: true },
     { id: "historical", i18nKey: "nav.historicalFull", icon: <HistoricalIcon />, path: "/historical", requiresAuth: true },
 ];

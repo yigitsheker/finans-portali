@@ -13,6 +13,7 @@ import { LWSparkline } from "./common/LWSparkline";
 import { clickable } from "../utils/clickable";
 import Pagination from "./common/Pagination";
 import CheckboxFilterGroup from "./common/CheckboxFilterGroup";
+import TermInfo from "./common/TermInfo";
 import { usePriceDisplay } from "../contexts/CurrencyDisplayContext";
 import { useI18n } from "../contexts/I18nContext";
 
@@ -476,6 +477,10 @@ export default function FinexStyleMarket({
                              filterType === "STOCK" ? t("market.pageStocks") :
                              filterType === "COMMODITY" ? t("market.pageCommodities") :
                              t("market.pagePrices")}
+                            {" "}
+                            {filterType === "CRYPTO" && <TermInfo termKey="crypto_market_cap" placement="bottom" />}
+                            {filterType === "STOCK" && <TermInfo termKey="stock" placement="bottom" />}
+                            {filterType === "COMMODITY" && <TermInfo termKey="commodity" placement="bottom" />}
                         </h1>
                         <p style={s.pageSubtitle}>
                             {filterType === "CRYPTO" ? t("market.subCrypto") :
@@ -633,7 +638,7 @@ export default function FinexStyleMarket({
                                 {sortField === "change" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
                             </span>
                         </div>
-                        <div style={s.colHacim}>{t("market.colVolume")}</div>
+                        <div style={s.colHacim}>{t("market.colVolume")} <TermInfo termKey="volume" placement="bottom" /></div>
                         <div style={s.colGrafik}>{t("market.colChart")}</div>
                         <div style={s.colIslem}>{t("market.colActions")}</div>
                     </div>

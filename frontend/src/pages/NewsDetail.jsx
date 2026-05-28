@@ -59,7 +59,7 @@ const NewsDetail = () => {
         setLoading(true);
         setError(null);
 
-        getNewsById(numericId)
+        getNewsById(numericId, lang)
             .then(async (fetched) => {
                 if (cancelled) return;
                 const needsContent = !fetched.content
@@ -87,7 +87,7 @@ const NewsDetail = () => {
         return () => {
             cancelled = true;
         };
-    }, [id]);
+    }, [id, lang]);
 
     const handleBack = () => {
         if (window.history.length > 1) navigate(-1);

@@ -647,6 +647,160 @@ button:hover .news-external-icon   { transform: translate(2px, -2px); }
 button[role="switch"] { outline: none; }
 button[role="switch"]:focus-visible { outline: 2px solid var(--accent-solid); outline-offset: 2px; }
 
+/* News sidebar category buttons — the global `button:focus-visible` rule
+   above paints a dark ring around the most-recently focused button, and on
+   some browsers a mouse click also lands in plain `:focus`. The active
+   selection already has its own green border, so we suppress every focus
+   indicator on these — both states, with !important so the user-agent
+   button shadow can't sneak back in. */
+.fp-category-btn,
+.fp-category-btn:focus,
+.fp-category-btn:focus-visible,
+.fp-category-btn:active {
+    box-shadow: none !important;
+    outline: none !important;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   TermInfo — inline finance-term explainer with hover/focus tooltip
+   ────────────────────────────────────────────────────────────────────────── */
+
+.fp-term-info {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 4px;
+    vertical-align: middle;
+}
+
+.fp-term-info__btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: 1px solid var(--text-muted);
+    border-radius: 50%;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    font-style: italic;
+    line-height: 1;
+    cursor: help;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.fp-term-info__btn:hover,
+.fp-term-info__btn:focus-visible {
+    background: var(--accent-solid);
+    border-color: var(--accent-solid);
+    color: #fff;
+    outline: none;
+    box-shadow: none;
+}
+
+.fp-term-info__tip {
+    position: absolute;
+    z-index: 50;
+    width: max-content;
+    max-width: 280px;
+    padding: 8px 10px;
+    background: var(--bg-card);
+    color: var(--text-primary);
+    border: 1px solid var(--border-card);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+    font-size: 12px;
+    line-height: 1.45;
+    font-weight: 400;
+    font-style: normal;
+    text-align: left;
+    white-space: normal;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.12s ease;
+}
+.fp-term-info__btn:hover + .fp-term-info__tip,
+.fp-term-info__btn:focus-visible + .fp-term-info__tip {
+    opacity: 1;
+    pointer-events: auto;
+}
+
+/* Placement variants. Tooltips anchor to the LEFT edge of the icon (not
+   centered) so leftmost table-column headers don't clip off the page.
+   For genuinely right-edge spots, use `placement="left-anchored"` which
+   flips the anchor to the icon's right edge. */
+.fp-term-info--top .fp-term-info__tip {
+    bottom: calc(100% + 8px);
+    left: 0;
+}
+.fp-term-info--bottom .fp-term-info__tip {
+    top: calc(100% + 8px);
+    left: 0;
+}
+.fp-term-info--right .fp-term-info__tip {
+    left: calc(100% + 8px);
+    top: 50%;
+    transform: translateY(-50%);
+}
+/* Used when the term sits near the right edge — pin the tooltip's right
+   side to the icon so it grows leftward. */
+.fp-term-info--bottom-right .fp-term-info__tip {
+    top: calc(100% + 8px);
+    right: 0;
+}
+.fp-term-info--top-right .fp-term-info__tip {
+    bottom: calc(100% + 8px);
+    right: 0;
+}
+
+/* Global "back to top" floating button. Mounted once at the App root by
+   ScrollToTop.jsx; opacity-toggled so it fades in past the scroll
+   threshold instead of popping in. pointer-events disabled while hidden
+   so the invisible button doesn't intercept clicks. */
+.fp-scrolltop {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    width: 46px;
+    height: 46px;
+    border-radius: 50%;
+    border: none;
+    background: var(--accent-solid);
+    color: #fff;
+    font-size: 22px;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+    z-index: 1000;
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(8px);
+    transition: opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+}
+.fp-scrolltop--visible {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+.fp-scrolltop:hover {
+    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+}
+
+/* Analysis page — collapse the table + chatbot grid into a stacked layout
+   on narrow screens (≤960px). On desktop the chatbot column stays glued
+   to the right via the inline style; below the breakpoint we override to
+   a single column so the chatbot lands beneath the table. */
+@media (max-width: 960px) {
+    .fp-analysis-grid {
+        grid-template-columns: 1fr !important;
+    }
+    .fp-analysis-grid > div:last-child {
+        position: static !important;
+    }
+}
+
 /* Selection */
 ::selection { background: rgba(34, 197, 94, 0.30); color: inherit; }
 

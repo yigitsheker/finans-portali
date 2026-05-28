@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { getViopContracts } from "../api/viopApi";
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
 import Pagination from "../components/common/Pagination";
+import TermInfo from "../components/common/TermInfo";
 import { useI18n } from "../contexts/I18nContext";
 
 // Empty selection => "all categories". Same convention used by the
@@ -153,7 +154,7 @@ export default function Viop() {
         <div style={s.page}>
             <header style={s.header}>
                 <div>
-                    <h1 style={s.title}>{t("viop.title")}</h1>
+                    <h1 style={s.title}>{t("viop.title")} <TermInfo termKey="futures" placement="bottom" /></h1>
                     <p style={s.sub}>
                         {t("viop.subtitle")}
                         {updatedAt && <span style={{ marginLeft: 8 }}>{`${t("viop.lastUpdate")}: `}<strong>{updatedAt}</strong></span>}
@@ -203,12 +204,12 @@ export default function Viop() {
                         <table style={s.table}>
                             <thead>
                                 <tr>
-                                    <ThSort label={t("viop.colSymbol")}      onClick={() => handleSort("symbol")}     active={sortKey === "symbol"}     dir={sortDir} align="left" />
-                                    <ThSort label={t("viop.colUnderlying")}  onClick={() => handleSort("underlying")} active={sortKey === "underlying"} dir={sortDir} align="left" />
-                                    <ThSort label={t("viop.colMaturity")}    onClick={() => handleSort("maturityYear")} active={sortKey === "maturityYear"} dir={sortDir} align="left" />
+                                    <ThSort label={<>{t("viop.colSymbol")} <TermInfo termKey="futures" placement="bottom" /></>}      onClick={() => handleSort("symbol")}     active={sortKey === "symbol"}     dir={sortDir} align="left" />
+                                    <ThSort label={<>{t("viop.colUnderlying")} <TermInfo termKey="underlying" placement="bottom" /></>}  onClick={() => handleSort("underlying")} active={sortKey === "underlying"} dir={sortDir} align="left" />
+                                    <ThSort label={<>{t("viop.colMaturity")} <TermInfo termKey="maturity" placement="bottom" /></>}    onClick={() => handleSort("maturityYear")} active={sortKey === "maturityYear"} dir={sortDir} align="left" />
                                     <ThSort label={t("viop.colLast")}        onClick={() => handleSort("lastPrice")}  active={sortKey === "lastPrice"}  dir={sortDir} />
                                     <ThSort label={t("viop.colChange")}      onClick={() => handleSort("changePct")}  active={sortKey === "changePct"}  dir={sortDir} />
-                                    <ThSort label={t("viop.colVolumeTl")}    onClick={() => handleSort("volumeTl")}   active={sortKey === "volumeTl"}   dir={sortDir} />
+                                    <ThSort label={<>{t("viop.colVolumeTl")} <TermInfo termKey="volume" placement="bottom" /></>}    onClick={() => handleSort("volumeTl")}   active={sortKey === "volumeTl"}   dir={sortDir} />
                                     <ThSort label={t("viop.colVolumeQty")}   onClick={() => handleSort("volumeLots")} active={sortKey === "volumeLots"} dir={sortDir} />
                                 </tr>
                             </thead>

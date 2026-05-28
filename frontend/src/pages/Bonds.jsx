@@ -7,6 +7,7 @@ import {
 import BondDetailModal from "../components/BondDetailModal";
 import DepositRatesCard from "../components/DepositRatesCard";
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
+import TermInfo from "../components/common/TermInfo";
 import { useI18n } from "../contexts/I18nContext";
 
 const TYPE_KEYS = {
@@ -113,7 +114,7 @@ export default function Bonds({ keycloak }) {
             {/* Header */}
             <div style={s.header}>
                 <div>
-                    <h1 style={s.title}>{t("bonds.title")}</h1>
+                    <h1 style={s.title}>{t("bonds.title")} <TermInfo termKey="bond" placement="bottom" /></h1>
                     <p style={s.subtitle}>
                         {t("bonds.subtitle")}
                     </p>
@@ -158,17 +159,17 @@ export default function Bonds({ keycloak }) {
             {summary && (
                 <div style={s.summaryGrid}>
                     <div style={s.summaryCard}>
-                        <div style={s.summaryLabel}>{t("bonds.totalInstruments")}</div>
+                        <div style={s.summaryLabel}>{t("bonds.totalInstruments")} <TermInfo termKey="bond" /></div>
                         <div style={s.summaryValue}>{summary.totalInstruments}</div>
                     </div>
                     <div style={s.summaryCard}>
-                        <div style={s.summaryLabel}>{t("bonds.avgYield")}</div>
+                        <div style={s.summaryLabel}>{t("bonds.avgYield")} <TermInfo termKey="yield" /></div>
                         <div style={s.summaryValue}>
                             {summary.averageYield ? `${summary.averageYield.toFixed(2)}%` : "-"}
                         </div>
                     </div>
                     <div style={s.summaryCard}>
-                        <div style={s.summaryLabel}>{t("bonds.maxYield")}</div>
+                        <div style={s.summaryLabel}>{t("bonds.maxYield")} <TermInfo termKey="yield_curve" /></div>
                         <div style={s.summaryValue}>
                             {summary.highestYield ? `${summary.highestYield.toFixed(2)}%` : "-"}
                         </div>
@@ -233,12 +234,12 @@ export default function Bonds({ keycloak }) {
                         <thead>
                             <tr>
                                 <th style={s.th}>{t("bonds.colInstrument")}</th>
-                                <th style={s.th}>{t("bonds.colType")}</th>
-                                <th style={s.th}>{t("bonds.colIsin")}</th>
-                                <th style={s.th}>{t("bonds.colMaturity")}</th>
-                                <th style={s.th}>{t("bonds.colCoupon")}</th>
+                                <th style={s.th}>{t("bonds.colType")} <TermInfo termKey="bond" placement="bottom" /></th>
+                                <th style={s.th}>{t("bonds.colIsin")} <TermInfo termKey="isin" placement="bottom" /></th>
+                                <th style={s.th}>{t("bonds.colMaturity")} <TermInfo termKey="maturity" placement="bottom" /></th>
+                                <th style={s.th}>{t("bonds.colCoupon")} <TermInfo termKey="coupon" placement="bottom" /></th>
                                 <th style={s.th}>{t("bonds.colPrice")}</th>
-                                <th style={s.th}>{t("bonds.colYield")}</th>
+                                <th style={s.th}>{t("bonds.colYield")} <TermInfo termKey="yield" placement="bottom" /></th>
                                 <th style={s.th}>{t("bonds.colChange")}</th>
                                 <th style={s.th}>{t("bonds.colSource")}</th>
                             </tr>

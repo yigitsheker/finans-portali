@@ -18,6 +18,8 @@ import Admin from "./pages/Admin";
 import Inflation from "./pages/Inflation";
 import Commodities from "./pages/Commodities";
 import Viop from "./pages/Viop";
+import Analysis from "./pages/Analysis";
+import ScrollToTop from "./components/common/ScrollToTop";
 import PriceAlertModal from "./components/PriceAlertModal";
 import { applyTheme, getStoredTheme } from "./theme";
 import { ThemeProvider } from "./contexts/ThemeContext";
@@ -166,6 +168,10 @@ export default function App({ keycloak }) {
             title: "Emtia",
             subtitle: "Altın, gümüş, petrol, doğalgaz, bakır, platin — global emtia fiyatları.",
         },
+        "/analysis": {
+            title: "Analiz",
+            subtitle: "Tüm enstrümanların kısa ve uzun vadeli analizi + Finans Portalı AI chatbot.",
+        },
     };
 
     const isNewsDetail = location.pathname.startsWith("/news/");
@@ -251,6 +257,14 @@ export default function App({ keycloak }) {
                         }
                     />
                     <Route
+                        path="/analysis"
+                        element={
+                            <RequireAuth keycloak={keycloak}>
+                                <Analysis keycloak={keycloak} />
+                            </RequireAuth>
+                        }
+                    />
+                    <Route
                         path="/portfolio"
                         element={
                             <RequireAuth keycloak={keycloak}>
@@ -297,6 +311,10 @@ export default function App({ keycloak }) {
                     />
                 )}
             </Layout>
+            {/* Floating "scroll to top" — appears on every page once the
+                user has scrolled ~400px down. Lives outside <Layout> so it
+                stays pinned to the viewport regardless of page padding. */}
+            <ScrollToTop />
             {/* Toast notifications — anchored just below the navbar (ticker 40px
                 + topbar ≈60-70px = ~110px), 5s auto-dismiss. Visual is fully
                 handled by the AppToast component via notify.js; we only place

@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { getInvestmentFunds, getFundTypes, refreshInvestmentFunds } from "../api/portfolioApi";
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
 import Pagination from "../components/common/Pagination";
+import TermInfo from "../components/common/TermInfo";
 import { useI18n } from "../contexts/I18nContext";
 
 export default function Funds({ keycloak }) {
@@ -146,6 +147,7 @@ export default function Funds({ keycloak }) {
 
     return (
         <div style={s.root}>
+            <h1 style={s.pageTitle}>{t("nav.fundsFull")} <TermInfo termKey="nav" placement="bottom" /></h1>
             <div style={s.tableContainer}>
                 {/* Header with Filter and Admin Refresh */}
                 <div style={s.headerContainer}>
@@ -193,7 +195,7 @@ export default function Funds({ keycloak }) {
                 {/* Table Header */}
                 <div style={s.tableHeader}>
                     <div style={s.colFund}>{t("funds.colInfo")}</div>
-                    <div style={s.colPrice}>{t("funds.colUnitPrice")}</div>
+                    <div style={s.colPrice}>{t("funds.colUnitPrice")} <TermInfo termKey="nav" placement="bottom" /></div>
                     <div style={s.colReturn}>{t("funds.colDaily")}</div>
                     <div style={s.colReturn}>{t("funds.col1m")}</div>
                     <div style={s.colReturn}>{t("funds.col3m")}</div>
@@ -201,7 +203,7 @@ export default function Funds({ keycloak }) {
                     <div style={s.colReturn}>{t("funds.col1y")}</div>
                     <div style={s.colReturn}>{t("funds.col3y")}</div>
                     <div style={s.colReturn}>{t("funds.col5y")}</div>
-                    <div style={s.colRisk}>{t("funds.colRisk")}</div>
+                    <div style={s.colRisk}>{t("funds.colRisk")} <TermInfo termKey="risk_level" placement="bottom" /></div>
                 </div>
 
                 {/* Table Body */}
@@ -309,6 +311,7 @@ export default function Funds({ keycloak }) {
 
 const s = {
     root: { display: "flex", flexDirection: "column", gap: 16 },
+    pageTitle: { fontSize: 24, fontWeight: 700, margin: 0, color: "var(--text-primary)" },
     loading: {
         display: "flex",
         flexDirection: "column",

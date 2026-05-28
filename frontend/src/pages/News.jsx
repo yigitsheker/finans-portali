@@ -32,7 +32,8 @@ const News = ({ keycloak }) => {
     const [newsPage, setNewsPage] = useState(1);
     const [loading, setLoading] = useState(true);
     const [topMovers, setTopMovers] = useState([]);
-    const [showScrollTop, setShowScrollTop] = useState(false);
+    // Scroll-to-top is now mounted globally in App.jsx via <ScrollToTop />,
+    // so the per-page state/listener has been removed.
 
     useEffect(() => {
         loadData();
@@ -40,17 +41,11 @@ const News = ({ keycloak }) => {
 
     useEffect(() => {
         loadNews();
-    }, [selectedCategory]);
+    }, [selectedCategory, lang]);
 
     // Reset to first page whenever the active category changes; staying
     // on page 4 of a category that only returned 2 pages looks broken.
     useEffect(() => { setNewsPage(1); }, [selectedCategory]);
-
-    useEffect(() => {
-        const onScroll = () => setShowScrollTop(window.scrollY > 400);
-        window.addEventListener('scroll', onScroll);
-        return () => window.removeEventListener('scroll', onScroll);
-    }, []);
 
     const loadData = async () => {
         try {
@@ -72,7 +67,7 @@ const News = ({ keycloak }) => {
     const loadNews = async () => {
         try {
             setLoading(true);
-            const data = await getNews(selectedCategory || undefined);
+            const data = await getNews(selectedCategory || undefined, lang);
             setNews(data);
         } catch (error) {
             console.error('[News] loadNews error:', error);
@@ -259,6 +254,7 @@ const News = ({ keycloak }) => {
                         <h3 style={s.sideTitle}>{t('news.categoriesTitle')}</h3>
                         <div style={s.categoryList}>
                             <button
+                                className="fp-category-btn"
                                 style={{
                                     ...s.categoryBtn,
                                     ...(selectedCategory === '' ? s.categoryBtnActive : {}),
@@ -270,6 +266,7 @@ const News = ({ keycloak }) => {
                             {categories.map((cat) => (
                                 <button
                                     key={cat}
+                                    className="fp-category-btn"
                                     style={{
                                         ...s.categoryBtn,
                                         ...(selectedCategory === cat ? s.categoryBtnActive : {}),
@@ -303,15 +300,6 @@ const News = ({ keycloak }) => {
                 </aside>
             </section>
 
-            {showScrollTop && (
-                <button
-                    onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                    style={s.scrollTopBtn}
-                    aria-label={t('common.backToTop')}
-                >
-                    ↑
-                </button>
-            )}
         </div>
     );
 };
@@ -532,9 +520,12 @@ const s = {
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        padding: '9px 12px',
+        padding: '10px 12px',
         background: 'transparent',
-        border: '1px solid var(--border-card)',
+        // No border at all — the active state expresses selection through
+        // background colour and bold weight, which avoids any user-agent or
+        // inherited border bleed.
+        border: 'none',
         borderRadius: 8,
         color: 'var(--text-primary)',
         fontSize: 12,
@@ -542,11 +533,14 @@ const s = {
         cursor: 'pointer',
         textAlign: 'left',
         transition: 'all 0.15s',
+        outline: 'none',
+        boxShadow: 'none',
+        WebkitTapHighlightColor: 'transparent',
     },
     categoryBtnActive: {
         background: 'var(--accent-hover-bg)',
-        borderColor: 'var(--accent-solid)',
         color: 'var(--accent-solid)',
+        fontWeight: 700,
     },
     catCount: {
         fontSize: 10,

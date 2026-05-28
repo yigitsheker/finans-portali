@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { getExchangeRates } from '../api/portfolioApi';
 import CurrencyConverter from '../components/CurrencyConverter';
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
+import TermInfo from "../components/common/TermInfo";
 import { useI18n } from "../contexts/I18nContext";
 
 const MarketData = () => {
@@ -68,6 +69,7 @@ const MarketData = () => {
 
     return (
         <div style={s.root}>
+            <h1 style={s.pageTitle}>{t("nav.fxFull")} <TermInfo termKey="cross_rate" placement="bottom" /></h1>
             <DataFreshnessHeader
                 asOf={asOf > 0 ? new Date(asOf) : null}
                 onRefresh={loadData}
@@ -82,10 +84,10 @@ const MarketData = () => {
                 {/* Table Header */}
                 <div style={{ ...s.tableHeader, ...s.tableHeaderExchange }}>
                     <div style={s.colCurrency}>{t("fx.currency")}</div>
-                    <div style={s.colRate}>{t("fx.bid")}</div>
-                    <div style={s.colRate}>{t("fx.ask")}</div>
-                    <div style={s.colRate}>{t("fx.bidEff")}</div>
-                    <div style={s.colRate}>{t("fx.askEff")}</div>
+                    <div style={s.colRate}>{t("fx.bid")} <TermInfo termKey="forex_bid" placement="bottom" /></div>
+                    <div style={s.colRate}>{t("fx.ask")} <TermInfo termKey="forex_ask" placement="bottom" /></div>
+                    <div style={s.colRate}>{t("fx.bidEff")} <TermInfo termKey="forex_effective" placement="bottom" /></div>
+                    <div style={s.colRate}>{t("fx.askEff")} <TermInfo termKey="forex_effective" placement="bottom" /></div>
                     <div style={s.colSource}>{t("common.source")}</div>
                 </div>
 
@@ -136,6 +138,7 @@ const MarketData = () => {
 
 const s = {
     root: { display: "flex", flexDirection: "column", gap: 16 },
+    pageTitle: { fontSize: 24, fontWeight: 700, margin: 0, color: "var(--text-primary)" },
     loading: {
         display: "flex",
         flexDirection: "column",

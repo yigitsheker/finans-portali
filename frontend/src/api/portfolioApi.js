@@ -204,10 +204,15 @@ export async function getPortfolioPerformance(
 
 /** NEWS */
 
-export async function getNews(category) {
-    const res = await axios.get(`${API_BASE}/api/v1/news`, {
-        params: category ? { category } : {}
-    });
+// `lang` is the user's current i18n language ("tr" | "en"). It gets passed
+// through to NewsService so Turkish-source articles are translated to English
+// (and vice-versa) before they reach the frontend. Translations are cached
+// on the row, so subsequent calls for the same article hit the DB only.
+export async function getNews(category, lang) {
+    const params = {};
+    if (category) params.category = category;
+    if (lang) params.lang = lang;
+    const res = await axios.get(`${API_BASE}/api/v1/news`, { params });
     return res.data;
 }
 
@@ -238,9 +243,11 @@ export async function fetchNewsContent(id) {
     return res.data;
 }
 
-export async function getNewsById(id) {
+export async function getNewsById(id, lang) {
     const safeId = safeNewsId(id);
-    const res = await axios.get(`${API_BASE}/api/v1/news/${safeId}`);
+    const res = await axios.get(`${API_BASE}/api/v1/news/${safeId}`, {
+        params: lang ? { lang } : {}
+    });
     return res.data;
 }
 

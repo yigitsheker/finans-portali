@@ -25,6 +25,11 @@ export default function HistoricalComparison({ keycloak }) {
     return usdRate > 0 ? n / usdRate : 0;                          // TRY → USD
   }
   const [positions, setPositions] = useState([]);
+  // True once we've finished reading the localStorage seed. Stops the save
+  // effect from firing on the very first render and overwriting persisted
+  // data with the initial empty state — without it React would sometimes
+  // setItem("[]") before the load effect's setPositions resolved.
+  const [loaded, setLoaded] = useState(false);
   const [instruments, setInstruments] = useState([]);
 
   // Add modal state
@@ -48,14 +53,19 @@ export default function HistoricalComparison({ keycloak }) {
         console.error("Failed to load historical positions:", e);
       }
     }
+    setLoaded(true);
   }, []);
 
-  // Save to localStorage whenever positions change
+  // Save to localStorage whenever positions change. We gate on `loaded`
+  // so the first mount doesn't immediately setItem("[]") and clobber the
+  // persisted data before the load effect's setPositions has a chance to
+  // resolve. Once loaded flips true the effect runs on every change —
+  // including deletes that empty the list, which is what the earlier
+  // `length > 0` guard was silently dropping.
   useEffect(() => {
-    if (positions.length > 0) {
-      localStorage.setItem("historicalPositions", JSON.stringify(positions));
-    }
-  }, [positions]);
+    if (!loaded) return;
+    localStorage.setItem("historicalPositions", JSON.stringify(positions));
+  }, [positions, loaded]);
 
   const suggestions = useMemo(() => {
     if (!addSymbol.trim()) return instruments.slice(0, 8);

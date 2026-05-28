@@ -5,6 +5,7 @@ import { useI18n } from "../contexts/I18nContext";
 import { usePriceDisplay } from "../contexts/CurrencyDisplayContext";
 import InstrumentChartModal from "../components/InstrumentChartModal";
 import CompareInstrumentsModal from "../components/CompareInstrumentsModal";
+import TermInfo from "../components/common/TermInfo";
 import { clickable } from "../utils/clickable";
 
 // Map backend category slugs to i18n keys. Mirrors the table in News.jsx so
@@ -235,9 +236,9 @@ export default function Home({ keycloak }) {
                     <table style={s.bistTable}>
                         <thead>
                             <tr>
-                                <th style={s.bistTh}>{t("home.colSymbol")}</th>
+                                <th style={s.bistTh}>{t("home.colSymbol")} <TermInfo termKey="stock" placement="bottom" /></th>
                                 <th style={{ ...s.bistTh, textAlign: "right" }}>{t("home.colPrice")}</th>
-                                <th style={{ ...s.bistTh, textAlign: "right" }}>{t("home.colChangePct")}</th>
+                                <th style={{ ...s.bistTh, textAlign: "right" }}>{t("home.colChangePct")} <TermInfo termKey="yearly_change" placement="bottom" /></th>
                                 <th style={{ ...s.bistTh, textAlign: "right" }}>{t("home.colChangeAbs")}</th>
                             </tr>
                         </thead>

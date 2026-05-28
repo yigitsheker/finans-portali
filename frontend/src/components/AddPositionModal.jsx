@@ -2,10 +2,14 @@ import { useMemo, useState } from "react";
 import Modal from "./Modal";
 import { upsertPosition } from "../api/portfolioApi";
 
-export default function AddPositionModal({ open, onClose, onCreated, keycloak }) {
-    const [symbol, setSymbol] = useState("");
+export default function AddPositionModal({ open, onClose, onCreated, keycloak, initialSymbol = "", initialPrice = "" }) {
+    // Seed the form from the optional props so callers (e.g. Analysis page's
+    // chart modal) can pre-fill the symbol/price the user just clicked on.
+    // Plain initial-state seeding — the modal is unmounted between opens
+    // when `open` flips, so each new `initialSymbol` value lands fresh.
+    const [symbol, setSymbol] = useState(initialSymbol || "");
     const [quantity, setQuantity] = useState("1");
-    const [avgPrice, setAvgPrice] = useState("0");
+    const [avgPrice, setAvgPrice] = useState(initialPrice ? String(initialPrice) : "0");
     const [note, setNote] = useState("");
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState(null);

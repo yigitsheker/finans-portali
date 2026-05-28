@@ -2,6 +2,7 @@ import { SummaryCard } from "./InfoRow";
 import { portfolioStyles as s } from "./portfolioStyles";
 import { usePriceDisplay } from "../../../contexts/CurrencyDisplayContext";
 import DataFreshnessHeader from "../../common/DataFreshnessHeader";
+import TermInfo from "../../common/TermInfo";
 
 /**
  * Stats coming in from usePortfolioPage are already summed in TRY
@@ -32,12 +33,12 @@ export function SummaryCards({ stats, loading, error, asOf, onRefresh, refreshin
 
       <div style={s.summaryGrid}>
         <SummaryCard
-          label="Toplam Portfoy Degeri"
+          label={<>Toplam Portfoy Degeri <TermInfo termKey="position" /></>}
           value={formatPrice(stats.totalValue, null, { currency: "TRY", maxDigits: 2 })}
           sub={"Maliyet: " + formatPrice(stats.totalCost, null, { currency: "TRY", maxDigits: 2 })}
         />
         <SummaryCard
-          label="Toplam Kazanc / Kayip"
+          label={<>Toplam Kazanc / Kayip <TermInfo termKey="pnl" /></>}
           value={gainText}
           sub={(gainPos ? "+" : "") + stats.totalGainPct.toFixed(2) + "% tum zamanlarda"}
           valueColor={gainPos ? "var(--green)" : "var(--red)"}

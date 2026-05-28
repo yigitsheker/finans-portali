@@ -30,6 +30,7 @@ const PUBLIC_NAV = [
 ];
 
 const PRIVATE_NAV = [
+  { to: "/analysis",   key: "nav.analysis" },
   { to: "/portfolio",  key: "nav.portfolio" },
   { to: "/historical", key: "nav.historical" },
   { to: "/settings",   key: "nav.settings" },

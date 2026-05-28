@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
 import { getInflationHistory } from "../api/inflationApi";
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
+import TermInfo from "../components/common/TermInfo";
 import { useI18n } from "../contexts/I18nContext";
 
 export default function Inflation() {
@@ -84,8 +85,30 @@ export default function Inflation() {
     );
   }
 
-  // Last 24 months in chronological order for the chart
+  // Last 24 months in chronological order for the monthly chart + the detail table.
   const last24 = rows.slice(-24);
+
+  // For the yearly chart: collapse the full monthly history into one bar per
+  // calendar year. Each bar uses the latest month available in that year's
+  // `cpiYearlyChange` (December if the print has landed; otherwise the most
+  // recent month, e.g. the current year before the December figure exists).
+  // That matches the standard "year-end annual inflation" definition that
+  // central banks report.
+  const yearlyBars = (() => {
+    if (!rows.length) return [];
+    const byYear = new Map();
+    for (const r of rows) {
+      if (r.cpiYearlyChange == null) continue;
+      const year = r.periodDate.substring(0, 4);
+      const existing = byYear.get(year);
+      if (!existing || existing.periodDate < r.periodDate) {
+        byYear.set(year, r);
+      }
+    }
+    return [...byYear.values()].sort((a, b) =>
+      a.periodDate.localeCompare(b.periodDate)
+    );
+  })();
 
   // Latest periodDate doubles as our "as of" — TCMB publishes monthly, so the
   // chip shows e.g. "Son güncelleme: Mayıs 2026" once the May print lands.
@@ -93,6 +116,8 @@ export default function Inflation() {
 
   return (
     <div style={s.root}>
+      <h1 style={s.pageTitle}>{t("nav.inflation")} <TermInfo termKey="cpi" placement="bottom" /></h1>
+
       <DataFreshnessHeader asOf={asOf} onRefresh={load} refreshing={loading} />
 
       {/* Country selector — TCMB (TR) vs FRED (US) */}
@@ -116,23 +141,23 @@ export default function Inflation() {
       {/* Summary cards */}
       <div style={s.summaryGrid}>
         <SCard
-          label={t("inflation.yearlyTitle")}
+          label={<>{t("inflation.yearlyTitle")} <TermInfo termKey="yearly_change" /></>}
           value={stats?.latestYearly != null ? stats.latestYearly.toFixed(2) + "%" : "—"}
           sub={stats?.latestPeriod ? t("inflation.lastData") + ": " + formatPeriod(stats.latestPeriod) : ""}
           color="var(--red)"
         />
         <SCard
-          label={t("inflation.monthlyTitle")}
+          label={<>{t("inflation.monthlyTitle")} <TermInfo termKey="monthly_change" /></>}
           value={stats?.latestMonthly != null ? stats.latestMonthly.toFixed(2) + "%" : "—"}
           sub={t("inflation.monthlySub")}
         />
         <SCard
-          label={t("inflation.cpiTitle")}
+          label={<>{t("inflation.cpiTitle")} <TermInfo termKey="cpi" /></>}
           value={stats?.latestIndex != null ? Number(stats.latestIndex).toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "—"}
           sub={t("inflation.cpiSub")}
         />
         <SCard
-          label={t("inflation.cumul5y")}
+          label={<>{t("inflation.cumul5y")} <TermInfo termKey="cumulative_inflation" /></>}
           value={stats?.cumulative5y != null ? "+" + stats.cumulative5y + "%" : "—"}
           sub={t("inflation.cumul5ySub")}
           color="var(--red)"
@@ -144,7 +169,7 @@ export default function Inflation() {
         <div style={s.cardHeader}>
           <div>
             <div style={s.cardTitle}>{t("inflation.chartTitle")}</div>
-            <div style={s.cardSub}>{t("inflation.chartSub", { view: view === "yearly" ? "yıllık" : "aylık" })}</div>
+            <div style={s.cardSub}>{t(view === "yearly" ? "inflation.chartSubYearly" : "inflation.chartSubMonthly")}</div>
           </div>
           <div style={s.toggle}>
             <button
@@ -162,8 +187,9 @@ export default function Inflation() {
           </div>
         </div>
         <BarChart
-          data={last24}
+          data={view === "yearly" ? yearlyBars : last24}
           field={view === "yearly" ? "cpiYearlyChange" : "cpiMonthlyChange"}
+          view={view}
           t={t}
         />
       </div>
@@ -176,9 +202,15 @@ export default function Inflation() {
             <thead>
               <tr>
                 <th style={s.th}>{t("inflation.colPeriod")}</th>
-                <th style={{ ...s.th, textAlign: "right" }}>{t("inflation.colCpi")}</th>
-                <th style={{ ...s.th, textAlign: "right" }}>{t("inflation.colMonthly")}</th>
-                <th style={{ ...s.th, textAlign: "right" }}>{t("inflation.colYearly")}</th>
+                <th style={{ ...s.th, textAlign: "right" }}>
+                  {t("inflation.colCpi")} <TermInfo termKey="cpi" placement="bottom" />
+                </th>
+                <th style={{ ...s.th, textAlign: "right" }}>
+                  {t("inflation.colMonthly")} <TermInfo termKey="monthly_change" placement="bottom" />
+                </th>
+                <th style={{ ...s.th, textAlign: "right" }}>
+                  {t("inflation.colYearly")} <TermInfo termKey="yearly_change" placement="bottom" />
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -204,7 +236,7 @@ export default function Inflation() {
   );
 }
 
-function BarChart({ data, field, t }) {
+function BarChart({ data, field, view, t }) {
   const values = data.map((r) => r[field]).filter((v) => v != null);
   if (values.length === 0) {
     return <div style={{ height: 200, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--text-muted)", fontSize: 13 }}>{t("inflation.notEnough")}</div>;
@@ -213,10 +245,24 @@ function BarChart({ data, field, t }) {
   const min = Math.min(...values, 0);
   const range = max - min || 1;
 
+  // Yearly view: emit each year label only once (at the leftmost bar of that
+  // year) so the axis reads "2024 ... 2025 ... 2026" instead of repeating
+  // the same year on every monthly bar. Monthly view keeps the per-bar
+  // "YY-MM" tick like before.
+  let prevYear = null;
+  const labelFor = (periodDate) => {
+    if (view !== "yearly") return periodDate.substring(2, 7);
+    const year = periodDate.substring(0, 4);
+    if (year === prevYear) return "";
+    prevYear = year;
+    return year;
+  };
+
   return (
     <div style={{ display: "flex", alignItems: "flex-end", gap: 4, height: 220, padding: "8px 0", borderTop: "1px dashed var(--border-soft)", borderBottom: "1px dashed var(--border-soft)" }}>
       {data.map((r) => {
         const v = r[field];
+        const label = labelFor(r.periodDate);
         if (v == null) return <div key={r.periodDate} style={{ flex: 1 }} />;
         const heightPct = (Math.abs(v) / range) * 90;
         return (
@@ -225,6 +271,19 @@ function BarChart({ data, field, t }) {
             title={`${formatPeriod(r.periodDate)}: ${fmtPct(v)}`}
             style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }}
           >
+            {view === "yearly" && (
+              <div
+                style={{
+                  fontSize: 11,
+                  fontWeight: 600,
+                  color: v >= 0 ? "#dc2626" : "#059669",
+                  marginBottom: 4,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {fmtPct(v)}
+              </div>
+            )}
             <div
               style={{
                 width: "85%",
@@ -234,8 +293,8 @@ function BarChart({ data, field, t }) {
                 minHeight: 2,
               }}
             />
-            <div style={{ fontSize: 9, color: "var(--text-muted)", marginTop: 4, whiteSpace: "nowrap", transform: "rotate(-45deg)", transformOrigin: "center" }}>
-              {r.periodDate.substring(2, 7)}
+            <div style={{ fontSize: view === "yearly" ? 11 : 9, color: "var(--text-muted)", marginTop: 4, whiteSpace: "nowrap", transform: view === "yearly" ? "none" : "rotate(-45deg)", transformOrigin: "center", fontWeight: view === "yearly" ? 600 : 400 }}>
+              {label}
             </div>
           </div>
         );
@@ -283,6 +342,7 @@ function formatPeriod(isoDate) {
 
 const s = {
   root: { display: "flex", flexDirection: "column", gap: 16 },
+  pageTitle: { fontSize: 24, fontWeight: 700, margin: 0, color: "var(--text-primary)" },
   loading: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 400 },
   spinner: { width: 40, height: 40, border: "3px solid var(--border)", borderTop: "3px solid var(--accent-solid, #3b82f6)", borderRadius: "50%", animation: "spin 0.8s linear infinite" },
   error: { padding: 60, textAlign: "center", color: "var(--text-primary)" },

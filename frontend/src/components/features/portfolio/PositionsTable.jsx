@@ -1,6 +1,7 @@
 import { portfolioStyles as s } from "./portfolioStyles";
 import { usePriceDisplay } from "../../../contexts/CurrencyDisplayContext";
 import { useI18n } from "../../../contexts/I18nContext";
+import TermInfo from "../../common/TermInfo";
 
 /**
  * Two render paths exist for historical reasons:
@@ -55,18 +56,21 @@ export function PositionsTable({
             <thead>
               <tr>
                 {[
-                  t("portfolio.colSymbol"),
-                  t("portfolio.colName"),
-                  t("portfolio.colQty"),
-                  t("portfolio.colBuyDate"),
-                  t("portfolio.colBuyPrice"),
-                  t("portfolio.colCurrentPrice"),
-                  t("portfolio.colValue"),
-                  t("portfolio.colTotalChange"),
-                  t("portfolio.colDailyChange"),
-                  "",
-                ].map((heading, idx) => (
-                  <th key={idx} style={s.th}>{heading}</th>
+                  { label: t("portfolio.colSymbol"), term: "position" },
+                  { label: t("portfolio.colName") },
+                  { label: t("portfolio.colQty") },
+                  { label: t("portfolio.colBuyDate") },
+                  { label: t("portfolio.colBuyPrice"), term: "avg_cost" },
+                  { label: t("portfolio.colCurrentPrice") },
+                  { label: t("portfolio.colValue") },
+                  { label: t("portfolio.colTotalChange"), term: "pnl" },
+                  { label: t("portfolio.colDailyChange") },
+                  { label: "" },
+                ].map((h, idx) => (
+                  <th key={idx} style={s.th}>
+                    {h.label}
+                    {h.term && <> <TermInfo termKey={h.term} placement="bottom" /></>}
+                  </th>
                 ))}
               </tr>
             </thead>
