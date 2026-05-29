@@ -17,6 +17,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /**
@@ -98,7 +99,7 @@ public class MarketPriceService {
      * Get latest price for a single symbol (for portfolio modal).
      */
     public Map<String, Object> getLatestPrice(String symbol) {
-        MarketInstrument inst = instrumentRepo.findBySymbol(symbol.toUpperCase())
+        MarketInstrument inst = instrumentRepo.findBySymbol(symbol.toUpperCase(Locale.ROOT))
                 .orElseThrow(() -> new IllegalArgumentException("Unknown symbol: " + symbol));
 
         BigDecimal last = quoteRepo.findTop1ByInstrumentOrderByAsOfDesc(inst)

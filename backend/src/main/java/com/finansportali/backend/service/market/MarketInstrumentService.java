@@ -8,6 +8,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -48,10 +49,10 @@ public class MarketInstrumentService {
             return List.of();
         }
 
-        String searchTerm = query.trim().toUpperCase();
+        String searchTerm = query.trim().toUpperCase(Locale.ROOT);
         return instrumentRepo.findAll().stream()
-                .filter(inst -> inst.getSymbol().toUpperCase().contains(searchTerm)
-                        || inst.getName().toUpperCase().contains(searchTerm))
+                .filter(inst -> inst.getSymbol().toUpperCase(Locale.ROOT).contains(searchTerm)
+                        || inst.getName().toUpperCase(Locale.ROOT).contains(searchTerm))
                 .limit(10)
                 .toList();
     }

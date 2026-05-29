@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
@@ -29,7 +30,7 @@ public class InflationController {
     @GetMapping
     public List<InflationPointDto> getAll(
             @RequestParam(value = "country", defaultValue = "TR") String country) {
-        return service.getAllAscending(country.toUpperCase()).stream()
+        return service.getAllAscending(country.toUpperCase(Locale.ROOT)).stream()
                 .map(InflationPointDto::from)
                 .toList();
     }
@@ -38,7 +39,7 @@ public class InflationController {
     @GetMapping("/latest")
     public ResponseEntity<InflationPointDto> getLatest(
             @RequestParam(value = "country", defaultValue = "TR") String country) {
-        return service.getLatest(country.toUpperCase())
+        return service.getLatest(country.toUpperCase(Locale.ROOT))
                 .map(InflationPointDto::from)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());

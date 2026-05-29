@@ -2,9 +2,10 @@ package com.finansportali.backend.service;
 
 import com.finansportali.backend.entity.ExchangeRate;
 import com.finansportali.backend.repository.ExchangeRateRepository;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -24,7 +25,12 @@ import static org.mockito.Mockito.when;
 class ExchangeRateServiceTest {
 
     @Mock private ExchangeRateRepository repository;
-    @InjectMocks private ExchangeRateService service;
+    private ExchangeRateService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new ExchangeRateService(repository, new SimpleMeterRegistry());
+    }
 
     @Test
     void getLatestRates_delegates() {

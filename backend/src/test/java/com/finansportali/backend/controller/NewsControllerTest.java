@@ -14,6 +14,8 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -37,7 +39,7 @@ class NewsControllerTest {
 
     @Test
     void latest_with_no_category_returns_all() throws Exception {
-        when(service.latest(null)).thenReturn(List.of(article("Headline", "genel-ekonomi")));
+        when(service.latest(eq(null), any())).thenReturn(List.of(article("Headline", "genel-ekonomi")));
 
         mvc.perform(get("/api/v1/news"))
                 .andExpect(status().isOk())
@@ -47,12 +49,12 @@ class NewsControllerTest {
 
     @Test
     void latest_with_category_filter_forwards_value() throws Exception {
-        when(service.latest("hisse")).thenReturn(List.of());
+        when(service.latest(eq("hisse"), any())).thenReturn(List.of());
 
         mvc.perform(get("/api/v1/news").param("category", "hisse"))
                 .andExpect(status().isOk());
 
-        verify(service).latest("hisse");
+        verify(service).latest(eq("hisse"), any());
     }
 
     @Test
@@ -77,7 +79,7 @@ class NewsControllerTest {
 
     @Test
     void get_by_id_routes_path_var() throws Exception {
-        when(service.getById(42L)).thenReturn(article("Detail", "tcmb"));
+        when(service.getById(eq(42L), any())).thenReturn(article("Detail", "tcmb"));
 
         mvc.perform(get("/api/v1/news/42"))
                 .andExpect(status().isOk())

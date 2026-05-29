@@ -26,6 +26,7 @@ import java.time.LocalDate;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -168,7 +169,7 @@ public class InstrumentAnalysisService {
 
     public Optional<AnalysisDetailDto> getDetail(String symbol) {
         if (symbol == null || symbol.isBlank()) return Optional.empty();
-        String upper = symbol.toUpperCase();
+        String upper = symbol.toUpperCase(Locale.ROOT);
 
         // Market instrument path (also covers FX, crypto, commodities).
         Optional<MarketInstrument> instOpt = instrumentRepo.findBySymbol(upper);
@@ -293,7 +294,7 @@ public class InstrumentAnalysisService {
         if (mid == null) return null;
 
         AnalysisInstrumentDto dto = new AnalysisInstrumentDto();
-        dto.setSymbol(r.getCurrencyCode().toUpperCase() + "TRY");
+        dto.setSymbol(r.getCurrencyCode().toUpperCase(Locale.ROOT) + "TRY");
         String name = r.getCurrencyName();
         dto.setName((name != null && !name.isBlank() ? name : r.getCurrencyCode()) + "/TRY");
         dto.setCategory("FX");

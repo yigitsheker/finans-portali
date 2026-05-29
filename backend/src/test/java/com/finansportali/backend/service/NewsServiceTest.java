@@ -4,10 +4,12 @@ import com.finansportali.backend.entity.NewsArticle;
 import com.finansportali.backend.entity.NewsFeed;
 import com.finansportali.backend.repository.NewsArticleRepository;
 import com.finansportali.backend.repository.NewsFeedRepository;
+import com.finansportali.backend.service.client.news.LibreTranslateClient;
 import com.finansportali.backend.service.client.news.NewsContentFetcher;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -34,7 +36,13 @@ class NewsServiceTest {
     @Mock private NewsArticleRepository repo;
     @Mock private NewsFeedRepository feedRepo;
     @Mock private NewsContentFetcher contentFetcher;
-    @InjectMocks private NewsService service;
+    @Mock private LibreTranslateClient translator;
+    private NewsService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new NewsService(repo, feedRepo, contentFetcher, translator, new SimpleMeterRegistry());
+    }
 
     private static NewsArticle article(Long id, String title, String content, String category) {
         NewsArticle a = new NewsArticle(title,

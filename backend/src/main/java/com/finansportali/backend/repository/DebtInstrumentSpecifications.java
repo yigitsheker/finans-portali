@@ -8,6 +8,7 @@ import jakarta.persistence.criteria.Predicate;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * JPA Specifications for dynamic DebtInstrument queries.
@@ -48,7 +49,7 @@ public class DebtInstrumentSpecifications {
             
             // Search filter - only add if search is not null/empty
             if (search != null && !search.trim().isEmpty()) {
-                String searchPattern = "%" + search.trim().toLowerCase() + "%";
+                String searchPattern = "%" + search.trim().toLowerCase(Locale.ROOT) + "%";
                 
                 Predicate namePredicate = criteriaBuilder.like(
                     criteriaBuilder.lower(root.get("name")), 

@@ -315,7 +315,7 @@ public class NewsService {
 
     private static String normalizeLang(String lang) {
         if (lang == null) return null;
-        String s = lang.toLowerCase();
+        String s = lang.toLowerCase(Locale.ROOT);
         if (s.startsWith("en")) return "en";
         if (s.startsWith("tr")) return "tr";
         return null;

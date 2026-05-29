@@ -5,10 +5,11 @@ import com.finansportali.backend.entity.InflationDataPoint;
 import com.finansportali.backend.repository.InflationDataPointRepository;
 import com.finansportali.backend.service.client.inflation.FredInflationFetcher;
 import com.finansportali.backend.service.client.inflation.TcmbInflationFetcher;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
@@ -33,7 +34,12 @@ class InflationServiceTest {
     @Mock private InflationDataPointRepository repo;
     @Mock private TcmbInflationFetcher fetcher;
     @Mock private FredInflationFetcher fredFetcher;
-    @InjectMocks private InflationService service;
+    private InflationService service;
+
+    @BeforeEach
+    void setUp() {
+        service = new InflationService(repo, fetcher, fredFetcher, new SimpleMeterRegistry());
+    }
 
     private static InflationDataPoint point(LocalDate d, String cpi) {
         InflationDataPoint p = new InflationDataPoint(d, "TR");

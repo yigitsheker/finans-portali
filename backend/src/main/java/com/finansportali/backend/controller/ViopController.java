@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
+import java.util.Locale;
 
 @RestController
 @RequestMapping("/api/v1/viop")
@@ -25,8 +26,12 @@ public class ViopController {
             return service.findAll();
         }
         try {
+            // Locale.ROOT — without it, a Turkish-locale JVM upper-cases
+            // "index" → "İNDEX" (dotted-I), which then fails Category.valueOf
+            // and silently falls through to an empty list. This bit production
+            // routing too, not just the test.
             return service.findByCategory(
-                    ViopContract.Category.valueOf(category.toUpperCase()));
+                    ViopContract.Category.valueOf(category.toUpperCase(Locale.ROOT)));
         } catch (IllegalArgumentException e) {
             return List.of();
         }

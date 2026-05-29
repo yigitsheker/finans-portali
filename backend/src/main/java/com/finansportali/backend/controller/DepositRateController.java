@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 @RestController
@@ -23,7 +24,7 @@ public class DepositRateController {
     /** All monthly rows for a single currency (TRY/USD/EUR), ascending. */
     @GetMapping
     public List<DepositRateDto> getAll(@RequestParam(defaultValue = "TRY") String currency) {
-        return service.getAllForCurrency(currency.toUpperCase()).stream()
+        return service.getAllForCurrency(currency.toUpperCase(Locale.ROOT)).stream()
                 .map(DepositRateDto::from)
                 .toList();
     }
@@ -40,7 +41,7 @@ public class DepositRateController {
 
     @GetMapping("/latest/{currency}")
     public ResponseEntity<DepositRateDto> getLatestForCurrency(@PathVariable String currency) {
-        return service.getLatest(currency.toUpperCase())
+        return service.getLatest(currency.toUpperCase(Locale.ROOT))
                 .map(DepositRateDto::from)
                 .map(ResponseEntity::ok)
                 .orElseGet(() -> ResponseEntity.noContent().build());

@@ -15,6 +15,7 @@ import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * Service responsible for market historical data.
@@ -120,7 +121,7 @@ public class MarketHistoryService {
      * Map UI period to Yahoo Finance range and interval parameters.
      */
     private YahooRangeConfig mapPeriodToYahooRange(String period) {
-        return switch ((period == null ? "30D" : period).toUpperCase()) {
+        return switch ((period == null ? "30D" : period).toUpperCase(Locale.ROOT)) {
             case "1D", "1G" -> new YahooRangeConfig("1d", "5m");   // Intraday 5-minute
             case "5D", "5G" -> new YahooRangeConfig("5d", "1h");   // 5 days, hourly
             case "30D", "1A" -> new YahooRangeConfig("1mo", "1d"); // 1 month, daily
@@ -187,7 +188,7 @@ public class MarketHistoryService {
      * Fallback to database candles when Yahoo Finance fails.
      */
     private List<MarketHistoryPoint> getDatabaseHistory(MarketInstrument inst, String period) {
-        int days = switch ((period == null ? "30D" : period).toUpperCase()) {
+        int days = switch ((period == null ? "30D" : period).toUpperCase(Locale.ROOT)) {
             case "1D", "1G" -> 2;
             case "5D", "5G" -> 5;
             case "30D", "1A" -> 30;

@@ -386,7 +386,7 @@ public class PortfolioPerformanceService {
         LocalDate today = LocalDate.now();
         LocalDate calculatedStart;
 
-        switch (range.toUpperCase()) {
+        switch (range.toUpperCase(Locale.ROOT)) {
             case "1D":
                 calculatedStart = today.minusDays(1);
                 break;

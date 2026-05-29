@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Test-only Log4j2 config. Spring Boot picks this up automatically
+    when running tests (it prefers `log4j2-test-spring.xml` over the
+    production `log4j2-spring.xml` on the classpath).
+
+    Why: the production config wires a Kafka appender that, even with
+    ignoreExceptions=true, constructs its KafkaProducer at appender
+    init time. With no broker reachable in a unit/slice test that
+    throws ConfigException("No resolvable bootstrap urls") and aborts
+    the entire ApplicationContext load. Stripping the appender here
+    keeps every @WebMvcTest / @SpringBootTest green without touching
+    the prod logging pipeline.
+-->
+<Configuration status="WARN">
+    <Appenders>
+        <Console name="CONSOLE" target="SYSTEM_OUT">
+            <PatternLayout pattern="%d{HH:mm:ss.SSS} [%t] %-5level %logger{36} - %msg%n"/>
+        </Console>
+    </Appenders>
+    <Loggers>
+        <Logger name="com.finansportali" level="INFO"/>
+        <Logger name="org.springframework" level="WARN"/>
+        <Logger name="org.hibernate" level="WARN"/>
+        <Root level="INFO">
+            <AppenderRef ref="CONSOLE"/>
+        </Root>
+    </Loggers>
+</Configuration>

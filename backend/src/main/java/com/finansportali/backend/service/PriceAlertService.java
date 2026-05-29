@@ -84,7 +84,7 @@ public class PriceAlertService {
     private String resolveLanguage() {
         Locale locale = LocaleContextHolder.getLocale();
         String lang = locale != null && locale.getLanguage() != null
-                ? locale.getLanguage().toLowerCase()
+                ? locale.getLanguage().toLowerCase(Locale.ROOT)
                 : "tr";
         return "en".equals(lang) ? "en" : "tr";
     }
