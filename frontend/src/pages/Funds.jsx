@@ -13,6 +13,10 @@ export default function Funds({ keycloak }) {
     const [selectedFundTypes, setSelectedFundTypes] = useState([]);
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
+    // Header sort state. `sortKey` is the field on InvestmentFund (e.g.
+    // "fundName", "unitPrice", "yearlyReturn"); null = natural API order.
+    const [sortKey, setSortKey] = useState(null);
+    const [sortDir, setSortDir] = useState("asc");
     const [loading, setLoading] = useState(true);
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
@@ -85,12 +89,40 @@ export default function Funds({ keycloak }) {
     }, [funds]);
 
     const filteredFunds = useMemo(() => {
-        if (selectedFundTypes.length === 0) return funds;
-        const set = new Set(selectedFundTypes);
-        return funds.filter((f) => set.has(f.fundType));
-    }, [funds, selectedFundTypes]);
+        let rows = funds;
+        if (selectedFundTypes.length > 0) {
+            const set = new Set(selectedFundTypes);
+            rows = rows.filter((f) => set.has(f.fundType));
+        }
+        if (sortKey) {
+            // String columns (fund name / code) sort with Turkish locale,
+            // numeric returns/prices fall back to numeric subtraction.
+            const isString = sortKey === "fundName" || sortKey === "fundCode" || sortKey === "fundType";
+            rows = [...rows].sort((a, b) => {
+                const av = a[sortKey];
+                const bv = b[sortKey];
+                let cmp;
+                if (isString) {
+                    cmp = (av || "").localeCompare(bv || "", "tr", { sensitivity: "base" });
+                } else {
+                    cmp = Number(av ?? -Infinity) - Number(bv ?? -Infinity);
+                }
+                return sortDir === "asc" ? cmp : -cmp;
+            });
+        }
+        return rows;
+    }, [funds, selectedFundTypes, sortKey, sortDir]);
 
-    useEffect(() => { setPage(1); }, [selectedFundTypes, pageSize]);
+    const toggleSort = (key) => {
+        if (sortKey === key) {
+            setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        } else {
+            setSortKey(key);
+            setSortDir(key === "fundName" || key === "fundCode" ? "asc" : "desc");
+        }
+    };
+
+    useEffect(() => { setPage(1); }, [selectedFundTypes, pageSize, sortKey, sortDir]);
     const totalFiltered = filteredFunds.length;
     const pagedFunds = useMemo(() => {
         const start = (page - 1) * pageSize;
@@ -194,15 +226,34 @@ export default function Funds({ keycloak }) {
 
                 {/* Table Header */}
                 <div style={s.tableHeader}>
-                    <div style={s.colFund}>{t("funds.colInfo")}</div>
-                    <div style={s.colPrice}>{t("funds.colUnitPrice")} <TermInfo termKey="nav" placement="bottom" /></div>
-                    <div style={s.colReturn}>{t("funds.colDaily")}</div>
-                    <div style={s.colReturn}>{t("funds.col1m")}</div>
-                    <div style={s.colReturn}>{t("funds.col3m")}</div>
-                    <div style={s.colReturn}>{t("funds.col6m")}</div>
-                    <div style={s.colReturn}>{t("funds.col1y")}</div>
-                    <div style={s.colReturn}>{t("funds.col3y")}</div>
-                    <div style={s.colReturn}>{t("funds.col5y")}</div>
+                    <div style={{ ...s.colFund, cursor: "pointer" }} onClick={() => toggleSort("fundName")}>
+                        {t("funds.colInfo")} {sortKey === "fundName" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    </div>
+                    <div style={{ ...s.colPrice, cursor: "pointer" }} onClick={() => toggleSort("unitPrice")}>
+                        {t("funds.colUnitPrice")} <TermInfo termKey="nav" placement="bottom" />
+                        {sortKey === "unitPrice" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                    </div>
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("dailyReturn")}>
+                        {t("funds.colDaily")} {sortKey === "dailyReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    </div>
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("monthlyReturn")}>
+                        {t("funds.col1m")} {sortKey === "monthlyReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    </div>
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("threeMonthReturn")}>
+                        {t("funds.col3m")} {sortKey === "threeMonthReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    </div>
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("sixMonthReturn")}>
+                        {t("funds.col6m")} {sortKey === "sixMonthReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    </div>
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("yearlyReturn")}>
+                        {t("funds.col1y")} {sortKey === "yearlyReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    </div>
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("threeYearReturn")}>
+                        {t("funds.col3y")} {sortKey === "threeYearReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    </div>
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("fiveYearReturn")}>
+                        {t("funds.col5y")} {sortKey === "fiveYearReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    </div>
                     <div style={s.colRisk}>{t("funds.colRisk")} <TermInfo termKey="risk_level" placement="bottom" /></div>
                 </div>
 

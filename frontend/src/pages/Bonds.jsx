@@ -99,15 +99,38 @@ export default function Bonds({ keycloak }) {
         }
     }
 
+    // Header-driven sort state. Defaults to yield (desc) — that's what the
+    // page showed before sortable headers existed. User clicks on any
+    // header cell to override.
+    const [sortKey, setSortKey] = useState("latestYieldRate");
+    const [sortDir, setSortDir] = useState("desc");
+
+    const toggleSort = (key) => {
+        if (sortKey === key) {
+            setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+        } else {
+            setSortKey(key);
+            // Strings open ascending, numbers descending — matches user
+            // expectation (A→Z vs biggest-first).
+            setSortDir(["name", "type", "isin", "source"].includes(key) ? "asc" : "desc");
+        }
+    };
+
     const sortedBonds = useMemo(() => {
+        if (!sortKey) return bonds;
+        const stringKeys = new Set(["name", "type", "isin", "source"]);
         return [...bonds].sort((a, b) => {
-            // Sort by yield rate descending
-            if (a.latestYieldRate && b.latestYieldRate) {
-                return b.latestYieldRate - a.latestYieldRate;
+            const av = a[sortKey];
+            const bv = b[sortKey];
+            let cmp;
+            if (stringKeys.has(sortKey)) {
+                cmp = (av || "").localeCompare(bv || "", "tr", { sensitivity: "base" });
+            } else {
+                cmp = Number(av ?? -Infinity) - Number(bv ?? -Infinity);
             }
-            return 0;
+            return sortDir === "asc" ? cmp : -cmp;
         });
-    }, [bonds]);
+    }, [bonds, sortKey, sortDir]);
 
     return (
         <div style={s.root}>
@@ -233,15 +256,38 @@ export default function Bonds({ keycloak }) {
                     <table style={s.table}>
                         <thead>
                             <tr>
-                                <th style={s.th}>{t("bonds.colInstrument")}</th>
-                                <th style={s.th}>{t("bonds.colType")} <TermInfo termKey="bond" placement="bottom" /></th>
-                                <th style={s.th}>{t("bonds.colIsin")} <TermInfo termKey="isin" placement="bottom" /></th>
-                                <th style={s.th}>{t("bonds.colMaturity")} <TermInfo termKey="maturity" placement="bottom" /></th>
-                                <th style={s.th}>{t("bonds.colCoupon")} <TermInfo termKey="coupon" placement="bottom" /></th>
-                                <th style={s.th}>{t("bonds.colPrice")}</th>
-                                <th style={s.th}>{t("bonds.colYield")} <TermInfo termKey="yield" placement="bottom" /></th>
-                                <th style={s.th}>{t("bonds.colChange")}</th>
-                                <th style={s.th}>{t("bonds.colSource")}</th>
+                                <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("name")}>
+                                    {t("bonds.colInstrument")} {sortKey === "name" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                </th>
+                                <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("type")}>
+                                    {t("bonds.colType")} <TermInfo termKey="bond" placement="bottom" />
+                                    {sortKey === "type" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                                </th>
+                                <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("isin")}>
+                                    {t("bonds.colIsin")} <TermInfo termKey="isin" placement="bottom" />
+                                    {sortKey === "isin" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                                </th>
+                                <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("maturityDate")}>
+                                    {t("bonds.colMaturity")} <TermInfo termKey="maturity" placement="bottom" />
+                                    {sortKey === "maturityDate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                                </th>
+                                <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("couponRate")}>
+                                    {t("bonds.colCoupon")} <TermInfo termKey="coupon" placement="bottom" />
+                                    {sortKey === "couponRate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                                </th>
+                                <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("latestPrice")}>
+                                    {t("bonds.colPrice")} {sortKey === "latestPrice" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                </th>
+                                <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("latestYieldRate")}>
+                                    {t("bonds.colYield")} <TermInfo termKey="yield" placement="bottom" />
+                                    {sortKey === "latestYieldRate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                                </th>
+                                <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("latestChangeRate")}>
+                                    {t("bonds.colChange")} {sortKey === "latestChangeRate" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                </th>
+                                <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("source")}>
+                                    {t("bonds.colSource")} {sortKey === "source" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                </th>
                             </tr>
                         </thead>
                         <tbody>

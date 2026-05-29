@@ -239,6 +239,15 @@ export default function FinexStyleMarket({
     const sorted = useMemo(() => {
         if (!sortField) return filtered;
         const dirMul = sortDir === "asc" ? 1 : -1;
+        // String columns (symbol, name) — locale-aware Turkish collation so
+        // ç/ş/ğ/ı land in the right buckets next to their ASCII relatives.
+        if (sortField === "symbol" || sortField === "name") {
+            return [...filtered].sort((a, b) => {
+                const va = (a[sortField] || "");
+                const vb = (b[sortField] || "");
+                return va.localeCompare(vb, "tr", { sensitivity: "base" }) * dirMul;
+            });
+        }
         const keyOf = (it) => {
             if (sortField === "change") {
                 const v = Number(it.changePct);
@@ -617,7 +626,16 @@ export default function FinexStyleMarket({
                 <div style={s.tableContainer}>
                     {/* Table Header */}
                     <div style={s.tableHeader}>
-                        <div style={s.colHisse}>{t("market.colSymbol")}</div>
+                        <div
+                            style={{ ...s.colHisse, ...s.sortableHeader, ...(sortField === "symbol" ? s.sortableHeaderActive : {}) }}
+                            {...clickable(() => toggleSort("symbol"))}
+                            title={t("market.colSymbol")}
+                        >
+                            {t("market.colSymbol")}
+                            <span style={s.sortArrow}>
+                                {sortField === "symbol" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
+                            </span>
+                        </div>
                         <div
                             style={{ ...s.colFiyat, ...s.sortableHeader, ...(sortField === "price" ? s.sortableHeaderActive : {}) }}
                             {...clickable(() => toggleSort("price"))}

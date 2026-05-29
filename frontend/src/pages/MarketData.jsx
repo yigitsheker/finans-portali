@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 import { getExchangeRates } from '../api/portfolioApi';
 import CurrencyConverter from '../components/CurrencyConverter';
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
@@ -10,6 +10,37 @@ const MarketData = () => {
     const [exchangeRates, setExchangeRates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    // Header-driven sort. Default null = natural order from the API.
+    const [sortKey, setSortKey] = useState(null);
+    const [sortDir, setSortDir] = useState("asc");
+
+    const toggleSort = useCallback((key) => {
+        setSortKey((prevKey) => {
+            if (prevKey === key) {
+                setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+                return prevKey;
+            }
+            // Currency name / code → asc; numeric rates → desc.
+            setSortDir(["currencyName", "currencyCode", "source"].includes(key) ? "asc" : "desc");
+            return key;
+        });
+    }, []);
+
+    const sortedRates = useMemo(() => {
+        if (!sortKey) return exchangeRates;
+        const stringKeys = new Set(["currencyName", "currencyCode", "source"]);
+        return [...exchangeRates].sort((a, b) => {
+            const av = a[sortKey];
+            const bv = b[sortKey];
+            let cmp;
+            if (stringKeys.has(sortKey)) {
+                cmp = (av || "").localeCompare(bv || "", "tr", { sensitivity: "base" });
+            } else {
+                cmp = Number(av ?? -Infinity) - Number(bv ?? -Infinity);
+            }
+            return sortDir === "asc" ? cmp : -cmp;
+        });
+    }, [exchangeRates, sortKey, sortDir]);
 
     useEffect(() => {
         loadData();
@@ -83,17 +114,33 @@ const MarketData = () => {
             <div style={s.tableContainer}>
                 {/* Table Header */}
                 <div style={{ ...s.tableHeader, ...s.tableHeaderExchange }}>
-                    <div style={s.colCurrency}>{t("fx.currency")}</div>
-                    <div style={s.colRate}>{t("fx.bid")} <TermInfo termKey="forex_bid" placement="bottom" /></div>
-                    <div style={s.colRate}>{t("fx.ask")} <TermInfo termKey="forex_ask" placement="bottom" /></div>
-                    <div style={s.colRate}>{t("fx.bidEff")} <TermInfo termKey="forex_effective" placement="bottom" /></div>
-                    <div style={s.colRate}>{t("fx.askEff")} <TermInfo termKey="forex_effective" placement="bottom" /></div>
-                    <div style={s.colSource}>{t("common.source")}</div>
+                    <div style={{ ...s.colCurrency, cursor: "pointer" }} onClick={() => toggleSort("currencyName")}>
+                        {t("fx.currency")} {sortKey === "currencyName" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    </div>
+                    <div style={{ ...s.colRate, cursor: "pointer" }} onClick={() => toggleSort("buyingRate")}>
+                        {t("fx.bid")} <TermInfo termKey="forex_bid" placement="bottom" />
+                        {sortKey === "buyingRate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                    </div>
+                    <div style={{ ...s.colRate, cursor: "pointer" }} onClick={() => toggleSort("sellingRate")}>
+                        {t("fx.ask")} <TermInfo termKey="forex_ask" placement="bottom" />
+                        {sortKey === "sellingRate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                    </div>
+                    <div style={{ ...s.colRate, cursor: "pointer" }} onClick={() => toggleSort("effectiveBuyingRate")}>
+                        {t("fx.bidEff")} <TermInfo termKey="forex_effective" placement="bottom" />
+                        {sortKey === "effectiveBuyingRate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                    </div>
+                    <div style={{ ...s.colRate, cursor: "pointer" }} onClick={() => toggleSort("effectiveSellingRate")}>
+                        {t("fx.askEff")} <TermInfo termKey="forex_effective" placement="bottom" />
+                        {sortKey === "effectiveSellingRate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                    </div>
+                    <div style={{ ...s.colSource, cursor: "pointer" }} onClick={() => toggleSort("source")}>
+                        {t("common.source")} {sortKey === "source" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    </div>
                 </div>
 
                 {/* Table Body */}
                 <div style={s.tableBody}>
-                    {exchangeRates.length === 0 ? (
+                    {sortedRates.length === 0 ? (
                         <div style={s.emptyState}>
                             <div style={{ fontSize: 48, marginBottom: 12 }}>💱</div>
                             <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
@@ -101,7 +148,7 @@ const MarketData = () => {
                             </div>
                         </div>
                     ) : (
-                        exchangeRates.map((rate) => (
+                        sortedRates.map((rate) => (
                             <div key={rate.id} style={{ ...s.tableRow, ...s.tableRowExchange }}>
                                 <div style={s.colCurrency}>
                                     <div style={s.currencyIcon}>

@@ -118,10 +118,20 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
             );
         }
         if (sortKey) {
+            // String columns (symbol, name, category) use locale-aware
+            // collation so Turkish characters land in the right spots
+            // (ç, ş, ğ etc.). Numeric columns keep the cast-and-subtract
+            // path for proper +/- ordering with -Infinity for nulls.
+            const stringKey = sortKey === "symbol" || sortKey === "name" || sortKey === "category";
             rows = [...rows].sort((a, b) => {
-                const av = a[sortKey] ?? -Infinity;
-                const bv = b[sortKey] ?? -Infinity;
-                const cmp = Number(av) - Number(bv);
+                const av = a[sortKey];
+                const bv = b[sortKey];
+                let cmp;
+                if (stringKey) {
+                    cmp = (av || "").localeCompare(bv || "", "tr", { sensitivity: "base" });
+                } else {
+                    cmp = (av ?? -Infinity) - (bv ?? -Infinity);
+                }
                 return sortDir === "asc" ? cmp : -cmp;
             });
         }
@@ -213,9 +223,24 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
                     <table style={s.table}>
                         <thead>
                             <tr>
-                                <th style={s.th}>{t("analysis.tblColSymbol")}</th>
-                                <th style={s.th}>{t("analysis.tblColName")}</th>
-                                <th style={s.th}>{t("analysis.tblColCategory")}</th>
+                                <th
+                                    style={{ ...s.th, cursor: "pointer" }}
+                                    onClick={() => toggleSort("symbol")}
+                                >
+                                    {t("analysis.tblColSymbol")} {sortKey === "symbol" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                </th>
+                                <th
+                                    style={{ ...s.th, cursor: "pointer" }}
+                                    onClick={() => toggleSort("name")}
+                                >
+                                    {t("analysis.tblColName")} {sortKey === "name" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                </th>
+                                <th
+                                    style={{ ...s.th, cursor: "pointer" }}
+                                    onClick={() => toggleSort("category")}
+                                >
+                                    {t("analysis.tblColCategory")} {sortKey === "category" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                </th>
                                 <th style={{ ...s.th, textAlign: "right" }}>{t("analysis.tblColValue")}</th>
                                 <th
                                     style={{ ...s.th, textAlign: "right", cursor: "pointer" }}
