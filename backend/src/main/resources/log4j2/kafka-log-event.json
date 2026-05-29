@@ -1,0 +1,47 @@
+{
+  "timestamp": {
+    "$resolver": "timestamp",
+    "pattern": {
+      "format": "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'",
+      "timeZone": "UTC"
+    }
+  },
+  "level": {
+    "$resolver": "level",
+    "field": "name"
+  },
+  "logger_name": {
+    "$resolver": "logger",
+    "field": "name"
+  },
+  "thread_name": {
+    "$resolver": "thread",
+    "field": "name"
+  },
+  "message": {
+    "$resolver": "message",
+    "stringified": true
+  },
+  "stack_trace": {
+    "$resolver": "exception",
+    "field": "stackTrace",
+    "stackTrace": {
+      "stringified": true
+    }
+  },
+  "service": "${serviceName}",
+  "environment": "${environment}",
+  "host": "${hostName}",
+  "requestId":  { "$resolver": "mdc", "key": "requestId" },
+  "userId":     { "$resolver": "mdc", "key": "userId" },
+  "username":   { "$resolver": "mdc", "key": "username" },
+  "endpoint":   { "$resolver": "mdc", "key": "endpoint" },
+  "httpMethod": { "$resolver": "mdc", "key": "httpMethod" },
+  "statusCode": { "$resolver": "mdc", "key": "statusCode" },
+  "durationMs": { "$resolver": "mdc", "key": "durationMs" },
+  "clientIp":   { "$resolver": "mdc", "key": "clientIp" },
+  "traceId":    { "$resolver": "mdc", "key": "traceId" },
+  "spanId":     { "$resolver": "mdc", "key": "spanId" },
+  "trace_id":   { "$resolver": "mdc", "key": "trace_id" },
+  "span_id":    { "$resolver": "mdc", "key": "span_id" }
+}

@@ -50,6 +50,22 @@ $KCADM update "realms/$REALM" \
   -s registrationAllowed=true
 log "  realm settings updated"
 
+# ── 1b) 2FA enforcement ───────────────────────────────────────────────────
+# Make CONFIGURE_TOTP a default required action: every NEW user gets it
+# on their first login (TOTP setup screen → scan QR → 6-digit verify),
+# every EXISTING user gets it on their next login until they configure
+# it once. The realm's OTP policy (totp, SHA1, 6 digits, 30s period) is
+# already in finans-realm.json — this step just flips the action from
+# optional to enforced.
+log "Enforcing CONFIGURE_TOTP required action (2FA on first/next login)..."
+if $KCADM update "authentication/required-actions/CONFIGURE_TOTP" -r "$REALM" \
+    -s enabled=true \
+    -s defaultAction=true >/dev/null 2>&1; then
+  log "  CONFIGURE_TOTP marked as default required action"
+else
+  log "  WARN — CONFIGURE_TOTP update failed (older Keycloak? check version)"
+fi
+
 # ── 2) Backend admin client ────────────────────────────────────────────────
 log "Ensuring client '$BACKEND_CLIENT_ID' exists in realm '$REALM'..."
 CLIENT_UUID=$($KCADM get clients -r "$REALM" \

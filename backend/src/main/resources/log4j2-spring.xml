@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+    Log4j2 configuration. Replaces the earlier Logback config; semantics
+    are intentionally kept the same:
+
+      • CONSOLE — human-readable pattern with thread, level, requestId
+        MDC tag and OpenTelemetry trace/span ids.
+      • KAFKA  — JSON-encoded events shipped to topic `finans-logs`. The
+        log-consumer side reads from there and writes to OpenSearch
+        index finans-logs-YYYY-MM-DD.
+
+    JSON shape is owned by `kafka-log-event.json` (see resources/log4j2/)
+    so the field naming we used with the old LogstashEncoder (timestamp,
+    message, logger_name, thread_name, level, MDC fields, customFields)
+    survives the migration without breaking OpenSearch index mappings.
+
+    monitorInterval=30 lets us toggle log levels at runtime without a
+    restart — handy when a single noisy class needs DEBUG.
+-->
+<Configuration status="WARN" monitorInterval="30">
+
+    <!-- Pulled from Spring properties at boot. Defaults match the old
+         logback-spring.xml so nothing downstream sees a name change. -->
+    <Properties>
+        <Property name="serviceName">${spring:spring.application.name:-finans-backend}</Property>
+        <Property name="environment">${spring:spring.profiles.active:-dev}</Property>
+        <Property name="kafkaBootstrap">${env:KAFKA_BOOTSTRAP_SERVERS:-kafka:29092}</Property>
+        <Property name="logPattern">%d{yyyy-MM-dd HH:mm:ss.SSS} [%t] %-5level [%X{requestId}] [trace_id=%X{trace_id:-},span_id=%X{span_id:-}] %logger{36} - %msg%n%xEx</Property>
+    </Properties>
+
+    <Appenders>
+        <Console name="CONSOLE" target="SYSTEM_OUT">
+            <PatternLayout pattern="${logPattern}"/>
+        </Console>
+
+        <!-- Kafka — the canonical log path. Built-in Log4j2 Kafka appender
+             (org.apache.logging.log4j.core.appender.mom.kafka.KafkaAppender)
+             keeps an internal queue so app threads don't block on broker IO,
+             and uses acks=0 fire-and-forget so a Kafka outage doesn't cause
+             log calls to back-pressure the app.
+             ignoreExceptions=true mirrors the same isolation Logback gave
+             us — the log path must never poison the request path. -->
+        <Kafka name="KAFKA"
+               topic="finans-logs"
+               syncSend="false"
+               ignoreExceptions="true">
+            <JsonTemplateLayout eventTemplateUri="classpath:log4j2/kafka-log-event.json"/>
+            <Property name="bootstrap.servers">${kafkaBootstrap}</Property>
+            <Property name="acks">0</Property>
+            <Property name="linger.ms">1000</Property>
+            <Property name="max.block.ms">0</Property>
+            <Property name="client.id">${serviceName}</Property>
+        </Kafka>
+    </Appenders>
+
+    <Loggers>
+        <!-- Per-package level overrides. Hibernate SQL stays at WARN —
+             DEBUG produces ~10× volume and is only useful when you're
+             actively chasing a JPA bug. -->
+        <Logger name="com.finansportali" level="INFO"/>
+        <Logger name="org.springframework.web" level="INFO"/>
+        <Logger name="org.springframework.security" level="INFO"/>
+        <Logger name="org.hibernate.SQL" level="WARN"/>
+        <Logger name="org.hibernate.orm.jdbc.bind" level="WARN"/>
+
+        <!-- Recursion guard: when the Kafka client itself logs (broker
+             outage, metadata refresh, …) we must NOT route those messages
+             back through the KAFKA appender — that would feedback-loop the
+             outage into our own log path. additivity=false stops events
+             at this logger and routes them only to CONSOLE. -->
+        <Logger name="org.apache.kafka" level="WARN" additivity="false">
+            <AppenderRef ref="CONSOLE"/>
+        </Logger>
+
+        <Root level="INFO">
+            <AppenderRef ref="CONSOLE"/>
+            <AppenderRef ref="KAFKA"/>
+        </Root>
+    </Loggers>
+
+</Configuration>
