@@ -540,9 +540,11 @@ button:hover .news-external-icon   { transform: translate(2px, -2px); }
   .fp-topbar-actions { gap: 6px !important; flex-wrap: wrap; justify-content: flex-end; }
 }
 @media (max-width: 640px) {
-  /* Shrink the brand image so it doesn't fight the hamburger + action
-     cluster for horizontal space on a phone-width topbar. */
-  .fp-topbar-brand img { height: 32px !important; }
+  /* Shrink the brand wordmark on phone-width topbars so it doesn't fight
+     the hamburger + action cluster for horizontal space. Targets the
+     `<span>` text inside BrandLogo via its parent link class. */
+  .fp-topbar-brand span > span { font-size: 13px !important; }
+  .fp-topbar-brand svg { width: 32px !important; height: 32px !important; }
 }
 
 /* Sub-tablet — drop the wide "Original" currency-toggle label down to a

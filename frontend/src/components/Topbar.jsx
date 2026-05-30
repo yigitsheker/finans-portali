@@ -6,6 +6,7 @@ import NotificationBell from "./NotificationBell";
 import { useCurrencyDisplay } from "../contexts/CurrencyDisplayContext";
 import { useI18n } from "../contexts/I18nContext";
 import { isAdmin } from "../utils/roleUtils";
+import BrandLogo from "./common/BrandLogo";
 
 /**
  * Inline navigation items shown in the top bar.
@@ -194,11 +195,8 @@ export default function Topbar({
 
       <aside className={`fp-topbar-drawer ${mobileOpen ? "is-open" : ""}`} aria-hidden={!mobileOpen}>
         <div style={s.drawerHeader}>
-          <Link to="/" style={s.brand} onClick={() => setMobileOpen(false)}>
-            {/* Brand image — single asset, icon + wordmark baked in.
-                Replaces the old SVG-square + "Piyasa / FINANS PORTALI"
-                text pair. Served from public/ so Vite emits the raw URL. */}
-            <img src="/logo.png" alt="Finans Portalı" style={s.brandImg} />
+          <Link to="/" style={s.brand} onClick={() => setMobileOpen(false)} aria-label="Finans Portalı">
+            <BrandLogo size={44} />
           </Link>
         </div>
         <nav style={s.drawerNav} aria-label={t("topbar.mainMenu")}>
@@ -230,11 +228,11 @@ export default function Topbar({
     <div style={s.row} className="fp-topbar">
       {mobileDrawer}
 
-      {/* Brand — single image that combines the chart-bars mark and the
-          "FINANS PORTALI" wordmark. Replaces the old SVG-square + text
-          spans. Served from public/ so Vite emits a stable /logo.png URL. */}
-      <Link to="/" style={s.brand} className="fp-topbar-brand">
-        <img src="/logo.png" alt="Finans Portalı" style={s.brandImg} />
+      {/* Brand — inline-SVG mark + dual-colour "FİNANS PORTALI" wordmark.
+          Theme-adaptive (the PNG version turned into a black box on the
+          light theme — colours now read off --text-primary + --accent-solid). */}
+      <Link to="/" style={s.brand} className="fp-topbar-brand" aria-label="Finans Portalı">
+        <BrandLogo size={38} />
       </Link>
 
       {/* Inline nav links. Private items show only when authenticated;
@@ -354,15 +352,6 @@ const s = {
     textDecoration: "none",
     color: "inherit",
     flexShrink: 0,
-  },
-  brandImg: {
-    // Icon + wordmark in one asset. Height pins the visual scale; width
-    // auto-stretches to the image's intrinsic aspect ratio. display:block
-    // kills the inline baseline gap and keeps the link tight against the
-    // hamburger button on mobile.
-    height: 40,
-    width: "auto",
-    display: "block",
   },
   nav: {
     display: "flex",
