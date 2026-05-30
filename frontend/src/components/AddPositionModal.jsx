@@ -1,19 +1,33 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import Modal from "./Modal";
 import { upsertPosition } from "../api/portfolioApi";
 
 export default function AddPositionModal({ open, onClose, onCreated, keycloak, initialSymbol = "", initialPrice = "" }) {
     // Seed the form from the optional props so callers (e.g. Analysis page's
-    // chart modal) can pre-fill the symbol/price the user just clicked on.
-    // Plain initial-state seeding — the modal is unmounted between opens
-    // when `open` flips, so each new `initialSymbol` value lands fresh.
+    // chart modal, Bonds/Funds/FX rows) can pre-fill the symbol/price the
+    // user just clicked on.
     const [symbol, setSymbol] = useState(initialSymbol || "");
     const [quantity, setQuantity] = useState("1");
     const [avgPrice, setAvgPrice] = useState(initialPrice ? String(initialPrice) : "0");
     const [note, setNote] = useState("");
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState(null);
+
+    // AddPositionModal stays mounted across opens (parent toggles `open`,
+    // the inner <Modal> returns null when closed but THIS component stays
+    // mounted), so useState's initial value only fires once — when buyTarget
+    // changes from null → {symbol: "TR2YR", ...} the state still shows the
+    // previous (empty) symbol. Re-seed on every open→true transition so the
+    // form picks up the latest initialSymbol/initialPrice.
+    useEffect(() => {
+        if (!open) return;
+        setSymbol(initialSymbol || "");
+        setAvgPrice(initialPrice ? String(initialPrice) : "0");
+        setQuantity("1");
+        setNote("");
+        setErr(null);
+    }, [open, initialSymbol, initialPrice]);
 
     const canSave = useMemo(() => {
         const q = Number(quantity);
