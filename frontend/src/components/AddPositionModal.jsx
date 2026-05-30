@@ -3,14 +3,21 @@ import PropTypes from "prop-types";
 import Modal from "./Modal";
 import { upsertPosition } from "../api/portfolioApi";
 
-export default function AddPositionModal({ open, onClose, onCreated, keycloak, initialSymbol = "", initialPrice = "" }) {
+export default function AddPositionModal({
+    open,
+    onClose,
+    onCreated,
+    keycloak,
+    initialSymbol = "",
+    initialPrice = "",
+    contractMultiplier = 1,
+}) {
     // Seed the form from the optional props so callers (e.g. Analysis page's
-    // chart modal, Bonds/Funds/FX rows) can pre-fill the symbol/price the
-    // user just clicked on.
+    // chart modal, Bonds/Funds/FX/VIOP rows) can pre-fill the symbol/price
+    // the user just clicked on.
     const [symbol, setSymbol] = useState(initialSymbol || "");
     const [quantity, setQuantity] = useState("1");
     const [avgPrice, setAvgPrice] = useState(initialPrice ? String(initialPrice) : "0");
-    const [note, setNote] = useState("");
     const [saving, setSaving] = useState(false);
     const [err, setErr] = useState(null);
 
@@ -25,9 +32,23 @@ export default function AddPositionModal({ open, onClose, onCreated, keycloak, i
         setSymbol(initialSymbol || "");
         setAvgPrice(initialPrice ? String(initialPrice) : "0");
         setQuantity("1");
-        setNote("");
         setErr(null);
     }, [open, initialSymbol, initialPrice]);
+
+    // VIOP contract-multiplier preview. When contractMultiplier > 1 the
+    // saved quantity is silently multiplied by it on submit so the portfolio
+    // valuation (= qty × current price) matches the contract's real TL
+    // exposure (1 lot of USDTRY ≠ 1 USD, it's 1000 USD). The preview row
+    // surfaces what the user is actually buying.
+    const multiplier = Number(contractMultiplier) || 1;
+    const totalUnits = (() => {
+        const q = Number(quantity);
+        return Number.isFinite(q) ? q * multiplier : 0;
+    })();
+    const totalCost = (() => {
+        const p = Number(avgPrice);
+        return Number.isFinite(p) && Number.isFinite(totalUnits) ? totalUnits * p : 0;
+    })();
 
     const canSave = useMemo(() => {
         const q = Number(quantity);
@@ -39,9 +60,13 @@ export default function AddPositionModal({ open, onClose, onCreated, keycloak, i
         setErr(null);
         if (!canSave) return;
 
+        // For VIOP-style contracts (multiplier > 1) we save quantity × multiplier
+        // so the portfolio's `qty * currentPrice` valuation lines up with the
+        // contract's real exposure. avgCost stays per-unit (the price the user
+        // sees on the trading screen).
         const payload = {
             symbol: symbol.trim().toUpperCase(),
-            quantity: Number(quantity),
+            quantity: Number(quantity) * multiplier,
             avgCost: Number(avgPrice),
         };
 
@@ -54,7 +79,6 @@ export default function AddPositionModal({ open, onClose, onCreated, keycloak, i
             setSymbol("");
             setQuantity("1");
             setAvgPrice("0");
-            setNote("");
         } catch (e) {
             setErr(e?.response?.data?.message ?? e?.message ?? "POST error");
         } finally {
@@ -97,12 +121,29 @@ export default function AddPositionModal({ open, onClose, onCreated, keycloak, i
                         onChange={(e) => setAvgPrice(e.target.value)}
                     />
                 </label>
-
-                <label style={{ ...s.label, gridColumn: "1 / -1" }}>
-                    Not (opsiyonel)
-                    <input style={s.input} value={note} onChange={(e) => setNote(e.target.value)} />
-                </label>
             </div>
+
+            {multiplier > 1 && (
+                <div style={s.viopInfo}>
+                    <div style={s.viopRow}>
+                        <span style={s.viopLabel}>Sözleşme Çarpanı</span>
+                        <strong style={s.viopValue}>{multiplier.toLocaleString("tr-TR")}</strong>
+                    </div>
+                    <div style={s.viopRow}>
+                        <span style={s.viopLabel}>Toplam Pozisyon Büyüklüğü</span>
+                        <strong style={s.viopValue}>{totalUnits.toLocaleString("tr-TR")} birim</strong>
+                    </div>
+                    <div style={s.viopRow}>
+                        <span style={s.viopLabel}>Tahmini Toplam Maliyet</span>
+                        <strong style={s.viopValue}>
+                            {totalCost.toLocaleString("tr-TR", {
+                                minimumFractionDigits: 2,
+                                maximumFractionDigits: 2,
+                            })}
+                        </strong>
+                    </div>
+                </div>
+            )}
 
             {err && <div style={s.err}>Hata: {err}</div>}
 
@@ -125,6 +166,7 @@ AddPositionModal.propTypes = {
     keycloak: PropTypes.object,
     initialSymbol: PropTypes.string,
     initialPrice: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    contractMultiplier: PropTypes.number,
 };
 
 const s = {
@@ -177,4 +219,22 @@ const s = {
         border: "1px solid rgba(239,68,68,0.35)",
         background: "rgba(239,68,68,0.10)",
     },
+    viopInfo: {
+        marginTop: 14,
+        padding: "10px 12px",
+        borderRadius: 12,
+        background: "rgba(99,102,241,0.08)",
+        border: "1px solid rgba(99,102,241,0.25)",
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+    },
+    viopRow: {
+        display: "flex",
+        justifyContent: "space-between",
+        alignItems: "center",
+        fontSize: 12,
+    },
+    viopLabel: { color: "var(--text-muted)" },
+    viopValue: { color: "var(--text-primary)", fontVariantNumeric: "tabular-nums" },
 };

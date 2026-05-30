@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import { getViopContracts } from "../api/viopApi";
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
 import Pagination from "../components/common/Pagination";
 import TermInfo from "../components/common/TermInfo";
+import AddPositionModal from "../components/AddPositionModal";
 import { useI18n } from "../contexts/I18nContext";
 
 // Empty selection => "all categories". Same convention used by the
@@ -17,6 +18,26 @@ const CATEGORY_OPTIONS = [
     { key: "METAL_USD",  label: "Kıymetli Maden / USD" },
     { key: "METAL",      label: "Metal" },
 ];
+
+// BIST VIOP contract multipliers per category. Each LOT of a contract
+// represents this many units of the underlying — saved into positions
+// so the portfolio's qty × price valuation matches real TL exposure.
+//   STOCK     — Pay sözleşmesi = 100 adet hisse
+//   INDEX     — BIST 30 Endeks  = 10 TL × endeks puanı
+//   FX_TRY    — USDTRY/EURTRY   = 1.000 baz para
+//   FX_USD    — Cross-FX (EURUSD vb.) = 1.000 baz para
+//   METAL_TRY — Gram altın/gümüş = 1 gram
+//   METAL_USD — Ons altın        = 10 ons
+//   METAL     — Sanayi metalleri = 1 (BIST'te yaygın değil; varsayılan)
+const VIOP_MULTIPLIERS = {
+    STOCK: 100,
+    INDEX: 10,
+    FX_TRY: 1000,
+    FX_USD: 1000,
+    METAL_TRY: 1,
+    METAL_USD: 10,
+    METAL: 1,
+};
 
 // Short month names localised via Intl so EN gets "Jan/Feb/..." without
 // a hand-maintained translation table. Read once per render via the helper
@@ -50,7 +71,7 @@ const pctFmt = (value) => {
     return `${sign}${n.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}%`;
 };
 
-export default function Viop() {
+export default function Viop({ keycloak, onAdded }) {
     const { t } = useI18n();
     const [contracts, setContracts] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -61,6 +82,29 @@ export default function Viop() {
     const [sortDir, setSortDir] = useState("desc");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
+    // Buy modal target — null when closed. Carries symbol + price + multiplier
+    // forwarded to AddPositionModal so VIOP positions land on the books with
+    // the correct exposure (lots × contract size).
+    const [buyTarget, setBuyTarget] = useState(null);
+
+    // Auth-aware buy opener. Anonymous users get prompted to log in (same
+    // pattern as FinexStyleMarket.openBuyModalIfAuthed) — without this the
+    // backend POST would 401 silently after the modal closes.
+    const openBuy = useCallback((contract) => {
+        const authed = keycloak?.authenticated === true;
+        if (!authed) {
+            const goLogin = window.confirm(t("market.authPrompt"));
+            if (goLogin && keycloak?.login) {
+                keycloak.login({ redirectUri: window.location.href });
+            }
+            return;
+        }
+        setBuyTarget({
+            symbol: contract.symbol,
+            price: contract.lastPrice,
+            multiplier: VIOP_MULTIPLIERS[contract.category] || 1,
+        });
+    }, [keycloak, t]);
 
     // Fetch the entire universe once; multi-select category filter is
     // applied client-side so we can flip filters instantly without re-hitting
@@ -212,6 +256,7 @@ export default function Viop() {
                                     <ThSort label={t("viop.colChange")}      onClick={() => handleSort("changePct")}  active={sortKey === "changePct"}  dir={sortDir} />
                                     <ThSort label={<>{t("viop.colVolumeTl")} <TermInfo termKey="volume" placement="bottom" /></>}    onClick={() => handleSort("volumeTl")}   active={sortKey === "volumeTl"}   dir={sortDir} />
                                     <ThSort label={t("viop.colVolumeQty")}   onClick={() => handleSort("volumeLots")} active={sortKey === "volumeLots"} dir={sortDir} />
+                                    <th style={{ ...s.th, textAlign: "right", cursor: "default" }}>İşlemler</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -231,6 +276,16 @@ export default function Viop() {
                                             </td>
                                             <td style={s.tdNum}>{numFmt(c.volumeTl, 0)}</td>
                                             <td style={s.tdNum}>{numFmt(c.volumeLots, 0)}</td>
+                                            <td style={{ ...s.tdNum, padding: "8px 14px" }}>
+                                                <button
+                                                    type="button"
+                                                    style={s.buyBtn}
+                                                    onClick={() => openBuy(c)}
+                                                    title={`Lot çarpanı: ${VIOP_MULTIPLIERS[c.category] || 1}`}
+                                                >
+                                                    Al
+                                                </button>
+                                            </td>
                                         </tr>
                                     );
                                 })}
@@ -250,9 +305,27 @@ export default function Viop() {
             <p style={s.footer}>
                 {t("viop.footerNote")}
             </p>
+
+            <AddPositionModal
+                open={!!buyTarget}
+                onClose={() => setBuyTarget(null)}
+                onCreated={() => {
+                    setBuyTarget(null);
+                    if (typeof onAdded === "function") onAdded();
+                }}
+                keycloak={keycloak}
+                initialSymbol={buyTarget?.symbol ?? ""}
+                initialPrice={buyTarget?.price ?? ""}
+                contractMultiplier={buyTarget?.multiplier ?? 1}
+            />
         </div>
     );
 }
+
+Viop.propTypes = {
+    keycloak: PropTypes.object,
+    onAdded: PropTypes.func,
+};
 
 function ThSort({ label, onClick, active, dir, align = "right" }) {
     const arrow = !active ? "" : (dir === "asc" ? " ▲" : " ▼");
@@ -345,6 +418,17 @@ const s = {
         whiteSpace: "nowrap",
     },
     footer: { fontSize: 12, color: "var(--text-muted)", marginTop: 16, lineHeight: 1.5 },
+    buyBtn: {
+        padding: "6px 14px",
+        borderRadius: 6,
+        border: "none",
+        background: "#10b981",
+        color: "#000",
+        fontSize: 12,
+        fontWeight: 700,
+        cursor: "pointer",
+        boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)",
+    },
 };
 
 s.tdSymbol = { ...s.tdSymbol, fontVariantNumeric: "tabular-nums" };

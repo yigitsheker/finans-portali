@@ -262,7 +262,15 @@ export default function App({ keycloak }) {
                         }
                     />
                     <Route path="/inflation" element={<Inflation />} />
-                    <Route path="/viop" element={<Viop />} />
+                    <Route
+                        path="/viop"
+                        element={
+                            <Viop
+                                keycloak={keycloak}
+                                onAdded={() => setPortfolioKey((k) => k + 1)}
+                            />
+                        }
+                    />
                     <Route
                         path="/commodities"
                         element={
