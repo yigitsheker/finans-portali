@@ -19,11 +19,24 @@ export default function ScrollToTop() {
     // position element) and dependable.
 
     const handleClick = () => {
-        // Target every plausible scroll root — different layouts move
-        // the scroll between window / html / body, so write to all.
+        // Try the well-known scroll roots first.
         try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* older browsers */ }
         if (document.documentElement) document.documentElement.scrollTop = 0;
         if (document.body) document.body.scrollTop = 0;
+
+        // If none of those moved the page, the real scroll lives on an
+        // inner container (Layout's main, #root, .fp-shell, …). Walk
+        // every element on the page and zero anything that's actually
+        // scrolled. Cheap O(N) sweep — a few hundred nodes at most —
+        // and runs once per click so it doesn't matter perf-wise.
+        const all = document.querySelectorAll("*");
+        for (let i = 0; i < all.length; i++) {
+            const el = all[i];
+            if (el.scrollTop > 0) {
+                try { el.scrollTo({ top: 0, behavior: "smooth" }); }
+                catch { el.scrollTop = 0; }
+            }
+        }
     };
 
     // Inline styles override anything cascading from index.css so the
