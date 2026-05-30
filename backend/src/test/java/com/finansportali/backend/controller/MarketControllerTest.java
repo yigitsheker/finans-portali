@@ -141,4 +141,31 @@ class MarketControllerTest {
                 .andExpect(jsonPath("$.symbol").value("THYAO"))
                 .andExpect(jsonPath("$.price").value(294.50));
     }
+
+    @Test
+    void history_fx_forwards_code_and_period_to_service() throws Exception {
+        // The /history/fx endpoint goes around the market_instruments lookup
+        // and hits Yahoo directly with <CODE>TRY=X. Used by the FX detail
+        // modal — exchange_rates rows don't exist in market_instruments.
+        when(service.historyForFx(eq("USD"), eq("1Y"))).thenReturn(List.of(
+                new MarketHistoryPoint(java.time.LocalDate.parse("2026-04-30"), new BigDecimal("45.10"), "30 Nis", 1759190400L),
+                new MarketHistoryPoint(java.time.LocalDate.parse("2026-05-30"), new BigDecimal("45.67"), "30 May", 1761782400L)));
+
+        mvc.perform(get("/api/v1/market/history/fx").param("code", "USD").param("period", "1Y"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(2))
+                .andExpect(jsonPath("$[1].close").value(45.67));
+
+        verify(service).historyForFx(eq("USD"), eq("1Y"));
+    }
+
+    @Test
+    void history_fx_uses_default_period_when_omitted() throws Exception {
+        when(service.historyForFx(eq("EUR"), eq("30D"))).thenReturn(List.of());
+
+        mvc.perform(get("/api/v1/market/history/fx").param("code", "EUR"))
+                .andExpect(status().isOk());
+
+        verify(service).historyForFx(eq("EUR"), eq("30D"));
+    }
 }

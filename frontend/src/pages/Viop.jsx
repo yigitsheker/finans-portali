@@ -4,7 +4,7 @@ import { getViopContracts } from "../api/viopApi";
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
 import Pagination from "../components/common/Pagination";
 import TermInfo from "../components/common/TermInfo";
-import AddPositionModal from "../components/AddPositionModal";
+import BuyModalMount from "../components/BuyModalMount";
 import { useI18n } from "../contexts/I18nContext";
 import { useBuyTarget } from "../hooks/useBuyTarget";
 
@@ -293,18 +293,7 @@ export default function Viop({ keycloak, onAdded }) {
                 {t("viop.footerNote")}
             </p>
 
-            <AddPositionModal
-                open={!!buyTarget}
-                onClose={clearBuy}
-                onCreated={() => {
-                    clearBuy();
-                    if (typeof onAdded === "function") onAdded();
-                }}
-                keycloak={keycloak}
-                initialSymbol={buyTarget?.symbol ?? ""}
-                initialPrice={buyTarget?.price ?? ""}
-                contractMultiplier={buyTarget?.multiplier ?? 1}
-            />
+            <BuyModalMount target={buyTarget} clear={clearBuy} keycloak={keycloak} onAdded={onAdded} />
         </div>
     );
 }

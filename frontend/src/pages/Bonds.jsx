@@ -6,7 +6,7 @@ import {
     refreshBondData,
 } from "../api/bondApi";
 import BondDetailModal from "../components/BondDetailModal";
-import AddPositionModal from "../components/AddPositionModal";
+import BuyModalMount from "../components/BuyModalMount";
 import DepositRatesCard from "../components/DepositRatesCard";
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
 import TermInfo from "../components/common/TermInfo";
@@ -403,17 +403,7 @@ export default function Bonds({ keycloak, onAdded }) {
 
             {/* Buy modal — seeded with the bond symbol and (when known) its
                 latest price so the user only needs to confirm the quantity. */}
-            <AddPositionModal
-                open={!!buyTarget}
-                onClose={clearBuy}
-                onCreated={() => {
-                    clearBuy();
-                    if (onAdded) onAdded();
-                }}
-                keycloak={keycloak}
-                initialSymbol={buyTarget?.symbol ?? ""}
-                initialPrice={buyTarget?.price ?? ""}
-            />
+            <BuyModalMount target={buyTarget} clear={clearBuy} keycloak={keycloak} onAdded={onAdded} />
         </div>
     );
 }

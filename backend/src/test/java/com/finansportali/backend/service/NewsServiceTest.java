@@ -490,4 +490,39 @@ class NewsServiceTest {
         service.runTranslationPrewarm();
         verify(repo, times(2)).findTop50ByTitleTranslatedIsNullAndSourceLangOrderByPublishedAtDesc(anyString());
     }
+
+    @Test
+    void cleanupOrphanArticles_delegates_to_repo() {
+        // Removes news articles whose (sourceName, category) pair no
+        // longer matches any feed — used by the admin "Yetim Haberleri
+        // Temizle" button plus startup + daily schedulers.
+        when(repo.deleteOrphanedArticles()).thenReturn(42);
+        int removed = service.cleanupOrphanArticles();
+        org.assertj.core.api.Assertions.assertThat(removed).isEqualTo(42);
+        verify(repo).deleteOrphanedArticles();
+    }
+
+    @Test
+    void cleanupOrphanArticles_returns_zero_when_no_orphans() {
+        when(repo.deleteOrphanedArticles()).thenReturn(0);
+        org.assertj.core.api.Assertions.assertThat(service.cleanupOrphanArticles()).isZero();
+    }
+
+    @Test
+    void scheduledOrphanCleanup_swallows_exceptions() {
+        // The @Lazy self proxy isn't injected in this unit-test setup
+        // (no Spring context), so the call to self.cleanupOrphanArticles()
+        // NPEs. The method's try/catch should keep it from bubbling —
+        // the @Scheduled wrapper must never throw or the scheduler
+        // thread dies.
+        service.scheduledOrphanCleanup();
+    }
+
+    @Test
+    void onStartupCleanupOrphans_swallows_exceptions() {
+        // Same belt-and-braces as scheduledOrphanCleanup. The
+        // ApplicationReadyEvent listener must never throw or the
+        // backend boot fails.
+        service.onStartupCleanupOrphans();
+    }
 }

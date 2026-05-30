@@ -5,7 +5,7 @@ import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
 import Pagination from "../components/common/Pagination";
 import TermInfo from "../components/common/TermInfo";
 import AssetDetailModal from "../components/AssetDetailModal";
-import AddPositionModal from "../components/AddPositionModal";
+import BuyModalMount from "../components/BuyModalMount";
 import { clickable } from "../utils/clickable";
 import { useI18n } from "../contexts/I18nContext";
 import { useBuyTarget } from "../hooks/useBuyTarget";
@@ -428,17 +428,7 @@ export default function Funds({ keycloak, onAdded }) {
             />
 
             {/* Buy modal — seeded with fund code and unit price. */}
-            <AddPositionModal
-                open={!!buyTarget}
-                onClose={clearBuy}
-                onCreated={() => {
-                    clearBuy();
-                    if (onAdded) onAdded();
-                }}
-                keycloak={keycloak}
-                initialSymbol={buyTarget?.symbol ?? ""}
-                initialPrice={buyTarget?.price ?? ""}
-            />
+            <BuyModalMount target={buyTarget} clear={clearBuy} keycloak={keycloak} onAdded={onAdded} />
         </div>
     );
 }

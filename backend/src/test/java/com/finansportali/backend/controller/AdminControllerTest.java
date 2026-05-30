@@ -158,6 +158,19 @@ class AdminControllerTest {
     }
 
     @Test
+    void cleanup_orphans_returns_removed_count() throws Exception {
+        // Manual trigger of the orphan sweep — delegates to NewsService
+        // which holds the @Lazy self proxy that makes @Transactional fire.
+        when(newsService.cleanupOrphanArticles()).thenReturn(232);
+
+        mvc.perform(post("/api/v1/admin/feeds/cleanup-orphans").with(csrf()))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.removed").value(232));
+
+        verify(newsService).cleanupOrphanArticles();
+    }
+
+    @Test
     void me_returns_current_admin_identity() throws Exception {
         when(userService.getCurrentUserId()).thenReturn("u1");
         when(userService.getCurrentUsername()).thenReturn("admin");

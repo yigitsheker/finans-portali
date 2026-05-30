@@ -5,7 +5,7 @@ import CurrencyConverter from '../components/CurrencyConverter';
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
 import TermInfo from "../components/common/TermInfo";
 import AssetDetailModal from "../components/AssetDetailModal";
-import AddPositionModal from "../components/AddPositionModal";
+import BuyModalMount from "../components/BuyModalMount";
 import { clickable } from "../utils/clickable";
 import { useI18n } from "../contexts/I18nContext";
 import { useBuyTarget } from "../hooks/useBuyTarget";
@@ -236,17 +236,7 @@ const MarketData = ({ keycloak, onAdded }) => {
 
             {/* Buy modal — seeded with the FX code and TCMB selling rate so
                 the user only has to confirm the quantity. */}
-            <AddPositionModal
-                open={!!buyTarget}
-                onClose={clearBuy}
-                onCreated={() => {
-                    clearBuy();
-                    if (onAdded) onAdded();
-                }}
-                keycloak={keycloak}
-                initialSymbol={buyTarget?.symbol ?? ""}
-                initialPrice={buyTarget?.price ?? ""}
-            />
+            <BuyModalMount target={buyTarget} clear={clearBuy} keycloak={keycloak} onAdded={onAdded} />
         </div>
     );
 };
