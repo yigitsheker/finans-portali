@@ -224,7 +224,12 @@ export default function Funds({ keycloak }) {
                     </div>
                 )}
 
-                {/* Table Header */}
+                {/* Table Header + Body wrapped for horizontal scroll on mobile.
+                    The 10-column grid (2.2fr 1fr ×8 + 90px) collapses each
+                    return column below ~30px at <400px viewport, mangling the
+                    fund-name column into a vertical strip. fp-card-table gives
+                    the inner grid a min-width and lets the user scroll. */}
+                <div className="fp-card-table">
                 <div style={s.tableHeader}>
                     <div style={{ ...s.colFund, cursor: "pointer" }} onClick={() => toggleSort("fundName")}>
                         {t("funds.colInfo")} {sortKey === "fundName" ? (sortDir === "asc" ? "▲" : "▼") : ""}
@@ -345,6 +350,7 @@ export default function Funds({ keycloak }) {
                         ))
                     )}
                 </div>
+                </div> {/* /fp-card-table */}
 
                 {totalFiltered > 0 && (
                     <Pagination

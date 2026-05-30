@@ -623,7 +623,7 @@ export default function FinexStyleMarket({
 
             {/* Main Layout: Full Width List */}
             <div style={s.mainLayout}>
-                <div style={s.tableContainer}>
+                <div style={s.tableContainer} className="fp-card-table">
                     {/* Table Header */}
                     <div style={s.tableHeader}>
                         <div

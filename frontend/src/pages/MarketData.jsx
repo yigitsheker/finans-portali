@@ -111,7 +111,7 @@ const MarketData = () => {
             <CurrencyConverter rates={exchangeRates} />
 
             {/* Exchange Rates Table */}
-            <div style={s.tableContainer}>
+            <div style={s.tableContainer} className="fp-card-table">
                 {/* Table Header */}
                 <div style={{ ...s.tableHeader, ...s.tableHeaderExchange }}>
                     <div style={{ ...s.colCurrency, cursor: "pointer" }} onClick={() => toggleSort("currencyName")}>

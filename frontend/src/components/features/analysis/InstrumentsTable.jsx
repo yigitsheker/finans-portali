@@ -219,7 +219,7 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
             ) : filtered.length === 0 ? (
                 <div style={s.state}>{t("analysis.tblEmpty")}</div>
             ) : (
-                <div style={s.tableWrap}>
+                <div style={s.tableWrap} className="fp-table-scroll">
                     <table style={s.table}>
                         <thead>
                             <tr>

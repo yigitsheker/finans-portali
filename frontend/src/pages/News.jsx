@@ -163,7 +163,7 @@ const News = ({ keycloak }) => {
 
 
             {/* Main grid: news + sidebar */}
-            <section style={s.mainGrid} className="home-main-grid">
+            <section style={s.mainGrid} className="home-main-grid fp-news-page">
                 {/* Left: news feed */}
                 <div style={s.newsCol}>
                     <div style={s.sectionHeader}>

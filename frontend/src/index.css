@@ -622,6 +622,43 @@ button:hover .news-external-icon   { transform: translate(2px, -2px); }
   min-width: 640px;
 }
 
+/* CSS-grid "tables" (market pages: Stocks / Crypto / Commodities / Funds /
+   Döviz / etc.) are <div>s with display:grid instead of real <table>s, so
+   the rules above don't reach them. At mobile widths the grid columns get
+   squished smaller than their content and the rightmost column (the action
+   button) gets clipped by the viewport. Wrapping such a container with
+   `.fp-card-table` gives it horizontal scroll and forces the inner grid
+   header/rows to a minimum width so columns stay legible. */
+.fp-card-table {
+  overflow-x: auto !important;     /* beat inline overflow:hidden used for border-radius clipping */
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+@media (max-width: 900px) {
+  .fp-card-table > * {
+    min-width: 720px;
+  }
+}
+
+/* News page — 1fr + 320px sidebar grid. On tablet/mobile the news column
+   gets crushed into a single-word-wide ribbon. Collapse to one column so
+   the news cards have room and the category sidebar drops below. */
+@media (max-width: 900px) {
+  .fp-news-page {
+    grid-template-columns: 1fr !important;
+  }
+}
+
+/* Ticker bar — the global hamburger sits at position:fixed top:8 left:12
+   under the same media query (<= 1100px), and at that width the ticker
+   source-label ("BIST 100" / "Portföyüm" / …) plus the first scrolling
+   item land under the button. Pad the ticker left edge to clear it. */
+@media (max-width: 1100px) {
+  .ticker-bar {
+    padding-left: 56px;
+  }
+}
+
 /* Stock index-card grid — at narrow widths drop from 3 columns to 2, then 1.
    Inline style sets `repeat(3, 1fr)`; overrides need !important. */
 @media (max-width: 640px) {
