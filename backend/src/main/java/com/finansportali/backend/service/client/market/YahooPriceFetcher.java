@@ -289,7 +289,7 @@ public class YahooPriceFetcher {
                     if (changePct > 40) {
                         log.warn("[Yahoo] Suspicious spike in '{}' at {}: prev={} curr={} change={}%",
                                 symbol, out.get(i).day(), prev, curr,
-                                String.format("%.1f", changePct));
+                                String.format(Locale.US, "%.1f", changePct));
                     }
                 }
             }

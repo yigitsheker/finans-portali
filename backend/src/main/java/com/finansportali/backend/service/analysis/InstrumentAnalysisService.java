@@ -438,9 +438,9 @@ public class InstrumentAnalysisService {
         BigDecimal w = s.getChangeWeekly();
         if (w == null) return "Haftalık değişim verisi henüz mevcut değil.";
         double wv = w.doubleValue();
-        if (wv > 3) return String.format("Son hafta %+.2f%% — kısa vadeli momentum pozitif.", wv);
-        if (wv < -3) return String.format("Son hafta %+.2f%% — kısa vadeli baskı sürüyor.", wv);
-        return String.format("Son hafta %+.2f%% — kısa vadede yatay seyir.", wv);
+        if (wv > 3) return String.format(Locale.US, "Son hafta %+.2f%% — kısa vadeli momentum pozitif.", wv);
+        if (wv < -3) return String.format(Locale.US, "Son hafta %+.2f%% — kısa vadeli baskı sürüyor.", wv);
+        return String.format(Locale.US, "Son hafta %+.2f%% — kısa vadede yatay seyir.", wv);
     }
 
     private String buildLongNote(AnalysisInstrumentDto s) {
@@ -448,9 +448,9 @@ public class InstrumentAnalysisService {
         BigDecimal y = s.getChangeYearly();
         if (y == null) return "Yıllık değişim verisi henüz mevcut değil.";
         double yv = y.doubleValue();
-        if (yv > 30) return String.format("Yıllık %+.2f%% — uzun vadeli trend güçlü pozitif.", yv);
-        if (yv < -30) return String.format("Yıllık %+.2f%% — uzun vadede ciddi düşüş.", yv);
-        return String.format("Yıllık %+.2f%% — uzun vadede ılımlı seyir.", yv);
+        if (yv > 30) return String.format(Locale.US, "Yıllık %+.2f%% — uzun vadeli trend güçlü pozitif.", yv);
+        if (yv < -30) return String.format(Locale.US, "Yıllık %+.2f%% — uzun vadede ciddi düşüş.", yv);
+        return String.format(Locale.US, "Yıllık %+.2f%% — uzun vadede ılımlı seyir.", yv);
     }
 
     private String buildRiskNote(AnalysisInstrumentDto s) {

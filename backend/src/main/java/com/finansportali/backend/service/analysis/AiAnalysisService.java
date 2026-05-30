@@ -181,11 +181,11 @@ public class AiAnalysisService {
                     if (d.getCurrency() != null) ctx.append(" ").append(d.getCurrency());
                     if (d.getChangeDaily() != null) {
                         ctx.append(" | daily ")
-                                .append(String.format("%+.2f%%", d.getChangeDaily().doubleValue()));
+                                .append(String.format(Locale.US, "%+.2f%%", d.getChangeDaily().doubleValue()));
                     }
                     if (d.getChangeYearly() != null) {
                         ctx.append(" | yearly ")
-                                .append(String.format("%+.2f%%", d.getChangeYearly().doubleValue()));
+                                .append(String.format(Locale.US, "%+.2f%%", d.getChangeYearly().doubleValue()));
                     }
                     ctx.append("\n");
                 }
@@ -217,11 +217,18 @@ public class AiAnalysisService {
         }
         boolean tr = "tr".equals(lang);
 
+        // Explicit locales — %,d uses the JVM default otherwise, which makes
+        // the same string render as "5,000 TL" on an en_US container and
+        // "5.000 TL" on a tr_TR one. CI vs. local discrepancy and, worse,
+        // user-facing inconsistency across environments. TR locale lives in
+        // tr_TR (5.000), EN/US locale lives in en_US (5,000).
         StringBuilder reply = new StringBuilder();
         reply.append(tr
-                ? String.format("Belirttiğin %,d TL'lik bütçe için aşağıdaki üç senaryoyu örnek olarak değerlendirebilirsin. Hangisini seçeceğin risk iştahına ve vade beklentine bağlıdır.%n%n",
+                ? String.format(Locale.forLanguageTag("tr-TR"),
+                        "Belirttiğin %,d TL'lik bütçe için aşağıdaki üç senaryoyu örnek olarak değerlendirebilirsin. Hangisini seçeceğin risk iştahına ve vade beklentine bağlıdır.%n%n",
                         amount)
-                : String.format("For your %,d TRY budget, consider the three scenarios below. The right one depends on your risk tolerance and time horizon.%n%n",
+                : String.format(Locale.US,
+                        "For your %,d TRY budget, consider the three scenarios below. The right one depends on your risk tolerance and time horizon.%n%n",
                         amount));
 
         Scenario safe = new Scenario(
@@ -335,7 +342,7 @@ public class AiAnalysisService {
 
     private void appendChange(StringBuilder b, String label, BigDecimal v) {
         if (v == null) return;
-        b.append("- ").append(label).append(": ").append(String.format("%+.2f%%", v.doubleValue())).append("\n");
+        b.append("- ").append(label).append(": ").append(String.format(Locale.US, "%+.2f%%", v.doubleValue())).append("\n");
     }
 
     private String localizeRisk(String r, boolean tr) {

@@ -166,7 +166,7 @@ public class MarketHistoryService {
                     double changePct = Math.abs((currPrice - prevPrice) / prevPrice) * 100;
                     if (changePct > 40) {
                         log.warn("Suspicious price spike detected for {}: {} -> {} ({}% change) at {}",
-                                symbol, prevPrice, currPrice, String.format("%.1f", changePct), candle.label());
+                                symbol, prevPrice, currPrice, String.format(Locale.US, "%.1f", changePct), candle.label());
                         outlierCount++;
                         // Still include the point but log it for investigation
                     }
