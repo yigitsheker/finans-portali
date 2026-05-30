@@ -1,5 +1,3 @@
-import { useEffect, useState } from "react";
-import PropTypes from "prop-types";
 import { useI18n } from "../../contexts/I18nContext";
 
 /**
@@ -10,57 +8,47 @@ import { useI18n } from "../../contexts/I18nContext";
  * The fade-in is handled with CSS opacity + transition on `.fp-scrolltop`
  * (defined in index.css) so the button doesn't pop in and out abruptly.
  */
-export default function ScrollToTop({ threshold = 80 }) {
-    const [visible, setVisible] = useState(false);
+export default function ScrollToTop() {
     const { t } = useI18n();
-
-    useEffect(() => {
-        // Read every scroll source we know about. The CSS sets
-        // html/body { height: 100% } which on some browsers shifts the
-        // scroll from `window` to `documentElement`, leaving
-        // `window.scrollY` permanently at 0 and hiding the button forever.
-        // Reading all three covers every layout we've shipped.
-        const readScroll = () => Math.max(
-            window.scrollY || 0,
-            document.documentElement?.scrollTop || 0,
-            document.body?.scrollTop || 0,
-        );
-        // Detect whether the document is meaningfully scrollable at all —
-        // for short pages we just keep the button hidden, but as soon as
-        // the user has scrolled past the threshold OR the page is taller
-        // than the viewport, show the button. The second condition is a
-        // safety net for browsers/layouts where the scroll event never
-        // fires on the elements we listen to.
-        const recompute = () => {
-            const docHeight = Math.max(
-                document.documentElement?.scrollHeight || 0,
-                document.body?.scrollHeight || 0,
-            );
-            const isScrollable = docHeight > window.innerHeight + 50;
-            setVisible(isScrollable && readScroll() > threshold);
-        };
-        recompute();
-        window.addEventListener("scroll", recompute, { passive: true });
-        document.addEventListener("scroll", recompute, { passive: true, capture: true });
-        window.addEventListener("resize", recompute, { passive: true });
-        // Some content (data tables) populates asynchronously after mount,
-        // so re-evaluate on a short timer too.
-        const timer = setInterval(recompute, 1500);
-        return () => {
-            window.removeEventListener("scroll", recompute);
-            document.removeEventListener("scroll", recompute, { capture: true });
-            window.removeEventListener("resize", recompute);
-            clearInterval(timer);
-        };
-    }, [threshold]);
+    // Previous iterations hid this behind a scroll-threshold check that
+    // was failing on some layouts (the html/body height:100% rule moves
+    // the scroll context off window onto documentElement, and the
+    // listener never fired). After three attempts to make conditional
+    // visibility work the user explicitly asked for an unconditional
+    // button — so it's permanently visible now. Cheap (one fixed-
+    // position element) and dependable.
 
     const handleClick = () => {
-        // Same multi-target story — scroll every plausible root so we
-        // actually reach the top regardless of which element holds the
-        // overflow.
+        // Target every plausible scroll root — different layouts move
+        // the scroll between window / html / body, so write to all.
         try { window.scrollTo({ top: 0, behavior: "smooth" }); } catch { /* older browsers */ }
         if (document.documentElement) document.documentElement.scrollTop = 0;
         if (document.body) document.body.scrollTop = 0;
+    };
+
+    // Inline styles override anything cascading from index.css so the
+    // button can't be silently flipped invisible by a stray opacity:0
+    // rule somewhere upstream.
+    const style = {
+        position: "fixed",
+        bottom: 28,
+        right: 28,
+        width: 52,
+        height: 52,
+        borderRadius: "50%",
+        border: "2px solid rgba(255,255,255,0.20)",
+        background: "var(--accent-solid, #10b981)",
+        color: "#ffffff",
+        fontSize: 24,
+        fontWeight: 900,
+        cursor: "pointer",
+        boxShadow: "0 8px 24px rgba(0,0,0,0.45)",
+        zIndex: 9000,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        lineHeight: 1,
+        padding: 0,
     };
 
     return (
@@ -68,13 +56,10 @@ export default function ScrollToTop({ threshold = 80 }) {
             type="button"
             onClick={handleClick}
             aria-label={t("common.backToTop") || "Sayfa başına dön"}
-            className={`fp-scrolltop${visible ? " fp-scrolltop--visible" : ""}`}
+            className="fp-scrolltop fp-scrolltop--visible"
+            style={style}
         >
             ↑
         </button>
     );
 }
-
-ScrollToTop.propTypes = {
-    threshold: PropTypes.number,
-};
