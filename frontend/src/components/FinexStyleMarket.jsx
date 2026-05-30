@@ -1228,7 +1228,14 @@ const s = {
     },
     tableHeader: {
         display: "grid",
-        gridTemplateColumns: "2fr 1fr 1fr 1fr 1.5fr auto",
+        // Fixed-width tracks for every column except the symbol/name (which
+        // absorbs slack via 2fr) and the action button (auto, uniform per
+        // page since every row renders the same button). Without this each
+        // row's grid sized its fr columns independently against its own
+        // content's min-content width, so a long price like "$73.493,03"
+        // pushed the right-side columns left compared to a row showing
+        // "$82,25" — leaving the Al buttons visibly misaligned across rows.
+        gridTemplateColumns: "minmax(0, 2fr) 100px 100px 80px 110px auto",
         gap: 16,
         padding: "14px 20px",
         background: "var(--bg-panel)",
@@ -1267,7 +1274,14 @@ const s = {
     },
     tableRow: {
         display: "grid",
-        gridTemplateColumns: "2fr 1fr 1fr 1fr 1.5fr auto",
+        // Fixed-width tracks for every column except the symbol/name (which
+        // absorbs slack via 2fr) and the action button (auto, uniform per
+        // page since every row renders the same button). Without this each
+        // row's grid sized its fr columns independently against its own
+        // content's min-content width, so a long price like "$73.493,03"
+        // pushed the right-side columns left compared to a row showing
+        // "$82,25" — leaving the Al buttons visibly misaligned across rows.
+        gridTemplateColumns: "minmax(0, 2fr) 100px 100px 80px 110px auto",
         gap: 16,
         padding: "14px 20px",
         borderBottom: "1px solid var(--border-card)",

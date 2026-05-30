@@ -238,7 +238,13 @@ const s = {
         textTransform: "uppercase",
     },
     tableHeaderExchange: {
-        gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr auto",
+        // Fixed pixel tracks for every column except the currency one
+        // (minmax(0, 2fr) absorbs slack). Without this each row's fr
+        // columns sized to its own price min-content, so a long banknote
+        // value like "₺34,3389" got a wider cell than "₺7,1932" and the
+        // KAYNAK badge column drifted out of alignment across rows. See
+        // FinexStyleMarket for the same fix.
+        gridTemplateColumns: "minmax(0, 2fr) 90px 90px 90px 90px 70px",
     },
     tableBody: {
         display: "flex",
@@ -253,7 +259,13 @@ const s = {
         transition: "background 0.2s",
     },
     tableRowExchange: {
-        gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr auto",
+        // Fixed pixel tracks for every column except the currency one
+        // (minmax(0, 2fr) absorbs slack). Without this each row's fr
+        // columns sized to its own price min-content, so a long banknote
+        // value like "₺34,3389" got a wider cell than "₺7,1932" and the
+        // KAYNAK badge column drifted out of alignment across rows. See
+        // FinexStyleMarket for the same fix.
+        gridTemplateColumns: "minmax(0, 2fr) 90px 90px 90px 90px 70px",
     },
     emptyState: {
         display: "flex",

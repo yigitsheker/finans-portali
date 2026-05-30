@@ -469,7 +469,13 @@ const s = {
     },
     tableHeader: {
         display: "grid",
-        gridTemplateColumns: "2.2fr 1fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 90px",
+        // Fixed pixel tracks for every column except the fund-info one
+        // (which absorbs slack via minmax(0, 2.2fr)). Without this each
+        // row's grid sized its fr columns independently — funds with long
+        // unit prices like "₺1.234,5678" got wider price columns and
+        // shifted every right-side column out of alignment with rows
+        // showing "₺12,34". See FinexStyleMarket for the same fix.
+        gridTemplateColumns: "minmax(0, 2.2fr) 90px 70px 70px 70px 70px 70px 70px 70px 90px",
         gap: 16,
         padding: "14px 20px",
         background: "var(--bg-panel)",
@@ -485,7 +491,13 @@ const s = {
     },
     tableRow: {
         display: "grid",
-        gridTemplateColumns: "2.2fr 1fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 0.8fr 90px",
+        // Fixed pixel tracks for every column except the fund-info one
+        // (which absorbs slack via minmax(0, 2.2fr)). Without this each
+        // row's grid sized its fr columns independently — funds with long
+        // unit prices like "₺1.234,5678" got wider price columns and
+        // shifted every right-side column out of alignment with rows
+        // showing "₺12,34". See FinexStyleMarket for the same fix.
+        gridTemplateColumns: "minmax(0, 2.2fr) 90px 70px 70px 70px 70px 70px 70px 70px 90px",
         gap: 16,
         padding: "14px 20px",
         borderBottom: "1px solid var(--border-card)",
