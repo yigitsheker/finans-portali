@@ -800,29 +800,37 @@ button[role="switch"]:focus-visible { outline: 2px solid var(--accent-solid); ou
     position: fixed;
     bottom: 28px;
     right: 28px;
-    width: 46px;
-    height: 46px;
+    width: 52px;
+    height: 52px;
     border-radius: 50%;
-    border: none;
+    border: 2px solid rgba(255, 255, 255, 0.15);
     background: var(--accent-solid);
-    color: #fff;
-    font-size: 22px;
-    font-weight: 700;
+    color: #ffffff;
+    font-size: 24px;
+    font-weight: 900;
     cursor: pointer;
-    box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
-    z-index: 1000;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.40);
+    /* Below Modal (9999) so a modal opening hides it, but above the
+       sidebar (75) / ticker (70) / topbar (70) and everything else. */
+    z-index: 9000;
     opacity: 0;
+    visibility: hidden;
     pointer-events: none;
     transform: translateY(8px);
-    transition: opacity 0.18s ease, transform 0.18s ease, box-shadow 0.18s ease;
+    transition: opacity 0.18s ease, transform 0.18s ease;
+    /* Some browsers occasionally render the button below page content
+       when opacity is 0 — force a fresh layer so it stays on top. */
+    will-change: opacity, transform;
 }
 .fp-scrolltop--visible {
-    opacity: 1;
-    pointer-events: auto;
+    opacity: 1 !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
     transform: translateY(0);
 }
 .fp-scrolltop:hover {
-    box-shadow: 0 8px 22px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.50);
+    transform: translateY(-2px);
 }
 
 /* Analysis page — collapse the table + chatbot grid into a stacked layout
