@@ -244,6 +244,7 @@ export const dict = {
       bidEff: "Efektif Alış",
       askEff: "Efektif Satış",
       empty: "Henüz döviz kuru verisi bulunmuyor.",
+      actionsCol: "İşlemler",
       // CurrencyConverter component
       title: "Döviz Çevirici",
       subtitle: "TCMB güncel kurlarıyla anlık dönüşüm",
@@ -577,6 +578,19 @@ export const dict = {
       rssUrlScheme: "URL http:// veya https:// ile başlamalı",
       rssDeleteErr: "Silinemedi: {error}",
       rssAddErr: "Eklenemedi: {error}",
+    },
+    assetDetail: {
+      title: "Detay",
+      buyAction: "Al",
+      chartTitle: "Fiyat Grafiği",
+      chartUnavailable: "Grafik verisi mevcut değil",
+      disclaimer: "Bu içerik yatırım tavsiyesi değildir.",
+      issuer: "İhraççı",
+      currency: "Para Birimi",
+      couponType: "Kupon Tipi",
+      fundType: "Fon Türü",
+      date: "Tarih",
+      weekly: "Haftalık",
     },
     market: {
       authPrompt:
@@ -912,6 +926,7 @@ export const dict = {
       bidEff: "Effective Bid",
       askEff: "Effective Ask",
       empty: "No FX rate data yet.",
+      actionsCol: "Actions",
       // CurrencyConverter component
       title: "Currency Converter",
       subtitle: "Real-time conversion with the latest TCMB rates",
@@ -1244,6 +1259,19 @@ export const dict = {
       rssUrlScheme: "URL must start with http:// or https://",
       rssDeleteErr: "Could not delete: {error}",
       rssAddErr: "Could not add: {error}",
+    },
+    assetDetail: {
+      title: "Details",
+      buyAction: "Buy",
+      chartTitle: "Price Chart",
+      chartUnavailable: "Chart data unavailable",
+      disclaimer: "This is not investment advice.",
+      issuer: "Issuer",
+      currency: "Currency",
+      couponType: "Coupon Type",
+      fundType: "Fund Type",
+      date: "Date",
+      weekly: "Weekly",
     },
     market: {
       authPrompt:

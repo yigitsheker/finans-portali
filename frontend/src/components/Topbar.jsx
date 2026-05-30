@@ -300,13 +300,17 @@ export default function Topbar({
         {isAuthenticated && !isAdmin(keycloak) && <NotificationBell keycloak={keycloak} />}
 
         {showAlerts && onAlertsClick && (
-          <button style={s.iconBtn} onClick={onAlertsClick} title={t("topbar.priceAlertCreate")} aria-label={t("topbar.priceAlert")}>
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          // Labelled (icon + "Alarm" text) so it can't be mistaken for the
+          // bell-shaped notification button rendered immediately above —
+          // both are bells, but only this one creates a price alert.
+          <button style={s.alarmBtn} onClick={onAlertsClick} title={t("topbar.priceAlertCreate")} aria-label={t("topbar.priceAlert")}>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 5V3M12 5C8.69 5 6 7.69 6 11V16L4 18V19H20V18L18 16V11C18 7.69 15.31 5 12 5Z"
                     stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
               <path d="M9 21H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
               <circle cx="18" cy="6" r="3" fill="var(--accent-solid)"/>
             </svg>
+            <span style={s.alarmBtnLabel}>{t("topbar.priceAlert") || "Alarm"}</span>
           </button>
         )}
 
@@ -444,6 +448,24 @@ const s = {
     cursor: "pointer",
     display: "grid",
     placeItems: "center",
+  },
+  alarmBtn: {
+    height: 38,
+    padding: "0 12px",
+    borderRadius: 10,
+    border: "1px solid var(--border-card)",
+    background: "var(--input-bg)",
+    color: "var(--text-secondary)",
+    cursor: "pointer",
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+  },
+  alarmBtnLabel: {
+    fontSize: 12,
+    fontWeight: 600,
+    color: "var(--text-primary)",
+    letterSpacing: 0.2,
   },
   logoutBtn: {
     padding: "8px 18px",

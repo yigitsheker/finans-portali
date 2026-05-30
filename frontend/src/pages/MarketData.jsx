@@ -1,16 +1,24 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import PropTypes from "prop-types";
 import { getExchangeRates } from '../api/portfolioApi';
 import CurrencyConverter from '../components/CurrencyConverter';
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
 import TermInfo from "../components/common/TermInfo";
+import AssetDetailModal from "../components/AssetDetailModal";
+import AddPositionModal from "../components/AddPositionModal";
 import { clickable } from "../utils/clickable";
 import { useI18n } from "../contexts/I18nContext";
 
-const MarketData = () => {
+const MarketData = ({ keycloak, onAdded }) => {
     const { t } = useI18n();
     const [exchangeRates, setExchangeRates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
+    // Detail modal target (full asset row); separate from buy target so the
+    // buy modal can open from a row-action click without first showing the
+    // detail card.
+    const [selected, setSelected] = useState(null);
+    const [buyTarget, setBuyTarget] = useState(null);
     // Header-driven sort. Default null = natural order from the API.
     const [sortKey, setSortKey] = useState(null);
     const [sortDir, setSortDir] = useState("asc");
@@ -57,6 +65,23 @@ const MarketData = () => {
     useEffect(() => {
         loadData();
     }, []);
+
+    /**
+     * Same auth guard as FinexStyleMarket.openBuyModalIfAuthed — prompts the
+     * anonymous user, routes them to Keycloak on confirm, returns silently
+     * otherwise. The detail modal can also call this via its onBuy prop.
+     */
+    const openBuy = useCallback(({ symbol, price }) => {
+        const authed = keycloak?.authenticated === true;
+        if (!authed) {
+            const goLogin = window.confirm(t("market.authPrompt"));
+            if (goLogin && keycloak?.login) {
+                keycloak.login({ redirectUri: window.location.href });
+            }
+            return;
+        }
+        setBuyTarget({ symbol, price });
+    }, [keycloak, t]);
 
     const loadData = async () => {
         try {
@@ -148,6 +173,7 @@ const MarketData = () => {
                     <div style={{ ...s.colSource, cursor: "pointer" }} {...clickable(() => toggleSort("source"))}>
                         {t("common.source")} {sortArrow("source")}
                     </div>
+                    <div style={s.colAction}>{t("fx.actionsCol")}</div>
                 </div>
 
                 {/* Table Body */}
@@ -161,7 +187,11 @@ const MarketData = () => {
                         </div>
                     ) : (
                         sortedRates.map((rate) => (
-                            <div key={rate.id} style={{ ...s.tableRow, ...s.tableRowExchange }}>
+                            <div
+                                key={rate.id}
+                                style={{ ...s.tableRow, ...s.tableRowExchange }}
+                                {...clickable(() => setSelected(rate))}
+                            >
                                 <div style={s.colCurrency}>
                                     <div style={s.currencyIcon}>
                                         {rate.currencyCode.substring(0, 2)}
@@ -186,13 +216,60 @@ const MarketData = () => {
                                 <div style={s.colSource}>
                                     <span style={s.sourceBadge}>{rate.source}</span>
                                 </div>
+                                <div style={s.colAction}>
+                                    <button
+                                        style={s.actionBtn}
+                                        onClick={(e) => {
+                                            // Stop the row click from also opening the detail modal.
+                                            e.stopPropagation();
+                                            openBuy({
+                                                symbol: rate.currencyCode,
+                                                price: rate.sellingRate,
+                                            });
+                                        }}
+                                    >
+                                        {t("common.buy")}
+                                    </button>
+                                </div>
                             </div>
                         ))
                     )}
                 </div>
             </div>
+
+            {/* Detail modal — opens when a row is clicked. The user can hit
+                "Al" from inside, or from the per-row action button. */}
+            <AssetDetailModal
+                asset={selected}
+                kind="FX"
+                onClose={() => setSelected(null)}
+                keycloak={keycloak}
+                onBuy={(payload) => {
+                    setSelected(null);
+                    openBuy(payload);
+                }}
+            />
+
+            {/* Buy modal — seeded with the FX code and TCMB selling rate so
+                the user only has to confirm the quantity. */}
+            <AddPositionModal
+                open={!!buyTarget}
+                onClose={() => setBuyTarget(null)}
+                onCreated={() => {
+                    setBuyTarget(null);
+                    if (onAdded) onAdded();
+                }}
+                keycloak={keycloak}
+                initialSymbol={buyTarget?.symbol ?? ""}
+                initialPrice={buyTarget?.price ?? ""}
+            />
         </div>
     );
+};
+
+MarketData.propTypes = {
+    keycloak: PropTypes.object,
+    onAdded: PropTypes.func,
 };
 
 const s = {
@@ -256,7 +333,7 @@ const s = {
         // value like "₺34,3389" got a wider cell than "₺7,1932" and the
         // KAYNAK badge column drifted out of alignment across rows. See
         // FinexStyleMarket for the same fix.
-        gridTemplateColumns: "minmax(0, 2fr) 90px 90px 90px 90px 70px",
+        gridTemplateColumns: "minmax(0, 2fr) 90px 90px 90px 90px 70px 80px",
     },
     tableBody: {
         display: "flex",
@@ -277,7 +354,7 @@ const s = {
         // value like "₺34,3389" got a wider cell than "₺7,1932" and the
         // KAYNAK badge column drifted out of alignment across rows. See
         // FinexStyleMarket for the same fix.
-        gridTemplateColumns: "minmax(0, 2fr) 90px 90px 90px 90px 70px",
+        gridTemplateColumns: "minmax(0, 2fr) 90px 90px 90px 90px 70px 80px",
     },
     emptyState: {
         display: "flex",
@@ -290,6 +367,20 @@ const s = {
     colCurrency: { display: "flex", alignItems: "center", gap: 12 },
     colRate: { display: "flex", alignItems: "center", justifyContent: "flex-end" },
     colSource: { display: "flex", alignItems: "center", justifyContent: "center" },
+    colAction: { display: "flex", alignItems: "center", justifyContent: "flex-end" },
+    // Matches FinexStyleMarket.actionBtn so the affordance reads the same
+    // across all market pages.
+    actionBtn: {
+        padding: "6px 14px",
+        borderRadius: 6,
+        border: "none",
+        background: "#10b981",
+        color: "#000",
+        fontSize: 12,
+        fontWeight: 700,
+        cursor: "pointer",
+        boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)",
+    },
     currencyIcon: {
         width: 40,
         height: 40,

@@ -1,13 +1,15 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import PropTypes from "prop-types";
 import { getInvestmentFunds, getFundTypes, refreshInvestmentFunds } from "../api/portfolioApi";
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
 import Pagination from "../components/common/Pagination";
 import TermInfo from "../components/common/TermInfo";
+import AssetDetailModal from "../components/AssetDetailModal";
+import AddPositionModal from "../components/AddPositionModal";
 import { clickable } from "../utils/clickable";
 import { useI18n } from "../contexts/I18nContext";
 
-export default function Funds({ keycloak }) {
+export default function Funds({ keycloak, onAdded }) {
     const { t } = useI18n();
     const [funds, setFunds] = useState([]);
     const [fundTypes, setFundTypes] = useState([]);
@@ -23,9 +25,29 @@ export default function Funds({ keycloak }) {
     const [refreshing, setRefreshing] = useState(false);
     const [error, setError] = useState(null);
     const [lastUpdate, setLastUpdate] = useState(null);
+    // Detail card target (full fund row) and buy modal target (just the
+    // symbol/price seed). Split so the user can buy directly from the row.
+    const [selectedFund, setSelectedFund] = useState(null);
+    const [buyTarget, setBuyTarget] = useState(null);
 
     // Check if user is admin
     const isAdmin = keycloak.hasRealmRole('ADMIN');
+
+    /**
+     * Auth-guarded buy. Anonymous users get the same confirm-and-redirect
+     * dialog FinexStyleMarket uses.
+     */
+    const openBuy = useCallback(({ symbol, price }) => {
+        const authed = keycloak?.authenticated === true;
+        if (!authed) {
+            const goLogin = window.confirm(t("market.authPrompt"));
+            if (goLogin && keycloak?.login) {
+                keycloak.login({ redirectUri: window.location.href });
+            }
+            return;
+        }
+        setBuyTarget({ symbol, price });
+    }, [keycloak, t]);
 
     useEffect(() => {
         loadData();
@@ -292,6 +314,7 @@ export default function Funds({ keycloak }) {
                         {t("funds.col5y")} {sortArrow("fiveYearReturn")}
                     </div>
                     <div style={s.colRisk}>{t("funds.colRisk")} <TermInfo termKey="risk_level" placement="bottom" /></div>
+                    <div style={s.colAction}>{t("fx.actionsCol")}</div>
                 </div>
 
                 {/* Table Body */}
@@ -319,7 +342,11 @@ export default function Funds({ keycloak }) {
                         </div>
                     ) : (
                         pagedFunds.map((fund) => (
-                            <div key={fund.id} style={s.tableRow}>
+                            <div
+                                key={fund.id}
+                                style={s.tableRow}
+                                {...clickable(() => setSelectedFund(fund))}
+                            >
                                 <div style={s.colFund}>
                                     <div style={s.fundCode}>{fund.fundCode}</div>
                                     <div style={s.fundName}>{fund.fundName}</div>
@@ -370,6 +397,21 @@ export default function Funds({ keycloak }) {
                                         </span>
                                     )}
                                 </div>
+                                <div style={s.colAction}>
+                                    <button
+                                        style={s.buyBtn}
+                                        onClick={(e) => {
+                                            // Stop the row click from also opening the detail card.
+                                            e.stopPropagation();
+                                            openBuy({
+                                                symbol: fund.fundCode,
+                                                price: fund.unitPrice ?? null,
+                                            });
+                                        }}
+                                    >
+                                        {t("common.buy")}
+                                    </button>
+                                </div>
                             </div>
                         ))
                     )}
@@ -386,12 +428,39 @@ export default function Funds({ keycloak }) {
                     />
                 )}
             </div>
+
+            {/* Detail modal — opens on row click. Buy action delegates back
+                to the parent's openBuy so the auth-guard logic is reused. */}
+            <AssetDetailModal
+                asset={selectedFund}
+                kind="FUND"
+                onClose={() => setSelectedFund(null)}
+                keycloak={keycloak}
+                onBuy={(payload) => {
+                    setSelectedFund(null);
+                    openBuy(payload);
+                }}
+            />
+
+            {/* Buy modal — seeded with fund code and unit price. */}
+            <AddPositionModal
+                open={!!buyTarget}
+                onClose={() => setBuyTarget(null)}
+                onCreated={() => {
+                    setBuyTarget(null);
+                    if (onAdded) onAdded();
+                }}
+                keycloak={keycloak}
+                initialSymbol={buyTarget?.symbol ?? ""}
+                initialPrice={buyTarget?.price ?? ""}
+            />
         </div>
     );
 }
 
 Funds.propTypes = {
     keycloak: PropTypes.object.isRequired,
+    onAdded: PropTypes.func,
 };
 
 const s = {
@@ -503,7 +572,7 @@ const s = {
         // unit prices like "₺1.234,5678" got wider price columns and
         // shifted every right-side column out of alignment with rows
         // showing "₺12,34". See FinexStyleMarket for the same fix.
-        gridTemplateColumns: "minmax(0, 2.2fr) 90px 70px 70px 70px 70px 70px 70px 70px 90px",
+        gridTemplateColumns: "minmax(0, 2.2fr) 90px 70px 70px 70px 70px 70px 70px 70px 90px 80px",
         gap: 16,
         padding: "14px 20px",
         background: "var(--bg-panel)",
@@ -525,7 +594,7 @@ const s = {
         // unit prices like "₺1.234,5678" got wider price columns and
         // shifted every right-side column out of alignment with rows
         // showing "₺12,34". See FinexStyleMarket for the same fix.
-        gridTemplateColumns: "minmax(0, 2.2fr) 90px 70px 70px 70px 70px 70px 70px 70px 90px",
+        gridTemplateColumns: "minmax(0, 2.2fr) 90px 70px 70px 70px 70px 70px 70px 70px 90px 80px",
         gap: 16,
         padding: "14px 20px",
         borderBottom: "1px solid var(--border-card)",
@@ -543,6 +612,18 @@ const s = {
     colPrice: { display: "flex", alignItems: "center", justifyContent: "flex-end" },
     colReturn: { display: "flex", alignItems: "center", justifyContent: "flex-end" },
     colRisk: { display: "flex", alignItems: "center", justifyContent: "center" },
+    colAction: { display: "flex", alignItems: "center", justifyContent: "flex-end" },
+    buyBtn: {
+        padding: "6px 14px",
+        borderRadius: 6,
+        border: "none",
+        background: "#10b981",
+        color: "#000",
+        fontSize: 12,
+        fontWeight: 700,
+        cursor: "pointer",
+        boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)",
+    },
     colValue: { display: "flex", alignItems: "center", justifyContent: "flex-end" },
     fundCode: { fontSize: 13, fontWeight: 700, color: "var(--text-primary)" },
     fundName: { fontSize: 12, color: "var(--text-muted)" },

@@ -10,7 +10,7 @@ import { useI18n } from "../../contexts/I18nContext";
  * The fade-in is handled with CSS opacity + transition on `.fp-scrolltop`
  * (defined in index.css) so the button doesn't pop in and out abruptly.
  */
-export default function ScrollToTop({ threshold = 400 }) {
+export default function ScrollToTop({ threshold = 200 }) {
     const [visible, setVisible] = useState(false);
     const { t } = useI18n();
 

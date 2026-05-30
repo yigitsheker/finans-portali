@@ -79,4 +79,8 @@ public class MarketService {
         seedIfEmpty();
         return historyService.getHistory(symbol, period);
     }
+
+    public List<MarketHistoryPoint> historyForFx(String currencyCode, String period) {
+        return historyService.getFxHistory(currencyCode, period);
+    }
 }

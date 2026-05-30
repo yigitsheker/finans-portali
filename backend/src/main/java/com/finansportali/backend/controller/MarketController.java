@@ -50,6 +50,21 @@ public class MarketController {
     }
 
     /**
+     * FX-specific history endpoint. The general {@code /history} call looks
+     * the symbol up in {@code market_instruments} and 404's anything not
+     * there — exchange-rate rows live in their own {@code exchange_rates}
+     * table, so this variant bypasses the lookup and hits Yahoo directly
+     * with the {@code <CODE>TRY=X} synthetic ticker (e.g. {@code USDTRY=X}).
+     */
+    @GetMapping("/history/fx")
+    public List<MarketHistoryPoint> historyFx(
+            @RequestParam String code,
+            @RequestParam(required = false, defaultValue = "30D") String period
+    ) {
+        return service.historyForFx(code, period);
+    }
+
+    /**
      * Batch variant — fetches history for up to 100 symbols in one round trip.
      * Each symbol still goes through the cached {@code history()} call, but
      * collapsing N sparkline lookups from N HTTP requests into one cuts the

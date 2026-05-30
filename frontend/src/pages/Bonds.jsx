@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import {
     getBonds,
@@ -6,6 +6,7 @@ import {
     refreshBondData,
 } from "../api/bondApi";
 import BondDetailModal from "../components/BondDetailModal";
+import AddPositionModal from "../components/AddPositionModal";
 import DepositRatesCard from "../components/DepositRatesCard";
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
 import TermInfo from "../components/common/TermInfo";
@@ -22,7 +23,7 @@ const TYPE_KEYS = {
 
 const CURRENCY_OPTIONS = ["TRY", "USD", "EUR"];
 
-export default function Bonds({ keycloak }) {
+export default function Bonds({ keycloak, onAdded }) {
     const { t } = useI18n();
     const TYPE_LABELS = {
         GOVERNMENT_BOND: t("bonds.typeGovBond"),
@@ -45,9 +46,29 @@ export default function Bonds({ keycloak }) {
     // Selected bond for detail modal
     const [selectedBond, setSelectedBond] = useState(null);
 
+    // Buy modal target (split from selectedBond so the user can buy from
+    // either the row action or the detail card's Al button).
+    const [buyTarget, setBuyTarget] = useState(null);
+
     // Refresh state
     const [refreshing, setRefreshing] = useState(false);
     const [refreshMessage, setRefreshMessage] = useState(null);
+
+    /**
+     * Auth-guarded buy. Anonymous users get a confirm-and-redirect dialog
+     * mirroring FinexStyleMarket.openBuyModalIfAuthed.
+     */
+    const openBuy = useCallback(({ symbol, price }) => {
+        const authed = keycloak?.authenticated === true;
+        if (!authed) {
+            const goLogin = window.confirm(t("market.authPrompt"));
+            if (goLogin && keycloak?.login) {
+                keycloak.login({ redirectUri: window.location.href });
+            }
+            return;
+        }
+        setBuyTarget({ symbol, price });
+    }, [keycloak, t]);
 
     // Check if user is admin
     const isAdmin = useMemo(() => {
@@ -300,6 +321,7 @@ export default function Bonds({ keycloak }) {
                                 <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("source")}>
                                     {t("bonds.colSource")} {sortArrow("source")}
                                 </th>
+                                <th style={s.th}>{t("fx.actionsCol")}</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -357,6 +379,22 @@ export default function Bonds({ keycloak }) {
                                                 {bond.source}
                                             </span>
                                         </td>
+                                        <td style={s.td}>
+                                            <button
+                                                style={s.buyBtn}
+                                                onClick={(e) => {
+                                                    // Don't bubble up — the parent <tr>
+                                                    // click would also open the detail modal.
+                                                    e.stopPropagation();
+                                                    openBuy({
+                                                        symbol: bond.symbol,
+                                                        price: bond.latestPrice ?? null,
+                                                    });
+                                                }}
+                                            >
+                                                {t("common.buy")}
+                                            </button>
+                                        </td>
                                     </tr>
                                 );
                             })}
@@ -370,14 +408,33 @@ export default function Bonds({ keycloak }) {
                 <BondDetailModal
                     bondId={selectedBond.id}
                     onClose={() => setSelectedBond(null)}
+                    onBuy={(payload) => {
+                        setSelectedBond(null);
+                        openBuy(payload);
+                    }}
                 />
             )}
+
+            {/* Buy modal — seeded with the bond symbol and (when known) its
+                latest price so the user only needs to confirm the quantity. */}
+            <AddPositionModal
+                open={!!buyTarget}
+                onClose={() => setBuyTarget(null)}
+                onCreated={() => {
+                    setBuyTarget(null);
+                    if (onAdded) onAdded();
+                }}
+                keycloak={keycloak}
+                initialSymbol={buyTarget?.symbol ?? ""}
+                initialPrice={buyTarget?.price ?? ""}
+            />
         </div>
     );
 }
 
 Bonds.propTypes = {
     keycloak: PropTypes.object.isRequired,
+    onAdded: PropTypes.func,
 };
 
 const s = {
@@ -480,5 +537,16 @@ const s = {
         fontSize: 10,
         fontWeight: 500,
         color: "var(--text-muted)",
+    },
+    buyBtn: {
+        padding: "6px 14px",
+        borderRadius: 6,
+        border: "none",
+        background: "#10b981",
+        color: "#000",
+        fontSize: 12,
+        fontWeight: 700,
+        cursor: "pointer",
+        boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)",
     },
 };

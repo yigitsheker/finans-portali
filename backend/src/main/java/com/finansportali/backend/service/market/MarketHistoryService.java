@@ -118,6 +118,53 @@ public class MarketHistoryService {
     }
 
     /**
+     * Get historical price data for a FX currency code (e.g. "USD", "EUR").
+     *
+     * <p>Bypasses the {@code market_instruments} lookup that {@link #getHistory}
+     * does — exchange-rate rows live in their own table. Hits Yahoo directly
+     * with the {@code <CODE>TRY=X} synthetic ticker (e.g. {@code USDTRY=X}).
+     * Returns an empty list if the currency code is blank or Yahoo has no
+     * data for the given pair.
+     */
+    @Cacheable(cacheNames = "marketHistory", key = "'fx:' + #currencyCode + ':' + #period")
+    public List<MarketHistoryPoint> getFxHistory(String currencyCode, String period) {
+        if (currencyCode == null || currencyCode.isBlank()) {
+            return List.of();
+        }
+        String code = currencyCode.toUpperCase(Locale.ROOT);
+        // TRY against itself: identity. Skip — Yahoo doesn't have a TRYTRY=X
+        // ticker and the chart would be a flat line at 1 anyway.
+        if ("TRY".equals(code)) {
+            return List.of();
+        }
+        String yahooSymbol = code + "TRY=X";
+        YahooRangeConfig config = mapPeriodToYahooRange(period);
+
+        log.info("Fetching FX chart data: code={} yahooSymbol={} period={} range={} interval={}",
+                code, yahooSymbol, period, config.range(), config.interval());
+
+        List<YahooPriceFetcher.DayClose> yahooData;
+        try {
+            yahooData = yahooPriceFetcher.fetchHistory(yahooSymbol, config.range(), config.interval());
+        } catch (RuntimeException e) {
+            log.error("Failed to fetch Yahoo FX chart data for code={} yahooSymbol={}: {}",
+                    code, yahooSymbol, e.getMessage(), e);
+            return List.of();
+        }
+
+        if (yahooData == null || yahooData.isEmpty()) {
+            log.warn("No Yahoo FX data for code={} yahooSymbol={} range={} interval={}",
+                    code, yahooSymbol, config.range(), config.interval());
+            return List.of();
+        }
+
+        return yahooData.stream()
+                .filter(d -> d.close() != null && d.close().signum() > 0)
+                .map(d -> new MarketHistoryPoint(d.day(), d.close(), d.label(), d.timestamp()))
+                .toList();
+    }
+
+    /**
      * Map UI period to Yahoo Finance range and interval parameters.
      */
     private YahooRangeConfig mapPeriodToYahooRange(String period) {

@@ -65,6 +65,18 @@ export async function getMarketHistory(symbol, period) {
 }
 
 /**
+ * FX history pass-through — hits Yahoo via the backend's <CODE>TRY=X
+ * synthetic ticker so FX rates (which live in exchange_rates, not
+ * market_instruments) can render a chart in the detail modal.
+ */
+export async function getFxHistory(code, period = "30D") {
+    const res = await axios.get(`${API_BASE}/api/v1/market/history/fx`, {
+        params: { code, period },
+    });
+    return res.data;
+}
+
+/**
  * Batch variant — fetch history for many symbols in one HTTP round trip.
  * Collapses N sparkline lookups from N requests into one, cutting page-load
  * latency for instrument lists from "50 × 150ms" to a single request.

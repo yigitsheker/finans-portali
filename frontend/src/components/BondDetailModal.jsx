@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PropTypes from "prop-types";
 import Modal from "./Modal";
 import { getBondDetail, getBondHistory } from "../api/bondApi";
 import { LWAreaChart } from "./common/LWAreaChart";
@@ -12,7 +13,7 @@ const TYPE_LABELS = {
     OTHER: "Diğer",
 };
 
-export default function BondDetailModal({ bondId, onClose }) {
+export default function BondDetailModal({ bondId, onClose, onBuy }) {
     const [bond, setBond] = useState(null);
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -215,6 +216,23 @@ export default function BondDetailModal({ bondId, onClose }) {
                     )}
                 </div>
 
+                {/* Action row — surfaces a "Al" button so the user can buy
+                    the bond straight from the detail card. Parent decides
+                    whether the user is authenticated. */}
+                {onBuy && (
+                    <div style={s.actionRow}>
+                        <button
+                            style={s.buyBtn}
+                            onClick={() => onBuy({
+                                symbol: bond.symbol,
+                                price: bond.latestPrice ?? null,
+                            })}
+                        >
+                            + Al
+                        </button>
+                    </div>
+                )}
+
                 {/* Footer */}
                 <div style={s.footer}>
                     <span style={s.footerText}>
@@ -230,6 +248,12 @@ export default function BondDetailModal({ bondId, onClose }) {
         </Modal>
     );
 }
+
+BondDetailModal.propTypes = {
+    bondId: PropTypes.oneOfType([PropTypes.number, PropTypes.string]).isRequired,
+    onClose: PropTypes.func.isRequired,
+    onBuy: PropTypes.func,
+};
 
 const s = {
     content: { display: "flex", flexDirection: "column", gap: 20 },
@@ -268,4 +292,16 @@ const s = {
     chartEmpty: { padding: "60px", textAlign: "center", color: "var(--text-muted)", fontSize: 13 },
     footer: { display: "flex", justifyContent: "space-between", paddingTop: 16, borderTop: "1px solid var(--border-card)" },
     footerText: { fontSize: 11, color: "var(--text-muted)" },
+    actionRow: { display: "flex", justifyContent: "flex-end", marginTop: 4 },
+    buyBtn: {
+        padding: "10px 18px",
+        borderRadius: 8,
+        border: "none",
+        background: "#10b981",
+        color: "#000",
+        fontSize: 13,
+        fontWeight: 700,
+        cursor: "pointer",
+        boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)",
+    },
 };
