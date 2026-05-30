@@ -85,4 +85,39 @@ class LlmClientTest {
         assertThat(client.complete(null, null)).isNull();
         assertThat(client.complete("", "")).isNull();
     }
+
+    @Test
+    void complete_returns_null_when_upstream_unreachable() {
+        // Port 9 (discard) is closed on every modern host — the WebClient
+        // call rejects fast, the catch branch swallows the throw, returns
+        // null. Exercises the live-enabled error path without needing a
+        // mock server. 1s timeout caps the test latency.
+        LlmClient client = new LlmClient(
+                "http://localhost:9",
+                "fake-key",
+                "gpt-4o-mini",
+                100,
+                0.5,
+                1);
+        assertThat(client.isEnabled()).isTrue();
+        assertThat(client.complete("system", "user")).isNull();
+    }
+
+    @Test
+    void complete_skips_blank_system_prompt() {
+        // Build a client targeted at a closed port — we don't care about the
+        // network outcome, only that the blank-system-prompt branch is taken
+        // before the WebClient call. Method must still return null without
+        // throwing.
+        LlmClient client = new LlmClient(
+                "http://localhost:9",
+                "fake-key",
+                "gpt-4o-mini",
+                100,
+                0.5,
+                1);
+        assertThat(client.complete(null, "hello")).isNull();
+        assertThat(client.complete("", "hello")).isNull();
+        assertThat(client.complete("  ", "hello")).isNull();
+    }
 }

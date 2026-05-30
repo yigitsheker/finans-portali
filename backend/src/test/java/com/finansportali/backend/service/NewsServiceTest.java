@@ -351,4 +351,143 @@ class NewsServiceTest {
         assertThat(result.getTitle()).hasSize(295);
         assertThat(result.getContent()).hasSize(10_000);
     }
+
+    // ── latest(category, lang) overload ─────────────────────────────────
+
+    @Test
+    void latest_with_lang_returns_articles_when_translator_disabled() {
+        // Translator off → no swap, but the method still executes the
+        // normalizeLang + early-return branch.
+        when(translator.isEnabled()).thenReturn(false);
+        NewsArticle a = article(1L, "T1", "x".repeat(300), "hisse");
+        NewsArticle b = article(2L, "T2", "y".repeat(300), "hisse");
+        when(repo.findTop50ByCategoryOrderByPublishedAtDesc("hisse")).thenReturn(List.of(a, b));
+
+        assertThat(service.latest("hisse", "tr")).hasSize(2);
+        assertThat(service.latest("hisse", "en")).hasSize(2);
+    }
+
+    @Test
+    void latest_with_lang_applies_translation_swap_when_enabled() {
+        // Translator enabled + EN target + TR-source article that already
+        // has a cached title_translated → base title swaps in.
+        when(translator.isEnabled()).thenReturn(true);
+        NewsArticle a = article(1L, "TR başlık", "z".repeat(300), "hisse");
+        a.setSourceLang("tr");
+        a.setTitleTranslated("English title");
+        a.setSummaryTranslated("English summary");
+        when(repo.findTop50ByCategoryOrderByPublishedAtDesc("hisse")).thenReturn(List.of(a));
+
+        List<NewsArticle> out = service.latest("hisse", "en");
+        assertThat(out).hasSize(1);
+        assertThat(out.get(0).getTitle()).isEqualTo("English title");
+        assertThat(out.get(0).getSummary()).isEqualTo("English summary");
+    }
+
+    @Test
+    void latest_with_unknown_lang_short_circuits() {
+        // "fr" normalizes to null → method returns before doing translation work.
+        when(translator.isEnabled()).thenReturn(true);
+        when(repo.findTop50ByCategoryOrderByPublishedAtDesc("hisse")).thenReturn(List.of());
+        assertThat(service.latest("hisse", "fr")).isEmpty();
+    }
+
+    // ── getById(id, lang) overload ──────────────────────────────────────
+
+    @Test
+    void getById_with_lang_returns_null_when_not_found() {
+        when(repo.findById(99L)).thenReturn(Optional.empty());
+        assertThat(service.getById(99L, "en")).isNull();
+    }
+
+    @Test
+    void getById_with_lang_returns_article_when_translator_disabled() {
+        when(translator.isEnabled()).thenReturn(false);
+        NewsArticle a = article(1L, "T", "content", "hisse");
+        when(repo.findById(1L)).thenReturn(Optional.of(a));
+        assertThat(service.getById(1L, "en")).isSameAs(a);
+    }
+
+    @Test
+    void getById_with_null_lang_skips_translation_path() {
+        // Translator on but lang=null → normalizeLang returns null → no
+        // translation calls happen.
+        when(translator.isEnabled()).thenReturn(true);
+        NewsArticle a = article(1L, "T", "content", "hisse");
+        when(repo.findById(1L)).thenReturn(Optional.of(a));
+        assertThat(service.getById(1L, null)).isSameAs(a);
+        verify(translator, never()).translate(anyString(), anyString(), anyString());
+    }
+
+    // ── normalizeLang(...) private helper ───────────────────────────────
+
+    @Test
+    void normalizeLang_recognises_tr_and_en_variants() {
+        // Every branch the helper has: null, empty, tr*, en*, unknown.
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "normalizeLang", "tr")).isEqualTo("tr");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "normalizeLang", "TR")).isEqualTo("tr");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "normalizeLang", "tr-TR")).isEqualTo("tr");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "normalizeLang", "en")).isEqualTo("en");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "normalizeLang", "EN")).isEqualTo("en");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "normalizeLang", "en-US")).isEqualTo("en");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "normalizeLang", (Object) null)).isNull();
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "normalizeLang", "fr")).isNull();
+        // Empty string → toLowerCase("") → doesn't startsWith tr/en → null.
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "normalizeLang", "")).isNull();
+    }
+
+    // ── applyTranslationToBaseFields(...) private helper ────────────────
+
+    @Test
+    void applyTranslationToBaseFields_is_noop_when_source_equals_target() {
+        NewsArticle a = article(1L, "Title", "Content", "hisse");
+        a.setSourceLang("tr");
+        a.setTitleTranslated("Should NOT swap in");
+        ReflectionTestUtils.invokeMethod(service, "applyTranslationToBaseFields", a, "tr");
+        // Same lang → no swap.
+        assertThat(a.getTitle()).isEqualTo("Title");
+    }
+
+    @Test
+    void applyTranslationToBaseFields_swaps_in_translated_fields() {
+        NewsArticle a = article(1L, "TR title", "TR content", "hisse");
+        a.setSourceLang("tr");
+        a.setSummary("TR summary");
+        a.setTitleTranslated("EN title");
+        a.setSummaryTranslated("EN summary");
+        a.setContentTranslated("EN content");
+        ReflectionTestUtils.invokeMethod(service, "applyTranslationToBaseFields", a, "en");
+        assertThat(a.getTitle()).isEqualTo("EN title");
+        assertThat(a.getSummary()).isEqualTo("EN summary");
+        assertThat(a.getContent()).isEqualTo("EN content");
+    }
+
+    @Test
+    void applyTranslationToBaseFields_is_noop_when_sourceLang_null() {
+        NewsArticle a = article(1L, "Title", "Content", "hisse");
+        // sourceLang stays null → method bails out, no swap.
+        a.setTitleTranslated("EN title");
+        ReflectionTestUtils.invokeMethod(service, "applyTranslationToBaseFields", a, "en");
+        assertThat(a.getTitle()).isEqualTo("Title");
+    }
+
+    // ── runTranslationPrewarm() ─────────────────────────────────────────
+
+    @Test
+    void runTranslationPrewarm_skips_when_translator_disabled() {
+        when(translator.isEnabled()).thenReturn(false);
+        // Should return quickly without touching the repo.
+        service.runTranslationPrewarm();
+        verify(repo, never()).findTop50ByTitleTranslatedIsNullAndSourceLangOrderByPublishedAtDesc(anyString());
+    }
+
+    @Test
+    void runTranslationPrewarm_walks_empty_backlog_without_throwing() {
+        when(translator.isEnabled()).thenReturn(true);
+        when(repo.findTop50ByTitleTranslatedIsNullAndSourceLangOrderByPublishedAtDesc(anyString()))
+                .thenReturn(List.of());
+        // Two empty passes (en→tr and tr→en); method exits cleanly.
+        service.runTranslationPrewarm();
+        verify(repo, times(2)).findTop50ByTitleTranslatedIsNullAndSourceLangOrderByPublishedAtDesc(anyString());
+    }
 }

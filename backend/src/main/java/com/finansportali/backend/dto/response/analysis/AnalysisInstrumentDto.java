@@ -34,7 +34,9 @@ public class AnalysisInstrumentDto {
     private String longTermSignal;
     private Instant updatedAt;
 
-    public AnalysisInstrumentDto() {}
+    public AnalysisInstrumentDto() {
+        // Default constructor required for Jackson deserialization.
+    }
 
     public String getSymbol() { return symbol; }
     public void setSymbol(String symbol) { this.symbol = symbol; }

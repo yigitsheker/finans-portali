@@ -280,6 +280,14 @@ export default function FinexStyleMarket({
         }
     };
 
+    // Tri-state sort arrow per column. "↕" = inactive, "▲" / "▼" = active.
+    // Extracted out of JSX so each header cell isn't a nested ternary
+    // (Sonar S3358).
+    const sortArrow = (field) => {
+        if (sortField !== field) return "↕";
+        return sortDir === "asc" ? "▲" : "▼";
+    };
+
     // Group stocks by category (BIST vs STOCK) - only when no filters are
     // active AND no column sort is in effect. A user-chosen sort spans both
     // groups, so keeping the split would silently override it.
@@ -476,6 +484,27 @@ export default function FinexStyleMarket({
         );
     }
 
+    // Page-header title / subtitle text — flattened from a nested-ternary
+    // chain so the JSX stays scannable (Sonar S3358).
+    const pageTitleText = (() => {
+        if (filterType === "CRYPTO") return t("market.pageCrypto");
+        if (filterType === "STOCK") return t("market.pageStocks");
+        if (filterType === "COMMODITY") return t("market.pageCommodities");
+        return t("market.pagePrices");
+    })();
+    const pageSubtitleText = (() => {
+        if (filterType === "CRYPTO") return t("market.subCrypto");
+        if (filterType === "STOCK") return t("market.subStocks");
+        if (filterType === "COMMODITY") return t("market.subCommodities");
+        return t("market.subStocks");
+    })();
+    // Search placeholder — same pattern.
+    const searchPlaceholder = (() => {
+        if (filterType === "CRYPTO") return t("market.searchCrypto");
+        if (filterType === "COMMODITY") return t("market.searchCommodities");
+        return t("market.searchStocks");
+    })();
+
     return (
         <div style={s.root}>
             {/* Header Section with Title and Index Cards */}
@@ -483,21 +512,13 @@ export default function FinexStyleMarket({
                 <div style={s.titleRow}>
                     <div style={s.titleArea}>
                         <h1 style={s.pageTitle}>
-                            {filterType === "CRYPTO" ? t("market.pageCrypto") :
-                             filterType === "STOCK" ? t("market.pageStocks") :
-                             filterType === "COMMODITY" ? t("market.pageCommodities") :
-                             t("market.pagePrices")}
+                            {pageTitleText}
                             {" "}
                             {filterType === "CRYPTO" && <TermInfo termKey="crypto_market_cap" placement="bottom" />}
                             {filterType === "STOCK" && <TermInfo termKey="stock" placement="bottom" />}
                             {filterType === "COMMODITY" && <TermInfo termKey="commodity" placement="bottom" />}
                         </h1>
-                        <p style={s.pageSubtitle}>
-                            {filterType === "CRYPTO" ? t("market.subCrypto") :
-                             filterType === "STOCK" ? t("market.subStocks") :
-                             filterType === "COMMODITY" ? t("market.subCommodities") :
-                             t("market.subStocks")}
-                        </p>
+                        <p style={s.pageSubtitle}>{pageSubtitleText}</p>
                     </div>
 
                     {/* User Controls */}
@@ -616,7 +637,7 @@ export default function FinexStyleMarket({
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
-                        placeholder={filterType === "CRYPTO" ? t("market.searchCrypto") : filterType === "COMMODITY" ? t("market.searchCommodities") : t("market.searchStocks")}
+                        placeholder={searchPlaceholder}
                         style={s.searchInput}
                     />
                 </div>
@@ -633,9 +654,7 @@ export default function FinexStyleMarket({
                             title={t("market.colSymbol")}
                         >
                             {t("market.colSymbol")}
-                            <span style={s.sortArrow}>
-                                {sortField === "symbol" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
-                            </span>
+                            <span style={s.sortArrow}>{sortArrow("symbol")}</span>
                         </div>
                         <div
                             style={{ ...s.colFiyat, ...s.sortableHeader, ...(sortField === "price" ? s.sortableHeaderActive : {}) }}
@@ -643,9 +662,7 @@ export default function FinexStyleMarket({
                             title={t("market.sortByPrice")}
                         >
                             {t("market.colPrice")}
-                            <span style={s.sortArrow}>
-                                {sortField === "price" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
-                            </span>
+                            <span style={s.sortArrow}>{sortArrow("price")}</span>
                         </div>
                         <div
                             style={{ ...s.colDegisim, ...s.sortableHeader, ...(sortField === "change" ? s.sortableHeaderActive : {}) }}
@@ -653,9 +670,7 @@ export default function FinexStyleMarket({
                             title={t("market.sortByChange")}
                         >
                             {t("market.colChange")}
-                            <span style={s.sortArrow}>
-                                {sortField === "change" ? (sortDir === "asc" ? "▲" : "▼") : "↕"}
-                            </span>
+                            <span style={s.sortArrow}>{sortArrow("change")}</span>
                         </div>
                         <div style={s.colHacim}>{t("market.colVolume")} <TermInfo termKey="volume" placement="bottom" /></div>
                         <div style={s.colGrafik}>{t("market.colChart")}</div>

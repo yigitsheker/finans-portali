@@ -3,6 +3,7 @@ import { getExchangeRates } from '../api/portfolioApi';
 import CurrencyConverter from '../components/CurrencyConverter';
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
 import TermInfo from "../components/common/TermInfo";
+import { clickable } from "../utils/clickable";
 import { useI18n } from "../contexts/I18nContext";
 
 const MarketData = () => {
@@ -41,6 +42,17 @@ const MarketData = () => {
             return sortDir === "asc" ? cmp : -cmp;
         });
     }, [exchangeRates, sortKey, sortDir]);
+
+    // Per-column sort-direction arrows. Extracted out of JSX so each header
+    // cell isn't a triple-nested ternary (Sonar S3358).
+    const sortArrow = (key) => {
+        if (sortKey !== key) return "";
+        return sortDir === "asc" ? "▲" : "▼";
+    };
+    const sortArrowSpaced = (key) => {
+        if (sortKey !== key) return "";
+        return sortDir === "asc" ? " ▲" : " ▼";
+    };
 
     useEffect(() => {
         loadData();
@@ -114,27 +126,27 @@ const MarketData = () => {
             <div style={s.tableContainer} className="fp-card-table">
                 {/* Table Header */}
                 <div style={{ ...s.tableHeader, ...s.tableHeaderExchange }}>
-                    <div style={{ ...s.colCurrency, cursor: "pointer" }} onClick={() => toggleSort("currencyName")}>
-                        {t("fx.currency")} {sortKey === "currencyName" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    <div style={{ ...s.colCurrency, cursor: "pointer" }} {...clickable(() => toggleSort("currencyName"))}>
+                        {t("fx.currency")} {sortArrow("currencyName")}
                     </div>
-                    <div style={{ ...s.colRate, cursor: "pointer" }} onClick={() => toggleSort("buyingRate")}>
+                    <div style={{ ...s.colRate, cursor: "pointer" }} {...clickable(() => toggleSort("buyingRate"))}>
                         {t("fx.bid")} <TermInfo termKey="forex_bid" placement="bottom" />
-                        {sortKey === "buyingRate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                        {sortArrowSpaced("buyingRate")}
                     </div>
-                    <div style={{ ...s.colRate, cursor: "pointer" }} onClick={() => toggleSort("sellingRate")}>
+                    <div style={{ ...s.colRate, cursor: "pointer" }} {...clickable(() => toggleSort("sellingRate"))}>
                         {t("fx.ask")} <TermInfo termKey="forex_ask" placement="bottom" />
-                        {sortKey === "sellingRate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                        {sortArrowSpaced("sellingRate")}
                     </div>
-                    <div style={{ ...s.colRate, cursor: "pointer" }} onClick={() => toggleSort("effectiveBuyingRate")}>
+                    <div style={{ ...s.colRate, cursor: "pointer" }} {...clickable(() => toggleSort("effectiveBuyingRate"))}>
                         {t("fx.bidEff")} <TermInfo termKey="forex_effective" placement="bottom" />
-                        {sortKey === "effectiveBuyingRate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                        {sortArrowSpaced("effectiveBuyingRate")}
                     </div>
-                    <div style={{ ...s.colRate, cursor: "pointer" }} onClick={() => toggleSort("effectiveSellingRate")}>
+                    <div style={{ ...s.colRate, cursor: "pointer" }} {...clickable(() => toggleSort("effectiveSellingRate"))}>
                         {t("fx.askEff")} <TermInfo termKey="forex_effective" placement="bottom" />
-                        {sortKey === "effectiveSellingRate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                        {sortArrowSpaced("effectiveSellingRate")}
                     </div>
-                    <div style={{ ...s.colSource, cursor: "pointer" }} onClick={() => toggleSort("source")}>
-                        {t("common.source")} {sortKey === "source" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    <div style={{ ...s.colSource, cursor: "pointer" }} {...clickable(() => toggleSort("source"))}>
+                        {t("common.source")} {sortArrow("source")}
                     </div>
                 </div>
 

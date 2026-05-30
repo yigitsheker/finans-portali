@@ -68,7 +68,10 @@ export function PositionsTable({
                   { label: t("portfolio.colDailyChange") },
                   { label: "" },
                 ].map((h, idx) => (
-                  <th key={idx} style={s.th}>
+                  // Header keys mix the column label with its position so we
+                  // don't rely on bare array indices (Sonar S6479). idx is the
+                  // tie-breaker for the blank "actions" column.
+                  <th key={`th-${idx}-${h.label}`} style={s.th}>
                     {h.label}
                     {h.term && <> <TermInfo termKey={h.term} placement="bottom" /></>}
                   </th>

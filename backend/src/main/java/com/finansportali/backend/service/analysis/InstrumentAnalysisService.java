@@ -41,6 +41,11 @@ public class InstrumentAnalysisService {
 
     private static final Logger log = LoggerFactory.getLogger(InstrumentAnalysisService.class);
 
+    private static final String CAT_STOCK = "STOCK";
+    private static final String CAT_CRYPTO = "CRYPTO";
+    private static final String CAT_COMMODITY = "COMMODITY";
+    private static final String CAT_INDEX = "INDEX";
+
     private final MarketService marketService;
     private final MarketInstrumentRepository instrumentRepo;
     private final MarketCandleRepository candleRepo;
@@ -249,11 +254,11 @@ public class InstrumentAnalysisService {
     private String mapMarketCategory(String type) {
         if (type == null) return "OTHER";
         return switch (type) {
-            case "STOCK", "BIST" -> "STOCK";
-            case "CRYPTO" -> "CRYPTO";
+            case CAT_STOCK, "BIST" -> CAT_STOCK;
+            case CAT_CRYPTO -> CAT_CRYPTO;
             case "FX" -> "FX";
-            case "COMMODITY" -> "COMMODITY";
-            case "INDEX" -> "INDEX";
+            case CAT_COMMODITY -> CAT_COMMODITY;
+            case CAT_INDEX -> CAT_INDEX;
             default -> type;
         };
     }
@@ -271,9 +276,9 @@ public class InstrumentAnalysisService {
         if (type == null) return "TRY";
         return switch (type) {
             case "BIST" -> "TRY";
-            case "STOCK" -> "USD";              // US equities in our seed list
-            case "INDEX" -> symbol != null && symbol.startsWith("XU") ? "TRY" : "USD";
-            case "CRYPTO", "FX", "COMMODITY" -> "USD";
+            case CAT_STOCK -> "USD";              // US equities in our seed list
+            case CAT_INDEX -> symbol != null && symbol.startsWith("XU") ? "TRY" : "USD";
+            case CAT_CRYPTO, "FX", CAT_COMMODITY -> "USD";
             default -> "TRY";
         };
     }

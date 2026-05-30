@@ -39,17 +39,20 @@ public class FredInflationFetcher {
 
     private static final Logger log = LoggerFactory.getLogger(FredInflationFetcher.class);
 
-    private static final String FRED_BASE_URL = "https://api.stlouisfed.org";
     private static final String SERIES_OBSERVATIONS_PATH = "/fred/series/observations";
     private static final String CPI_SERIES_ID = "CPIAUCSL";
 
     @Value("${app.fred.api-key:}")
     private String apiKey;
 
-    private final WebClient webClient = WebClient.builder()
-            .baseUrl(FRED_BASE_URL)
-            .codecs(c -> c.defaultCodecs().maxInMemorySize(2 * 1024 * 1024))
-            .build();
+    private final WebClient webClient;
+
+    public FredInflationFetcher(@Value("${app.fred.base-url:https://api.stlouisfed.org}") String baseUrl) {
+        this.webClient = WebClient.builder()
+                .baseUrl(baseUrl)
+                .codecs(c -> c.defaultCodecs().maxInMemorySize(2 * 1024 * 1024))
+                .build();
+    }
 
     /**
      * Pull monthly CPIAUCSL observations between {@code from} and {@code to}

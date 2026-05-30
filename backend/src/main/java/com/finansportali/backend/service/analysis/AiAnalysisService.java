@@ -41,6 +41,8 @@ public class AiAnalysisService {
     private static final String DISCLAIMER_EN =
             "This is not investment advice. Please do your own research or consult a licensed advisor before deciding.";
 
+    private static final String PCT_FORMAT = "%+.2f%%";
+
     private static final Pattern BUDGET_PATTERN = Pattern.compile(
             "(\\d{2,8})\\s*(tl|tl\\.|tl,|₺|lira)", Pattern.CASE_INSENSITIVE);
 
@@ -181,11 +183,11 @@ public class AiAnalysisService {
                     if (d.getCurrency() != null) ctx.append(" ").append(d.getCurrency());
                     if (d.getChangeDaily() != null) {
                         ctx.append(" | daily ")
-                                .append(String.format(Locale.US, "%+.2f%%", d.getChangeDaily().doubleValue()));
+                                .append(String.format(Locale.US, PCT_FORMAT, d.getChangeDaily().doubleValue()));
                     }
                     if (d.getChangeYearly() != null) {
                         ctx.append(" | yearly ")
-                                .append(String.format(Locale.US, "%+.2f%%", d.getChangeYearly().doubleValue()));
+                                .append(String.format(Locale.US, PCT_FORMAT, d.getChangeYearly().doubleValue()));
                     }
                     ctx.append("\n");
                 }
@@ -342,7 +344,7 @@ public class AiAnalysisService {
 
     private void appendChange(StringBuilder b, String label, BigDecimal v) {
         if (v == null) return;
-        b.append("- ").append(label).append(": ").append(String.format(Locale.US, "%+.2f%%", v.doubleValue())).append("\n");
+        b.append("- ").append(label).append(": ").append(String.format(Locale.US, PCT_FORMAT, v.doubleValue())).append("\n");
     }
 
     private String localizeRisk(String r, boolean tr) {

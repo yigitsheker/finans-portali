@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import Pagination from "../../common/Pagination";
+import { clickable } from "../../../utils/clickable";
 import { useI18n } from "../../../contexts/I18nContext";
 
 // Category keys map to i18n labels resolved at render time so the chip row
@@ -148,6 +149,13 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
         }
     };
 
+    // Sort-direction arrow extracted so each clickable header isn't a
+    // triple-nested ternary (Sonar S3358).
+    const sortArrow = (key) => {
+        if (sortKey !== key) return "";
+        return sortDir === "asc" ? "▲" : "▼";
+    };
+
     const total = filtered.length;
     const paged = useMemo(() => {
         const start = (page - 1) * pageSize;
@@ -226,52 +234,52 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
                             <tr>
                                 <th
                                     style={{ ...s.th, cursor: "pointer" }}
-                                    onClick={() => toggleSort("symbol")}
+                                    {...clickable(() => toggleSort("symbol"))}
                                 >
-                                    {t("analysis.tblColSymbol")} {sortKey === "symbol" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                    {t("analysis.tblColSymbol")} {sortArrow("symbol")}
                                 </th>
                                 <th
                                     style={{ ...s.th, cursor: "pointer" }}
-                                    onClick={() => toggleSort("name")}
+                                    {...clickable(() => toggleSort("name"))}
                                 >
-                                    {t("analysis.tblColName")} {sortKey === "name" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                    {t("analysis.tblColName")} {sortArrow("name")}
                                 </th>
                                 <th
                                     style={{ ...s.th, cursor: "pointer" }}
-                                    onClick={() => toggleSort("category")}
+                                    {...clickable(() => toggleSort("category"))}
                                 >
-                                    {t("analysis.tblColCategory")} {sortKey === "category" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                    {t("analysis.tblColCategory")} {sortArrow("category")}
                                 </th>
                                 <th style={{ ...s.th, textAlign: "right" }}>{t("analysis.tblColValue")}</th>
                                 <th
                                     style={{ ...s.th, textAlign: "right", cursor: "pointer" }}
-                                    onClick={() => toggleSort("changeDaily")}
+                                    {...clickable(() => toggleSort("changeDaily"))}
                                 >
-                                    {t("analysis.tblColDaily")} {sortKey === "changeDaily" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                    {t("analysis.tblColDaily")} {sortArrow("changeDaily")}
                                 </th>
                                 <th
                                     style={{ ...s.th, textAlign: "right", cursor: "pointer" }}
-                                    onClick={() => toggleSort("changeWeekly")}
+                                    {...clickable(() => toggleSort("changeWeekly"))}
                                 >
-                                    {t("analysis.tblColWeekly")} {sortKey === "changeWeekly" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                    {t("analysis.tblColWeekly")} {sortArrow("changeWeekly")}
                                 </th>
                                 <th
                                     style={{ ...s.th, textAlign: "right", cursor: "pointer" }}
-                                    onClick={() => toggleSort("changeMonthly")}
+                                    {...clickable(() => toggleSort("changeMonthly"))}
                                 >
-                                    {t("analysis.tblColMonthly")} {sortKey === "changeMonthly" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                    {t("analysis.tblColMonthly")} {sortArrow("changeMonthly")}
                                 </th>
                                 <th
                                     style={{ ...s.th, textAlign: "right", cursor: "pointer" }}
-                                    onClick={() => toggleSort("changeYearly")}
+                                    {...clickable(() => toggleSort("changeYearly"))}
                                 >
-                                    {t("analysis.tblColYearly")} {sortKey === "changeYearly" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                    {t("analysis.tblColYearly")} {sortArrow("changeYearly")}
                                 </th>
                                 <th
                                     style={{ ...s.th, textAlign: "right", cursor: "pointer" }}
-                                    onClick={() => toggleSort("realChangeYearly")}
+                                    {...clickable(() => toggleSort("realChangeYearly"))}
                                 >
-                                    {t("analysis.tblColRealYearly")} {sortKey === "realChangeYearly" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                    {t("analysis.tblColRealYearly")} {sortArrow("realChangeYearly")}
                                 </th>
                                 <th style={s.th}>{t("analysis.tblColRisk")}</th>
                                 <th style={s.th}>{t("analysis.tblColShort")}</th>

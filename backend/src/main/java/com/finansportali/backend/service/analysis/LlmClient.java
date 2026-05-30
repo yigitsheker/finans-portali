@@ -40,6 +40,8 @@ public class LlmClient {
     // hundred KB; bumping past Spring's 256 KB default avoids truncation.
     private static final int MAX_IN_MEMORY_BYTES = 6 * 1024 * 1024;
 
+    private static final String KEY_CONTENT = "content";
+
     private final WebClient webClient;
     private final boolean enabled;
     private final String model;
@@ -95,9 +97,9 @@ public class LlmClient {
         try {
             List<Map<String, String>> messages = new ArrayList<>();
             if (systemPrompt != null && !systemPrompt.isBlank()) {
-                messages.add(Map.of("role", "system", "content", systemPrompt));
+                messages.add(Map.of("role", "system", KEY_CONTENT, systemPrompt));
             }
-            messages.add(Map.of("role", "user", "content", userMessage));
+            messages.add(Map.of("role", "user", KEY_CONTENT, userMessage));
 
             Map<String, Object> body = Map.of(
                     "model", model,
@@ -119,7 +121,7 @@ public class LlmClient {
             if (choices == null || choices.isEmpty()) return null;
             Map<String, Object> message = (Map<String, Object>) choices.get(0).get("message");
             if (message == null) return null;
-            Object content = message.get("content");
+            Object content = message.get(KEY_CONTENT);
             return content == null ? null : content.toString();
         } catch (RuntimeException e) {
             log.warn("[LLM] completion failed: {}", e.getMessage());

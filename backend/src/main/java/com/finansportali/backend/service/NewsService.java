@@ -327,9 +327,8 @@ public class NewsService {
      * subsequent reads are free. Runs inside its own short transaction; the
      * passed entity is re-attached, saved, and detaches again on exit — that
      * detachment is what lets the caller mutate base fields without a flush.
-     */
-    /**
-     * Lazily caches translation columns for the article. When
+     *
+     * <p>Lazily caches translation columns for the article. When
      * {@code includeContent} is false we skip the expensive content
      * translation (multi-KB body) — list views only display
      * title + summary, and the detail page makes a separate call that

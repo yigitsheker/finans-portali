@@ -117,6 +117,17 @@ export default function Bonds({ keycloak }) {
         }
     };
 
+    // Per-column sort-arrow renderers extracted so the table-header cells
+    // aren't nested-ternary walls (Sonar S3358).
+    const sortArrow = (key) => {
+        if (sortKey !== key) return "";
+        return sortDir === "asc" ? "▲" : "▼";
+    };
+    const sortArrowSpaced = (key) => {
+        if (sortKey !== key) return "";
+        return sortDir === "asc" ? " ▲" : " ▼";
+    };
+
     const sortedBonds = useMemo(() => {
         if (!sortKey) return bonds;
         const stringKeys = new Set(["name", "type", "isin", "source"]);
@@ -258,45 +269,50 @@ export default function Bonds({ keycloak }) {
                         <thead>
                             <tr>
                                 <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("name")}>
-                                    {t("bonds.colInstrument")} {sortKey === "name" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                    {t("bonds.colInstrument")} {sortArrow("name")}
                                 </th>
                                 <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("type")}>
                                     {t("bonds.colType")} <TermInfo termKey="bond" placement="bottom" />
-                                    {sortKey === "type" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                                    {sortArrowSpaced("type")}
                                 </th>
                                 <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("isin")}>
                                     {t("bonds.colIsin")} <TermInfo termKey="isin" placement="bottom" />
-                                    {sortKey === "isin" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                                    {sortArrowSpaced("isin")}
                                 </th>
                                 <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("maturityDate")}>
                                     {t("bonds.colMaturity")} <TermInfo termKey="maturity" placement="bottom" />
-                                    {sortKey === "maturityDate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                                    {sortArrowSpaced("maturityDate")}
                                 </th>
                                 <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("couponRate")}>
                                     {t("bonds.colCoupon")} <TermInfo termKey="coupon" placement="bottom" />
-                                    {sortKey === "couponRate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                                    {sortArrowSpaced("couponRate")}
                                 </th>
                                 <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("latestPrice")}>
-                                    {t("bonds.colPrice")} {sortKey === "latestPrice" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                    {t("bonds.colPrice")} {sortArrow("latestPrice")}
                                 </th>
                                 <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("latestYieldRate")}>
                                     {t("bonds.colYield")} <TermInfo termKey="yield" placement="bottom" />
-                                    {sortKey === "latestYieldRate" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                                    {sortArrowSpaced("latestYieldRate")}
                                 </th>
                                 <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("latestChangeRate")}>
-                                    {t("bonds.colChange")} {sortKey === "latestChangeRate" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                    {t("bonds.colChange")} {sortArrow("latestChangeRate")}
                                 </th>
                                 <th style={{ ...s.th, cursor: "pointer" }} onClick={() => toggleSort("source")}>
-                                    {t("bonds.colSource")} {sortKey === "source" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                                    {t("bonds.colSource")} {sortArrow("source")}
                                 </th>
                             </tr>
                         </thead>
                         <tbody>
                             {sortedBonds.map((bond) => {
                                 const hasChange = bond.changeRate !== null && bond.changeRate !== undefined && bond.changeRate !== 0;
-                                const changeColor = !hasChange
-                                    ? "var(--text-muted)"
-                                    : bond.changeRate > 0 ? "var(--green)" : "var(--red)";
+                                let changeColor;
+                                if (!hasChange) changeColor = "var(--text-muted)";
+                                else if (bond.changeRate > 0) changeColor = "var(--green)";
+                                else changeColor = "var(--red)";
+                                // Source-tooltip text — flattened from a nested ternary.
+                                let sourceTitle = bond.source;
+                                if (bond.source === "TCMB") sourceTitle = t("bonds.sourceTcmbHint");
+                                else if (bond.source === "BIST/BIGPARA") sourceTitle = t("bonds.sourceBistHint");
                                 return (
                                     <tr
                                         key={bond.id}
@@ -337,13 +353,7 @@ export default function Bonds({ keycloak }) {
                                                 : "-"}
                                         </td>
                                         <td style={s.td}>
-                                            <span style={s.sourceBadge} title={
-                                                bond.source === "TCMB"
-                                                    ? t("bonds.sourceTcmbHint")
-                                                    : bond.source === "BIST/BIGPARA"
-                                                        ? t("bonds.sourceBistHint")
-                                                        : bond.source
-                                            }>
+                                            <span style={s.sourceBadge} title={sourceTitle}>
                                                 {bond.source}
                                             </span>
                                         </td>

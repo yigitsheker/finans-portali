@@ -17,7 +17,9 @@ public class AnalysisDetailDto {
     private String riskNote;
     private List<PricePointDto> series;
 
-    public AnalysisDetailDto() {}
+    public AnalysisDetailDto() {
+        // Default constructor required for Jackson deserialization.
+    }
 
     public AnalysisInstrumentDto getSummary() { return summary; }
     public void setSummary(AnalysisInstrumentDto summary) { this.summary = summary; }

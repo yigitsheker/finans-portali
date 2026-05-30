@@ -20,6 +20,9 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.test.util.ReflectionTestUtils;
+
+import com.finansportali.backend.entity.MarketCandle;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -74,9 +77,8 @@ class InstrumentAnalysisServiceTest {
     }
 
     private static InvestmentFund fund(String code, String name, String unitPrice) {
-        InvestmentFund f = new InvestmentFund(code, name, "Hisse", "Garanti Portföy",
+        return new InvestmentFund(code, name, "Hisse", "Garanti Portföy",
                 new BigDecimal(unitPrice), new BigDecimal("1000000"), LocalDate.of(2026, 1, 1));
-        return f;
     }
 
     private static InflationDataPoint inflation(String country, String cpi, String yearly) {
@@ -322,5 +324,185 @@ class InstrumentAnalysisServiceTest {
     @Test
     void latestUpdate_returns_a_non_null_instant() {
         assertThat(service.latestUpdate()).isNotNull();
+    }
+
+    // ── buildShortNote(...) private helper ───────────────────────────────
+
+    private AnalysisInstrumentDto dtoWith(BigDecimal weekly, BigDecimal yearly, String risk, String currency) {
+        AnalysisInstrumentDto d = new AnalysisInstrumentDto();
+        d.setChangeWeekly(weekly);
+        d.setChangeYearly(yearly);
+        d.setRiskLevel(risk);
+        d.setCurrency(currency);
+        return d;
+    }
+
+    @Test
+    void buildShortNote_positive_branch_for_weekly_above_3() {
+        AnalysisInstrumentDto d = dtoWith(new BigDecimal("4.5"), null, null, null);
+        String note = ReflectionTestUtils.invokeMethod(service, "buildShortNote", d);
+        assertThat(note).contains("momentum pozitif");
+    }
+
+    @Test
+    void buildShortNote_negative_branch_for_weekly_below_minus_3() {
+        AnalysisInstrumentDto d = dtoWith(new BigDecimal("-5"), null, null, null);
+        String note = ReflectionTestUtils.invokeMethod(service, "buildShortNote", d);
+        assertThat(note).contains("baskı sürüyor");
+    }
+
+    @Test
+    void buildShortNote_flat_branch_between_thresholds() {
+        AnalysisInstrumentDto d = dtoWith(new BigDecimal("1"), null, null, null);
+        String note = ReflectionTestUtils.invokeMethod(service, "buildShortNote", d);
+        assertThat(note).contains("yatay seyir");
+    }
+
+    @Test
+    void buildShortNote_handles_null_dto_and_null_weekly() {
+        String nullDto = ReflectionTestUtils.invokeMethod(service, "buildShortNote", (Object) null);
+        assertThat(nullDto).contains("Kısa vadeli veri yetersiz");
+        AnalysisInstrumentDto d = dtoWith(null, null, null, null);
+        String nullWeekly = ReflectionTestUtils.invokeMethod(service, "buildShortNote", d);
+        assertThat(nullWeekly).contains("Haftalık değişim verisi");
+    }
+
+    // ── buildLongNote(...) private helper ────────────────────────────────
+
+    @Test
+    void buildLongNote_positive_branch_for_yearly_above_30() {
+        AnalysisInstrumentDto d = dtoWith(null, new BigDecimal("50"), null, null);
+        String note = ReflectionTestUtils.invokeMethod(service, "buildLongNote", d);
+        assertThat(note).contains("güçlü pozitif");
+    }
+
+    @Test
+    void buildLongNote_negative_branch_for_yearly_below_minus_30() {
+        AnalysisInstrumentDto d = dtoWith(null, new BigDecimal("-40"), null, null);
+        String note = ReflectionTestUtils.invokeMethod(service, "buildLongNote", d);
+        assertThat(note).contains("ciddi düşüş");
+    }
+
+    @Test
+    void buildLongNote_flat_branch_between_thresholds() {
+        AnalysisInstrumentDto d = dtoWith(null, new BigDecimal("10"), null, null);
+        String note = ReflectionTestUtils.invokeMethod(service, "buildLongNote", d);
+        assertThat(note).contains("ılımlı seyir");
+    }
+
+    @Test
+    void buildLongNote_handles_null_dto_and_null_yearly() {
+        String nullDto = ReflectionTestUtils.invokeMethod(service, "buildLongNote", (Object) null);
+        assertThat(nullDto).contains("Uzun vadeli veri yetersiz");
+        AnalysisInstrumentDto d = dtoWith(null, null, null, null);
+        String nullYearly = ReflectionTestUtils.invokeMethod(service, "buildLongNote", d);
+        assertThat(nullYearly).contains("Yıllık değişim verisi");
+    }
+
+    // ── buildRiskNote(...) private helper ────────────────────────────────
+
+    @Test
+    void buildRiskNote_returns_phrase_per_risk_label() {
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "buildRiskNote",
+                dtoWith(null, null, "LOW", null))).asString().contains("Düşük risk");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "buildRiskNote",
+                dtoWith(null, null, "MEDIUM", null))).asString().contains("Orta seviye");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "buildRiskNote",
+                dtoWith(null, null, "HIGH", null))).asString().contains("Yüksek volatilite");
+        // Default branch: an unknown label.
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "buildRiskNote",
+                dtoWith(null, null, "UNKNOWN", null))).asString().contains("Belirsiz");
+    }
+
+    @Test
+    void buildRiskNote_returns_data_message_when_dto_null() {
+        String note = ReflectionTestUtils.invokeMethod(service, "buildRiskNote", (Object) null);
+        assertThat(note).contains("Risk değerlendirmesi");
+    }
+
+    // ── applyRealReturn(...) private helper ──────────────────────────────
+
+    @Test
+    void applyRealReturn_sets_real_return_for_TRY_row_with_tr_cpi() {
+        AnalysisInstrumentDto d = dtoWith(null, new BigDecimal("100"), "MEDIUM", "TRY");
+        ReflectionTestUtils.invokeMethod(service, "applyRealReturn", d,
+                new BigDecimal("50"), new BigDecimal("3"));
+        // r_real = (1 + 1.0) / (1 + 0.5) - 1 = 2/1.5 - 1 ≈ 33.33%
+        assertThat(d.getRealChangeYearly()).isNotNull();
+        assertThat(d.getRealChangeYearly().doubleValue()).isCloseTo(33.33, org.assertj.core.data.Offset.offset(0.05));
+        assertThat(d.getBeatsInflation()).isTrue();
+    }
+
+    @Test
+    void applyRealReturn_is_noop_when_cpi_null() {
+        AnalysisInstrumentDto d = dtoWith(null, new BigDecimal("100"), "MEDIUM", "TRY");
+        ReflectionTestUtils.invokeMethod(service, "applyRealReturn", d,
+                (BigDecimal) null, (BigDecimal) null);
+        assertThat(d.getRealChangeYearly()).isNull();
+        assertThat(d.getBeatsInflation()).isNull();
+    }
+
+    @Test
+    void applyRealReturn_skips_inflation_rows() {
+        AnalysisInstrumentDto d = dtoWith(null, new BigDecimal("65"), "LOW", null);
+        d.setCategory("INFLATION_TR");
+        ReflectionTestUtils.invokeMethod(service, "applyRealReturn", d,
+                new BigDecimal("65"), new BigDecimal("3"));
+        // Inflation rows are skipped — real return stays unset.
+        assertThat(d.getRealChangeYearly()).isNull();
+    }
+
+    @Test
+    void applyRealReturn_handles_negative_real_return() {
+        // 10% nominal, 50% CPI → real return is deeply negative.
+        AnalysisInstrumentDto d = dtoWith(null, new BigDecimal("10"), "MEDIUM", "TRY");
+        ReflectionTestUtils.invokeMethod(service, "applyRealReturn", d,
+                new BigDecimal("50"), new BigDecimal("3"));
+        assertThat(d.getRealChangeYearly().signum()).isNegative();
+        assertThat(d.getBeatsInflation()).isFalse();
+    }
+
+    // ── changeOverDays(...) private helper ───────────────────────────────
+
+    @Test
+    void changeOverDays_returns_null_when_no_candle_history() {
+        MarketInstrument inst = new MarketInstrument("AAPL", "Apple",
+                com.finansportali.backend.entity.InstrumentType.STOCK,
+                com.finansportali.backend.entity.MarketDataProvider.YAHOO,
+                "AAPL", false);
+        when(candleRepo.findByInstrumentAndDayBetweenOrderByDayAsc(any(), any(), any()))
+                .thenReturn(List.of());
+        BigDecimal result = ReflectionTestUtils.invokeMethod(service, "changeOverDays",
+                inst, new BigDecimal("150"), 7);
+        assertThat(result).isNull();
+    }
+
+    @Test
+    void changeOverDays_computes_positive_pct_when_history_present() {
+        MarketInstrument inst = new MarketInstrument("AAPL", "Apple",
+                com.finansportali.backend.entity.InstrumentType.STOCK,
+                com.finansportali.backend.entity.MarketDataProvider.YAHOO,
+                "AAPL", false);
+        MarketCandle c = new MarketCandle(inst, LocalDate.now().minusDays(7), new BigDecimal("100"));
+        when(candleRepo.findByInstrumentAndDayBetweenOrderByDayAsc(any(), any(), any()))
+                .thenReturn(List.of(c));
+        BigDecimal result = ReflectionTestUtils.invokeMethod(service, "changeOverDays",
+                inst, new BigDecimal("110"), 7);
+        // 110 vs 100 base → +10%.
+        assertThat(result).isEqualByComparingTo("10.00");
+    }
+
+    @Test
+    void changeOverDays_returns_null_when_base_close_is_zero() {
+        MarketInstrument inst = new MarketInstrument("AAPL", "Apple",
+                com.finansportali.backend.entity.InstrumentType.STOCK,
+                com.finansportali.backend.entity.MarketDataProvider.YAHOO,
+                "AAPL", false);
+        MarketCandle c = new MarketCandle(inst, LocalDate.now().minusDays(7), BigDecimal.ZERO);
+        when(candleRepo.findByInstrumentAndDayBetweenOrderByDayAsc(any(), any(), any()))
+                .thenReturn(List.of(c));
+        BigDecimal result = ReflectionTestUtils.invokeMethod(service, "changeOverDays",
+                inst, new BigDecimal("110"), 7);
+        assertThat(result).isNull();
     }
 }

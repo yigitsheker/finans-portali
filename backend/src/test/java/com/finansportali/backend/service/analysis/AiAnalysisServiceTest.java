@@ -9,6 +9,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.test.util.ReflectionTestUtils;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -282,5 +283,104 @@ class AiAnalysisServiceTest {
         ChatResponseDto r = service.generateReply("explain CDS spreads", "en");
         // Blank LLM reply → service falls back to help / low / long branches.
         assertThat(r.getReply()).contains("Examples of what I can help with");
+    }
+
+    // ── localizeRisk(...) private helper ─────────────────────────────────
+
+    @Test
+    void localizeRisk_covers_every_label_tr_and_en() {
+        // tr=true cases
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeRisk", "LOW", true)).isEqualTo("Düşük");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeRisk", "MEDIUM", true)).isEqualTo("Orta");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeRisk", "HIGH", true)).isEqualTo("Yüksek");
+        // tr=false cases
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeRisk", "LOW", false)).isEqualTo("Low");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeRisk", "MEDIUM", false)).isEqualTo("Medium");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeRisk", "HIGH", false)).isEqualTo("High");
+    }
+
+    @Test
+    void localizeRisk_returns_dash_for_null() {
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeRisk", (Object) null, true)).isEqualTo("—");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeRisk", (Object) null, false)).isEqualTo("—");
+    }
+
+    @Test
+    void localizeRisk_passes_through_unknown_label() {
+        // Default branch in the switch — unknown labels echo back verbatim.
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeRisk", "CRAZY", true)).isEqualTo("CRAZY");
+    }
+
+    // ── localizeSignal(...) private helper ───────────────────────────────
+
+    @Test
+    void localizeSignal_covers_every_label_tr_and_en() {
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeSignal", "BUY", true)).isEqualTo("Al");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeSignal", "SELL", true)).isEqualTo("Sat");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeSignal", "HOLD", true)).isEqualTo("Tut");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeSignal", "NEUTRAL", true)).isEqualTo("Nötr");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeSignal", "BUY", false)).isEqualTo("Buy");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeSignal", "SELL", false)).isEqualTo("Sell");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeSignal", "HOLD", false)).isEqualTo("Hold");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeSignal", "NEUTRAL", false)).isEqualTo("Neutral");
+    }
+
+    @Test
+    void localizeSignal_returns_dash_for_null() {
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeSignal", (Object) null, true)).isEqualTo("—");
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeSignal", (Object) null, false)).isEqualTo("—");
+    }
+
+    @Test
+    void localizeSignal_passes_through_unknown_label() {
+        assertThat((Object) ReflectionTestUtils.invokeMethod(service, "localizeSignal", "MAYBE", true)).isEqualTo("MAYBE");
+    }
+
+    // ── appendMarketContext(...) private helper ──────────────────────────
+
+    @Test
+    void appendMarketContext_appends_block_when_instruments_present() {
+        when(instrumentService.getAllInstruments())
+                .thenReturn(List.of(
+                        instr("AAPL", "Apple", "STOCK"),
+                        instr("BTCUSD", "Bitcoin", "CRYPTO"),
+                        instr("ASELS", "Aselsan", "STOCK")));
+
+        String out = ReflectionTestUtils.invokeMethod(service, "appendMarketContext", "hi", "en");
+        assertThat(out).startsWith("hi");
+        // English context header + every symbol shows up.
+        assertThat(out).contains("Latest market data");
+        assertThat(out).contains("AAPL").contains("BTCUSD").contains("ASELS");
+        // Daily change formatting included (uses %+.2f%%).
+        assertThat(out).contains("daily");
+        assertThat(out).contains("yearly");
+    }
+
+    @Test
+    void appendMarketContext_uses_turkish_header_when_lang_tr() {
+        when(instrumentService.getAllInstruments())
+                .thenReturn(List.of(instr("THYAO", "Türk Hava Yolları", "STOCK")));
+
+        String out = ReflectionTestUtils.invokeMethod(service, "appendMarketContext", "selam", "tr");
+        assertThat(out).contains("Güncel piyasa verisi");
+        assertThat(out).contains("THYAO");
+    }
+
+    @Test
+    void appendMarketContext_returns_bare_message_on_exception() {
+        when(instrumentService.getAllInstruments())
+                .thenThrow(new RuntimeException("boom"));
+
+        String out = ReflectionTestUtils.invokeMethod(service, "appendMarketContext", "hello", "en");
+        // Catch branch swallows the throw and returns userMessage unchanged.
+        assertThat(out).isEqualTo("hello");
+    }
+
+    @Test
+    void appendMarketContext_returns_bare_message_when_no_instruments() {
+        when(instrumentService.getAllInstruments()).thenReturn(List.of());
+        String out = ReflectionTestUtils.invokeMethod(service, "appendMarketContext", "hello", "en");
+        // Empty list → no header appended → same as input.
+        assertThat(out).isEqualTo("hello");
     }
 }

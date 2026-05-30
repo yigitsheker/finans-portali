@@ -36,6 +36,7 @@ public class YahooPriceFetcher {
 
     private static final Logger log = LoggerFactory.getLogger(YahooPriceFetcher.class);
     private static final String BASE = "https://query1.finance.yahoo.com";
+    private static final String PARAM_RANGE = "range";
 
     private static final String USER_AGENT =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
@@ -72,7 +73,7 @@ public class YahooPriceFetcher {
             Map<?, ?> resp = client.get()
                     .uri(u -> u.path("/v8/finance/chart/{symbol}")
                             .queryParam("interval", "1d")
-                            .queryParam("range", "1d")
+                            .queryParam(PARAM_RANGE, "1d")
                             .build(yahooSymbol))
                     .retrieve()
                     .bodyToMono(Map.class)
@@ -108,7 +109,7 @@ public class YahooPriceFetcher {
             Map<?, ?> resp = client.get()
                     .uri(u -> u.path("/v8/finance/chart/{symbol}")
                             .queryParam("interval", interval)
-                            .queryParam("range", range)
+                            .queryParam(PARAM_RANGE, range)
                             .build(yahooSymbol))
                     .retrieve()
                     .bodyToMono(Map.class)
@@ -442,7 +443,7 @@ public class YahooPriceFetcher {
             
             Map<?, ?> resp = client.get()
                     .uri(u -> u.path("/v8/finance/chart/{symbol}")
-                            .queryParam("range", "1d")
+                            .queryParam(PARAM_RANGE, "1d")
                             .queryParam("interval", interval)
                             .build(yahooSymbol))
                     .retrieve()

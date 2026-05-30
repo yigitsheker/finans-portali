@@ -70,7 +70,10 @@ export default function Chatbot({ keycloak, lang = "tr" }) {
 
             <div ref={scrollRef} style={s.scroll}>
                 {messages.map((m, idx) => (
-                    <Bubble key={idx} msg={m} />
+                    // Compose a stable-ish key from role + a slice of the reply so
+                    // React doesn't fall back to array-index keys (Sonar S6479).
+                    // idx is kept as a tie-breaker for the (rare) duplicate replies.
+                    <Bubble key={`${idx}-${m.role}-${(m.reply ?? "").slice(0, 16)}`} msg={m} />
                 ))}
                 {busy && (
                     <div style={{ ...s.bubble, ...s.bubbleAi }}>
@@ -126,13 +129,13 @@ function Bubble({ msg }) {
             <div style={s.bubbleBody}>{renderMarkdownLite(msg.reply)}</div>
             {msg.scenarios?.length > 0 && (
                 <div style={s.scenarios}>
-                    {msg.scenarios.map((sc, i) => (
-                        <div key={i} style={s.scenarioCard}>
+                    {msg.scenarios.map((sc) => (
+                        <div key={`sc-${sc.label}`} style={s.scenarioCard}>
                             <div style={s.scenarioTitle}>{sc.label}</div>
                             <div style={s.scenarioDesc}>{sc.description}</div>
                             <ul style={s.allocList}>
-                                {sc.allocations?.map((a, j) => (
-                                    <li key={j} style={s.allocItem}>
+                                {sc.allocations?.map((a) => (
+                                    <li key={`alloc-${sc.label}-${a.assetClass}`} style={s.allocItem}>
                                         <span>{a.assetClass}</span>
                                         <strong>{a.percent}%</strong>
                                     </li>
@@ -162,11 +165,13 @@ function renderMarkdownLite(text) {
     if (!text) return null;
     return text.split("\n").map((line, i) => {
         const trimmed = line.trim();
-        if (!trimmed) return <br key={i} />;
+        // Compose keys from line index + content prefix so React doesn't
+        // fall back to bare array indices (Sonar S6479).
+        if (!trimmed) return <br key={`br-${i}`} />;
         const isBullet = trimmed.startsWith("- ") || trimmed.startsWith("• ");
         const cleaned = isBullet ? trimmed.slice(2) : trimmed;
         return (
-            <div key={i} style={{ display: "flex", gap: 6, marginBottom: 4 }}>
+            <div key={`ln-${i}-${cleaned.slice(0, 16)}`} style={{ display: "flex", gap: 6, marginBottom: 4 }}>
                 {isBullet && <span style={{ color: "var(--text-muted)" }}>•</span>}
                 <span>{renderInline(cleaned)}</span>
             </div>
@@ -176,13 +181,13 @@ function renderMarkdownLite(text) {
 
 function renderInline(text) {
     const parts = text.split(/(\*\*[^*]+\*\*)/g);
-    return parts.map((p, i) =>
-        p.startsWith("**") && p.endsWith("**") ? (
-            <strong key={i}>{p.slice(2, -2)}</strong>
-        ) : (
-            <span key={i}>{p}</span>
-        )
-    );
+    return parts.map((p, i) => {
+        const key = `inl-${i}-${p.slice(0, 12)}`;
+        if (p.startsWith("**") && p.endsWith("**")) {
+            return <strong key={key}>{p.slice(2, -2)}</strong>;
+        }
+        return <span key={key}>{p}</span>;
+    });
 }
 
 const s = {

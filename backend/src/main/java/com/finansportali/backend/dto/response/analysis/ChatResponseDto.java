@@ -16,7 +16,9 @@ public class ChatResponseDto {
     private String disclaimer;
     private Instant timestamp;
 
-    public ChatResponseDto() {}
+    public ChatResponseDto() {
+        // Default constructor required for Jackson deserialization.
+    }
 
     public String getReply() { return reply; }
     public void setReply(String reply) { this.reply = reply; }

@@ -12,7 +12,9 @@ public class ChatRequestDto {
     /** Optional locale hint (defaults to "tr"). */
     private String lang;
 
-    public ChatRequestDto() {}
+    public ChatRequestDto() {
+        // Default constructor required for Jackson deserialization.
+    }
 
     public String getMessage() { return message; }
     public void setMessage(String message) { this.message = message; }

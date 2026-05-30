@@ -4,6 +4,7 @@ import { getInvestmentFunds, getFundTypes, refreshInvestmentFunds } from "../api
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
 import Pagination from "../components/common/Pagination";
 import TermInfo from "../components/common/TermInfo";
+import { clickable } from "../utils/clickable";
 import { useI18n } from "../contexts/I18nContext";
 
 export default function Funds({ keycloak }) {
@@ -123,6 +124,36 @@ export default function Funds({ keycloak }) {
         }
     };
 
+    // Per-column sort-direction arrow. Extracted out of the JSX so the table
+    // header rows aren't a wall of inline ternaries (Sonar S3358).
+    const sortArrow = (key) => {
+        if (sortKey !== key) return "";
+        return sortDir === "asc" ? "▲" : "▼";
+    };
+
+    // Same helper, but space-prefixed for cells that put the arrow inline
+    // after a <TermInfo /> icon — keeps spacing consistent without forcing
+    // every caller to add its own conditional whitespace.
+    const sortArrowSpaced = (key) => {
+        if (sortKey !== key) return "";
+        return sortDir === "asc" ? " ▲" : " ▼";
+    };
+
+    // Risk badge styling — collapses the old triple-nested ternary
+    // (DÜŞÜK → ORTA → default HIGH) into a plain table lookup.
+    const riskBadgeStyle = (level) => {
+        if (level === 'DÜŞÜK') return s.riskLow;
+        if (level === 'ORTA') return s.riskMedium;
+        return s.riskHigh;
+    };
+
+    const riskLabel = (level) => {
+        if (level === 'DÜŞÜK') return t("funds.riskLow");
+        if (level === 'ORTA') return t("funds.riskMed");
+        if (level === 'YÜKSEK') return t("funds.riskHigh");
+        return level;
+    };
+
     useEffect(() => { setPage(1); }, [selectedFundTypes, pageSize, sortKey, sortDir]);
     const totalFiltered = filteredFunds.length;
     const pagedFunds = useMemo(() => {
@@ -232,33 +263,33 @@ export default function Funds({ keycloak }) {
                     the inner grid a min-width and lets the user scroll. */}
                 <div className="fp-card-table">
                 <div style={s.tableHeader}>
-                    <div style={{ ...s.colFund, cursor: "pointer" }} onClick={() => toggleSort("fundName")}>
-                        {t("funds.colInfo")} {sortKey === "fundName" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    <div style={{ ...s.colFund, cursor: "pointer" }} {...clickable(() => toggleSort("fundName"))}>
+                        {t("funds.colInfo")} {sortArrow("fundName")}
                     </div>
-                    <div style={{ ...s.colPrice, cursor: "pointer" }} onClick={() => toggleSort("unitPrice")}>
+                    <div style={{ ...s.colPrice, cursor: "pointer" }} {...clickable(() => toggleSort("unitPrice"))}>
                         {t("funds.colUnitPrice")} <TermInfo termKey="nav" placement="bottom" />
-                        {sortKey === "unitPrice" ? (sortDir === "asc" ? " ▲" : " ▼") : ""}
+                        {sortArrowSpaced("unitPrice")}
                     </div>
-                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("dailyReturn")}>
-                        {t("funds.colDaily")} {sortKey === "dailyReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} {...clickable(() => toggleSort("dailyReturn"))}>
+                        {t("funds.colDaily")} {sortArrow("dailyReturn")}
                     </div>
-                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("monthlyReturn")}>
-                        {t("funds.col1m")} {sortKey === "monthlyReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} {...clickable(() => toggleSort("monthlyReturn"))}>
+                        {t("funds.col1m")} {sortArrow("monthlyReturn")}
                     </div>
-                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("threeMonthReturn")}>
-                        {t("funds.col3m")} {sortKey === "threeMonthReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} {...clickable(() => toggleSort("threeMonthReturn"))}>
+                        {t("funds.col3m")} {sortArrow("threeMonthReturn")}
                     </div>
-                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("sixMonthReturn")}>
-                        {t("funds.col6m")} {sortKey === "sixMonthReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} {...clickable(() => toggleSort("sixMonthReturn"))}>
+                        {t("funds.col6m")} {sortArrow("sixMonthReturn")}
                     </div>
-                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("yearlyReturn")}>
-                        {t("funds.col1y")} {sortKey === "yearlyReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} {...clickable(() => toggleSort("yearlyReturn"))}>
+                        {t("funds.col1y")} {sortArrow("yearlyReturn")}
                     </div>
-                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("threeYearReturn")}>
-                        {t("funds.col3y")} {sortKey === "threeYearReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} {...clickable(() => toggleSort("threeYearReturn"))}>
+                        {t("funds.col3y")} {sortArrow("threeYearReturn")}
                     </div>
-                    <div style={{ ...s.colReturn, cursor: "pointer" }} onClick={() => toggleSort("fiveYearReturn")}>
-                        {t("funds.col5y")} {sortKey === "fiveYearReturn" ? (sortDir === "asc" ? "▲" : "▼") : ""}
+                    <div style={{ ...s.colReturn, cursor: "pointer" }} {...clickable(() => toggleSort("fiveYearReturn"))}>
+                        {t("funds.col5y")} {sortArrow("fiveYearReturn")}
                     </div>
                     <div style={s.colRisk}>{t("funds.colRisk")} <TermInfo termKey="risk_level" placement="bottom" /></div>
                 </div>
@@ -334,16 +365,8 @@ export default function Funds({ keycloak }) {
                                 </div>
                                 <div style={s.colRisk}>
                                     {fund.riskLevel && (
-                                        <span style={{
-                                            ...s.riskBadge,
-                                            ...(fund.riskLevel === 'DÜŞÜK' ? s.riskLow :
-                                                fund.riskLevel === 'ORTA' ? s.riskMedium :
-                                                s.riskHigh)
-                                        }}>
-                                            {fund.riskLevel === 'DÜŞÜK' ? t("funds.riskLow") :
-                                             fund.riskLevel === 'ORTA' ? t("funds.riskMed") :
-                                             fund.riskLevel === 'YÜKSEK' ? t("funds.riskHigh") :
-                                             fund.riskLevel}
+                                        <span style={{ ...s.riskBadge, ...riskBadgeStyle(fund.riskLevel) }}>
+                                            {riskLabel(fund.riskLevel)}
                                         </span>
                                     )}
                                 </div>
