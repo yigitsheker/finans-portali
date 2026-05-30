@@ -112,6 +112,15 @@ public class NewsService {
     private final NewsContentFetcher contentFetcher;
     private final LibreTranslateClient translator;
 
+    // Self-reference for proxy-routed @Transactional calls from inside
+    // this same bean. Direct `this.cleanupOrphanArticles()` would skip
+    // the proxy and the @Modifying DELETE inside would throw
+    // "Executing an update/delete query" because no tx is active.
+    // @Lazy breaks the constructor cycle (NewsService → NewsService).
+    @org.springframework.beans.factory.annotation.Autowired
+    @org.springframework.context.annotation.Lazy
+    private NewsService self;
+
     // Business metrics — refresh cycle stats and per-article saved counter.
     private final Counter refreshSuccessCounter;
     private final Counter refreshFailureCounter;
@@ -457,6 +466,65 @@ public class NewsService {
     @Scheduled(initialDelay = 5_000, fixedDelay = 6 * 60 * 60 * 1000L)
     public void fetchAndSaveNews() {
         refreshDurationTimer.record(this::doFetchAndSaveNews);
+    }
+
+    /**
+     * Removes news_articles rows whose (sourceName, category) pair no longer
+     * matches any row in news_feeds — i.e. articles left behind by a feed
+     * that has been deleted. The DELETE endpoint cascades on delete now,
+     * but rows orphaned BEFORE that fix landed need a sweeper. Returns the
+     * number of rows removed.
+     */
+    @Transactional
+    public int cleanupOrphanArticles() {
+        int removed = repo.deleteOrphanedArticles();
+        if (removed > 0) {
+            log.info("Orphan-article cleanup: removed {} rows whose feed no longer exists", removed);
+        }
+        return removed;
+    }
+
+    /**
+     * Daily scheduled orphan sweep. Belt-and-braces against future drift —
+     * the per-feed delete already cascades, this just catches anything that
+     * slipped through (e.g. an article whose source name changed, or
+     * articles inserted before the cascade fix was deployed). 03:00 UTC
+     * is well outside any market hour so the DELETE doesn't fight with
+     * the heavier fetch cycle.
+     *
+     * Goes through the @Lazy self reference so Spring's @Transactional
+     * proxy actually wraps the delete — calling `cleanupOrphanArticles()`
+     * directly on `this` would self-invoke and bypass the proxy
+     * (PriceRefreshScheduler uses the same pattern for the same reason).
+     */
+    @Scheduled(cron = "0 0 3 * * *")
+    public void scheduledOrphanCleanup() {
+        try {
+            self.cleanupOrphanArticles();
+        } catch (RuntimeException e) {
+            log.warn("Scheduled orphan cleanup failed: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * One-shot orphan sweep on startup. Fires after the Spring context is
+     * fully up so flyway is done and feedRepo is ready. Cheap — orphans
+     * are rare under normal operation, so the DELETE typically removes 0
+     * rows and returns in milliseconds.
+     */
+    @org.springframework.context.event.EventListener(
+            org.springframework.boot.context.event.ApplicationReadyEvent.class)
+    public void onStartupCleanupOrphans() {
+        try {
+            int removed = self.cleanupOrphanArticles();
+            if (removed > 0) {
+                log.info("Startup orphan-article cleanup removed {} rows", removed);
+            }
+        } catch (RuntimeException e) {
+            // Don't fail boot if the cleanup throws — the table is still
+            // queryable, just contains stale rows.
+            log.warn("Startup orphan cleanup failed: {}", e.getMessage());
+        }
     }
 
     private void doFetchAndSaveNews() {

@@ -34,6 +34,22 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
     int deleteBySourceNameAndCategory(@Param("sourceName") String sourceName, @Param("category") String category);
 
     /**
+     * One-shot cleanup for articles whose (sourceName, category) pair no
+     * longer matches any row in news_feeds. Used by the admin "Yetim
+     * haberleri temizle" button to remove orphans left behind by feed
+     * deletes that happened before the cascade-on-delete fix landed.
+     */
+    @Modifying
+    @Query("""
+        delete from NewsArticle a
+        where not exists (
+            select 1 from NewsFeed f
+            where f.source = a.sourceName and f.category = a.category
+        )
+        """)
+    int deleteOrphanedArticles();
+
+    /**
      * Backlog used by the background translation prewarm — articles whose
      * cross-language title cache is still empty. We page in batches of 50
      * to bound memory while the warmer is grinding through a few thousand

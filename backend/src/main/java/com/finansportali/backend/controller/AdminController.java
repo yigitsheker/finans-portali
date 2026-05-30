@@ -139,6 +139,17 @@ public class AdminController {
     }
 
     /**
+     * Manual trigger for the orphan-article sweep. Logic lives in
+     * NewsService (also wired to startup + a daily @Scheduled), this
+     * endpoint just exposes a button for admins.
+     */
+    @PostMapping("/feeds/cleanup-orphans")
+    @PreAuthorize("hasRole('ADMIN')")
+    public Map<String, Object> cleanupOrphanArticles() {
+        return Map.of("removed", newsService.cleanupOrphanArticles());
+    }
+
+    /**
      * Get current admin user information.
      * Useful for testing JWT token claims and role extraction.
      */

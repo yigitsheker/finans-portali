@@ -416,6 +416,25 @@ function FeedsPanel({ keycloak }) {
         }
     };
 
+    // Manual orphan sweep — articles whose feed has been deleted. The
+    // backend also runs this on startup and daily at 03:00 UTC, but the
+    // button gives admins an immediate trigger.
+    const [cleaning, setCleaning] = useState(false);
+    const cleanupOrphans = async () => {
+        if (!confirm("Silinmiş kaynaklara ait yetim haberler silinsin mi?")) return;
+        setCleaning(true);
+        try {
+            const r = await authFetch("/api/v1/admin/feeds/cleanup-orphans", { method: "POST" });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            const { removed } = await r.json();
+            alert(`Yetim haber temizliği tamamlandı: ${removed} haber silindi.`);
+        } catch (e) {
+            alert("Temizleme başarısız: " + e.message);
+        } finally {
+            setCleaning(false);
+        }
+    };
+
     const filtered = filter.trim()
         ? feeds.filter((f) =>
             f.url.toLowerCase().includes(filter.toLowerCase()) ||
@@ -463,12 +482,23 @@ function FeedsPanel({ keycloak }) {
                 <div style={{ fontSize: 13, color: "var(--text-muted)" }}>
                     {t("admin.rssSummary", { count: feeds.length, enabled: enabledCount })}
                 </div>
-                <input
-                    style={{ ...fp.input, maxWidth: 280 }}
-                    placeholder={t("admin.rssFilterPh")}
-                    value={filter}
-                    onChange={(e) => setFilter(e.target.value)}
-                />
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <button
+                        type="button"
+                        style={{ ...s.button, background: "var(--bg-card)", color: "var(--text-primary)", border: "1px solid var(--border-card)" }}
+                        onClick={cleanupOrphans}
+                        disabled={cleaning}
+                        title="Silinmiş RSS kaynaklarına ait yetim haberleri kaldırır"
+                    >
+                        {cleaning ? "Temizleniyor..." : "🧹 Yetim Haberleri Temizle"}
+                    </button>
+                    <input
+                        style={{ ...fp.input, maxWidth: 280 }}
+                        placeholder={t("admin.rssFilterPh")}
+                        value={filter}
+                        onChange={(e) => setFilter(e.target.value)}
+                    />
+                </div>
             </div>
 
             {error && <div style={fp.error}>{error}</div>}
