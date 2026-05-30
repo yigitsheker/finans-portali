@@ -195,16 +195,10 @@ export default function Topbar({
       <aside className={`fp-topbar-drawer ${mobileOpen ? "is-open" : ""}`} aria-hidden={!mobileOpen}>
         <div style={s.drawerHeader}>
           <Link to="/" style={s.brand} onClick={() => setMobileOpen(false)}>
-            <span style={s.brandLogo}>
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
-                <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
-                <polyline points="16 7 22 7 22 13"/>
-              </svg>
-            </span>
-            <span style={s.brandText}>
-              <span style={s.brandName}>Piyasa</span>
-              <span style={s.brandTag}>FINANS PORTALI</span>
-            </span>
+            {/* Brand image — single asset, icon + wordmark baked in.
+                Replaces the old SVG-square + "Piyasa / FINANS PORTALI"
+                text pair. Served from public/ so Vite emits the raw URL. */}
+            <img src="/logo.png" alt="Finans Portalı" style={s.brandImg} />
           </Link>
         </div>
         <nav style={s.drawerNav} aria-label={t("topbar.mainMenu")}>
@@ -236,18 +230,11 @@ export default function Topbar({
     <div style={s.row} className="fp-topbar">
       {mobileDrawer}
 
-      {/* Brand */}
+      {/* Brand — single image that combines the chart-bars mark and the
+          "FINANS PORTALI" wordmark. Replaces the old SVG-square + text
+          spans. Served from public/ so Vite emits a stable /logo.png URL. */}
       <Link to="/" style={s.brand} className="fp-topbar-brand">
-        <span style={s.brandLogo}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5">
-            <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/>
-            <polyline points="16 7 22 7 22 13"/>
-          </svg>
-        </span>
-        <span style={s.brandText}>
-          <span style={s.brandName}>Piyasa</span>
-          <span style={s.brandTag} className="fp-topbar-brand-tag">FINANS PORTALI</span>
-        </span>
+        <img src="/logo.png" alt="Finans Portalı" style={s.brandImg} />
       </Link>
 
       {/* Inline nav links. Private items show only when authenticated;
@@ -364,38 +351,18 @@ const s = {
   brand: {
     display: "inline-flex",
     alignItems: "center",
-    gap: 10,
     textDecoration: "none",
     color: "inherit",
     flexShrink: 0,
   },
-  brandLogo: {
-    width: 36,
-    height: 36,
-    borderRadius: 9,
-    background: "linear-gradient(135deg, var(--accent-strong, #15803d), var(--accent-solid, #22c55e))",
-    display: "grid",
-    placeItems: "center",
-    boxShadow: "0 4px 12px rgba(34, 197, 94, 0.25)",
-  },
-  brandText: {
-    display: "flex",
-    flexDirection: "column",
-    lineHeight: 1.1,
-  },
-  brandName: {
-    fontSize: 16,
-    fontWeight: 800,
-    color: "var(--text-primary)",
-    letterSpacing: "-0.3px",
-  },
-  brandTag: {
-    fontSize: 9.5,
-    fontWeight: 700,
-    color: "var(--text-muted)",
-    letterSpacing: "0.12em",
-    textTransform: "uppercase",
-    marginTop: 1,
+  brandImg: {
+    // Icon + wordmark in one asset. Height pins the visual scale; width
+    // auto-stretches to the image's intrinsic aspect ratio. display:block
+    // kills the inline baseline gap and keeps the link tight against the
+    // hamburger button on mobile.
+    height: 40,
+    width: "auto",
+    display: "block",
   },
   nav: {
     display: "flex",

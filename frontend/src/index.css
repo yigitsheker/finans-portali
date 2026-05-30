@@ -533,10 +533,16 @@ button:hover .news-external-icon   { transform: translate(2px, -2px); }
   .fp-topbar { padding-left: 56px !important; }      /* room for the hamburger */
 }
 
-/* <=900px also drops the brand subtitle to free up width for actions. */
+/* <=900px the action cluster gets tighter spacing and wraps. The old
+   brand-subtitle hide was here too but the brand is one image now, no
+   separate tag span to hide. */
 @media (max-width: 900px) {
-  .fp-topbar-brand-tag { display: none !important; }
   .fp-topbar-actions { gap: 6px !important; flex-wrap: wrap; justify-content: flex-end; }
+}
+@media (max-width: 640px) {
+  /* Shrink the brand image so it doesn't fight the hamburger + action
+     cluster for horizontal space on a phone-width topbar. */
+  .fp-topbar-brand img { height: 32px !important; }
 }
 
 /* Sub-tablet — drop the wide "Original" currency-toggle label down to a
