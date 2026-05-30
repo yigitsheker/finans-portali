@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PropTypes from "prop-types";
 import { Link, useLocation } from "react-router-dom";
 import { createPortal } from "react-dom";
 import NotificationBell from "./NotificationBell";
@@ -337,6 +338,17 @@ export default function Topbar({
     </div>
   );
 }
+
+Topbar.propTypes = {
+  isAuthenticated: PropTypes.bool,
+  onLogin: PropTypes.func,
+  onLogout: PropTypes.func,
+  theme: PropTypes.string,
+  onThemeToggle: PropTypes.func,
+  onAlertsClick: PropTypes.func,
+  showAlerts: PropTypes.bool,
+  keycloak: PropTypes.object,
+};
 
 const s = {
   row: {

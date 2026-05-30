@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import {
     getMarketSummary,
     getMarketHistoryBatch,
@@ -1010,6 +1011,20 @@ export default function FinexStyleMarket({
         </div>
     );
 }
+
+FinexStyleMarket.propTypes = {
+    keycloak: PropTypes.object,
+    onAdded: PropTypes.func,
+    theme: PropTypes.string,
+    onThemeToggle: PropTypes.func,
+    onLogout: PropTypes.func,
+    onAlertsClick: PropTypes.func,
+    filterType: PropTypes.string,
+    instruments: PropTypes.array,
+    onAddToWatchlist: PropTypes.func,
+    onRemoveFromWatchlist: PropTypes.func,
+    watchlistSymbols: PropTypes.array,
+};
 
 const s = {
     root: { display: "flex", flexDirection: "column", gap: 20 },

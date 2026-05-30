@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import Pagination from "../../common/Pagination";
 import { useI18n } from "../../../contexts/I18nContext";
 
@@ -343,6 +344,14 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
         </div>
     );
 }
+
+InstrumentsTable.propTypes = {
+    items: PropTypes.array,
+    loading: PropTypes.bool,
+    error: PropTypes.string,
+    onRowClick: PropTypes.func,
+    selectedSymbol: PropTypes.string,
+};
 
 const s = {
     wrap: { display: "flex", flexDirection: "column", gap: 12 },

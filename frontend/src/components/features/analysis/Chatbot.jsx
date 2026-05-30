@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import PropTypes from "prop-types";
 import { sendAnalysisChat } from "../../../api/analysisApi";
 import { useI18n } from "../../../contexts/I18nContext";
 
@@ -113,6 +114,11 @@ export default function Chatbot({ keycloak, lang = "tr" }) {
     );
 }
 
+Chatbot.propTypes = {
+    keycloak: PropTypes.object,
+    lang: PropTypes.oneOf(["tr", "en"]),
+};
+
 function Bubble({ msg }) {
     const isUser = msg.role === "user";
     return (
@@ -140,6 +146,15 @@ function Bubble({ msg }) {
         </div>
     );
 }
+
+Bubble.propTypes = {
+    msg: PropTypes.shape({
+        role: PropTypes.string,
+        reply: PropTypes.string,
+        scenarios: PropTypes.array,
+        disclaimer: PropTypes.string,
+    }).isRequired,
+};
 
 // Lightweight markdown — bold (`**text**`) and bullet/newline-aware
 // paragraphs. Avoids pulling in a markdown lib for this single use case.

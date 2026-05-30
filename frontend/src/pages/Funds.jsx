@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
+import PropTypes from "prop-types";
 import { getInvestmentFunds, getFundTypes, refreshInvestmentFunds } from "../api/portfolioApi";
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
 import Pagination from "../components/common/Pagination";
@@ -365,6 +366,10 @@ export default function Funds({ keycloak }) {
         </div>
     );
 }
+
+Funds.propTypes = {
+    keycloak: PropTypes.object.isRequired,
+};
 
 const s = {
     root: { display: "flex", flexDirection: "column", gap: 16 },

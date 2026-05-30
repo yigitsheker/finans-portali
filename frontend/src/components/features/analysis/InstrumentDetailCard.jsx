@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import { useI18n } from "../../../contexts/I18nContext";
 
 /**
@@ -96,6 +97,13 @@ export default function InstrumentDetailCard({ detail, loading, error, onShowCha
     );
 }
 
+InstrumentDetailCard.propTypes = {
+    detail: PropTypes.object,
+    loading: PropTypes.bool,
+    error: PropTypes.string,
+    onShowChart: PropTypes.func,
+};
+
 function Meta({ label, value }) {
     return (
         <div style={s.meta}>
@@ -104,6 +112,11 @@ function Meta({ label, value }) {
         </div>
     );
 }
+
+Meta.propTypes = {
+    label: PropTypes.node,
+    value: PropTypes.node,
+};
 
 function Section({ title, children }) {
     if (!children) return null;
@@ -114,6 +127,11 @@ function Section({ title, children }) {
         </div>
     );
 }
+
+Section.propTypes = {
+    title: PropTypes.node,
+    children: PropTypes.node,
+};
 
 const s = {
     state: { padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13 },

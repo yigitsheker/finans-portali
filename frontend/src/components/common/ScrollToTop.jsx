@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PropTypes from "prop-types";
 import { useI18n } from "../../contexts/I18nContext";
 
 /**
@@ -35,3 +36,7 @@ export default function ScrollToTop({ threshold = 400 }) {
         </button>
     );
 }
+
+ScrollToTop.propTypes = {
+    threshold: PropTypes.number,
+};

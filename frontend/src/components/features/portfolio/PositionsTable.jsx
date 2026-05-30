@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import { portfolioStyles as s } from "./portfolioStyles";
 import { usePriceDisplay } from "../../../contexts/CurrencyDisplayContext";
 import { useI18n } from "../../../contexts/I18nContext";
@@ -166,3 +167,13 @@ export function PositionsTable({
     </div>
   );
 }
+
+PositionsTable.propTypes = {
+  loading: PropTypes.bool,
+  items: PropTypes.array.isRequired,
+  prices: PropTypes.object,
+  marketData: PropTypes.array.isRequired,
+  summaryDetail: PropTypes.object,
+  openAdd: PropTypes.func.isRequired,
+  openSell: PropTypes.func.isRequired,
+};

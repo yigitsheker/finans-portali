@@ -60,27 +60,27 @@ public class AiAnalysisService {
         // {scenarios: [...]} payload the UI renders as cards, which is more
         // reliable than asking the LLM to emit valid JSON every time.
         ChatResponseDto budget = tryBudgetIntent(text, l);
-        if (budget != null) return finalize(budget, l);
+        if (budget != null) return withFooter(budget, l);
 
         // Single-instrument quick-look stays rule-based too — instrument
         // data is already in memory, no need to round-trip through the LLM.
         ChatResponseDto inst = tryInstrumentIntent(text, l);
-        if (inst != null) return finalize(inst, l);
+        if (inst != null) return withFooter(inst, l);
 
         // Free-form questions go to the real LLM when configured. Falls
         // through to the deterministic mocks when no API key is set.
         if (llm.isEnabled()) {
             ChatResponseDto live = tryLiveLlm(text, l);
-            if (live != null) return finalize(live, l);
+            if (live != null) return withFooter(live, l);
         }
 
         ChatResponseDto out = tryLowRiskIntent(text, l);
-        if (out != null) return finalize(out, l);
+        if (out != null) return withFooter(out, l);
 
         out = tryLongTermIntent(text, l);
-        if (out != null) return finalize(out, l);
+        if (out != null) return withFooter(out, l);
 
-        return finalize(buildHelpResponse(l), l);
+        return withFooter(buildHelpResponse(l), l);
     }
 
     // ── Live LLM path ────────────────────────────────────────────────────
@@ -198,7 +198,7 @@ public class AiAnalysisService {
         return userMessage + ctx;
     }
 
-    private ChatResponseDto finalize(ChatResponseDto r, String lang) {
+    private ChatResponseDto withFooter(ChatResponseDto r, String lang) {
         r.setDisclaimer("tr".equals(lang) ? DISCLAIMER_TR : DISCLAIMER_EN);
         r.setTimestamp(Instant.now());
         return r;
@@ -308,7 +308,7 @@ public class AiAnalysisService {
     private ChatResponseDto buildInstrumentReply(AnalysisInstrumentDto inst, String lang) {
         boolean tr = "tr".equals(lang);
         StringBuilder b = new StringBuilder();
-        b.append(tr ? "**" : "**").append(inst.getName())
+        b.append("**").append(inst.getName())
                 .append(" (").append(inst.getSymbol()).append(")**\n\n");
         if (inst.getValue() != null) {
             b.append(tr ? "- Güncel değer: " : "- Latest value: ")

@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import { SummaryCard } from "./InfoRow";
 import { portfolioStyles as s } from "./portfolioStyles";
 import { usePriceDisplay } from "../../../contexts/CurrencyDisplayContext";
@@ -49,3 +50,18 @@ export function SummaryCards({ stats, loading, error, asOf, onRefresh, refreshin
     </div>
   );
 }
+
+SummaryCards.propTypes = {
+  stats: PropTypes.shape({
+    totalValue: PropTypes.number,
+    totalCost: PropTypes.number,
+    totalGain: PropTypes.number,
+    totalGainPct: PropTypes.number,
+    count: PropTypes.number,
+  }).isRequired,
+  loading: PropTypes.bool,
+  error: PropTypes.any,
+  asOf: PropTypes.oneOfType([PropTypes.string, PropTypes.instanceOf(Date)]),
+  onRefresh: PropTypes.func,
+  refreshing: PropTypes.bool,
+};

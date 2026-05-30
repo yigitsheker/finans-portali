@@ -1,3 +1,4 @@
+import PropTypes from "prop-types";
 import { GLOSSARY } from "../../data/glossary";
 import { useI18n } from "../../contexts/I18nContext";
 
@@ -45,3 +46,8 @@ export default function TermInfo({ termKey, placement = "top" }) {
     </span>
   );
 }
+
+TermInfo.propTypes = {
+  termKey: PropTypes.string.isRequired,
+  placement: PropTypes.oneOf(["top", "bottom", "right", "left"]),
+};

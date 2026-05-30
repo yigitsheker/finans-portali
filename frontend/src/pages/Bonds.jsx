@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import {
     getBonds,
     getBondSummary,
@@ -364,6 +365,10 @@ export default function Bonds({ keycloak }) {
         </div>
     );
 }
+
+Bonds.propTypes = {
+    keycloak: PropTypes.object.isRequired,
+};
 
 const s = {
     root: { padding: "20px 24px", maxWidth: 1400, margin: "0 auto" },

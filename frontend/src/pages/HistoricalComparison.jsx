@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import Modal from "../components/Modal";
 import { getLatestPrice, getMarketInstruments } from "../api/portfolioApi";
 import { compareInflation } from "../api/inflationApi";
@@ -452,6 +453,10 @@ export default function HistoricalComparison({ keycloak }) {
   );
 }
 
+HistoricalComparison.propTypes = {
+  keycloak: PropTypes.object.isRequired,
+};
+
 function SCard({ label, value, sub, valueColor }) {
   return (
     <div style={s.summaryCard}>
@@ -461,6 +466,13 @@ function SCard({ label, value, sub, valueColor }) {
     </div>
   );
 }
+
+SCard.propTypes = {
+  label: PropTypes.node,
+  value: PropTypes.node,
+  sub: PropTypes.node,
+  valueColor: PropTypes.string,
+};
 
 const s = {
   root: { display: "flex", flexDirection: "column", gap: 16 },

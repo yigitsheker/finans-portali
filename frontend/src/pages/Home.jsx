@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
 import { getMarketSummary, getNews } from "../api/portfolioApi";
 import { useI18n } from "../contexts/I18nContext";
@@ -342,6 +343,10 @@ export default function Home({ keycloak }) {
     );
 }
 
+Home.propTypes = {
+    keycloak: PropTypes.object,
+};
+
 /* ── Helpers ───────────────────────────────────────────────────────── */
 
 function FeatureCard({ to, icon, title, desc }) {
@@ -355,6 +360,13 @@ function FeatureCard({ to, icon, title, desc }) {
         </Link>
     );
 }
+
+FeatureCard.propTypes = {
+    to: PropTypes.string.isRequired,
+    icon: PropTypes.node,
+    title: PropTypes.node,
+    desc: PropTypes.node,
+};
 
 function SidePanel({ title, chip, rows, formatter }) {
     return (
@@ -383,6 +395,13 @@ function SidePanel({ title, chip, rows, formatter }) {
         </div>
     );
 }
+
+SidePanel.propTypes = {
+    title: PropTypes.node,
+    chip: PropTypes.node,
+    rows: PropTypes.array.isRequired,
+    formatter: PropTypes.func.isRequired,
+};
 
 function fmtPrice(v) {
     if (v == null || !Number.isFinite(Number(v))) return "—";

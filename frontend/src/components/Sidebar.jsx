@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
 import { isAdmin } from "../utils/roleUtils";
@@ -355,6 +356,10 @@ export default function Sidebar({ keycloak }) {
         </>
     );
 }
+
+Sidebar.propTypes = {
+    keycloak: PropTypes.object.isRequired,
+};
 
 const baseItem = {
     width: "100%",

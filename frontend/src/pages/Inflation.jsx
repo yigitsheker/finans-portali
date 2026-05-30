@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback } from "react";
+import PropTypes from "prop-types";
 import { getInflationHistory } from "../api/inflationApi";
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
 import TermInfo from "../components/common/TermInfo";
@@ -303,6 +304,13 @@ function BarChart({ data, field, view, t }) {
   );
 }
 
+BarChart.propTypes = {
+  data: PropTypes.array.isRequired,
+  field: PropTypes.string.isRequired,
+  view: PropTypes.string.isRequired,
+  t: PropTypes.func.isRequired,
+};
+
 function SCard({ label, value, sub, color }) {
   return (
     <div style={s.summaryCard}>
@@ -312,6 +320,13 @@ function SCard({ label, value, sub, color }) {
     </div>
   );
 }
+
+SCard.propTypes = {
+  label: PropTypes.node,
+  value: PropTypes.node,
+  sub: PropTypes.node,
+  color: PropTypes.string,
+};
 
 function fmtPct(v) {
   if (v == null) return "—";

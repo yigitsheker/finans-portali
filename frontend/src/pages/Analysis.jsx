@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import PropTypes from "prop-types";
 import { getAnalysisDetail, getAnalysisInstruments } from "../api/analysisApi";
 import InstrumentsTable from "../components/features/analysis/InstrumentsTable";
 import InstrumentDetailCard from "../components/features/analysis/InstrumentDetailCard";
@@ -142,6 +143,10 @@ export default function Analysis({ keycloak }) {
         </div>
     );
 }
+
+Analysis.propTypes = {
+    keycloak: PropTypes.object.isRequired,
+};
 
 const s = {
     page: { display: "flex", flexDirection: "column", gap: 12, padding: "0 4px" },

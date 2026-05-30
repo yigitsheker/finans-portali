@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import { getViopContracts } from "../api/viopApi";
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
 import Pagination from "../components/common/Pagination";
@@ -268,6 +269,14 @@ function ThSort({ label, onClick, active, dir, align = "right" }) {
         </th>
     );
 }
+
+ThSort.propTypes = {
+    label: PropTypes.node,
+    onClick: PropTypes.func,
+    active: PropTypes.bool,
+    dir: PropTypes.string,
+    align: PropTypes.string,
+};
 
 const TONE_COLOR = {
     up: "var(--green, #10b981)",

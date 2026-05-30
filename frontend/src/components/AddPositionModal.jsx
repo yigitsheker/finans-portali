@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import PropTypes from "prop-types";
 import Modal from "./Modal";
 import { upsertPosition } from "../api/portfolioApi";
 
@@ -102,6 +103,15 @@ export default function AddPositionModal({ open, onClose, onCreated, keycloak, i
         </Modal>
     );
 }
+
+AddPositionModal.propTypes = {
+    open: PropTypes.bool.isRequired,
+    onClose: PropTypes.func.isRequired,
+    onCreated: PropTypes.func,
+    keycloak: PropTypes.object,
+    initialSymbol: PropTypes.string,
+    initialPrice: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+};
 
 const s = {
     grid: {
