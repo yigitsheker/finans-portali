@@ -288,14 +288,29 @@ export default function FinexStyleMarket({
         return sortDir === "asc" ? "▲" : "▼";
     };
 
-    // Group stocks by category (BIST vs STOCK) - only when no filters are
-    // active AND no column sort is in effect. A user-chosen sort spans both
-    // groups, so keeping the split would silently override it.
+    // Reset to first page whenever the visible set changes — prevents the
+    // user from being stuck on "page 7" of a 2-page result after a filter.
+    useEffect(() => { setPage(1); }, [search, indexFilter, categoryFilters, filterType, pageSize, sortField, sortDir]);
+
+    // Paginate the full sorted set FIRST — flat and grouped views both
+    // render only this page's slice. Without pagination on the grouped
+    // Stocks view the page rendered all ~150 rows in one block, which is
+    // what the user complained about.
+    const totalFiltered = sorted.length;
+    const pagedFiltered = useMemo(() => {
+        const start = (page - 1) * pageSize;
+        return sorted.slice(start, start + pageSize);
+    }, [sorted, page, pageSize]);
+
+    // Group stocks by category (BIST vs STOCK) — only on the Stocks page,
+    // only when no filters / sort fight the split. The grouping operates on
+    // the already-paginated slice so the page-N flat slice and the page-N
+    // grouped slice show the same set of rows.
     const groupedStocks = useMemo(() => {
         if (filterType !== "STOCK" || categoryFilters.length > 0 || indexFilter || sortField) return null;
 
         const groups = {};
-        filtered.forEach(item => {
+        pagedFiltered.forEach(item => {
             const category = item.type === "BIST" ? t("market.groupBist") : t("market.groupIntl");
             if (!groups[category]) {
                 groups[category] = [];
@@ -303,21 +318,7 @@ export default function FinexStyleMarket({
             groups[category].push(item);
         });
         return groups;
-    }, [filtered, filterType, categoryFilters, indexFilter, sortField]);
-
-    // Reset to first page whenever the visible set changes — prevents the
-    // user from being stuck on "page 7" of a 2-page result after a filter.
-    useEffect(() => { setPage(1); }, [search, indexFilter, categoryFilters, filterType, pageSize, sortField, sortDir]);
-
-    // Pagination is only meaningful in the flat (non-grouped) view; the
-    // grouped stocks view stays as-is because the groups themselves are
-    // already a navigational chunking.
-    const totalFiltered = sorted.length;
-    const pagedFiltered = useMemo(() => {
-        if (groupedStocks) return sorted; // not used; left as the sorted list for safety
-        const start = (page - 1) * pageSize;
-        return sorted.slice(start, start + pageSize);
-    }, [sorted, groupedStocks, page, pageSize]);
+    }, [pagedFiltered, filterType, categoryFilters, indexFilter, sortField, t]);
 
     // Sparkline data loader — cache-first, then one batch network call for
     // anything stale or missing.
@@ -877,17 +878,17 @@ export default function FinexStyleMarket({
                 </div>
             </div>
 
-            {/* Pagination — flat view only; the grouped Stocks view manages
-                its own structure and would fight against page slicing. */}
-            {!groupedStocks && (
-                <Pagination
-                    page={page}
-                    pageSize={pageSize}
-                    total={totalFiltered}
-                    onPageChange={setPage}
-                    onPageSizeChange={setPageSize}
-                />
-            )}
+            {/* Pagination — always rendered, including in the grouped
+                Stocks view (the BIST / Uluslararası split now operates on
+                the paged slice rather than the full set). */}
+            <Pagination
+                page={page}
+                pageSize={pageSize}
+                total={totalFiltered}
+                onPageChange={setPage}
+                onPageSizeChange={setPageSize}
+            />
+
 
             {/* Modals */}
             <InstrumentChartModal
