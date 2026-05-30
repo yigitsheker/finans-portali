@@ -11,6 +11,7 @@ import DepositRatesCard from "../components/DepositRatesCard";
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
 import TermInfo from "../components/common/TermInfo";
 import { useI18n } from "../contexts/I18nContext";
+import { useBuyTarget } from "../hooks/useBuyTarget";
 
 const TYPE_KEYS = {
     GOVERNMENT_BOND: "bonds.typeGovBond",
@@ -47,28 +48,13 @@ export default function Bonds({ keycloak, onAdded }) {
     const [selectedBond, setSelectedBond] = useState(null);
 
     // Buy modal target (split from selectedBond so the user can buy from
-    // either the row action or the detail card's Al button).
-    const [buyTarget, setBuyTarget] = useState(null);
+    // either the row action or the detail card's Al button). Auth guard
+    // lives in the shared useBuyTarget hook.
+    const [buyTarget, openBuy, clearBuy] = useBuyTarget(keycloak);
 
     // Refresh state
     const [refreshing, setRefreshing] = useState(false);
     const [refreshMessage, setRefreshMessage] = useState(null);
-
-    /**
-     * Auth-guarded buy. Anonymous users get a confirm-and-redirect dialog
-     * mirroring FinexStyleMarket.openBuyModalIfAuthed.
-     */
-    const openBuy = useCallback(({ symbol, price }) => {
-        const authed = keycloak?.authenticated === true;
-        if (!authed) {
-            const goLogin = window.confirm(t("market.authPrompt"));
-            if (goLogin && keycloak?.login) {
-                keycloak.login({ redirectUri: window.location.href });
-            }
-            return;
-        }
-        setBuyTarget({ symbol, price });
-    }, [keycloak, t]);
 
     // Check if user is admin
     const isAdmin = useMemo(() => {
@@ -419,9 +405,9 @@ export default function Bonds({ keycloak, onAdded }) {
                 latest price so the user only needs to confirm the quantity. */}
             <AddPositionModal
                 open={!!buyTarget}
-                onClose={() => setBuyTarget(null)}
+                onClose={clearBuy}
                 onCreated={() => {
-                    setBuyTarget(null);
+                    clearBuy();
                     if (onAdded) onAdded();
                 }}
                 keycloak={keycloak}

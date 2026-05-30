@@ -24,6 +24,16 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
     int deleteByCategoryAndIdNotIn(@Param("category") String category, @Param("keepIds") List<Long> keepIds);
 
     /**
+     * Cascade-delete articles tied to a removed feed. Matched by
+     * (sourceName, category) — same (source, category) pair the feed
+     * carries — so removing one Investing.com feed (e.g. Hisse) leaves
+     * the other Investing.com feeds (Döviz, Tahvil…) untouched.
+     */
+    @Modifying
+    @Query("delete from NewsArticle a where a.sourceName = :sourceName and a.category = :category")
+    int deleteBySourceNameAndCategory(@Param("sourceName") String sourceName, @Param("category") String category);
+
+    /**
      * Backlog used by the background translation prewarm — articles whose
      * cross-language title cache is still empty. We page in batches of 50
      * to bound memory while the warmer is grinding through a few thousand

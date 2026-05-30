@@ -131,20 +131,30 @@ class AdminControllerTest {
 
     @Test
     void delete_feed_returns_204_when_present() throws Exception {
-        when(feedRepo.existsById(5L)).thenReturn(true);
+        // The endpoint now cascades through related articles before dropping
+        // the feed row, so it looks up the feed via findById (not existsById)
+        // to read source + category and feed those into the article delete.
+        when(feedRepo.findById(5L))
+                .thenReturn(Optional.of(feed(5L, "https://x.example/rss")));
+        when(newsRepo.deleteBySourceNameAndCategory(anyString(), anyString()))
+                .thenReturn(0);
 
         mvc.perform(delete("/api/v1/admin/feeds/5").with(csrf()))
                 .andExpect(status().isNoContent());
 
+        verify(newsRepo).deleteBySourceNameAndCategory("Source A", "hisse");
         verify(feedRepo).deleteById(5L);
     }
 
     @Test
     void delete_feed_404_when_missing() throws Exception {
-        when(feedRepo.existsById(99L)).thenReturn(false);
+        when(feedRepo.findById(99L)).thenReturn(Optional.empty());
 
         mvc.perform(delete("/api/v1/admin/feeds/99").with(csrf()))
                 .andExpect(status().isNotFound());
+
+        verify(newsRepo, org.mockito.Mockito.never())
+                .deleteBySourceNameAndCategory(anyString(), anyString());
     }
 
     @Test

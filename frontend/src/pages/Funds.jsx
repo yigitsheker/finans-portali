@@ -8,6 +8,7 @@ import AssetDetailModal from "../components/AssetDetailModal";
 import AddPositionModal from "../components/AddPositionModal";
 import { clickable } from "../utils/clickable";
 import { useI18n } from "../contexts/I18nContext";
+import { useBuyTarget } from "../hooks/useBuyTarget";
 
 export default function Funds({ keycloak, onAdded }) {
     const { t } = useI18n();
@@ -26,28 +27,12 @@ export default function Funds({ keycloak, onAdded }) {
     const [error, setError] = useState(null);
     const [lastUpdate, setLastUpdate] = useState(null);
     // Detail card target (full fund row) and buy modal target (just the
-    // symbol/price seed). Split so the user can buy directly from the row.
+    // symbol/price seed via the shared auth-guard hook).
     const [selectedFund, setSelectedFund] = useState(null);
-    const [buyTarget, setBuyTarget] = useState(null);
+    const [buyTarget, openBuy, clearBuy] = useBuyTarget(keycloak);
 
     // Check if user is admin
     const isAdmin = keycloak.hasRealmRole('ADMIN');
-
-    /**
-     * Auth-guarded buy. Anonymous users get the same confirm-and-redirect
-     * dialog FinexStyleMarket uses.
-     */
-    const openBuy = useCallback(({ symbol, price }) => {
-        const authed = keycloak?.authenticated === true;
-        if (!authed) {
-            const goLogin = window.confirm(t("market.authPrompt"));
-            if (goLogin && keycloak?.login) {
-                keycloak.login({ redirectUri: window.location.href });
-            }
-            return;
-        }
-        setBuyTarget({ symbol, price });
-    }, [keycloak, t]);
 
     useEffect(() => {
         loadData();
@@ -445,9 +430,9 @@ export default function Funds({ keycloak, onAdded }) {
             {/* Buy modal — seeded with fund code and unit price. */}
             <AddPositionModal
                 open={!!buyTarget}
-                onClose={() => setBuyTarget(null)}
+                onClose={clearBuy}
                 onCreated={() => {
-                    setBuyTarget(null);
+                    clearBuy();
                     if (onAdded) onAdded();
                 }}
                 keycloak={keycloak}

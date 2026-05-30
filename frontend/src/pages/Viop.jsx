@@ -6,6 +6,7 @@ import Pagination from "../components/common/Pagination";
 import TermInfo from "../components/common/TermInfo";
 import AddPositionModal from "../components/AddPositionModal";
 import { useI18n } from "../contexts/I18nContext";
+import { useBuyTarget } from "../hooks/useBuyTarget";
 
 // Empty selection => "all categories". Same convention used by the
 // CheckboxFilterGroup component.
@@ -82,29 +83,15 @@ export default function Viop({ keycloak, onAdded }) {
     const [sortDir, setSortDir] = useState("desc");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
-    // Buy modal target — null when closed. Carries symbol + price + multiplier
-    // forwarded to AddPositionModal so VIOP positions land on the books with
-    // the correct exposure (lots × contract size).
-    const [buyTarget, setBuyTarget] = useState(null);
-
-    // Auth-aware buy opener. Anonymous users get prompted to log in (same
-    // pattern as FinexStyleMarket.openBuyModalIfAuthed) — without this the
-    // backend POST would 401 silently after the modal closes.
-    const openBuy = useCallback((contract) => {
-        const authed = keycloak?.authenticated === true;
-        if (!authed) {
-            const goLogin = window.confirm(t("market.authPrompt"));
-            if (goLogin && keycloak?.login) {
-                keycloak.login({ redirectUri: window.location.href });
-            }
-            return;
-        }
-        setBuyTarget({
-            symbol: contract.symbol,
-            price: contract.lastPrice,
-            multiplier: VIOP_MULTIPLIERS[contract.category] || 1,
-        });
-    }, [keycloak, t]);
+    // Buy modal target + auth guard via the shared hook. Carries symbol +
+    // price + multiplier forwarded to AddPositionModal so VIOP positions land
+    // on the books with the correct exposure (lots × contract size).
+    const [buyTarget, openBuyRaw, clearBuy] = useBuyTarget(keycloak);
+    const openBuy = useCallback((contract) => openBuyRaw({
+        symbol: contract.symbol,
+        price: contract.lastPrice,
+        multiplier: VIOP_MULTIPLIERS[contract.category] || 1,
+    }), [openBuyRaw]);
 
     // Fetch the entire universe once; multi-select category filter is
     // applied client-side so we can flip filters instantly without re-hitting
@@ -308,9 +295,9 @@ export default function Viop({ keycloak, onAdded }) {
 
             <AddPositionModal
                 open={!!buyTarget}
-                onClose={() => setBuyTarget(null)}
+                onClose={clearBuy}
                 onCreated={() => {
-                    setBuyTarget(null);
+                    clearBuy();
                     if (typeof onAdded === "function") onAdded();
                 }}
                 keycloak={keycloak}

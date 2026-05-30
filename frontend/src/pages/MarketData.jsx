@@ -8,6 +8,7 @@ import AssetDetailModal from "../components/AssetDetailModal";
 import AddPositionModal from "../components/AddPositionModal";
 import { clickable } from "../utils/clickable";
 import { useI18n } from "../contexts/I18nContext";
+import { useBuyTarget } from "../hooks/useBuyTarget";
 
 const MarketData = ({ keycloak, onAdded }) => {
     const { t } = useI18n();
@@ -16,9 +17,9 @@ const MarketData = ({ keycloak, onAdded }) => {
     const [error, setError] = useState(null);
     // Detail modal target (full asset row); separate from buy target so the
     // buy modal can open from a row-action click without first showing the
-    // detail card.
+    // detail card. Buy target + auth guard live in the shared hook.
     const [selected, setSelected] = useState(null);
-    const [buyTarget, setBuyTarget] = useState(null);
+    const [buyTarget, openBuy, clearBuy] = useBuyTarget(keycloak);
     // Header-driven sort. Default null = natural order from the API.
     const [sortKey, setSortKey] = useState(null);
     const [sortDir, setSortDir] = useState("asc");
@@ -65,23 +66,6 @@ const MarketData = ({ keycloak, onAdded }) => {
     useEffect(() => {
         loadData();
     }, []);
-
-    /**
-     * Same auth guard as FinexStyleMarket.openBuyModalIfAuthed — prompts the
-     * anonymous user, routes them to Keycloak on confirm, returns silently
-     * otherwise. The detail modal can also call this via its onBuy prop.
-     */
-    const openBuy = useCallback(({ symbol, price }) => {
-        const authed = keycloak?.authenticated === true;
-        if (!authed) {
-            const goLogin = window.confirm(t("market.authPrompt"));
-            if (goLogin && keycloak?.login) {
-                keycloak.login({ redirectUri: window.location.href });
-            }
-            return;
-        }
-        setBuyTarget({ symbol, price });
-    }, [keycloak, t]);
 
     const loadData = async () => {
         try {
@@ -254,9 +238,9 @@ const MarketData = ({ keycloak, onAdded }) => {
                 the user only has to confirm the quantity. */}
             <AddPositionModal
                 open={!!buyTarget}
-                onClose={() => setBuyTarget(null)}
+                onClose={clearBuy}
                 onCreated={() => {
-                    setBuyTarget(null);
+                    clearBuy();
                     if (onAdded) onAdded();
                 }}
                 keycloak={keycloak}

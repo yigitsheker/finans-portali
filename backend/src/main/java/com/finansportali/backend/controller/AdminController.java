@@ -112,9 +112,25 @@ public class AdminController {
 
     @DeleteMapping("/feeds/{id}")
     @PreAuthorize("hasRole('ADMIN')")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Void> deleteFeed(@PathVariable Long id) {
-        if (!feedRepo.existsById(id)) return ResponseEntity.notFound().build();
+        // Cascade through the articles before dropping the feed row. Without
+        // this the news listing kept showing every article the removed feed
+        // had ever produced — admin sees Investing.com pieces survive a
+        // feed delete and assumes the toggle didn't take. Match on
+        // (sourceName, category) so other feeds from the same source in
+        // OTHER categories aren't collaterally wiped.
+        var feedOpt = feedRepo.findById(id);
+        if (feedOpt.isEmpty()) return ResponseEntity.notFound().build();
+        var feed = feedOpt.get();
+        int removed = newsRepo.deleteBySourceNameAndCategory(feed.getSource(), feed.getCategory());
         feedRepo.deleteById(id);
+        if (removed > 0) {
+            // Light audit so admins can see the cascade size in logs.
+            org.slf4j.LoggerFactory.getLogger(AdminController.class)
+                    .info("Deleted feed id={} (source={}, category={}) + cascaded {} articles",
+                            id, feed.getSource(), feed.getCategory(), removed);
+        }
         return ResponseEntity.noContent().build();
     }
 
