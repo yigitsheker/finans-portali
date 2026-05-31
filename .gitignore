@@ -16,6 +16,12 @@ logs/
 .DS_Store
 Thumbs.db
 
+# SonarCloud local-scan token (never commit)
+sonar-token.txt
+*.sonartoken
+.sonar/
+.scannerwork/
+
 # Environment
 .env
 .env.local
