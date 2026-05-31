@@ -74,16 +74,19 @@ patches:
                   - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
                     value: https://PLACEHOLDER_AUTH_DOMAIN/realms/finans
                   # Log4j2's Kafka appender (log4j2-spring.xml) builds a Kafka
-                  # producer at startup; an EMPTY bootstrap.servers throws
-                  # "No resolvable bootstrap urls" and kills logging init — and
-                  # with it the whole app. There's no Kafka in the core GKE
-                  # deploy, so give it a valid host:port: the producer then
-                  # constructs (Kafka resolves DNS lazily, so an absent host
-                  # doesn't fail at startup) and ignoreExceptions="true" swallows
-                  # the background send failures. Logs still go to the console
-                  # appender; only the Kafka->OpenSearch pipeline is inactive.
+                  # producer at startup. The Kafka client resolves the bootstrap
+                  # host's DNS *eagerly* (client.dns.lookup=use_all_dns_ips); if
+                  # NONE of the hosts resolve it throws "No resolvable bootstrap
+                  # urls", which fails Log4j2 init and kills the whole app. The
+                  # default (kafka:29092) doesn't resolve in the core GKE deploy
+                  # (no Kafka service), so point it at localhost:9092 — localhost
+                  # always resolves to 127.0.0.1, so the producer constructs.
+                  # Background sends just get connection-refused, which acks=0 +
+                  # ignoreExceptions="true" swallow (same pattern as the OTel
+                  # exporter). Logs still flow to the console appender; only the
+                  # Kafka->OpenSearch pipeline is inactive (not part of core).
                   - name: KAFKA_BOOTSTRAP_SERVERS
-                    value: kafka:9092
+                    value: localhost:9092
 
   # --- Frontend: 2 replicas, NodePort + BackendConfig ------------------------
   - target:
