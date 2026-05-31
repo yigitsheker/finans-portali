@@ -1,0 +1,43 @@
+# BackendConfig CRDs wire the GCE Load Balancer's health checks to each
+# service's real health endpoint. Without these, the LB health-checks "/" on
+# the NodePort and can mark healthy pods as DOWN (e.g. the backend's "/" is
+# not a 200). Each Service references its BackendConfig via the
+# cloud.google.com/backend-config annotation set in kustomization.yaml.
+#
+# Spring Boot Actuator and Keycloak both expose dedicated health paths; the
+# frontend (nginx) serves "/" so a root check is correct there.
+
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: backend-bc
+spec:
+  healthCheck:
+    type: HTTP
+    requestPath: /actuator/health/readiness
+    port: 8080
+  timeoutSec: 60
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: frontend-bc
+spec:
+  healthCheck:
+    type: HTTP
+    requestPath: /
+    port: 80
+---
+apiVersion: cloud.google.com/v1
+kind: BackendConfig
+metadata:
+  name: keycloak-bc
+spec:
+  healthCheck:
+    type: HTTP
+    # Keycloak serves health on the management port 9000 (/health/ready), but
+    # the GCE LB health-checks the service's serving NodePort (8080). The
+    # realm's well-known endpoint reliably returns 200 once Keycloak is up.
+    requestPath: /realms/finans/.well-known/openid-configuration
+    port: 8080
+  timeoutSec: 60

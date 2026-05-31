@@ -1,8 +1,9 @@
 # Finans Portalı — Teknik Analiz Dokümanı
 
-> **Sürüm:** 1.1 · **Tarih:** 2026-05-31 · **Statü:** Güncel
-> Son güncelleme: SonarCloud Quality Gate yeşile alındı (duplication
-> yönetimi + paylaşılan `useSparklines` / `TradingViewWidget` refactor) — §8.5.
+> **Sürüm:** 1.2 · **Tarih:** 2026-05-31 · **Statü:** Güncel
+> Son güncellemeler: (1) SonarCloud Quality Gate yeşile alındı — §8.5;
+> (2) Google Cloud / GKE üzerine Continuous Deployment hattı eklendi
+> (Workload Identity Federation + Artifact Registry + GCE Ingress) — §9.3-9.4.
 
 **Sürüm:** 1.0
 **Tarih:** 2026-05-30
@@ -572,15 +573,37 @@ Postgres → Keycloak → Backend → Frontend → Observability stack → Trans
 
 `k8s/` dizini Kustomize ile:
 - `base/` — Postgres StatefulSet, Keycloak Deployment + bootstrap Job, Backend Deployment, Frontend Deployment, Service'ler, Ingress
-- `overlays/dev/` — kind cluster için (NodePort, imagePullPolicy:Never, kind load docker-image)
-- `overlays/prod/` — referans amaçlı (HPA, anti-affinity, cert-manager TLS Ingress, semver image tags)
+- `overlays/dev/` — kind / Docker Desktop K8s için (NodePort, imagePullPolicy:Never, kind load docker-image)
+- `overlays/prod/` — jenerik referans (HPA, anti-affinity, cert-manager TLS Ingress, semver image tags)
+- `overlays/gke/` — **Google Kubernetes Engine hedefi** (canlı CD ortamı, bkz. §9.4)
 
 Deploy script: `k8s/deploy-local.ps1` (Windows PowerShell, kind cluster lifecycle yönetir).
 
-### 9.3 CI/CD
+### 9.3 Google Kubernetes Engine (GKE)
 
-- GitHub Actions workflow: `.github/workflows/ci.yml` (push → `main` ve aynı
-  repodan PR'larda çalışır)
+Canlı deploy hedefi **GKE**'dir. Çekirdek uygulama (Postgres + Keycloak +
+Backend + Frontend) cluster içinde çalışır. GKE'ye özgü `overlays/gke/` overlay'i
+base manifest'leri şu farklarla genişletir:
+
+- **GCE Ingress** (GKE-native L7 HTTP(S) Load Balancer) — nginx-ingress yerine.
+  Global statik IP (`finans-portali-ip`) ile fronted edilir.
+- **Google-managed TLS sertifikası** (`ManagedCertificate`) — `app.*` ve `auth.*`
+  alanları için otomatik sağlama + yenileme. `FrontendConfig` ile HTTP→HTTPS 301.
+- **NodePort Service'ler** — GCE Ingress'in backend gereksinimi.
+- **`BackendConfig` CRD'leri** — LB sağlık kontrollerini her servisin gerçek
+  health path'ine bağlar (backend: `/actuator/health/readiness`, frontend: `/`,
+  keycloak: realm well-known endpoint).
+- **Artifact Registry** image referansları; CD her commit'te SHA tag'iyle pinler.
+- **Backend HPA** (CPU %70, 3-10 replica), Keycloak `KC_HOSTNAME` + backend
+  `issuer-uri` public auth domain'e ayarlanır (token `iss` claim eşleşmesi).
+- **In-cluster Postgres** StatefulSet (PersistentVolume; GKE varsayılan
+  `pd-balanced` storage class).
+
+Kurulum rehberi (gcloud komutları, WIF, secret'lar, DNS): [`k8s/GKE_DEPLOYMENT.md`](../k8s/GKE_DEPLOYMENT.md).
+
+### 9.4 CI/CD
+
+**CI — `.github/workflows/ci.yml`** (push → `main` ve aynı repodan PR'larda):
 - Paralel job'lar: Backend (Maven `verify` + JaCoCo), Frontend (Vite build),
   Playwright service (deps + syntax check), docker-compose syntax, SonarCloud scan
 - SonarCloud `sonarcloud` job'ı: backend `mvnw verify` ile JaCoCo XML üretir,
@@ -588,7 +611,23 @@ Deploy script: `k8s/deploy-local.ps1` (Windows PowerShell, kind cluster lifecycl
   (`fetch-depth: 0` — new-code blame için tam git geçmişi gerekli)
 - **Quality Gate (`Sonar way`): PASSED** — Security A, Reliability A,
   Maintainability A, Coverage %80.6, Duplications %0.1 (bkz. §8.5)
-- Docker image build hedefi: optional
+
+**CD — `.github/workflows/cd.yml`** (push → `main`, CI yeşil olunca):
+1. **Gate:** `wait-for-ci` job'ı, aynı commit için CI'daki "Backend (Maven build)"
+   kontrolünün başarılı olmasını bekler — kırmızı build asla deploy edilmez.
+2. **Auth:** Google Cloud'a **Workload Identity Federation** ile anahtarsız
+   (keyless) kimlik doğrulama — repoda JSON service-account key tutulmaz.
+   `google-github-actions/auth@v2` + `id-token: write` izni.
+3. **Build & push:** backend + frontend imajları, commit SHA + `latest` tag'iyle
+   **Artifact Registry**'ye gönderilir.
+4. **Deploy:** `get-gke-credentials` ile cluster kimliği alınır; `overlays/gke`
+   içindeki PLACEHOLDER'lar (proje, domain, image tag) `kustomize edit set image`
+   + `sed` ile doldurulur; `kubectl apply -k` ile uygulanır.
+5. **Verify:** `kubectl rollout status` ile backend/frontend/keycloak
+   deployment'larının yakınsaması beklenir; yakınsamazsa job kırmızı olur.
+- `paths-ignore` ile yalnızca dokümantasyon (`**/*.md`, `docs/**`) değişen
+  push'larda deploy atlanır. `workflow_dispatch` ile elle tetiklenebilir.
+- Kurulum: [`k8s/GKE_DEPLOYMENT.md`](../k8s/GKE_DEPLOYMENT.md).
 
 ## 10. Veri Modeli
 
@@ -729,6 +768,8 @@ Her scheduled task'ı izleyen 16 metric:
 | 13 | Kafka log pipeline | ✅ log4j2 → Kafka → consumer → OpenSearch |
 | 14 | Docker | ✅ |
 | 15 | Git | ✅ 148+ commit |
+| 14b | Kubernetes / GKE | ✅ Kustomize overlay'leri + GKE canlı hedef (§9.2-9.3) |
+| 15b | CI/CD | ✅ GitHub Actions — CI + GKE'ye CD (WIF, Artifact Registry) (§9.4) |
 | 16 | jBPM (Ticket Management) | ⊘ Kapsam dışı (yatırım odaklı proje) |
 | 17 | Cache (Caffeine) | ✅ |
 | 18 | REST API versioning (/api/v1) | ✅ 17 controller |

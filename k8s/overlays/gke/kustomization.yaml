@@ -1,0 +1,177 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# ---------------------------------------------------------------------------
+# Google Kubernetes Engine (GKE) overlay
+# ---------------------------------------------------------------------------
+# Production-ish deploy target on GKE. Differences from base/:
+#   - Images come from Artifact Registry (LOCATION-docker.pkg.dev/PROJECT/REPO).
+#     The CD workflow rewrites the tag per commit via `kustomize edit set image`,
+#     so the `newTag` below is only a sane default for manual applies.
+#   - GCE Ingress (the GKE-native L7 HTTP(S) Load Balancer) instead of nginx,
+#     fronted by a reserved global static IP and a Google-managed TLS cert.
+#   - Services switched to NodePort — the GCE Ingress requires NodePort (or NEG)
+#     backends; ClusterIP alone is not routable by the external LB.
+#   - BackendConfig CRDs give the LB proper health-check paths per service.
+#   - Backend HPA (CPU-based) pulled in from the shared prod manifest.
+#   - Keycloak KC_HOSTNAME + backend issuer-uri point at the public auth domain
+#     so the `iss` claim in tokens matches what the browser sees.
+#
+# Setup (one-time gcloud commands, WIF, secrets) is documented in
+# k8s/GKE_DEPLOYMENT.md. Replace the PLACEHOLDER_* values below (or let the
+# CD workflow patch them) before applying.
+# ---------------------------------------------------------------------------
+
+namespace: finans-portali
+
+resources:
+  - ../../base
+  - hpa-backend.yaml
+  - managed-certificate.yaml
+  - backendconfig.yaml
+
+# Images — Artifact Registry. The CD pipeline overrides newTag with the commit
+# SHA. For a manual apply, set these to a real digest/tag first.
+images:
+  - name: <registry>/finans-backend
+    newName: PLACEHOLDER_LOCATION-docker.pkg.dev/PLACEHOLDER_PROJECT/finans-portali/finans-backend
+    newTag: latest
+  - name: <registry>/finans-frontend
+    newName: PLACEHOLDER_LOCATION-docker.pkg.dev/PLACEHOLDER_PROJECT/finans-portali/finans-frontend
+    newTag: latest
+
+patches:
+  # --- Backend: 2 replicas, attach BackendConfig, public issuer-uri ----------
+  - target:
+      kind: Service
+      name: backend
+    patch: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: backend
+        annotations:
+          cloud.google.com/backend-config: '{"default": "backend-bc"}'
+      spec:
+        type: NodePort
+  - target:
+      kind: Deployment
+      name: backend
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: backend
+      spec:
+        replicas: 2
+        template:
+          spec:
+            containers:
+              - name: backend
+                env:
+                  # Public token issuer — must equal Keycloak's KC_HOSTNAME so
+                  # the backend accepts the `iss` claim the browser receives.
+                  - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+                    value: https://PLACEHOLDER_AUTH_DOMAIN/realms/finans
+
+  # --- Frontend: 2 replicas, NodePort + BackendConfig ------------------------
+  - target:
+      kind: Service
+      name: frontend
+    patch: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: frontend
+        annotations:
+          cloud.google.com/backend-config: '{"default": "frontend-bc"}'
+      spec:
+        type: NodePort
+  - target:
+      kind: Deployment
+      name: frontend
+    patch: |
+      - op: replace
+        path: /spec/replicas
+        value: 2
+
+  # --- Keycloak: NodePort + BackendConfig + public hostname ------------------
+  - target:
+      kind: Service
+      name: keycloak
+    patch: |
+      apiVersion: v1
+      kind: Service
+      metadata:
+        name: keycloak
+        annotations:
+          cloud.google.com/backend-config: '{"default": "keycloak-bc"}'
+      spec:
+        type: NodePort
+  - target:
+      kind: Deployment
+      name: keycloak
+    patch: |
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: keycloak
+      spec:
+        template:
+          spec:
+            containers:
+              - name: keycloak
+                env:
+                  - name: KC_HOSTNAME
+                    value: PLACEHOLDER_AUTH_DOMAIN
+                  - name: KC_HOSTNAME_STRICT
+                    value: "true"
+                  - name: KC_PROXY_HEADERS
+                    value: xforwarded
+
+  # --- CORS: allow the public frontend origin --------------------------------
+  - target:
+      kind: ConfigMap
+      name: backend-config
+    patch: |
+      - op: replace
+        path: /data/cors-allowed-origins
+        value: https://PLACEHOLDER_APP_DOMAIN
+
+  # --- Ingress: GCE class, global static IP, managed cert, real hosts --------
+  - target:
+      kind: Ingress
+      name: finans-portali
+    patch: |
+      apiVersion: networking.k8s.io/v1
+      kind: Ingress
+      metadata:
+        name: finans-portali
+        annotations:
+          kubernetes.io/ingress.class: "gce"
+          kubernetes.io/ingress.global-static-ip-name: "finans-portali-ip"
+          networking.gke.io/managed-certificates: "finans-portali-cert"
+          # Redirect HTTP→HTTPS at the LB. Requires the FrontendConfig below.
+          networking.gke.io/v1beta1.FrontendConfig: "finans-portali-fc"
+      spec:
+        rules:
+          - host: PLACEHOLDER_APP_DOMAIN
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: frontend
+                      port:
+                        number: 80
+          - host: PLACEHOLDER_AUTH_DOMAIN
+            http:
+              paths:
+                - path: /
+                  pathType: Prefix
+                  backend:
+                    service:
+                      name: keycloak
+                      port:
+                        number: 8080

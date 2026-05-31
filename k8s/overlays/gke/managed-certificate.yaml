@@ -1,0 +1,27 @@
+# Google-managed TLS certificate for the GCE Ingress. GKE provisions and
+# auto-renews a Let's Encrypt-equivalent cert for the listed domains once the
+# Ingress is created AND the domains' DNS A-records point at the Ingress's
+# global static IP. Provisioning takes ~15-60 min on first apply; check status
+# with: kubectl describe managedcertificate finans-portali-cert -n finans-portali
+#
+# Replace the domains with your real ones (or let the CD workflow patch them).
+apiVersion: networking.gke.io/v1
+kind: ManagedCertificate
+metadata:
+  name: finans-portali-cert
+spec:
+  domains:
+    - PLACEHOLDER_APP_DOMAIN
+    - PLACEHOLDER_AUTH_DOMAIN
+---
+# FrontendConfig: force an HTTP→HTTPS 301 redirect at the load balancer so
+# users never stay on plaintext. Referenced from the Ingress annotation
+# networking.gke.io/v1beta1.FrontendConfig.
+apiVersion: networking.gke.io/v1beta1
+kind: FrontendConfig
+metadata:
+  name: finans-portali-fc
+spec:
+  redirectToHttps:
+    enabled: true
+    responseCodeName: MOVED_PERMANENTLY_DEFAULT

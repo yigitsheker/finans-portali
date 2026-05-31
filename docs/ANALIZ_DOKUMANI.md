@@ -1,6 +1,6 @@
 # Finans Portalı — Analiz Dokümanı
 
-**Sürüm:** 1.1
+**Sürüm:** 1.2
 **Tarih:** 2026-05-31
 **Statü:** Güncel
 
@@ -277,6 +277,7 @@ Admin paneli üzerinden:
 - [x] Tooltip glossary (36 finans terimi)
 - [x] Open-source LLM (Groq llama-3.3-70b free tier)
 - [x] Kod kalitesi — SonarCloud Quality Gate PASSED (Security/Reliability/Maintainability A, coverage ≥%80, duplication ≤%3; teknik detay için Teknik Analiz Dokümanı §8.5)
+- [x] Continuous Deployment — `main` push'ta Google Cloud / GKE'ye otomatik deploy (Workload Identity Federation + Artifact Registry; teknik detay için Teknik Analiz Dokümanı §9.3-9.4, kurulum için `k8s/GKE_DEPLOYMENT.md`)
 
 ## 9. Kapsam Dışı (Bilinçli Karar)
 

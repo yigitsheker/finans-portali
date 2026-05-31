@@ -1,0 +1,151 @@
+name: CD — Deploy to GKE
+
+# Continuous Deployment to Google Kubernetes Engine.
+#
+# Trigger: every push to main (after CI). The deploy job gates on the CI
+# workflow succeeding for the same commit, so a red build never ships.
+# Manual re-deploys are possible via the Actions "Run workflow" button.
+#
+# Auth: keyless via Workload Identity Federation (no JSON key in the repo).
+# Setup — the gcloud commands that create the WIF pool, the deployer service
+# account, Artifact Registry, and the GKE cluster — is in
+# k8s/GKE_DEPLOYMENT.md. The repo-level variables / secrets it expects:
+#
+#   Variables (Settings → Secrets and variables → Actions → Variables):
+#     GCP_PROJECT_ID          e.g. finans-portali-prod
+#     GCP_REGION              e.g. europe-west1
+#     GKE_CLUSTER             e.g. finans-portali
+#     GKE_LOCATION            cluster region or zone, e.g. europe-west1
+#     ARTIFACT_REPO           Artifact Registry repo name, e.g. finans-portali
+#     APP_DOMAIN              e.g. app.example.com
+#     AUTH_DOMAIN             e.g. auth.example.com
+#   Secrets:
+#     GCP_WIF_PROVIDER        projects/NUM/locations/global/workloadIdentityPools/POOL/providers/PROVIDER
+#     GCP_DEPLOYER_SA         deployer@PROJECT.iam.gserviceaccount.com
+
+on:
+  push:
+    branches: [main]
+    # Skip deploys for doc/config-only changes that can't affect the images.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+  workflow_dispatch: {}
+
+# One deploy at a time; a newer push supersedes an in-flight one.
+concurrency:
+  group: cd-gke-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write          # required for Workload Identity Federation
+
+jobs:
+  # Gate: only deploy once CI (build + tests + Sonar) is green for this SHA.
+  wait-for-ci:
+    name: Wait for CI to pass
+    runs-on: ubuntu-latest
+    steps:
+      - name: Wait for CI workflow
+        uses: lewagon/wait-on-check-action@v1.3.4
+        with:
+          ref: ${{ github.sha }}
+          check-name: "Backend (Maven build)"
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          wait-interval: 20
+          allowed-conclusions: success
+
+  deploy:
+    name: Build images + deploy to GKE
+    runs-on: ubuntu-latest
+    needs: wait-for-ci
+    env:
+      IMAGE_BASE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REPO }}
+      SHA_TAG: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # --- Authenticate to Google Cloud (keyless / WIF) --------------------
+      - name: Authenticate to Google Cloud
+        id: auth
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          service_account: ${{ secrets.GCP_DEPLOYER_SA }}
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Configure Docker for Artifact Registry
+        run: gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev --quiet
+
+      # --- Build + push images (tagged with the commit SHA + latest) -------
+      - name: Build & push backend image
+        run: |
+          docker build -t "$IMAGE_BASE/finans-backend:$SHA_TAG" \
+                       -t "$IMAGE_BASE/finans-backend:latest" \
+                       ./backend
+          docker push "$IMAGE_BASE/finans-backend:$SHA_TAG"
+          docker push "$IMAGE_BASE/finans-backend:latest"
+
+      - name: Build & push frontend image
+        run: |
+          docker build -t "$IMAGE_BASE/finans-frontend:$SHA_TAG" \
+                       -t "$IMAGE_BASE/finans-frontend:latest" \
+                       ./frontend
+          docker push "$IMAGE_BASE/finans-frontend:$SHA_TAG"
+          docker push "$IMAGE_BASE/finans-frontend:latest"
+
+      # --- Get cluster credentials -----------------------------------------
+      - name: Get GKE credentials
+        uses: google-github-actions/get-gke-credentials@v2
+        with:
+          cluster_name: ${{ vars.GKE_CLUSTER }}
+          location: ${{ vars.GKE_LOCATION }}
+
+      # --- Render the GKE overlay with the real project/domain/tag ---------
+      - name: Patch GKE overlay
+        working-directory: k8s/overlays/gke
+        run: |
+          # Pin both images to this commit's SHA tag.
+          kustomize edit set image \
+            "<registry>/finans-backend=$IMAGE_BASE/finans-backend:$SHA_TAG" \
+            "<registry>/finans-frontend=$IMAGE_BASE/finans-frontend:$SHA_TAG"
+
+          # Substitute the PLACEHOLDER_* tokens across the overlay files with
+          # the configured project + domains. sed in place over the overlay
+          # only (base/ is untouched).
+          sed -i \
+            -e "s|PLACEHOLDER_LOCATION-docker.pkg.dev/PLACEHOLDER_PROJECT|${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}|g" \
+            -e "s|PLACEHOLDER_APP_DOMAIN|${{ vars.APP_DOMAIN }}|g" \
+            -e "s|PLACEHOLDER_AUTH_DOMAIN|${{ vars.AUTH_DOMAIN }}|g" \
+            kustomization.yaml managed-certificate.yaml
+
+      # --- Apply --------------------------------------------------------------
+      - name: Deploy to GKE
+        run: |
+          kubectl apply -k k8s/overlays/gke
+
+      # --- Wait for rollouts (fail the job if a Deployment doesn't converge) --
+      - name: Verify rollout
+        run: |
+          kubectl -n finans-portali rollout status deployment/backend  --timeout=300s
+          kubectl -n finans-portali rollout status deployment/frontend --timeout=180s
+          kubectl -n finans-portali rollout status deployment/keycloak --timeout=300s
+
+      - name: Summary
+        if: always()
+        run: |
+          {
+            echo "### GKE Deploy"
+            echo ""
+            echo "| Item | Value |"
+            echo "|------|-------|"
+            echo "| Commit | \`$SHA_TAG\` |"
+            echo "| Backend image | \`$IMAGE_BASE/finans-backend:$SHA_TAG\` |"
+            echo "| Frontend image | \`$IMAGE_BASE/finans-frontend:$SHA_TAG\` |"
+            echo "| Cluster | ${{ vars.GKE_CLUSTER }} (${{ vars.GKE_LOCATION }}) |"
+            echo "| App URL | https://${{ vars.APP_DOMAIN }} |"
+            echo "| Auth URL | https://${{ vars.AUTH_DOMAIN }} |"
+          } >> "$GITHUB_STEP_SUMMARY"
