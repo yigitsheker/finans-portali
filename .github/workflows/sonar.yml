@@ -1,0 +1,59 @@
+name: SonarCloud
+
+# SonarCloud analysis — split out of CI so it doesn't run on every push.
+#
+# Why separate: the scan (backend `mvnw verify` + JaCoCo + the SonarCloud
+# scanner) was taking ~1h of wall-clock and burning Actions minutes on every
+# commit, and because CD is gated on the "CI" workflow completing, a slow scan
+# also delayed every deploy. Pulling it into its own workflow keeps CI fast
+# (~2-3 min: build + tests only) and lets the deploy pipeline move quickly.
+#
+# When it runs:
+#   - Manually:  Actions -> SonarCloud -> Run workflow (workflow_dispatch)
+#   - Weekly:    Mondays 06:00 UTC (cron) on the default branch
+#
+# The Quality Gate is unchanged (sonar-project.properties); it's just measured
+# on demand / weekly instead of per-commit.
+
+on:
+  workflow_dispatch: {}
+  schedule:
+    - cron: "0 6 * * 1"   # her Pazartesi 06:00 UTC
+
+# Don't pile up scans; a newer run cancels an in-flight one.
+concurrency:
+  group: sonarcloud
+  cancel-in-progress: true
+
+jobs:
+  sonarcloud:
+    name: SonarCloud scan
+    runs-on: ubuntu-latest
+    # Skip if the token isn't available (e.g. on a fork without the secret).
+    if: ${{ github.repository == 'yigitsheker/finans-portali' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # SonarCloud needs full git history for accurate "new code" blame
+          # attribution. Shallow clones break the Quality Gate's "new code"
+          # delta calculation.
+          fetch-depth: 0
+
+      - uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      # Produce the JaCoCo XML report Sonar expects under
+      # backend/target/site/jacoco/jacoco.xml. `verify` is the lifecycle phase
+      # JaCoCo's report goal is bound to.
+      - name: Backend test + JaCoCo coverage
+        working-directory: backend
+        run: ./mvnw -B -ntp verify
+
+      - name: SonarCloud scan
+        uses: SonarSource/sonarqube-scan-action@v6
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

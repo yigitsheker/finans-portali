@@ -143,42 +143,8 @@ jobs:
       - name: Validate compose file
         run: docker compose config > /dev/null
 
-  # SonarCloud analysis — backend (with JaCoCo coverage from the test suite)
-  # plus frontend JS/JSX static analysis plus compose / Dockerfile lints.
-  # See sonar-project.properties for source paths and exclusions.
-  #
-  # Skipped when the secret is missing so forks / PRs from outside contributors
-  # don't choke on the missing SONAR_TOKEN. Maintainer PRs and main pushes
-  # have the secret and run the scan.
-  sonarcloud:
-    name: SonarCloud scan
-    runs-on: ubuntu-latest
-    if: ${{ github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository }}
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          # SonarCloud needs full git history for accurate "new code" blame
-          # attribution. Shallow clones break the Quality Gate's "new code"
-          # delta calculation.
-          fetch-depth: 0
-
-      - uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: temurin
-          cache: maven
-
-      # Produce the JaCoCo XML report Sonar expects under
-      # backend/target/site/jacoco/jacoco.xml. We run `verify` because that's
-      # the lifecycle phase JaCoCo's report goal is bound to.
-      - name: Backend test + JaCoCo coverage
-        working-directory: backend
-        run: ./mvnw -B -ntp verify
-
-      # v4 is deprecated (security advisory); v6 is the current LTS.
-      # See https://community.sonarsource.com/gha-v6-update
-      - name: SonarCloud scan
-        uses: SonarSource/sonarqube-scan-action@v6
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  # NOTE: SonarCloud analysis lives in its own workflow (.github/workflows/sonar.yml)
+  # so it doesn't run on every push — it was taking ~1h and burning Actions
+  # minutes, and it also delayed CD (which waits for the "CI" workflow to finish).
+  # Run it on demand (Actions -> SonarCloud -> Run workflow) or on its weekly
+  # schedule. The Quality Gate stays green; it's just measured less often.
