@@ -221,8 +221,11 @@ patches:
         annotations:
           kubernetes.io/ingress.class: "gce"
           kubernetes.io/ingress.global-static-ip-name: "finans-portali-ip"
-          networking.gke.io/managed-certificates: "finans-portali-cert"
-          networking.gke.io/v1beta1.FrontendConfig: "finans-portali-fc"
+          # managed-certificate + HTTPS-redirect FrontendConfig annotations are
+          # intentionally OMITTED for nip.io (Google won't issue a cert for it,
+          # and an HTTPS redirect would break the HTTP-only login). The objects
+          # stay inert in managed-certificate.yaml. Re-add these two annotations
+          # (and flip issuer/KC_HOSTNAME/CORS to https://) for a real domain.
       spec:
         rules:
           - host: PLACEHOLDER_APP_DOMAIN
