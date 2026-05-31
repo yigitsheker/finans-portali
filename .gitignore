@@ -39,3 +39,5 @@ backup_*.sql
 .fake
 # Tek seferlik canli patch dosyasi (commit edilmez)
 startupprobe-patch.yaml
+
+fix-keycloak-redirects.ps1
