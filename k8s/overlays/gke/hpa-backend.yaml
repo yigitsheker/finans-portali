@@ -10,8 +10,11 @@ spec:
     apiVersion: apps/v1
     kind: Deployment
     name: backend
-  minReplicas: 3
-  maxReplicas: 10
+  # Conservative range for the demo cluster — the wider 3-10 range scaled the
+  # backend past the project's GCE quota (FailedScaleUp), starving Keycloak of
+  # schedulable capacity. 1-3 keeps the app responsive without exhausting quota.
+  minReplicas: 1
+  maxReplicas: 3
   metrics:
     # CPU-based scaling. metrics-server is built-in on GKE (Autopilot and
     # Standard), so this works out of the box. For request-rate scaling, add

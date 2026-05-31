@@ -13,9 +13,10 @@ kind: Kustomization
 #   - Services switched to NodePort — the GCE Ingress requires NodePort (or NEG)
 #     backends; ClusterIP alone is not routable by the external LB.
 #   - BackendConfig CRDs give the LB proper health-check paths per service.
-#   - Backend HPA (CPU-based) pulled in from the shared prod manifest.
+#   - Backend HPA (CPU-based).
 #   - Keycloak KC_HOSTNAME + backend issuer-uri point at the public auth domain
 #     so the `iss` claim in tokens matches what the browser sees.
+#   - A frontend runtime-config ConfigMap carries the public Keycloak URL.
 #
 # Setup (one-time gcloud commands, WIF, secrets) is documented in
 # k8s/GKE_DEPLOYMENT.md. Replace the PLACEHOLDER_* values below (or let the
@@ -30,6 +31,20 @@ resources:
   - managed-certificate.yaml
   - backendconfig.yaml
 
+# Runtime config for the frontend SPA. The image ships an empty
+# public/runtime-config.js; we mount a populated one (frontend patch below) so
+# the browser learns the PUBLIC Keycloak URL at runtime (keycloak.js reads
+# window.__RUNTIME_CONFIG__.VITE_KEYCLOAK_URL). disableNameSuffixHash keeps the
+# name stable so the frontend deployment's volume ref resolves. CD's sed fills
+# PLACEHOLDER_AUTH_DOMAIN here (it processes kustomization.yaml).
+configMapGenerator:
+  - name: frontend-runtime-config
+    options:
+      disableNameSuffixHash: true
+    literals:
+      - |-
+        runtime-config.js=window.__RUNTIME_CONFIG__ = { "VITE_KEYCLOAK_URL": "http://PLACEHOLDER_AUTH_DOMAIN" };
+
 # Images — Artifact Registry. The CD pipeline overrides newTag with the commit
 # SHA. For a manual apply, set these to a real digest/tag first.
 images:
@@ -41,7 +56,7 @@ images:
     newTag: latest
 
 patches:
-  # --- Backend: 2 replicas, attach BackendConfig, public issuer-uri ----------
+  # --- Backend: BackendConfig + NodePort -------------------------------------
   - target:
       kind: Service
       name: backend
@@ -54,6 +69,8 @@ patches:
           cloud.google.com/backend-config: '{"default": "backend-bc"}'
       spec:
         type: NodePort
+
+  # --- Backend: replicas, startupProbe, public issuer, Kafka host ------------
   - target:
       kind: Deployment
       name: backend
@@ -69,13 +86,11 @@ patches:
             containers:
               - name: backend
                 # Spring Boot + OTel agent + JPA validation takes >60s to come
-                # up on GKE. The base liveness probe (initialDelay 60s) was
-                # firing before the app was listening and killing the pod —
-                # an endless restart loop where pods never reached Ready.
-                # A startupProbe gates liveness/readiness: neither runs until
-                # startup succeeds, and startup tolerates up to 10s*60 = 600s
-                # of boot time. Once the app is up, the normal liveness probe
-                # takes over for ongoing health.
+                # up on GKE. The base liveness probe (initialDelay 60s) fired
+                # before the app was listening and killed the pod — an endless
+                # restart loop. A startupProbe gates liveness/readiness: neither
+                # runs until startup succeeds, tolerating up to 10s*60 = 600s of
+                # boot time. The normal liveness probe then governs ongoing health.
                 startupProbe:
                   httpGet:
                     path: /actuator/health/liveness
@@ -90,22 +105,18 @@ patches:
                   # and KC_HOSTNAME below back to https://.
                   - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
                     value: http://PLACEHOLDER_AUTH_DOMAIN/realms/finans
-                  # Log4j2's Kafka appender (log4j2-spring.xml) builds a Kafka
-                  # producer at startup. The Kafka client resolves the bootstrap
-                  # host's DNS *eagerly* (client.dns.lookup=use_all_dns_ips); if
-                  # NONE of the hosts resolve it throws "No resolvable bootstrap
-                  # urls", which fails Log4j2 init and kills the whole app. The
-                  # default (kafka:29092) doesn't resolve in the core GKE deploy
-                  # (no Kafka service), so point it at localhost:9092 — localhost
-                  # always resolves to 127.0.0.1, so the producer constructs.
-                  # Background sends just get connection-refused, which acks=0 +
-                  # ignoreExceptions="true" swallow (same pattern as the OTel
-                  # exporter). Logs still flow to the console appender; only the
-                  # Kafka->OpenSearch pipeline is inactive (not part of core).
+                  # Log4j2's Kafka appender builds a producer at startup. The
+                  # Kafka client resolves bootstrap DNS eagerly; if no host
+                  # resolves it throws "No resolvable bootstrap urls", failing
+                  # Log4j2 init and the whole app. There's no Kafka in the core
+                  # GKE deploy, so point at localhost:9092 — localhost always
+                  # resolves; background sends just get connection-refused, which
+                  # acks=0 + ignoreExceptions=true swallow. Console logging is
+                  # unaffected; only the Kafka->OpenSearch pipeline is inactive.
                   - name: KAFKA_BOOTSTRAP_SERVERS
                     value: localhost:9092
 
-  # --- Frontend: 2 replicas, NodePort + BackendConfig ------------------------
+  # --- Frontend: BackendConfig + NodePort ------------------------------------
   - target:
       kind: Service
       name: frontend
@@ -118,15 +129,34 @@ patches:
           cloud.google.com/backend-config: '{"default": "frontend-bc"}'
       spec:
         type: NodePort
+
+  # --- Frontend: replicas + runtime-config mount -----------------------------
   - target:
       kind: Deployment
       name: frontend
     patch: |
-      - op: replace
-        path: /spec/replicas
-        value: 2
+      apiVersion: apps/v1
+      kind: Deployment
+      metadata:
+        name: frontend
+      spec:
+        replicas: 2
+        template:
+          spec:
+            containers:
+              - name: frontend
+                # Mount the populated runtime-config.js over the image's empty
+                # placeholder so the SPA gets the public Keycloak URL.
+                volumeMounts:
+                  - name: runtime-config
+                    mountPath: /usr/share/nginx/html/runtime-config.js
+                    subPath: runtime-config.js
+            volumes:
+              - name: runtime-config
+                configMap:
+                  name: frontend-runtime-config
 
-  # --- Keycloak: NodePort + BackendConfig + public hostname ------------------
+  # --- Keycloak: BackendConfig + NodePort ------------------------------------
   - target:
       kind: Service
       name: keycloak
@@ -139,6 +169,8 @@ patches:
           cloud.google.com/backend-config: '{"default": "keycloak-bc"}'
       spec:
         type: NodePort
+
+  # --- Keycloak: public hostname over HTTP -----------------------------------
   - target:
       kind: Deployment
       name: keycloak
@@ -163,9 +195,8 @@ patches:
                     value: "true"
                   - name: KC_PROXY_HEADERS
                     value: xforwarded
-                  # The LB terminates/forwards plain HTTP; let Keycloak serve
-                  # HTTP without forcing an HTTPS redirect on the admin/login
-                  # endpoints (otherwise it 302s to https which nip.io can't do).
+                  # Serve plain HTTP behind the LB without forcing an HTTPS
+                  # redirect on login/admin (nip.io can't satisfy https).
                   - name: KC_HTTP_ENABLED
                     value: "true"
 
@@ -176,7 +207,7 @@ patches:
     patch: |
       - op: replace
         path: /data/cors-allowed-origins
-        value: https://PLACEHOLDER_APP_DOMAIN
+        value: http://PLACEHOLDER_APP_DOMAIN
 
   # --- Ingress: GCE class, global static IP, managed cert, real hosts --------
   - target:
@@ -191,7 +222,6 @@ patches:
           kubernetes.io/ingress.class: "gce"
           kubernetes.io/ingress.global-static-ip-name: "finans-portali-ip"
           networking.gke.io/managed-certificates: "finans-portali-cert"
-          # Redirect HTTP→HTTPS at the LB. Requires the FrontendConfig below.
           networking.gke.io/v1beta1.FrontendConfig: "finans-portali-fc"
       spec:
         rules:

@@ -1,7 +1,13 @@
 import Keycloak from "keycloak-js";
 
+// Keycloak base URL is resolved at RUNTIME so the same built image works in
+// any environment. /runtime-config.js (loaded before the app bundle — see
+// index.html) sets window.__RUNTIME_CONFIG__; container deploys replace that
+// file with a ConfigMap carrying the public Keycloak URL. Falls back to the
+// build-time env var, then the local dev server.
+const RUNTIME = (typeof window !== "undefined" && window.__RUNTIME_CONFIG__) || {};
 const keycloak = new Keycloak({
-    url: "http://localhost:8090",
+    url: RUNTIME.VITE_KEYCLOAK_URL || import.meta.env.VITE_KEYCLOAK_URL || "http://localhost:8090",
     realm: "finans",
     clientId: "finans-frontend",
 });
