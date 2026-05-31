@@ -2,39 +2,34 @@ name: CD — Deploy to GKE
 
 # Continuous Deployment to Google Kubernetes Engine.
 #
-# Trigger: every push to main (after CI). The deploy job gates on the CI
-# workflow succeeding for the same commit, so a red build never ships.
-# Manual re-deploys are possible via the Actions "Run workflow" button.
+# Trigger: the CI workflow ("CI") completing on main. GitHub's native
+# `workflow_run` gate means we deploy only after CI actually finished — no
+# flaky third-party "wait for check" step and no Checks-API permission issues.
+# The job `if:` filters to successful CI runs. `workflow_dispatch` keeps a
+# manual deploy button that acts on the current main HEAD.
 #
 # Auth: keyless via Workload Identity Federation (no JSON key in the repo).
 # Setup — the gcloud commands that create the WIF pool, the deployer service
 # account, Artifact Registry, and the GKE cluster — is in
 # k8s/GKE_DEPLOYMENT.md. The repo-level variables / secrets it expects:
 #
-#   Variables (Settings → Secrets and variables → Actions → Variables):
-#     GCP_PROJECT_ID          e.g. finans-portali-prod
-#     GCP_REGION              e.g. europe-west1
-#     GKE_CLUSTER             e.g. finans-portali
-#     GKE_LOCATION            cluster region or zone, e.g. europe-west1
-#     ARTIFACT_REPO           Artifact Registry repo name, e.g. finans-portali
-#     APP_DOMAIN              e.g. app.example.com
-#     AUTH_DOMAIN             e.g. auth.example.com
+#   Variables (Settings -> Secrets and variables -> Actions -> Variables):
+#     GCP_PROJECT_ID, GCP_REGION, GKE_CLUSTER, GKE_LOCATION,
+#     ARTIFACT_REPO, APP_DOMAIN, AUTH_DOMAIN
 #   Secrets:
-#     GCP_WIF_PROVIDER        projects/NUM/locations/global/workloadIdentityPools/POOL/providers/PROVIDER
-#     GCP_DEPLOYER_SA         deployer@PROJECT.iam.gserviceaccount.com
+#     GCP_WIF_PROVIDER   projects/NUM/locations/global/workloadIdentityPools/POOL/providers/PROVIDER
+#     GCP_DEPLOYER_SA    deployer@PROJECT.iam.gserviceaccount.com
 
 on:
-  push:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
     branches: [main]
-    # Skip deploys for doc/config-only changes that can't affect the images.
-    paths-ignore:
-      - "**/*.md"
-      - "docs/**"
   workflow_dispatch: {}
 
-# One deploy at a time; a newer push supersedes an in-flight one.
+# One deploy at a time.
 concurrency:
-  group: cd-gke-${{ github.ref }}
+  group: cd-gke
   cancel-in-progress: false
 
 permissions:
@@ -42,32 +37,21 @@ permissions:
   id-token: write          # required for Workload Identity Federation
 
 jobs:
-  # Gate: only deploy once CI (build + tests + Sonar) is green for this SHA.
-  wait-for-ci:
-    name: Wait for CI to pass
-    runs-on: ubuntu-latest
-    steps:
-      - name: Wait for CI workflow
-        uses: lewagon/wait-on-check-action@v1.3.4
-        with:
-          ref: ${{ github.sha }}
-          check-name: "Backend (Maven build)"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-          wait-interval: 20
-          allowed-conclusions: success
-          # Give CI time to register its check run before we start polling,
-          # so this gate doesn't race ahead and report "no check found".
-          verbose: true
-
   deploy:
     name: Build images + deploy to GKE
     runs-on: ubuntu-latest
-    needs: wait-for-ci
+    # Deploy when triggered manually, OR when the CI run that triggered us
+    # concluded successfully. Skips deploys for red/cancelled CI runs.
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     env:
       IMAGE_BASE: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/${{ vars.ARTIFACT_REPO }}
-      SHA_TAG: ${{ github.sha }}
+      # On workflow_run, deploy the exact commit CI validated; on manual
+      # dispatch, fall back to the ref the workflow was launched against.
+      SHA_TAG: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
 
       # --- Authenticate to Google Cloud (keyless / WIF) --------------------
       - name: Authenticate to Google Cloud
@@ -116,21 +100,19 @@ jobs:
             "<registry>/finans-backend=$IMAGE_BASE/finans-backend:$SHA_TAG" \
             "<registry>/finans-frontend=$IMAGE_BASE/finans-frontend:$SHA_TAG"
 
-          # Substitute the PLACEHOLDER_* tokens across the overlay files with
-          # the configured project + domains. sed in place over the overlay
-          # only (base/ is untouched).
+          # Substitute the PLACEHOLDER_* tokens with the configured project +
+          # domains. sed runs over the overlay only; base/ is untouched.
           sed -i \
             -e "s|PLACEHOLDER_LOCATION-docker.pkg.dev/PLACEHOLDER_PROJECT|${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}|g" \
             -e "s|PLACEHOLDER_APP_DOMAIN|${{ vars.APP_DOMAIN }}|g" \
             -e "s|PLACEHOLDER_AUTH_DOMAIN|${{ vars.AUTH_DOMAIN }}|g" \
             kustomization.yaml managed-certificate.yaml
 
-      # --- Apply --------------------------------------------------------------
+      # --- Apply -----------------------------------------------------------
       - name: Deploy to GKE
-        run: |
-          kubectl apply -k k8s/overlays/gke
+        run: kubectl apply -k k8s/overlays/gke
 
-      # --- Wait for rollouts (fail the job if a Deployment doesn't converge) --
+      # --- Wait for rollouts (fail the job if a Deployment doesn't converge)
       - name: Verify rollout
         run: |
           kubectl -n finans-portali rollout status deployment/backend  --timeout=300s

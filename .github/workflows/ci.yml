@@ -3,8 +3,18 @@ name: CI
 on:
   pull_request:
     branches: [main]
+    # Docs / k8s-manifest only changes don't affect the build, tests, or the
+    # SonarCloud scan — skip CI for them to save Actions minutes.
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "k8s/**"
   push:
     branches: [main]
+    paths-ignore:
+      - "**/*.md"
+      - "docs/**"
+      - "k8s/**"
 
 # Cancel older runs on the same branch when a newer commit lands.
 concurrency:
