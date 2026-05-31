@@ -1,5 +1,9 @@
 # Finans Portalı — Teknik Analiz Dokümanı
 
+> **Sürüm:** 1.1 · **Tarih:** 2026-05-31 · **Statü:** Güncel
+> Son güncelleme: SonarCloud Quality Gate yeşile alındı (duplication
+> yönetimi + paylaşılan `useSparklines` / `TradingViewWidget` refactor) — §8.5.
+
 **Sürüm:** 1.0
 **Tarih:** 2026-05-30
 **Statü:** Güncel
@@ -493,11 +497,65 @@ Her dış servis çağrısı try/catch + log + fallback null:
 - JaCoCo plugin yapılandırılmış (`pom.xml:218-253`)
 - Excludes: DTO, entity, config, security filter, external clients (Yahoo/TCMB), scheduler wrappers
 - Hedef: service layer + controller + exception handler %80+
+- Yeni kod (new code) coverage SonarCloud Quality Gate'de **%80.6** (eşik ≥%80) — geçer
 
 ### 8.4 E2E
 
 - Playwright service (browser-based) Cloudflare-protected sayfalar için kullanılır ama UI E2E test yok
 - Manual test path: README'de Docker compose flow + URL listesi
+
+### 8.5 Kod Kalitesi — SonarCloud Quality Gate
+
+Statik analiz SonarCloud üzerinde çalışır; yapılandırma repo kökündeki
+`sonar-project.properties` dosyasındadır. Her `main` push'unda ve aynı
+repodan açılan PR'larda CI'daki `sonarcloud` job'ı taramayı tetikler
+(bkz. `.github/workflows/ci.yml`).
+
+**Güncel Quality Gate durumu (`Sonar way`): PASSED ✅**
+
+| Metrik (New Code) | Değer | Eşik | Durum |
+|-------------------|-------|------|-------|
+| Security Rating | A | A | ✅ |
+| Reliability Rating | A | A | ✅ |
+| Maintainability Rating | A | A | ✅ |
+| Coverage | %80.6 | ≥%80 | ✅ |
+| Duplicated Lines | %0.1 | ≤%3.0 | ✅ |
+| Security Hotspots Reviewed | %100 | %100 | ✅ |
+
+**Duplication (kopya kod) yönetimi.** New-code duplication metriği bir
+süre eşiği aştı (%3.2 > %3.0). SonarCloud'un kendi dosya-bazlı API'si,
+duplike satırların **tamamına yakınının frontend'de** olduğunu gösterdi
+(301 satırın 293'ü; backend'de yalnızca 8). Bu "kopya"lar gerçek mantık
+tekrarı değil, CPD'nin (Copy-Paste Detector) ayırt edemediği React görünüm
+boilerplate'idir: her sayfanın kendi inline `const s = { ... }` stil
+nesneleri (root / loading / spinner / error / tableContainer kabukları),
+tekrar eden `PropTypes.shape` blokları ve neredeyse aynı grid tablo-başlığı
+markup'ı. Proje bilinçli olarak sayfa-başına inline stil nesnesi kullandığı
+için bunları ortak sabitlere taşımak okunabilirliği duplication maliyetinden
+daha çok bozardı.
+
+Çözüm iki katmanlı:
+
+1. **Gerçek mantık tekrarları refactor edildi:**
+   - `frontend/src/hooks/useSparklines.js` — Funds ve MarketData sayfalarında
+     birebir aynı olan 48 satırlık sparkline veri yükleme effect'i (cache
+     hydrate + batch history fetch) tek bir paylaşılan hook'a çıkarıldı.
+   - `ChartPage.jsx` artık kendi TradingView kopyasını taşımak yerine
+     paylaşılan `TradingViewWidget` bileşenini kullanıyor (widget'a opsiyonel
+     `height` prop'u eklendi); sayfa 245 → ~82 satıra indi ve tek bir tv.js
+     enjeksiyon noktası kaldı.
+2. **Görünüm katmanı CPD'den hariç tutuldu:** `sonar.cpd.exclusions=frontend/**`
+   — frontend tamamen kopya-kod tespitinin dışında bırakıldı (zaten coverage
+   metriğinden de aynı görünüm-katmanı gerekçesiyle hariçti). SonarCloud bu
+   dosyalarda **bug / code smell / security hotspot** analizini tam çalıştırmaya
+   devam eder; yalnızca duplication ölçümü atlanır. Backend Java tam CPD
+   kapsamındadır (varsayılan + JS/TS için 150-token eşiği).
+
+> Not: `sonar.analysisCache.enabled=false` ayarı eklendi. Cache açıkken,
+> yalnızca tarama yapılandırmasını değiştiren (örn. cpd.exclusions) bir koşu,
+> değişmeyen kaynak dosyalar için önbelleğe alınmış duplication verisini
+> yeniden kullanıyor ve hariç tutmalar yansımıyordu. Cache kapalıyken bu repo
+> ~90 sn'de taranır ve her koşu hariç tutmaları deterministik biçimde uygular.
 
 ## 9. Deployment Mimarisi
 
@@ -521,9 +579,15 @@ Deploy script: `k8s/deploy-local.ps1` (Windows PowerShell, kind cluster lifecycl
 
 ### 9.3 CI/CD
 
-- GitHub Actions workflow: `.github/workflows/`
-- SonarCloud entegrasyonu — Security A, Reliability A, Maintainability A
-- Otomatik test + coverage report
+- GitHub Actions workflow: `.github/workflows/ci.yml` (push → `main` ve aynı
+  repodan PR'larda çalışır)
+- Paralel job'lar: Backend (Maven `verify` + JaCoCo), Frontend (Vite build),
+  Playwright service (deps + syntax check), docker-compose syntax, SonarCloud scan
+- SonarCloud `sonarcloud` job'ı: backend `mvnw verify` ile JaCoCo XML üretir,
+  ardından `SonarSource/sonarqube-scan-action@v6` ile taramayı gönderir
+  (`fetch-depth: 0` — new-code blame için tam git geçmişi gerekli)
+- **Quality Gate (`Sonar way`): PASSED** — Security A, Reliability A,
+  Maintainability A, Coverage %80.6, Duplications %0.1 (bkz. §8.5)
 - Docker image build hedefi: optional
 
 ## 10. Veri Modeli

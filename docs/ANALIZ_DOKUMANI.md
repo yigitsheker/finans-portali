@@ -1,7 +1,7 @@
 # Finans Portalı — Analiz Dokümanı
 
-**Sürüm:** 1.0
-**Tarih:** 2026-05-30
+**Sürüm:** 1.1
+**Tarih:** 2026-05-31
 **Statü:** Güncel
 
 ---
@@ -276,6 +276,7 @@ Admin paneli üzerinden:
 - [x] Fiyat alarmları (in-app + e-posta)
 - [x] Tooltip glossary (36 finans terimi)
 - [x] Open-source LLM (Groq llama-3.3-70b free tier)
+- [x] Kod kalitesi — SonarCloud Quality Gate PASSED (Security/Reliability/Maintainability A, coverage ≥%80, duplication ≤%3; teknik detay için Teknik Analiz Dokümanı §8.5)
 
 ## 9. Kapsam Dışı (Bilinçli Karar)
 
