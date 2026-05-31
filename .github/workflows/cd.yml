@@ -55,6 +55,9 @@ jobs:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
           wait-interval: 20
           allowed-conclusions: success
+          # Give CI time to register its check run before we start polling,
+          # so this gate doesn't race ahead and report "no check found".
+          verbose: true
 
   deploy:
     name: Build images + deploy to GKE
