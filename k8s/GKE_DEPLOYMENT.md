@@ -58,20 +58,31 @@ Manifest'ler: [`k8s/overlays/gke/`](overlays/gke/) · İş akışı:
 gcloud auth login
 ```
 
-Aşağıdaki değerleri kendi ortamına göre belirle ve PowerShell değişkeni olarak
-tanımla (bu pencere açık kaldığı sürece geçerli olurlar):
+Bu projenin **gerçek değerleri** aşağıda hazır. Pencereyi her kapattığında bu
+bloğu tekrar çalıştır (değişkenler yalnızca açık oturumda yaşar):
 
 ```powershell
-$PROJECT_ID = "finans-portali-prod"        # GCP proje kimliği
-$REGION     = "europe-west1"               # Artifact Registry + cluster bölgesi
-$CLUSTER    = "finans-portali"             # GKE cluster adı
-$REPO       = "finans-portali"             # Artifact Registry repo adı
-$GH_REPO    = "yigitsheker/finans-portali" # owner/repo
-$APP_DOMAIN  = "app.example.com"
-$AUTH_DOMAIN = "auth.example.com"
+$PROJECT_ID  = "finans-portali-498018"      # GCP proje kimliği (gcloud projects list)
+$REGION      = "europe-west1"               # Artifact Registry + cluster bölgesi
+$CLUSTER     = "finans-portali"             # GKE cluster adı
+$REPO        = "finans-portali"             # Artifact Registry repo adı
+$GH_REPO     = "yigitsheker/finans-portali" # owner/repo
+$STATIC_IP   = "34.120.195.216"             # §4'te oluşturulan global statik IP
+# Alan adları — gerçek domain'in yoksa nip.io kullan (IP'ye otomatik çözülür):
+$APP_DOMAIN  = "app.34.120.195.216.nip.io"
+$AUTH_DOMAIN = "auth.34.120.195.216.nip.io"
+# Gerçek domain'in varsa onları yaz, örn:
+#   $APP_DOMAIN  = "app.seninsite.com"
+#   $AUTH_DOMAIN = "auth.seninsite.com"
 
 gcloud config set project $PROJECT_ID
 ```
+
+> **nip.io notu:** `app.34.120.195.216.nip.io` gibi adresler ekstra DNS kaydı
+> gerektirmeden doğrudan IP'ye çözülür — demo/test için idealdir. Ancak
+> Google-managed TLS sertifikası `nip.io` için sağlanmaz; bu durumda uygulama
+> HTTP üzerinden erişilir (HTTPS yerine). Tam HTTPS istiyorsan gerçek bir domain
+> kullan ve §4'teki DNS A-kayıtlarını ekle.
 
 > **Aldığın hata buydu:** `The required property [project] is not currently set`
 > — yukarıdaki `gcloud config set project $PROJECT_ID` satırı bunu çözer. Proje
@@ -200,24 +211,29 @@ Write-Output "GCP_DEPLOYER_SA=$DEPLOYER_SA"
 
 Repo → **Settings → Secrets and variables → Actions**.
 
-**Variables** sekmesi:
+**Variables** sekmesi (bu projenin gerçek değerleri):
 
-| İsim | Örnek değer |
-|------|-------------|
-| `GCP_PROJECT_ID` | `finans-portali-prod` |
+| İsim | Değer |
+|------|-------|
+| `GCP_PROJECT_ID` | `finans-portali-498018` |
 | `GCP_REGION` | `europe-west1` |
 | `GKE_CLUSTER` | `finans-portali` |
 | `GKE_LOCATION` | `europe-west1` |
 | `ARTIFACT_REPO` | `finans-portali` |
-| `APP_DOMAIN` | `app.example.com` |
-| `AUTH_DOMAIN` | `auth.example.com` |
+| `APP_DOMAIN` | `app.34.120.195.216.nip.io` (veya gerçek domain) |
+| `AUTH_DOMAIN` | `auth.34.120.195.216.nip.io` (veya gerçek domain) |
 
 **Secrets** sekmesi:
 
 | İsim | Değer |
 |------|-------|
-| `GCP_WIF_PROVIDER` | 5f çıktısındaki `projects/.../providers/github-provider` |
-| `GCP_DEPLOYER_SA` | `finans-deployer@PROJECT.iam.gserviceaccount.com` |
+| `GCP_WIF_PROVIDER` | 5f çıktısındaki tam değer: `projects/PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider` |
+| `GCP_DEPLOYER_SA` | `finans-deployer@finans-portali-498018.iam.gserviceaccount.com` |
+
+> `PROJECT_NUMBER`, §5'te `$PROJECT_NUMBER = gcloud projects describe ...`
+> komutuyla otomatik alınır; `GCP_WIF_PROVIDER`'ın içinde o sayı yer alır.
+> Aşağıdaki `gh` komutları zaten §5'teki `$WIF_PROVIDER` ve `$DEPLOYER_SA`
+> değişkenlerini kullandığı için elle yapıştırmana gerek yok.
 
 `gh` CLI ile (PowerShell):
 
