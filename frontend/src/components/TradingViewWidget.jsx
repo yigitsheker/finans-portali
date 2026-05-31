@@ -62,7 +62,7 @@ const SYMBOL_MAP = {
     "DJI": "DJ:DJI",
 };
 
-export default function TradingViewWidget({ symbol, theme = "dark" }) {
+export default function TradingViewWidget({ symbol, theme = "dark", height = "500px" }) {
     const containerRef = useRef(null);
     const widgetRef = useRef(null);
 
@@ -141,7 +141,7 @@ export default function TradingViewWidget({ symbol, theme = "dark" }) {
             ref={containerRef}
             style={{
                 width: "100%",
-                height: "500px",
+                height,
                 background: theme === "dark" ? "#161b22" : "#ffffff",
                 borderRadius: "8px",
                 overflow: "hidden",
