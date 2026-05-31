@@ -113,11 +113,15 @@ jobs:
         run: kubectl apply -k k8s/overlays/gke
 
       # --- Wait for rollouts (fail the job if a Deployment doesn't converge)
+      # Backend needs generous time on first boot: Spring Boot + JPA schema
+      # validation + Keycloak JWK fetch can take a few minutes per replica,
+      # and Autopilot may be scaling nodes in parallel. 600s avoids a false
+      # red when the deploy is actually fine, just slow to converge.
       - name: Verify rollout
         run: |
-          kubectl -n finans-portali rollout status deployment/backend  --timeout=300s
-          kubectl -n finans-portali rollout status deployment/frontend --timeout=180s
-          kubectl -n finans-portali rollout status deployment/keycloak --timeout=300s
+          kubectl -n finans-portali rollout status deployment/backend  --timeout=600s
+          kubectl -n finans-portali rollout status deployment/frontend --timeout=300s
+          kubectl -n finans-portali rollout status deployment/keycloak --timeout=600s
 
       - name: Summary
         if: always()
