@@ -68,6 +68,20 @@ patches:
           spec:
             containers:
               - name: backend
+                # Spring Boot + OTel agent + JPA validation takes >60s to come
+                # up on GKE. The base liveness probe (initialDelay 60s) was
+                # firing before the app was listening and killing the pod —
+                # an endless restart loop where pods never reached Ready.
+                # A startupProbe gates liveness/readiness: neither runs until
+                # startup succeeds, and startup tolerates up to 10s*60 = 600s
+                # of boot time. Once the app is up, the normal liveness probe
+                # takes over for ongoing health.
+                startupProbe:
+                  httpGet:
+                    path: /actuator/health/liveness
+                    port: http
+                  periodSeconds: 10
+                  failureThreshold: 60
                 env:
                   # Public token issuer — must equal Keycloak's KC_HOSTNAME so
                   # the backend accepts the `iss` claim the browser receives.

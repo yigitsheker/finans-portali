@@ -37,3 +37,5 @@ docker-compose.override.yml
 backup_*.sql
 
 .fake
+# Tek seferlik canli patch dosyasi (commit edilmez)
+startupprobe-patch.yaml
