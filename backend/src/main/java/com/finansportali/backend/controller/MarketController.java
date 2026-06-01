@@ -26,6 +26,20 @@ public class MarketController {
         return service.summary();
     }
 
+    /**
+     * Lightweight spot FX rates (USDTRY, EURTRY) for the currency toggle.
+     * The frontend polls this every 60s purely to convert prices client-side;
+     * it previously hit {@code /summary} and downloaded all ~250 instruments
+     * each time. This filters the already-cached summary down to the FX rows,
+     * so it's a cache hit (no extra DB work) returning a tiny payload.
+     */
+    @GetMapping("/spot-rates")
+    public List<MarketSummaryItem> spotRates() {
+        return service.summary().stream()
+                .filter(i -> "FX".equals(i.type()))
+                .toList();
+    }
+
     @GetMapping("/instruments")
     public List<MarketInstrument> instruments() {
         return service.instruments();

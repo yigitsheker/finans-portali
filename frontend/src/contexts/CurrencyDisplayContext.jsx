@@ -51,7 +51,10 @@ export function CurrencyDisplayProvider({ children }) {
     let cancelled = false;
     const fetchRate = async () => {
       try {
-        const r = await fetch("/api/v1/market/summary");
+        // Lightweight FX-only endpoint (a few rows) instead of /summary (~250
+        // instruments). We only need USDTRY for client-side currency conversion,
+        // so polling the full summary every 60s was wasteful bandwidth.
+        const r = await fetch("/api/v1/market/spot-rates");
         if (!r.ok) return;
         const data = await r.json();
         const usdtry = data.find((d) => d.symbol === "USDTRY");

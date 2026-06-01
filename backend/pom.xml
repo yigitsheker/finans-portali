@@ -28,6 +28,12 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<!-- Force UTF-8 for source compilation + reporting. Without this, javac
+		     uses the platform default encoding; on a non-UTF-8 build host that
+		     garbles Turkish string literals in source (e.g. the
+		     MarketDataSeedService instrument names) into mojibake. -->
+		<project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+		<project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
 	</properties>
 	<dependencies>
 		<!-- Logback → Log4j2 swap. Every direct Spring Boot starter excludes

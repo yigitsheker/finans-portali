@@ -36,6 +36,22 @@ public class NotificationService {
     @Value("${app.mail.from:${spring.mail.username:noreply@finansportali.com}}")
     private String fromEmail;
 
+    // Master switch for outbound email. Defaults to true so configured
+    // deployments keep working; set app.mail.enabled=false (e.g. local dev with
+    // no SMTP creds) to skip sends cleanly instead of throwing SMTP errors on
+    // every alert. As a safety net we ALSO skip when no real sender is
+    // configured (fromEmail still on the literal fallback), so an empty
+    // spring.mail.username never produces noisy auth failures.
+    @Value("${app.mail.enabled:true}")
+    private boolean mailEnabled;
+
+    private boolean isMailConfigured() {
+        return mailEnabled
+                && fromEmail != null
+                && !fromEmail.isBlank()
+                && !"noreply@finansportali.com".equals(fromEmail);
+    }
+
     public NotificationService(JavaMailSender mailSender,
                                KeycloakUserService keycloakUserService,
                                KeycloakAdminService keycloakAdminService,
@@ -112,6 +128,11 @@ public class NotificationService {
         }
 
         // 2) Email — best-effort. Failure does not prevent the in-app record above.
+        if (!isMailConfigured()) {
+            log.info("Email disabled (app.mail.enabled=false or no sender configured); "
+                    + "in-app notification recorded for alert {} but no email sent", alert.getId());
+            return;
+        }
         if (email == null || email.isBlank()) {
             log.warn("No email stored/available for alert {} (user {}); skipping email", alert.getId(), alert.getUserId());
             return;

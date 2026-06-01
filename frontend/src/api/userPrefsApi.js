@@ -3,9 +3,20 @@ import axios from "axios";
 const BASE = "/api/v1/users/me/notification-prefs";
 
 async function authHeader(keycloak) {
-    await keycloak.updateToken(30);
-    if (!keycloak.token) throw new Error("No access token");
-    return { Authorization: `Bearer ${keycloak.token}` };
+    // Tolerate a not-yet-ready token instead of throwing. This API is called on
+    // Settings mount, where keycloak may still be refreshing; throwing here sent
+    // the GET without a token → backend 401 ("Could not fetch notification
+    // prefs"). Match the resilient pattern http.js uses (swallow refresh errors)
+    // and forward the language too, consistent with the other API modules.
+    try {
+        await keycloak.updateToken(30);
+    } catch { /* token refresh failed — fall through with whatever we have */ }
+    const lang = (localStorage.getItem("i18n-lang") || "tr").toLowerCase();
+    const headers = { "Accept-Language": lang === "en" ? "en" : "tr" };
+    if (keycloak.token) {
+        headers.Authorization = `Bearer ${keycloak.token}`;
+    }
+    return headers;
 }
 
 /**

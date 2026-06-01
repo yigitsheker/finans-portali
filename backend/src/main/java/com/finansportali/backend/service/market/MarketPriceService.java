@@ -73,7 +73,12 @@ public class MarketPriceService {
 
     /**
      * Get all instruments with their current prices (used by price alerts dropdown).
+     * Cached (30s) like getMarketSummary(): this does one quote lookup per
+     * instrument (~250 queries), so without caching every alert-modal open and
+     * autocomplete keystroke re-ran the whole N+1 scan. The short TTL keeps the
+     * dropdown fresh enough while collapsing repeated opens to a single hit.
      */
+    @Cacheable(cacheNames = "allInstrumentsWithPrices")
     public List<MarketSummaryItem> getAllInstrumentsWithPrices() {
         List<MarketInstrument> instruments = instrumentRepo.findAll();
         return instruments.stream()

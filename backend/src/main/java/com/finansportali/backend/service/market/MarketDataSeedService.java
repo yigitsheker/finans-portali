@@ -41,27 +41,27 @@ public class MarketDataSeedService {
     }
 
     /**
-     * VeritabanÄ± boÅŸsa enstrÃ¼manlarÄ± ve fallback quote'larÄ± oluÅŸturur.
-     * GerÃ§ek veriler PriceRefreshScheduler tarafÄ±ndan doldurulur.
+     * Veritabanı boşsa enstrümanları ve fallback quote'ları oluşturur.
+     * Gerçek veriler PriceRefreshScheduler tarafından doldurulur.
      */
     public void seedIfEmpty() {
         Instant now = Instant.now();
 
-        // FX â€” Yahoo: "USDTRY=X", "EURTRY=X"
+        // FX — Yahoo: "USDTRY=X", "EURTRY=X"
         var usdtry = upsert("USDTRY", "USD/TRY",              InstrumentType.FX,        "USDTRY=X",    false);
         var eurtry = upsert("EURTRY", "EUR/TRY",              InstrumentType.FX,        "EURTRY=X",    false);
-        // Emtia â€” Yahoo: futures tickers (GC/SI/CL/NG/HG/PL =F)
+        // Emtia — Yahoo: futures tickers (GC/SI/CL/NG/HG/PL =F)
         var xauusd = upsert("XAUUSD", "Altın (XAU/USD)",      InstrumentType.COMMODITY, "GC=F",        false);
         var xagusd = upsert("XAGUSD", "Gümüş (XAG/USD)",      InstrumentType.COMMODITY, "SI=F",        false);
         var wti    = upsert("WTI",    "Ham Petrol (WTI)",     InstrumentType.COMMODITY, "CL=F",        false);
         var ngas   = upsert("NGAS",   "Doğalgaz (Henry Hub)", InstrumentType.COMMODITY, "NG=F",        false);
         var xcuusd = upsert("XCUUSD", "Bakır (XCU/USD)",      InstrumentType.COMMODITY, "HG=F",        false);
         var xptusd = upsert("XPTUSD", "Platin (XPT/USD)",     InstrumentType.COMMODITY, "PL=F",        false);
-        // Endeks â€” BIST endeksleri gecikmeli
+        // Endeks — BIST endeksleri gecikmeli
         var xu100  = upsert("XU100",  "BIST 100",             InstrumentType.INDEX,     "XU100.IS",    true);
         var xu050  = upsert("XU050",  "BIST 50",              InstrumentType.INDEX,     "XU050.IS",    true);
         var xu030  = upsert("XU030",  "BIST 30",              InstrumentType.INDEX,     "XU030.IS",    true);
-        // Kripto â€” Yahoo: "BTC-USD"
+        // Kripto — Yahoo: "BTC-USD"
         var btcusd = upsert("BTCUSD", "Bitcoin (BTC/USD)",    InstrumentType.CRYPTO,    "BTC-USD",     false);
         var ethusd = upsert("ETHUSD", "Ethereum (ETH/USD)",   InstrumentType.CRYPTO,    "ETH-USD",     false);
         var solusd = upsert("SOLUSD", "Solana (SOL/USD)",     InstrumentType.CRYPTO,    "SOL-USD",     false);
@@ -78,7 +78,7 @@ public class MarketDataSeedService {
         var atomusd= upsert("ATOMUSD","Cosmos (ATOM/USD)",    InstrumentType.CRYPTO,    "ATOM-USD",    false);
         var xlmusd = upsert("XLMUSD", "Stellar (XLM/USD)",    InstrumentType.CRYPTO,    "XLM-USD",     false);
         var algousd= upsert("ALGOUSD","Algorand (ALGO/USD)",  InstrumentType.CRYPTO,    "ALGO-USD",    false);
-        // ABD Hisseleri â€” Yahoo: doÄŸrudan ticker
+        // ABD Hisseleri — Yahoo: doğrudan ticker
         var aapl   = upsert("AAPL",   "Apple Inc.",           InstrumentType.STOCK,     "AAPL",        false);
         var msft   = upsert("MSFT",   "Microsoft Corp.",      InstrumentType.STOCK,     "MSFT",        false);
         var googl  = upsert("GOOGL",  "Alphabet Inc.",        InstrumentType.STOCK,     "GOOGL",       false);
@@ -86,46 +86,46 @@ public class MarketDataSeedService {
         var nvda   = upsert("NVDA",   "NVIDIA Corp.",         InstrumentType.STOCK,     "NVDA",        false);
         var tsla   = upsert("TSLA",   "Tesla Inc.",           InstrumentType.STOCK,     "TSLA",        false);
         var meta   = upsert("META",   "Meta Platforms Inc.",  InstrumentType.STOCK,     "META",        false);
-        // BIST100 Hisseleri â€” Yahoo: ".IS" uzantÄ±sÄ±, gecikmeli/EOD (TÃ¼m BIST100)
-        var thyao  = upsert("THYAO",  "TÃ¼rk Hava YollarÄ±",   InstrumentType.BIST,      "THYAO.IS",    true);
+        // BIST100 Hisseleri — Yahoo: ".IS" uzantısı, gecikmeli/EOD (Tüm BIST100)
+        var thyao  = upsert("THYAO",  "Türk Hava Yolları",   InstrumentType.BIST,      "THYAO.IS",    true);
         var garan  = upsert("GARAN",  "Garanti BBVA",        InstrumentType.BIST,      "GARAN.IS",    true);
         var asels  = upsert("ASELS",  "Aselsan",             InstrumentType.BIST,      "ASELS.IS",    true);
-        var sise   = upsert("SISE",   "ÅiÅŸe Cam",            InstrumentType.BIST,      "SISE.IS",     true);
-        var kchol  = upsert("KCHOL",  "KoÃ§ Holding",         InstrumentType.BIST,      "KCHOL.IS",    true);
-        var eregl  = upsert("EREGL",  "EreÄŸli Demir Ã‡elik",  InstrumentType.BIST,      "EREGL.IS",    true);
-        var bimas  = upsert("BIMAS",  "BÄ°M MaÄŸazalar",       InstrumentType.BIST,      "BIMAS.IS",    true);
+        var sise   = upsert("SISE",   "Şişe Cam",            InstrumentType.BIST,      "SISE.IS",     true);
+        var kchol  = upsert("KCHOL",  "Koç Holding",         InstrumentType.BIST,      "KCHOL.IS",    true);
+        var eregl  = upsert("EREGL",  "Ereğli Demir Çelik",  InstrumentType.BIST,      "EREGL.IS",    true);
+        var bimas  = upsert("BIMAS",  "BİM Mağazalar",       InstrumentType.BIST,      "BIMAS.IS",    true);
         var akbnk  = upsert("AKBNK",  "Akbank",              InstrumentType.BIST,      "AKBNK.IS",    true);
-        var isctr  = upsert("ISCTR",  "Ä°ÅŸ BankasÄ±",          InstrumentType.BIST,      "ISCTR.IS",    true);
-        var tuprs  = upsert("TUPRS",  "TÃ¼praÅŸ",              InstrumentType.BIST,      "TUPRS.IS",    true);
-        var sahol  = upsert("SAHOL",  "SabancÄ± Holding",     InstrumentType.BIST,      "SAHOL.IS",    true);
+        var isctr  = upsert("ISCTR",  "İş Bankası",          InstrumentType.BIST,      "ISCTR.IS",    true);
+        var tuprs  = upsert("TUPRS",  "Tüpraş",              InstrumentType.BIST,      "TUPRS.IS",    true);
+        var sahol  = upsert("SAHOL",  "Sabancı Holding",     InstrumentType.BIST,      "SAHOL.IS",    true);
         var petkm  = upsert("PETKM",  "Petkim",              InstrumentType.BIST,      "PETKM.IS",    true);
         var tcell  = upsert("TCELL",  "Turkcell",            InstrumentType.BIST,      "TCELL.IS",    true);
-        var vakbn  = upsert("VAKBN",  "VakÄ±fbank",           InstrumentType.BIST,      "VAKBN.IS",    true);
-        var enkai  = upsert("ENKAI",  "Enka Ä°nÅŸaat",         InstrumentType.BIST,      "ENKAI.IS",    true);
-        var kozal  = upsert("KOZAL",  "Koza AltÄ±n",          InstrumentType.BIST,      "KOZAL.IS",    true);
-        var ttkom  = upsert("TTKOM",  "TÃ¼rk Telekom",        InstrumentType.BIST,      "TTKOM.IS",    true);
+        var vakbn  = upsert("VAKBN",  "Vakıfbank",           InstrumentType.BIST,      "VAKBN.IS",    true);
+        var enkai  = upsert("ENKAI",  "Enka İnşaat",         InstrumentType.BIST,      "ENKAI.IS",    true);
+        var kozal  = upsert("KOZAL",  "Koza Altın",          InstrumentType.BIST,      "KOZAL.IS",    true);
+        var ttkom  = upsert("TTKOM",  "Türk Telekom",        InstrumentType.BIST,      "TTKOM.IS",    true);
         var pgsus  = upsert("PGSUS",  "Pegasus",             InstrumentType.BIST,      "PGSUS.IS",    true);
         var froto  = upsert("FROTO",  "Ford Otosan",         InstrumentType.BIST,      "FROTO.IS",    true);
-        var toaso  = upsert("TOASO",  "TofaÅŸ Oto",           InstrumentType.BIST,      "TOASO.IS",    true);
+        var toaso  = upsert("TOASO",  "Tofaş Oto",           InstrumentType.BIST,      "TOASO.IS",    true);
         var halkb  = upsert("HALKB",  "Halkbank",            InstrumentType.BIST,      "HALKB.IS",    true);
-        var arclk  = upsert("ARCLK",  "ArÃ§elik",             InstrumentType.BIST,      "ARCLK.IS",    true);
+        var arclk  = upsert("ARCLK",  "Arçelik",             InstrumentType.BIST,      "ARCLK.IS",    true);
         var kozaa  = upsert("KOZAA",  "Koza Anadolu Metal",  InstrumentType.BIST,      "KOZAA.IS",    true);
-        var tavhl  = upsert("TAVHL",  "TAV HavalimanlarÄ±",   InstrumentType.BIST,      "TAVHL.IS",    true);
+        var tavhl  = upsert("TAVHL",  "TAV Havalimanları",   InstrumentType.BIST,      "TAVHL.IS",    true);
         var soda   = upsert("SODA",   "Soda Sanayii",        InstrumentType.BIST,      "SODA.IS",     true);
         
         // BIST100 - Devam Eden Hisseler
         var ekgyo  = upsert("EKGYO",  "Emlak Konut GYO",     InstrumentType.BIST,      "EKGYO.IS",    true);
-        var ykbnk  = upsert("YKBNK",  "YapÄ± Kredi BankasÄ±",  InstrumentType.BIST,      "YKBNK.IS",    true);
+        var ykbnk  = upsert("YKBNK",  "Yapı Kredi Bankası",  InstrumentType.BIST,      "YKBNK.IS",    true);
         var prkme  = upsert("PRKME",  "Park Elektrik",       InstrumentType.BIST,      "PRKME.IS",    true);
         var sasa   = upsert("SASA",   "Sasa Polyester",      InstrumentType.BIST,      "SASA.IS",     true);
-        var dohol  = upsert("DOHOL",  "DoÄŸan Holding",       InstrumentType.BIST,      "DOHOL.IS",    true);
-        var odas   = upsert("ODAS",   "OdaÅŸ Elektrik",       InstrumentType.BIST,      "ODAS.IS",     true);
+        var dohol  = upsert("DOHOL",  "Doğan Holding",       InstrumentType.BIST,      "DOHOL.IS",    true);
+        var odas   = upsert("ODAS",   "Odaş Elektrik",       InstrumentType.BIST,      "ODAS.IS",     true);
         var vestl  = upsert("VESTL",  "Vestel",              InstrumentType.BIST,      "VESTL.IS",    true);
         var mgros  = upsert("MGROS",  "Migros",              InstrumentType.BIST,      "MGROS.IS",    true);
-        var sokm   = upsert("SOKM",   "Åok Marketler",       InstrumentType.BIST,      "SOKM.IS",     true);
+        var sokm   = upsert("SOKM",   "Şok Marketler",       InstrumentType.BIST,      "SOKM.IS",     true);
         var aefes  = upsert("AEFES",  "Anadolu Efes",        InstrumentType.BIST,      "AEFES.IS",    true);
-        var ulker  = upsert("ULKER",  "Ãœlker BiskÃ¼vi",       InstrumentType.BIST,      "ULKER.IS",    true);
-        var ccola  = upsert("CCOLA",  "Coca Cola Ä°Ã§ecek",    InstrumentType.BIST,      "CCOLA.IS",    true);
+        var ulker  = upsert("ULKER",  "Ülker Bisküvi",       InstrumentType.BIST,      "ULKER.IS",    true);
+        var ccola  = upsert("CCOLA",  "Coca Cola İçecek",    InstrumentType.BIST,      "CCOLA.IS",    true);
         var otkar  = upsert("OTKAR",  "Otokar",              InstrumentType.BIST,      "OTKAR.IS",    true);
         var krdmd  = upsert("KRDMD",  "Kardemir",            InstrumentType.BIST,      "KRDMD.IS",    true);
         var alark  = upsert("ALARK",  "Alarko Holding",      InstrumentType.BIST,      "ALARK.IS",    true);
@@ -133,87 +133,87 @@ public class MarketDataSeedService {
         var aksen  = upsert("AKSEN",  "Aksa Enerji",         InstrumentType.BIST,      "AKSEN.IS",    true);
         var aksa   = upsert("AKSA",   "Aksa Akrilik",        InstrumentType.BIST,      "AKSA.IS",     true);
         var brsan  = upsert("BRSAN",  "Borusan Mannesmann",  InstrumentType.BIST,      "BRSAN.IS",    true);
-        var cemts  = upsert("CEMTS",  "Ã‡emtaÅŸ",              InstrumentType.BIST,      "CEMTS.IS",    true);
-        var cimsa  = upsert("CIMSA",  "Ã‡imsa",               InstrumentType.BIST,      "CIMSA.IS",    true);
-        var doas   = upsert("DOAS",   "DoÄŸuÅŸ Otomotiv",      InstrumentType.BIST,      "DOAS.IS",     true);
-        var egeen  = upsert("EGEEN",  "Ege EndÃ¼stri",        InstrumentType.BIST,      "EGEEN.IS",    true);
+        var cemts  = upsert("CEMTS",  "Çemtaş",              InstrumentType.BIST,      "CEMTS.IS",    true);
+        var cimsa  = upsert("CIMSA",  "Çimsa",               InstrumentType.BIST,      "CIMSA.IS",    true);
+        var doas   = upsert("DOAS",   "Doğuş Otomotiv",      InstrumentType.BIST,      "DOAS.IS",     true);
+        var egeen  = upsert("EGEEN",  "Ege Endüstri",        InstrumentType.BIST,      "EGEEN.IS",    true);
         var enjsa  = upsert("ENJSA",  "Enerjisa Enerji",     InstrumentType.BIST,      "ENJSA.IS",    true);
-        var genil  = upsert("GENIL",  "Gen Ä°laÃ§",            InstrumentType.BIST,      "GENIL.IS",    true);
-        var glyho  = upsert("GLYHO",  "GÃ¼bre FabrikalarÄ±",   InstrumentType.BIST,      "GLYHO.IS",    true);
+        var genil  = upsert("GENIL",  "Gen İlaç",            InstrumentType.BIST,      "GENIL.IS",    true);
+        var glyho  = upsert("GLYHO",  "Gübre Fabrikaları",   InstrumentType.BIST,      "GLYHO.IS",    true);
         var goody  = upsert("GOODY",  "Good-Year",           InstrumentType.BIST,      "GOODY.IS",    true);
-        var gozde  = upsert("GOZDE",  "GÃ¶zde GiriÅŸim",       InstrumentType.BIST,      "GOZDE.IS",    true);
-        var gubrf  = upsert("GUBRF",  "GÃ¼bre FabrikalarÄ±",   InstrumentType.BIST,      "GUBRF.IS",    true);
-        var hekts  = upsert("HEKTS",  "HektaÅŸ",              InstrumentType.BIST,      "HEKTS.IS",    true);
-        var ipeke  = upsert("IPEKE",  "Ä°pek DoÄŸal Enerji",   InstrumentType.BIST,      "IPEKE.IS",    true);
-        var isgyo  = upsert("ISGYO",  "Ä°ÅŸ GYO",              InstrumentType.BIST,      "ISGYO.IS",    true);
+        var gozde  = upsert("GOZDE",  "Gözde Girişim",       InstrumentType.BIST,      "GOZDE.IS",    true);
+        var gubrf  = upsert("GUBRF",  "Gübre Fabrikaları",   InstrumentType.BIST,      "GUBRF.IS",    true);
+        var hekts  = upsert("HEKTS",  "Hektaş",              InstrumentType.BIST,      "HEKTS.IS",    true);
+        var ipeke  = upsert("IPEKE",  "İpek Doğal Enerji",   InstrumentType.BIST,      "IPEKE.IS",    true);
+        var isgyo  = upsert("ISGYO",  "İş GYO",              InstrumentType.BIST,      "ISGYO.IS",    true);
         var kartn  = upsert("KARTN",  "Kartonsan",           InstrumentType.BIST,      "KARTN.IS",    true);
         var klmsn  = upsert("KLMSN",  "Klimasan",            InstrumentType.BIST,      "KLMSN.IS",    true);
         var kontr  = upsert("KONTR",  "Kontrolmatik",        InstrumentType.BIST,      "KONTR.IS",    true);
         var kords  = upsert("KORDS",  "Kordsa",              InstrumentType.BIST,      "KORDS.IS",    true);
-        var logo   = upsert("LOGO",   "Logo YazÄ±lÄ±m",        InstrumentType.BIST,      "LOGO.IS",     true);
+        var logo   = upsert("LOGO",   "Logo Yazılım",        InstrumentType.BIST,      "LOGO.IS",     true);
         var mavi   = upsert("MAVI",   "Mavi Giyim",          InstrumentType.BIST,      "MAVI.IS",     true);
-        var mpark  = upsert("MPARK",  "MLP SaÄŸlÄ±k",          InstrumentType.BIST,      "MPARK.IS",    true);
-        var netas  = upsert("NETAS",  "NetaÅŸ",               InstrumentType.BIST,      "NETAS.IS",    true);
+        var mpark  = upsert("MPARK",  "MLP Sağlık",          InstrumentType.BIST,      "MPARK.IS",    true);
+        var netas  = upsert("NETAS",  "Netaş",               InstrumentType.BIST,      "NETAS.IS",    true);
         var nthol  = upsert("NTHOL",  "Net Holding",         InstrumentType.BIST,      "NTHOL.IS",    true);
-        var oyakc  = upsert("OYAKC",  "Oyak Ã‡imento",        InstrumentType.BIST,      "OYAKC.IS",    true);
+        var oyakc  = upsert("OYAKC",  "Oyak Çimento",        InstrumentType.BIST,      "OYAKC.IS",    true);
         var parsn  = upsert("PARSN",  "Parsan",              InstrumentType.BIST,      "PARSN.IS",    true);
         var penta  = upsert("PENTA",  "Penta Teknoloji",     InstrumentType.BIST,      "PENTA.IS",    true);
-        var petun  = upsert("PETUN",  "PÄ±nar Et ve Un",      InstrumentType.BIST,      "PETUN.IS",    true);
-        var pnsut  = upsert("PNSUT",  "PÄ±nar SÃ¼t",           InstrumentType.BIST,      "PNSUT.IS",    true);
+        var petun  = upsert("PETUN",  "Pınar Et ve Un",      InstrumentType.BIST,      "PETUN.IS",    true);
+        var pnsut  = upsert("PNSUT",  "Pınar Süt",           InstrumentType.BIST,      "PNSUT.IS",    true);
         var quagr  = upsert("QUAGR",  "Qua Granite",         InstrumentType.BIST,      "QUAGR.IS",    true);
         var raysg  = upsert("RAYSG",  "Ray Sigorta",         InstrumentType.BIST,      "RAYSG.IS",    true);
-        var selec  = upsert("SELEC",  "SelÃ§uk Ecza",         InstrumentType.BIST,      "SELEC.IS",    true);
-        var skbnk  = upsert("SKBNK",  "Åekerbank",           InstrumentType.BIST,      "SKBNK.IS",    true);
-        var smart  = upsert("SMART",  "Smart GÃ¼neÅŸ",         InstrumentType.BIST,      "SMART.IS",    true);
-        var tatgd  = upsert("TATGD",  "Tat GÄ±da",            InstrumentType.BIST,      "TATGD.IS",    true);
+        var selec  = upsert("SELEC",  "Selçuk Ecza",         InstrumentType.BIST,      "SELEC.IS",    true);
+        var skbnk  = upsert("SKBNK",  "Şekerbank",           InstrumentType.BIST,      "SKBNK.IS",    true);
+        var smart  = upsert("SMART",  "Smart Güneş",         InstrumentType.BIST,      "SMART.IS",    true);
+        var tatgd  = upsert("TATGD",  "Tat Gıda",            InstrumentType.BIST,      "TATGD.IS",    true);
         var tkfen  = upsert("TKFEN",  "Tekfen Holding",      InstrumentType.BIST,      "TKFEN.IS",    true);
-        var tknsa  = upsert("TKNSA",  "Teknik YapÄ±",         InstrumentType.BIST,      "TKNSA.IS",    true);
-        var tmsn   = upsert("TMSN",   "TÃ¼mosan Motor",       InstrumentType.BIST,      "TMSN.IS",     true);
+        var tknsa  = upsert("TKNSA",  "Teknik Yapı",         InstrumentType.BIST,      "TKNSA.IS",    true);
+        var tmsn   = upsert("TMSN",   "Tümosan Motor",       InstrumentType.BIST,      "TMSN.IS",     true);
         var trgyo  = upsert("TRGYO",  "Torunlar GYO",        InstrumentType.BIST,      "TRGYO.IS",    true);
         var trkcm  = upsert("TRKCM",  "Trakya Cam",          InstrumentType.BIST,      "TRKCM.IS",    true);
-        var ttrak  = upsert("TTRAK",  "TÃ¼rk TraktÃ¶r",        InstrumentType.BIST,      "TTRAK.IS",    true);
+        var ttrak  = upsert("TTRAK",  "Türk Traktör",        InstrumentType.BIST,      "TTRAK.IS",    true);
         var uluse  = upsert("ULUSE",  "Ulusoy Elektrik",     InstrumentType.BIST,      "ULUSE.IS",    true);
-        var yatas  = upsert("YATAS",  "YataÅŸ",               InstrumentType.BIST,      "YATAS.IS",    true);
+        var yatas  = upsert("YATAS",  "Yataş",               InstrumentType.BIST,      "YATAS.IS",    true);
         var aghol  = upsert("AGHOL",  "Anadolu Grubu Holding", InstrumentType.BIST,    "AGHOL.IS",    true);
         var anacm  = upsert("ANACM",  "Anadolu Cam",         InstrumentType.BIST,      "ANACM.IS",    true);
         var ansgr  = upsert("ANSGR",  "Anadolu Sigorta",     InstrumentType.BIST,      "ANSGR.IS",    true);
-        var bagfs  = upsert("BAGFS",  "BagfaÅŸ",              InstrumentType.BIST,      "BAGFS.IS",    true);
+        var bagfs  = upsert("BAGFS",  "Bagfaş",              InstrumentType.BIST,      "BAGFS.IS",    true);
         var banvt  = upsert("BANVT",  "Banvit",              InstrumentType.BIST,      "BANVT.IS",    true);
         var bfren  = upsert("BFREN",  "Bosch Fren",          InstrumentType.BIST,      "BFREN.IS",    true);
         var bioen  = upsert("BIOEN",  "Biotrend Enerji",     InstrumentType.BIST,      "BIOEN.IS",    true);
         var bizim  = upsert("BIZIM",  "Bizim Toptan",        InstrumentType.BIST,      "BIZIM.IS",    true);
         var brisa  = upsert("BRISA",  "Brisa",               InstrumentType.BIST,      "BRISA.IS",    true);
-        var bryat  = upsert("BRYAT",  "Borusan YatÄ±rÄ±m",     InstrumentType.BIST,      "BRYAT.IS",    true);
-        var bucim  = upsert("BUCIM",  "Bursa Ã‡imento",       InstrumentType.BIST,      "BUCIM.IS",    true);
-        var clebi  = upsert("CLEBI",  "Ã‡elebi Hava",         InstrumentType.BIST,      "CLEBI.IS",    true);
+        var bryat  = upsert("BRYAT",  "Borusan Yatırım",     InstrumentType.BIST,      "BRYAT.IS",    true);
+        var bucim  = upsert("BUCIM",  "Bursa Çimento",       InstrumentType.BIST,      "BUCIM.IS",    true);
+        var clebi  = upsert("CLEBI",  "Çelebi Hava",         InstrumentType.BIST,      "CLEBI.IS",    true);
         var crfsa  = upsert("CRFSA",  "Carrefoursa",         InstrumentType.BIST,      "CRFSA.IS",    true);
         var deva   = upsert("DEVA",   "Deva Holding",        InstrumentType.BIST,      "DEVA.IS",     true);
-        var dgklb  = upsert("DGKLB",  "DoÄŸan Åirketler",     InstrumentType.BIST,      "DGKLB.IS",    true);
+        var dgklb  = upsert("DGKLB",  "Doğan Şirketler",     InstrumentType.BIST,      "DGKLB.IS",    true);
 
-        // VÄ°OP Vadeli Ä°ÅŸlem SÃ¶zleÅŸmeleri
+        // VİOP Vadeli İşlem Sözleşmeleri
         var xu030f = upsert("XU030F", "BIST 30 Vadeli",      InstrumentType.VIOP,      "XU030F",      true);
         var xu100f = upsert("XU100F", "BIST 100 Vadeli",     InstrumentType.VIOP,      "XU100F",      true);
         var usdtryf= upsert("USDTRYF","USD/TRY Vadeli",      InstrumentType.VIOP,      "USDTRYF",     false);
         var eurtryf= upsert("EURTRYF","EUR/TRY Vadeli",      InstrumentType.VIOP,      "EURTRYF",     false);
-        var goldtryf=upsert("GOLDTRYF","AltÄ±n/TRY Vadeli",   InstrumentType.VIOP,      "GOLDTRYF",    false);
+        var goldtryf=upsert("GOLDTRYF","Altın/TRY Vadeli",   InstrumentType.VIOP,      "GOLDTRYF",    false);
 
         // Tahvil ve Bonolar
-        var tr2y   = upsert("TR2Y",   "2 YÄ±l Devlet Tahvili",InstrumentType.BOND,      "TR2Y",        true);
-        var tr5y   = upsert("TR5Y",   "5 YÄ±l Devlet Tahvili",InstrumentType.BOND,      "TR5Y",        true);
-        var tr10y  = upsert("TR10Y",  "10 YÄ±l Devlet Tahvili",InstrumentType.BOND,     "TR10Y",       true);
-        var us2y   = upsert("US2Y",   "ABD 2 YÄ±l Tahvili",   InstrumentType.BOND,      "^IRX",        false);
-        var us10y  = upsert("US10Y",  "ABD 10 YÄ±l Tahvili",  InstrumentType.BOND,      "^TNX",        false);
+        var tr2y   = upsert("TR2Y",   "2 Yıl Devlet Tahvili",InstrumentType.BOND,      "TR2Y",        true);
+        var tr5y   = upsert("TR5Y",   "5 Yıl Devlet Tahvili",InstrumentType.BOND,      "TR5Y",        true);
+        var tr10y  = upsert("TR10Y",  "10 Yıl Devlet Tahvili",InstrumentType.BOND,     "TR10Y",       true);
+        var us2y   = upsert("US2Y",   "ABD 2 Yıl Tahvili",   InstrumentType.BOND,      "^IRX",        false);
+        var us10y  = upsert("US10Y",  "ABD 10 Yıl Tahvili",  InstrumentType.BOND,      "^TNX",        false);
 
-        // YatÄ±rÄ±m FonlarÄ± (PopÃ¼ler TÃ¼rk FonlarÄ±)
+        // Yatırım Fonları (Popüler Türk Fonları)
         var ykbhis = upsert("YKBHIS", "YKB A.B.D. Hisse Senedi Fonu", InstrumentType.FUND, "YKBHIS", true);
-        var isbalt = upsert("ISBALT", "Ä°ÅŸ BankasÄ± AltÄ±n Fonu",        InstrumentType.FUND, "ISBALT", true);
-        var akbtek = upsert("AKBTEK", "Akbank Teknoloji SektÃ¶r Fonu", InstrumentType.FUND, "AKBTEK", true);
-        var garpar = upsert("GARPAR", "Garanti Para PiyasasÄ± Fonu",   InstrumentType.FUND, "GARPAR", true);
-        var yapkre = upsert("YAPKRE", "YapÄ± Kredi Kira SertifikasÄ± Fonu", InstrumentType.FUND, "YAPKRE", true);
+        var isbalt = upsert("ISBALT", "İş Bankası Altın Fonu",        InstrumentType.FUND, "ISBALT", true);
+        var akbtek = upsert("AKBTEK", "Akbank Teknoloji Sektör Fonu", InstrumentType.FUND, "AKBTEK", true);
+        var garpar = upsert("GARPAR", "Garanti Para Piyasası Fonu",   InstrumentType.FUND, "GARPAR", true);
+        var yapkre = upsert("YAPKRE", "Yapı Kredi Kira Sertifikası Fonu", InstrumentType.FUND, "YAPKRE", true);
 
 
-        // Fallback quote'lar â€” test edilmiÅŸ gerÃ§ek deÄŸerlere yakÄ±n (Yahoo refresh gelene kadar)
-        // Her enstrÃ¼man iÃ§in ayrÄ± kontrol yap
+        // Fallback quote'lar — test edilmiş gerçek değerlere yakın (Yahoo refresh gelene kadar)
+        // Her enstrüman için ayrı kontrol yap
         seedQuoteIfMissing(usdtry, "44.75",    "0.05",   "0.11",  now);
         seedQuoteIfMissing(eurtry, "52.70",    "0.11",   "0.21",  now);
         seedQuoteIfMissing(xauusd, "4561.00",  "-5.00",  "-0.10", now);
@@ -351,29 +351,29 @@ public class MarketDataSeedService {
         seedQuoteIfMissing(deva,   "134.00",   "1.00",   "0.75",  now);
         seedQuoteIfMissing(dgklb,  "56.30",    "0.30",   "0.54",  now);
         
-        // VÄ°OP Vadeli Ä°ÅŸlem SÃ¶zleÅŸmeleri
+        // VİOP Vadeli İşlem Sözleşmeleri
         seedQuoteIfMissing(xu030f, "11850.00", "25.00",  "0.21",  now);
         seedQuoteIfMissing(xu100f, "14350.00", "30.00",  "0.21",  now);
         seedQuoteIfMissing(usdtryf,"44.85",    "0.10",   "0.22",  now);
         seedQuoteIfMissing(eurtryf,"52.85",    "0.15",   "0.28",  now);
         seedQuoteIfMissing(goldtryf,"4850.00", "10.00",  "0.21",  now);
         
-        // Tahvil ve Bonolar (Getiri oranlarÄ± %)
+        // Tahvil ve Bonolar (Getiri oranları %)
         seedQuoteIfMissing(tr2y,   "48.50",    "0.25",   "0.52",  now);
         seedQuoteIfMissing(tr5y,   "47.80",    "0.15",   "0.31",  now);
         seedQuoteIfMissing(tr10y,  "46.90",    "0.10",   "0.21",  now);
         seedQuoteIfMissing(us2y,   "4.25",     "-0.05",  "-1.16", now);
         seedQuoteIfMissing(us10y,  "4.45",     "-0.03",  "-0.67", now);
         
-        // YatÄ±rÄ±m FonlarÄ± (Birim Pay DeÄŸeri)
+        // Yatırım Fonları (Birim Pay Değeri)
         seedQuoteIfMissing(ykbhis, "0.285",    "0.002",  "0.71",  now);
         seedQuoteIfMissing(isbalt, "0.198",    "0.001",  "0.51",  now);
         seedQuoteIfMissing(akbtek, "0.342",    "0.003",  "0.89",  now);
         seedQuoteIfMissing(garpar, "0.156",    "0.000",  "0.00",  now);
         seedQuoteIfMissing(yapkre, "0.189",    "0.001",  "0.53",  now);
 
-        // Fallback candle'lar â€” gerÃ§ek deÄŸerlere yakÄ±n baÅŸlangÄ±Ã§ noktalarÄ±
-        // Her enstrÃ¼man iÃ§in ayrÄ± kontrol yap
+        // Fallback candle'lar — gerçek değerlere yakın başlangıç noktaları
+        // Her enstrüman için ayrı kontrol yap
         seedCandlesIfMissing(usdtry, "44.00");   seedCandlesIfMissing(eurtry, "52.00");
         seedCandlesIfMissing(xauusd, "4500.00"); seedCandlesIfMissing(xagusd, "76.00");
         seedCandlesIfMissing(wti,    "100.00");  seedCandlesIfMissing(ngas,   "2.85");
@@ -446,7 +446,7 @@ public class MarketDataSeedService {
         seedCandlesIfMissing(crfsa,  "96.50");   seedCandlesIfMissing(deva,   "131.00");
         seedCandlesIfMissing(dgklb,  "55.00");
         
-        // VÄ°OP Vadeli Ä°ÅŸlem SÃ¶zleÅŸmeleri
+        // VİOP Vadeli İşlem Sözleşmeleri
         seedCandlesIfMissing(xu030f, "11800.00"); seedCandlesIfMissing(xu100f, "14300.00");
         seedCandlesIfMissing(usdtryf,"44.70");    seedCandlesIfMissing(eurtryf,"52.60");
         seedCandlesIfMissing(goldtryf,"4800.00");
@@ -456,7 +456,7 @@ public class MarketDataSeedService {
         seedCandlesIfMissing(tr10y,  "46.70");    seedCandlesIfMissing(us2y,   "4.30");
         seedCandlesIfMissing(us10y,  "4.50");
         
-        // YatÄ±rÄ±m FonlarÄ±
+        // Yatırım Fonları
         seedCandlesIfMissing(ykbhis, "0.280");    seedCandlesIfMissing(isbalt, "0.195");
         seedCandlesIfMissing(akbtek, "0.335");    seedCandlesIfMissing(garpar, "0.156");
         seedCandlesIfMissing(yapkre, "0.186");
@@ -482,11 +482,11 @@ public class MarketDataSeedService {
     }
 
     /**
-     * Sadece quote yoksa seed et (mevcut quote'larÄ± korur)
+     * Sadece quote yoksa seed et (mevcut quote'ları korur)
      */
     private void seedQuoteIfMissing(MarketInstrument inst, String last, String changeAbs,
                                     String changePct, Instant now) {
-        // Bu enstrÃ¼man iÃ§in quote var mÄ± kontrol et
+        // Bu enstrüman için quote var mı kontrol et
         boolean hasQuote = quoteRepo.findTop1ByInstrumentOrderByAsOfDesc(inst).isPresent();
         if (!hasQuote) {
             log.info("Seeding missing quote for: {}", inst.getSymbol());
@@ -507,10 +507,10 @@ public class MarketDataSeedService {
     }
 
     /**
-     * Sadece candle yoksa seed et (mevcut candle'larÄ± korur)
+     * Sadece candle yoksa seed et (mevcut candle'ları korur)
      */
     private void seedCandlesIfMissing(MarketInstrument inst, String base) {
-        // Bu enstrÃ¼man iÃ§in candle var mÄ± kontrol et
+        // Bu enstrüman için candle var mı kontrol et
         long candleCount = candleRepo.countByInstrument(inst);
         if (candleCount == 0) {
             log.info("Seeding missing candles for: {}", inst.getSymbol());

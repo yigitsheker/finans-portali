@@ -15,6 +15,7 @@ public class CacheConfig {
     public CacheManager cacheManager() {
         CaffeineCacheManager mgr = new CaffeineCacheManager(
             "marketSummary",
+            "allInstrumentsWithPrices",
             "marketHistory",
             "yahooChart",
             "technicalAnalysis",
