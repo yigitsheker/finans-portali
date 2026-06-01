@@ -51,7 +51,26 @@ public class KeycloakUserService {
         }
 
         if (authentication.getPrincipal() instanceof Jwt jwt) {
-            return jwt.getSubject();
+            // Normally the OIDC subject ("sub"). But some Keycloak access-token
+            // configurations (e.g. lightweight access tokens) omit "sub" from
+            // the access token, which left getSubject() null and blew up inserts
+            // into NOT-NULL user_id columns (price_alerts, portfolio_positions).
+            // Fall back to a stable per-user claim so a missing "sub" can't break
+            // persistence: preferred_username is unique per user in Keycloak and
+            // is present here; "sid"/email are last resorts.
+            String sub = jwt.getSubject();
+            if (sub != null && !sub.isBlank()) {
+                return sub;
+            }
+            String preferredUsername = jwt.getClaimAsString("preferred_username");
+            if (preferredUsername != null && !preferredUsername.isBlank()) {
+                return preferredUsername;
+            }
+            String email = jwt.getClaimAsString("email");
+            if (email != null && !email.isBlank()) {
+                return email;
+            }
+            return jwt.getClaimAsString("sid");
         }
 
         return null;
