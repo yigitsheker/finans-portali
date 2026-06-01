@@ -84,6 +84,18 @@ jobs:
           docker push "$IMAGE_BASE/finans-frontend:$SHA_TAG"
           docker push "$IMAGE_BASE/finans-frontend:latest"
 
+      # Custom Keycloak = base image + bundled finance-theme. The Dockerfile
+      # COPYs keycloak-themes/ from the repo root, so the build context is "."
+      # (not ./keycloak) with -f pointing at the Dockerfile.
+      - name: Build & push keycloak image
+        run: |
+          docker build -f keycloak/Dockerfile \
+                       -t "$IMAGE_BASE/finans-keycloak:$SHA_TAG" \
+                       -t "$IMAGE_BASE/finans-keycloak:latest" \
+                       .
+          docker push "$IMAGE_BASE/finans-keycloak:$SHA_TAG"
+          docker push "$IMAGE_BASE/finans-keycloak:latest"
+
       # --- Get cluster credentials -----------------------------------------
       - name: Get GKE credentials
         uses: google-github-actions/get-gke-credentials@v2
@@ -95,10 +107,11 @@ jobs:
       - name: Patch GKE overlay
         working-directory: k8s/overlays/gke
         run: |
-          # Pin both images to this commit's SHA tag.
+          # Pin all images to this commit's SHA tag.
           kustomize edit set image \
             "<registry>/finans-backend=$IMAGE_BASE/finans-backend:$SHA_TAG" \
-            "<registry>/finans-frontend=$IMAGE_BASE/finans-frontend:$SHA_TAG"
+            "<registry>/finans-frontend=$IMAGE_BASE/finans-frontend:$SHA_TAG" \
+            "quay.io/keycloak/keycloak=$IMAGE_BASE/finans-keycloak:$SHA_TAG"
 
           # Substitute the PLACEHOLDER_* tokens with the configured project +
           # domains. sed runs over the overlay only; base/ is untouched.

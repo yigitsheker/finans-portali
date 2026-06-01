@@ -54,6 +54,12 @@ images:
   - name: <registry>/finans-frontend
     newName: PLACEHOLDER_LOCATION-docker.pkg.dev/PLACEHOLDER_PROJECT/finans-portali/finans-frontend
     newTag: latest
+  # Keycloak runs a custom image (base Keycloak + bundled finance-theme login
+  # theme; see keycloak/Dockerfile). base/ uses the upstream quay.io image, so
+  # we remap that here to our Artifact Registry build. CD sets the SHA tag.
+  - name: quay.io/keycloak/keycloak
+    newName: PLACEHOLDER_LOCATION-docker.pkg.dev/PLACEHOLDER_PROJECT/finans-portali/finans-keycloak
+    newTag: latest
 
 patches:
   # --- Backend: BackendConfig + NodePort -------------------------------------
