@@ -55,11 +55,15 @@
       "alwaysDisplayInConsole": false,
       "clientAuthenticatorType": "client-secret",
       "redirectUris": [
+        "https://app.34.120.195.216.nip.io/*",
+        "http://app.34.120.195.216.nip.io/*",
         "http://localhost/*",
         "http://localhost:5173/*"
       ],
       "webOrigins": [
-        "*"
+        "https://app.34.120.195.216.nip.io",
+        "http://app.34.120.195.216.nip.io",
+        "http://localhost"
       ],
       "notBefore": 0,
       "bearerOnly": false,
@@ -76,7 +80,7 @@
         "oauth2.device.authorization.grant.enabled": "false",
         "backchannel.logout.session.required": "true",
         "backchannel.logout.revoke.offline.tokens": "false",
-        "post.logout.redirect.uris": "http://localhost/*##http://localhost:5173/*"
+        "post.logout.redirect.uris": "https://app.34.120.195.216.nip.io/*##http://app.34.120.195.216.nip.io/*##http://localhost/*##http://localhost:5173/*"
       },
       "authenticationFlowBindingOverrides": {},
       "fullScopeAllowed": true,
