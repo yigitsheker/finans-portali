@@ -589,17 +589,38 @@ base manifest'leri şu farklarla genişletir:
   Global statik IP (`finans-portali-ip`) ile fronted edilir.
 - **Google-managed TLS sertifikası** (`ManagedCertificate`) — `app.*` ve `auth.*`
   alanları için otomatik sağlama + yenileme. `FrontendConfig` ile HTTP→HTTPS 301.
+  Tüm zincir HTTPS: frontend runtime-config, backend `issuer-uri`, Keycloak
+  `KC_HOSTNAME` ve CORS `https://`.
 - **NodePort Service'ler** — GCE Ingress'in backend gereksinimi.
 - **`BackendConfig` CRD'leri** — LB sağlık kontrollerini her servisin gerçek
   health path'ine bağlar (backend: `/actuator/health/readiness`, frontend: `/`,
-  keycloak: realm well-known endpoint).
+  keycloak: `/realms/master` — `start-dev`'de 9000 health portu güvenilir
+  olmadığı için serving portu 8080 üzerinden kesin-200 dönen bir yol).
 - **Artifact Registry** image referansları; CD her commit'te SHA tag'iyle pinler.
-- **Backend HPA** (CPU %70, 3-10 replica), Keycloak `KC_HOSTNAME` + backend
-  `issuer-uri` public auth domain'e ayarlanır (token `iss` claim eşleşmesi).
+- **Backend HPA** (CPU %70, **1-3 replica** — demo cluster'ın GCE quota'sına
+  uygun), Keycloak `KC_HOSTNAME` (bare host, `hostname-strict=false`,
+  `KC_PROXY_HEADERS=xforwarded`) + backend `issuer-uri` public auth domain'e
+  ayarlanır (token `iss` claim eşleşmesi).
+- **Backend `startupProbe`** — Spring Boot + OTel agent + JPA validation 60 sn'yi
+  aştığı için base liveness probe pod'u erkenden öldürüyordu; startupProbe
+  açılışa ~600 sn bütçe tanır, liveness/readiness ancak açılış bitince devreye girer.
+- **`SPRING_PROFILES_ACTIVE=prod,nokafka`** — Log4j2 Kafka appender'ı
+  (`log4j2-spring.xml` içinde `<SpringProfile name="!nokafka">` ile sarmalı)
+  bu çekirdek deploy'da kapatılır. Aksi halde Kafka broker'ı olmadığından her
+  log satırı broker'a yazmayı deneyip her isteğe ~18 sn gecikme bindiriyordu.
+  docker-compose / lokal dev profili açmaz → Kafka→OpenSearch log pipeline'ı aktif.
+- **Frontend runtime-config** — Keycloak URL'i build-time yerine **runtime**'da
+  çözülür: `index.html` → `/runtime-config.js` (`window.__RUNTIME_CONFIG__`),
+  `auth/keycloak.js` bunu okur. GKE overlay'i `frontend-runtime-config`
+  ConfigMap'ini image'ın boş placeholder'ı üzerine mount eder. Böylece aynı
+  image her ortamda çalışır; env'e göre yeniden build gerekmez.
 - **In-cluster Postgres** StatefulSet (PersistentVolume; GKE varsayılan
-  `pd-balanced` storage class).
+  `pd-balanced` storage class). Keycloak realm'i ilk açılışta `localhost`-only
+  redirect URI ile gelir; public erişim için `finans-frontend` client'ının
+  redirect URI + web origin'leri public URL ile güncellenir (kcadm).
 
-Kurulum rehberi (gcloud komutları, WIF, secret'lar, DNS): [`k8s/GKE_DEPLOYMENT.md`](../k8s/GKE_DEPLOYMENT.md).
+Kurulum rehberi (gcloud komutları, WIF, secret'lar, DNS, sorun giderme):
+[`k8s/GKE_DEPLOYMENT.md`](../k8s/GKE_DEPLOYMENT.md).
 
 ### 9.4 CI/CD
 

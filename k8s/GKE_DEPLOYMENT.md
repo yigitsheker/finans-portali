@@ -382,8 +382,16 @@ bağlanır (bkz. [`backendconfig.yaml`](overlays/gke/backendconfig.yaml)).
 | `gcloud` tanınmıyor | PATH eklenmemiş. §0'daki `SetEnvironmentVariable` satırını çalıştır, yeni pencere aç. |
 | `property [project] is not currently set` | `gcloud config set project $PROJECT_ID` çalıştırılmamış (§0). |
 | `\` ile yazılan komut hata veriyor | Bash sözdizimi. PowerShell'de satır devamı backtick (`` ` ``) ya da tek satır kullan. |
-| Sertifika `Provisioning`'de takılı | DNS A-kayıtları statik IP'yi göstermiyor. `nslookup app.example.com` ile doğrula. |
-| Ingress backend `UNHEALTHY` | BackendConfig health path 200 dönmüyor. Pod ready mi? `kubectl describe ingress`. |
-| Keycloak token `iss` hatası | `KC_HOSTNAME` ve backend `ISSUER_URI` `https://AUTH_DOMAIN` ile birebir aynı olmalı (overlay set eder). |
-| Backend Postgres'e bağlanamıyor | `postgres-secret` uygulanmamış veya `keycloak_db` yok. §7'yi tekrar et. |
-| CD `wait-for-ci` zaman aşımı | CI job adı `"Backend (Maven build)"` ile eşleşmeli (`ci.yml`). |
+| Sertifika `Provisioning`'de takılı | DNS A-kayıtları statik IP'yi göstermiyor. `nslookup app.example.com` ile doğrula. nip.io kullanıyorsan bu otomatik çözülür; cert yine de ~15-60 dk sürebilir. |
+| Pod `ImagePullBackOff` / `403 Forbidden` | GKE node SA'sının Artifact Registry okuma izni yok. `gcloud projects add-iam-policy-binding $PROJECT_ID --member="serviceAccount:$PROJECT_NUMBER-compute@developer.gserviceaccount.com" --role="roles/artifactregistry.reader"` (§5 sonrası bir kez). |
+| Pod `InvalidImageName` (PLACEHOLDER...) | Overlay'i PLACEHOLDER'lar dolmadan `kubectl apply -k` ettin. Lokal apply için §8-B'deki PLACEHOLDER doldurma adımını çalıştır; normalde CD halleder. |
+| Backend `CrashLoopBackOff` → "No resolvable bootstrap urls" | Log4j2 Kafka appender broker arıyor. Overlay `SPRING_PROFILES_ACTIVE=prod,nokafka` ile appender'ı kapatır (Kafka yoksa). |
+| API her istek ~18 sn sürüyor | Aynı Kafka kökü: appender her log satırında broker'a yazmayı deneyip bekliyor. `nokafka` profili çözer (overlay'de var). |
+| Backend pod sürekli restart (liveness) | İlk açılış 60 sn'yi aşıyor; base liveness erken vuruyor. Overlay'deki `startupProbe` (600 sn bütçe) bunu çözer. |
+| Keycloak `502` / backend `UNHEALTHY` / endpoint boş | Keycloak `start-dev`'de 9000 health portu güvenilir değil → readiness probe başarısız → NEG boş. Overlay readiness/liveness'i 8080 `/realms/master`'a, BackendConfig health path'ini de `/realms/master`'a çeker. |
+| Login'de URL `localhost:8090`'a gidiyor | Frontend Keycloak URL'i build-time `localhost` baked. Runtime-config çözer: `keycloak.js` `window.__RUNTIME_CONFIG__` okur, overlay `frontend-runtime-config` ConfigMap'i mount eder. **Kod değişikliği → yeni image build (CD) gerekir.** |
+| Login'de "Invalid redirect_uri" | Realm `localhost`-only redirect URI ile import edilmiş. `finans-frontend` client'ına public URL ekle (kcadm `update clients/<id> -s redirectUris=[...] -s webOrigins=[...]`). |
+| Mixed Content / Chrome hep https'e çeviriyor | nip.io+http demo'da Chrome HSTS/HTTPS-First zorlar. Kalıcı çözüm: tam HTTPS — managed-cert + FrontendConfig annotation'ları + issuer/KC_HOSTNAME/CORS `https://` (overlay'de bu yapı var). |
+| BIST/hisse verisi gelmiyor | `market_quotes` taze DB'de boş; `PriceRefreshScheduler` startup'tan 60 sn sonra Yahoo'dan çeker (~2-3 dk). Kafka gecikmesi (yukarıda) bunu da yavaşlatıyordu — `nokafka` ile düzelir. Admin panelinden manuel refresh de tetiklenebilir. |
+| HPA `FailedScaleUp` / GCE quota exceeded | Backend HPA çok yukarı ölçekledi. Overlay HPA'sı 1-3 aralığında (demo cluster quota'sına uygun). |
+| CD otomatik tetiklenmiyor | CD `workflow_run` ile CI ("CI") tamamlanınca çalışır; CI başarılı bitmeli. Elle: Actions → CD → Run workflow (`workflow_dispatch`). |
