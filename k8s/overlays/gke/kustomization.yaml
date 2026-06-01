@@ -98,23 +98,21 @@ patches:
                   periodSeconds: 10
                   failureThreshold: 60
                 env:
+                  # `nokafka` disables the Log4j2 Kafka appender (see
+                  # log4j2-spring.xml's SpringProfile gate). There's no Kafka in
+                  # the core GKE deploy; without this every log line tried to
+                  # publish to a non-existent broker, adding ~18s of latency to
+                  # EVERY API request (per-send metadata lookup + linger). Now
+                  # logging is console-only and requests are fast. The
+                  # Kafka->OpenSearch pipeline stays available in docker-compose
+                  # / local dev (profile off).
+                  - name: SPRING_PROFILES_ACTIVE
+                    value: prod,nokafka
                   # Public token issuer — must equal what Keycloak stamps into
-                  # the token `iss` claim. nip.io has no Google-managed TLS, so
-                  # the LB serves Keycloak over HTTP; the issuer is therefore
-                  # http://. With a real domain (managed cert) switch both this
-                  # and KC_HOSTNAME below back to https://.
+                  # the token `iss` claim. LB terminates TLS (managed cert), so
+                  # the issuer is https. Must match Keycloak's KC_HOSTNAME.
                   - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
                     value: https://PLACEHOLDER_AUTH_DOMAIN/realms/finans
-                  # Log4j2's Kafka appender builds a producer at startup. The
-                  # Kafka client resolves bootstrap DNS eagerly; if no host
-                  # resolves it throws "No resolvable bootstrap urls", failing
-                  # Log4j2 init and the whole app. There's no Kafka in the core
-                  # GKE deploy, so point at localhost:9092 — localhost always
-                  # resolves; background sends just get connection-refused, which
-                  # acks=0 + ignoreExceptions=true swallow. Console logging is
-                  # unaffected; only the Kafka->OpenSearch pipeline is inactive.
-                  - name: KAFKA_BOOTSTRAP_SERVERS
-                    value: localhost:9092
 
   # --- Frontend: BackendConfig + NodePort ------------------------------------
   - target:

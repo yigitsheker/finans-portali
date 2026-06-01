@@ -39,18 +39,28 @@
              and uses acks=0 fire-and-forget so a Kafka outage doesn't cause
              log calls to back-pressure the app.
              ignoreExceptions=true mirrors the same isolation Logback gave
-             us — the log path must never poison the request path. -->
-        <Kafka name="KAFKA"
-               topic="finans-logs"
-               syncSend="false"
-               ignoreExceptions="true">
-            <JsonTemplateLayout eventTemplateUri="classpath:log4j2/kafka-log-event.json"/>
-            <Property name="bootstrap.servers">${kafkaBootstrap}</Property>
-            <Property name="acks">0</Property>
-            <Property name="linger.ms">1000</Property>
-            <Property name="max.block.ms">0</Property>
-            <Property name="client.id">${serviceName}</Property>
-        </Kafka>
+             us — the log path must never poison the request path.
+
+             Gated behind the absence of the `nokafka` Spring profile: in
+             deployments WITHOUT a Kafka broker (e.g. the core GKE deploy) set
+             SPRING_PROFILES_ACTIVE=...,nokafka so this appender is never
+             constructed. Otherwise the producer's per-send metadata lookup +
+             linger add seconds of latency to EVERY request (each log line tries
+             to publish), which made API calls take ~18s. docker-compose and
+             local dev leave the profile off, so the Kafka pipeline stays on. -->
+        <SpringProfile name="!nokafka">
+            <Kafka name="KAFKA"
+                   topic="finans-logs"
+                   syncSend="false"
+                   ignoreExceptions="true">
+                <JsonTemplateLayout eventTemplateUri="classpath:log4j2/kafka-log-event.json"/>
+                <Property name="bootstrap.servers">${kafkaBootstrap}</Property>
+                <Property name="acks">0</Property>
+                <Property name="linger.ms">1000</Property>
+                <Property name="max.block.ms">0</Property>
+                <Property name="client.id">${serviceName}</Property>
+            </Kafka>
+        </SpringProfile>
     </Appenders>
 
     <Loggers>
@@ -74,7 +84,13 @@
 
         <Root level="INFO">
             <AppenderRef ref="CONSOLE"/>
-            <AppenderRef ref="KAFKA"/>
+            <!-- Only attach the Kafka appender when the broker exists (see the
+                 SpringProfile note above). With `nokafka` active this ref is
+                 omitted, so logging is console-only and adds no per-request
+                 latency. -->
+            <SpringProfile name="!nokafka">
+                <AppenderRef ref="KAFKA"/>
+            </SpringProfile>
         </Root>
     </Loggers>
 
