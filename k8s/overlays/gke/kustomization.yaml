@@ -43,7 +43,7 @@ configMapGenerator:
       disableNameSuffixHash: true
     literals:
       - |-
-        runtime-config.js=window.__RUNTIME_CONFIG__ = { "VITE_KEYCLOAK_URL": "http://PLACEHOLDER_AUTH_DOMAIN" };
+        runtime-config.js=window.__RUNTIME_CONFIG__ = { "VITE_KEYCLOAK_URL": "https://PLACEHOLDER_AUTH_DOMAIN" };
 
 # Images — Artifact Registry. The CD pipeline overrides newTag with the commit
 # SHA. For a manual apply, set these to a real digest/tag first.
@@ -104,7 +104,7 @@ patches:
                   # http://. With a real domain (managed cert) switch both this
                   # and KC_HOSTNAME below back to https://.
                   - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
-                    value: http://PLACEHOLDER_AUTH_DOMAIN/realms/finans
+                    value: https://PLACEHOLDER_AUTH_DOMAIN/realms/finans
                   # Log4j2's Kafka appender builds a producer at startup. The
                   # Kafka client resolves bootstrap DNS eagerly; if no host
                   # resolves it throws "No resolvable bootstrap urls", failing
@@ -170,7 +170,7 @@ patches:
       spec:
         type: NodePort
 
-  # --- Keycloak: public hostname over HTTP -----------------------------------
+  # --- Keycloak: public hostname over HTTPS ----------------------------------
   - target:
       kind: Deployment
       name: keycloak
@@ -184,21 +184,42 @@ patches:
           spec:
             containers:
               - name: keycloak
+                # Readiness/liveness target the SERVING port 8080 (a known-200
+                # realm path), not the 9000 management port — in start-dev the
+                # 9000 health endpoints aren't reliably up, which left the pod
+                # un-Ready and the LB NEG empty (502). /realms/master always 200s.
+                readinessProbe:
+                  httpGet:
+                    path: /realms/master
+                    port: 8080
+                livenessProbe:
+                  httpGet:
+                    path: /realms/master
+                    port: 8080
                 env:
-                  # Full URL form so Keycloak stamps the scheme into the token
-                  # `iss` claim explicitly. nip.io has no managed TLS → http.
-                  # The backend's ISSUER_URI above must match this exactly.
-                  # With a real domain + managed cert, change to https://.
+                  # The LB terminates TLS (Google-managed cert) and forwards
+                  # HTTP with X-Forwarded-Proto=https; KC_PROXY_HEADERS=xforwarded
+                  # makes Keycloak honour it, so the token `iss` claim comes out
+                  # https. KC_HOSTNAME is the bare host (with a scheme + strict
+                  # Keycloak 26 rejects the LB health-check's Host) and
+                  # hostname-strict=false tolerates the health-check probes.
                   - name: KC_HOSTNAME
-                    value: http://PLACEHOLDER_AUTH_DOMAIN
+                    value: PLACEHOLDER_AUTH_DOMAIN
                   - name: KC_HOSTNAME_STRICT
-                    value: "true"
+                    value: "false"
                   - name: KC_PROXY_HEADERS
                     value: xforwarded
-                  # Serve plain HTTP behind the LB without forcing an HTTPS
-                  # redirect on login/admin (nip.io can't satisfy https).
                   - name: KC_HTTP_ENABLED
                     value: "true"
+
+  # --- Keycloak BackendConfig health path: /realms/master (8080, always 200) -
+  - target:
+      kind: BackendConfig
+      name: keycloak-bc
+    patch: |
+      - op: replace
+        path: /spec/healthCheck/requestPath
+        value: /realms/master
 
   # --- CORS: allow the public frontend origin --------------------------------
   - target:
@@ -207,7 +228,7 @@ patches:
     patch: |
       - op: replace
         path: /data/cors-allowed-origins
-        value: http://PLACEHOLDER_APP_DOMAIN
+        value: https://PLACEHOLDER_APP_DOMAIN
 
   # --- Ingress: GCE class, global static IP, managed cert, real hosts --------
   - target:
@@ -221,11 +242,12 @@ patches:
         annotations:
           kubernetes.io/ingress.class: "gce"
           kubernetes.io/ingress.global-static-ip-name: "finans-portali-ip"
-          # managed-certificate + HTTPS-redirect FrontendConfig annotations are
-          # intentionally OMITTED for nip.io (Google won't issue a cert for it,
-          # and an HTTPS redirect would break the HTTP-only login). The objects
-          # stay inert in managed-certificate.yaml. Re-add these two annotations
-          # (and flip issuer/KC_HOSTNAME/CORS to https://) for a real domain.
+          # Google-managed TLS cert (provisioned for the two nip.io hosts) +
+          # HTTP→HTTPS redirect FrontendConfig. The cert stays in
+          # "Provisioning" until the LB is serving and the domains resolve to
+          # the static IP (nip.io already does), then flips to Active (~15-60m).
+          networking.gke.io/managed-certificates: "finans-portali-cert"
+          networking.gke.io/v1beta1.FrontendConfig: "finans-portali-fc"
       spec:
         rules:
           - host: PLACEHOLDER_APP_DOMAIN
