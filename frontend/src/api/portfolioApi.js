@@ -5,7 +5,17 @@ const API_BASE = "";
 async function authHeader(keycloak) {
     await keycloak.updateToken(30);
     if (!keycloak.token) throw new Error("No access token");
-    return { Authorization: `Bearer ${keycloak.token}` };
+    // Forward the UI language so the backend can localize things that outlive
+    // the request — most importantly the price-alert email dispatched by the
+    // scheduler hours/days later (it snapshots this into price_alerts.language).
+    // This module uses its own axios calls rather than the shared http.js
+    // client, so the Accept-Language header is added here instead of an
+    // interceptor; without it the backend always defaulted alerts to Turkish.
+    const lang = (localStorage.getItem("i18n-lang") || "tr").toLowerCase();
+    return {
+        Authorization: `Bearer ${keycloak.token}`,
+        "Accept-Language": lang === "en" ? "en" : "tr",
+    };
 }
 
 /** PORTFOLIO */

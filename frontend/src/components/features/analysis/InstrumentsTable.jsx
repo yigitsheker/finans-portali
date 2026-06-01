@@ -3,6 +3,7 @@ import PropTypes from "prop-types";
 import Pagination from "../../common/Pagination";
 import { clickable } from "../../../utils/clickable";
 import { useI18n } from "../../../contexts/I18nContext";
+import { usePriceDisplay } from "../../../contexts/CurrencyDisplayContext";
 
 // Category keys map to i18n labels resolved at render time so the chip row
 // flips locale with the rest of the UI. Inflation rows live in the
@@ -50,12 +51,6 @@ function pctColor(v) {
     return n > 0 ? "#16a34a" : "#dc2626";
 }
 
-function fmtValue(v, currency) {
-    if (v == null) return "—";
-    const formatted = Number(v).toLocaleString("tr-TR", { maximumFractionDigits: 4 });
-    return currency ? `${formatted} ${currency}` : formatted;
-}
-
 /**
  * Cross-asset table for the Analysis page. Local-only filter/sort/search —
  * the underlying list is small enough (a few hundred rows max) that
@@ -63,6 +58,23 @@ function fmtValue(v, currency) {
  */
 export default function InstrumentsTable({ items, loading, error, onRowClick, selectedSymbol }) {
     const { t } = useI18n();
+    // Respect the topbar currency toggle (Orijinal / ₺ / $) like the market
+    // pages do. `format` converts each row's native-currency value into the
+    // active display mode using the live USDTRY rate.
+    //
+    // Currency inference is subtle here because the backend collapses BIST and
+    // US equities into the SAME category ("STOCK"), so category alone can't
+    // tell THYAO (₺) from AAPL ($). We therefore pass the backend's explicit
+    // `currency` (BIST→TRY, US→USD) for the disambiguation — EXCEPT for FX
+    // rows: the backend tags USDTRY/EURTRY as "USD" (that drives its CPI
+    // comparison), but their value is already a TRY-quoted rate (USDTRY≈45 ₺).
+    // Passing "USD" there would double-convert in ₺ mode (45×45), so we drop
+    // the override for FX and let nativeCurrencyOf() treat it as TRY-side.
+    const { format: formatPrice } = usePriceDisplay();
+    const fmtValue = (v, category, symbol, currency) => {
+        const explicit = category === "FX" ? undefined : currency;
+        return formatPrice(v, category, { symbol, currency: explicit });
+    };
     const [category, setCategory] = useState("ALL");
     const [search, setSearch] = useState("");
     const [beatsInflationOnly, setBeatsInflationOnly] = useState(false);
@@ -299,7 +311,7 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
                                     <td style={s.tdBold}>{r.symbol}</td>
                                     <td style={s.td}>{r.name}</td>
                                     <td style={s.tdMuted}>{r.category}</td>
-                                    <td style={{ ...s.td, textAlign: "right" }}>{fmtValue(r.value, r.currency)}</td>
+                                    <td style={{ ...s.td, textAlign: "right" }}>{fmtValue(r.value, r.category, r.symbol, r.currency)}</td>
                                     <td style={{ ...s.td, textAlign: "right", color: pctColor(r.changeDaily) }}>
                                         {fmtPct(r.changeDaily)}
                                     </td>
