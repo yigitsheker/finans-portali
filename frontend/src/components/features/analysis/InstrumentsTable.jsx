@@ -25,6 +25,15 @@ const RISK_COLORS = {
     HIGH: "#dc2626",
 };
 
+// Fixed column widths (px) for the 12 columns, in render order:
+// SEMBOL, İSİM, KATEGORI, DEĞER, GÜNLÜK, HAFTALIK, AYLIK, YILLIK,
+// REEL YILLIK, RISK, KISA, UZUN. Paired with table-layout: fixed so the
+// layout never reflows when the user sorts (rows reorder / the sort arrow
+// toggles). The table also carries a minWidth = sum so it scrolls
+// horizontally on narrow viewports instead of squashing.
+const COL_WIDTHS = [90, 230, 95, 115, 85, 90, 85, 85, 105, 78, 72, 72];
+const TABLE_MIN_WIDTH = COL_WIDTHS.reduce((a, b) => a + b, 0);
+
 const SIGNAL_COLORS = {
     BUY: "#16a34a",
     HOLD: "#6b7280",
@@ -162,10 +171,12 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
     };
 
     // Sort-direction arrow extracted so each clickable header isn't a
-    // triple-nested ternary (Sonar S3358).
+    // triple-nested ternary (Sonar S3358). Always rendered inside a
+    // constant-width slot so the header text never shifts when the arrow
+    // appears/disappears (works together with table-layout: fixed).
     const sortArrow = (key) => {
-        if (sortKey !== key) return "";
-        return sortDir === "asc" ? "▲" : "▼";
+        const arrow = sortKey !== key ? "" : sortDir === "asc" ? "▲" : "▼";
+        return <span style={s.arrowSlot}>{arrow}</span>;
     };
 
     const total = filtered.length;
@@ -242,6 +253,11 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
             ) : (
                 <div style={s.tableWrap} className="fp-table-scroll">
                     <table style={s.table}>
+                        <colgroup>
+                            {COL_WIDTHS.map((w, i) => (
+                                <col key={i} style={{ width: `${w}px` }} />
+                            ))}
+                        </colgroup>
                         <thead>
                             <tr>
                                 <th
@@ -308,8 +324,8 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
                                         ...(selectedSymbol === r.symbol ? s.trActive : {}),
                                     }}
                                 >
-                                    <td style={s.tdBold}>{r.symbol}</td>
-                                    <td style={s.td}>{r.name}</td>
+                                    <td style={s.tdBold} title={r.symbol}>{r.symbol}</td>
+                                    <td style={s.td} title={r.name}>{r.name}</td>
                                     <td style={s.tdMuted}>{r.category}</td>
                                     <td style={{ ...s.td, textAlign: "right" }}>{fmtValue(r.value, r.category, r.symbol, r.currency)}</td>
                                     <td style={{ ...s.td, textAlign: "right", color: pctColor(r.changeDaily) }}>
@@ -417,7 +433,15 @@ const s = {
     },
     state: { padding: 24, textAlign: "center", color: "var(--text-muted)", fontSize: 13 },
     tableWrap: { overflowX: "auto", border: "1px solid var(--border-card)", borderRadius: 8 },
-    table: { width: "100%", borderCollapse: "collapse", fontSize: 12 },
+    table: {
+        width: "100%",
+        minWidth: TABLE_MIN_WIDTH,
+        borderCollapse: "collapse",
+        fontSize: 12,
+        // Column widths come from the <colgroup>, not from cell content, so
+        // sorting (row reorder) and the toggling sort arrow never reflow them.
+        tableLayout: "fixed",
+    },
     th: {
         padding: "10px 12px",
         textAlign: "left",
@@ -425,16 +449,46 @@ const s = {
         color: "var(--text-muted)",
         borderBottom: "1px solid var(--border-card)",
         whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
         background: "var(--bg-card)",
+    },
+    // Constant-width arrow slot: keeps a fixed gap whether or not the column
+    // is the active sort column, so the header label can't jump.
+    arrowSlot: {
+        display: "inline-block",
+        width: 12,
+        textAlign: "center",
+        fontSize: 10,
     },
     tr: {
         cursor: "pointer",
         borderBottom: "1px solid var(--border-card)",
     },
     trActive: { background: "var(--accent-hover-bg)" },
-    td: { padding: "10px 12px", color: "var(--text-primary)" },
-    tdBold: { padding: "10px 12px", color: "var(--text-primary)", fontWeight: 700 },
-    tdMuted: { padding: "10px 12px", color: "var(--text-muted)", fontSize: 11 },
+    td: {
+        padding: "10px 12px",
+        color: "var(--text-primary)",
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+    },
+    tdBold: {
+        padding: "10px 12px",
+        color: "var(--text-primary)",
+        fontWeight: 700,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+    },
+    tdMuted: {
+        padding: "10px 12px",
+        color: "var(--text-muted)",
+        fontSize: 11,
+        whiteSpace: "nowrap",
+        overflow: "hidden",
+        textOverflow: "ellipsis",
+    },
     badge: {
         fontWeight: 600,
         fontSize: 11,
