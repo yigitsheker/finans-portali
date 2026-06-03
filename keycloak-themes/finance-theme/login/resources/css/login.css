@@ -54,7 +54,7 @@
     --chart-bg-to:     #eef4ef;
     --chart-line-color:#15803d;
     --badge-color:     #15803d;
-    --badge-sep:       #94a3b8;
+    --badge-sep:       #64748b;
     --brand-footer:    #64748b;
     --placeholder:     #9ca3af;
 }
@@ -101,6 +101,22 @@ body {
     height: 100%;
     z-index: -1;
     pointer-events: none;
+}
+
+/* Drive the inline chart-art SVG from the theme vars so the SAME graph renders
+   in both modes (the vars are swapped under :root[data-theme="light"]). CSS
+   wins over the SVG's presentation attributes, which stay as dark fallbacks. */
+.finance-chart-art .chart-bg-from { stop-color: var(--chart-bg-from); }
+.finance-chart-art .chart-bg-to   { stop-color: var(--chart-bg-to); }
+.finance-chart-art .chart-line    { stop-color: var(--chart-line-color); }
+.finance-chart-art .chart-stroke  { stroke: var(--chart-line-color); }
+
+/* In light mode the green line reads softer against the pale backdrop (and is
+   partly overlaid by the form-panel fade), so thicken the foreground stroke and
+   give it full opacity to keep the graph pattern clearly visible. */
+:root[data-theme="light"] .finance-chart-art .chart-stroke {
+    stroke-width: 3.2;
+    opacity: 1;
 }
 
 /* ──────────────────────────────────────────────────────────────
@@ -167,7 +183,9 @@ body {
     font-weight: 800;
     line-height: 1.08;
     letter-spacing: -0.025em;
-    color: #fff;
+    /* Theme-aware: white in dark mode, dark navy in light mode. Was hardcoded
+       #fff, which made the non-accent hero lines invisible on the light bg. */
+    color: var(--text);
 }
 
 .finance-hero-accent {
@@ -202,12 +220,9 @@ body {
     color: var(--brand-footer);
 }
 
-/* In light mode the dark inline-SVG chart art doesn't read well on a
-   light-cream background. Hide it and let the shell use a soft gradient
-   directly. */
-:root[data-theme="light"] .finance-chart-art {
-    display: none;
-}
+/* Light mode keeps the SAME chart-art graph (now recoloured via the --chart-*
+   vars above), so the green line/wave pattern is present in both themes. A soft
+   gradient sits behind the SVG as a fallback. */
 :root[data-theme="light"] .finance-shell {
     background:
         radial-gradient(900px circle at 18% 32%, rgba(34, 197, 94, 0.12), transparent 55%),
@@ -349,7 +364,9 @@ body {
     margin: 0;
     font-size: 26px;
     font-weight: 800;
-    color: #fff;
+    /* Theme-aware: was hardcoded #fff → the "Giriş Yap" card title was invisible
+       on the white card in light mode. */
+    color: var(--text);
     letter-spacing: -0.4px;
 }
 
@@ -573,6 +590,14 @@ input[type="submit"]:disabled,
     border: 1px solid rgba(59, 130, 246, 0.30);
     color: #93c5fd;
 }
+
+/* Light mode: the pale alert text colours above are low-contrast on a light
+   banner — darken them so error/warning/info messages stay readable. */
+:root[data-theme="light"] .alert-error,
+:root[data-theme="light"] .alert-danger { color: #b91c1c; }
+:root[data-theme="light"] .alert-warning { color: #b45309; }
+:root[data-theme="light"] .alert-info { color: #1d4ed8; }
+:root[data-theme="light"] .alert-success { color: #15803d; }
 
 #input-error {
     display: block;

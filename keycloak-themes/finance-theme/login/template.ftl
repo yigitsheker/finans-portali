@@ -62,19 +62,25 @@
              Sits behind everything via z-index; pointer-events disabled so
              it can't intercept form clicks. -->
         <svg class="finance-chart-art" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <#-- Colours are driven by the theme via CSS classes (see login.css):
+                 .chart-line / .chart-stroke → --chart-line-color,
+                 .chart-bg-from / .chart-bg-to → --chart-bg-* . The hardcoded
+                 stop-color/stroke attributes are dark-mode fallbacks if CSS
+                 fails. This lets the same graph render in light mode (recoloured)
+                 instead of being hidden. -->
             <defs>
                 <linearGradient id="lineGlow" x1="0" y1="0" x2="1" y2="0">
-                    <stop offset="0%"  stop-color="#22c55e" stop-opacity="0.0"/>
-                    <stop offset="35%" stop-color="#22c55e" stop-opacity="0.85"/>
-                    <stop offset="100%" stop-color="#22c55e" stop-opacity="0.45"/>
+                    <stop class="chart-line" offset="0%"  stop-color="#22c55e" stop-opacity="0.0"/>
+                    <stop class="chart-line" offset="35%" stop-color="#22c55e" stop-opacity="0.85"/>
+                    <stop class="chart-line" offset="100%" stop-color="#22c55e" stop-opacity="0.45"/>
                 </linearGradient>
                 <linearGradient id="areaFill" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%"   stop-color="#22c55e" stop-opacity="0.18"/>
-                    <stop offset="100%" stop-color="#22c55e" stop-opacity="0.0"/>
+                    <stop class="chart-line" offset="0%"   stop-color="#22c55e" stop-opacity="0.18"/>
+                    <stop class="chart-line" offset="100%" stop-color="#22c55e" stop-opacity="0.0"/>
                 </linearGradient>
                 <radialGradient id="bgGlow" cx="35%" cy="55%" r="75%">
-                    <stop offset="0%"   stop-color="#0c2a18" stop-opacity="1"/>
-                    <stop offset="100%" stop-color="#040a06" stop-opacity="1"/>
+                    <stop class="chart-bg-from" offset="0%"   stop-color="#0c2a18" stop-opacity="1"/>
+                    <stop class="chart-bg-to"   offset="100%" stop-color="#040a06" stop-opacity="1"/>
                 </radialGradient>
             </defs>
             <rect width="1600" height="900" fill="url(#bgGlow)"/>
@@ -87,7 +93,7 @@
                   fill="none" stroke="url(#lineGlow)" stroke-width="6"
                   stroke-linecap="round" stroke-linejoin="round" opacity="0.55"/>
             <#-- Crisp foreground line -->
-            <path d="M0,640 C140,615 230,680 340,545 C460,400 540,580 660,505 C780,430 880,375 980,420 C1080,465 1200,310 1330,335 C1450,355 1530,235 1600,210"
+            <path class="chart-stroke" d="M0,640 C140,615 230,680 340,545 C460,400 540,580 660,505 C780,430 880,375 980,420 C1080,465 1200,310 1330,335 C1450,355 1530,235 1600,210"
                   fill="none" stroke="#22c55e" stroke-width="2.5"
                   stroke-linecap="round" stroke-linejoin="round" opacity="0.85"/>
         </svg>
