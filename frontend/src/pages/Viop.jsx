@@ -4,9 +4,11 @@ import { getViopContracts } from "../api/viopApi";
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
 import Pagination from "../components/common/Pagination";
 import TermInfo from "../components/common/TermInfo";
-import BuyModalMount from "../components/BuyModalMount";
+import ViopTradeModal from "../components/viop/ViopTradeModal";
+import ViopPositionsTable from "../components/viop/ViopPositionsTable";
+import SimulationDisclaimer from "../components/SimulationDisclaimer";
 import { useI18n } from "../contexts/I18nContext";
-import { useBuyTarget } from "../hooks/useBuyTarget";
+import { getViopPositions } from "../api/viopTradeApi";
 
 // Empty selection => "all categories". Same convention used by the
 // CheckboxFilterGroup component.
@@ -19,26 +21,6 @@ const CATEGORY_OPTIONS = [
     { key: "METAL_USD",  label: "Kıymetli Maden / USD" },
     { key: "METAL",      label: "Metal" },
 ];
-
-// BIST VIOP contract multipliers per category. Each LOT of a contract
-// represents this many units of the underlying — saved into positions
-// so the portfolio's qty × price valuation matches real TL exposure.
-//   STOCK     — Pay sözleşmesi = 100 adet hisse
-//   INDEX     — BIST 30 Endeks  = 10 TL × endeks puanı
-//   FX_TRY    — USDTRY/EURTRY   = 1.000 baz para
-//   FX_USD    — Cross-FX (EURUSD vb.) = 1.000 baz para
-//   METAL_TRY — Gram altın/gümüş = 1 gram
-//   METAL_USD — Ons altın        = 10 ons
-//   METAL     — Sanayi metalleri = 1 (BIST'te yaygın değil; varsayılan)
-const VIOP_MULTIPLIERS = {
-    STOCK: 100,
-    INDEX: 10,
-    FX_TRY: 1000,
-    FX_USD: 1000,
-    METAL_TRY: 1,
-    METAL_USD: 10,
-    METAL: 1,
-};
 
 // Short month names localised via Intl so EN gets "Jan/Feb/..." without
 // a hand-maintained translation table. Read once per render via the helper
@@ -83,15 +65,21 @@ export default function Viop({ keycloak, onAdded }) {
     const [sortDir, setSortDir] = useState("desc");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
-    // Buy modal target + auth guard via the shared hook. Carries symbol +
-    // price + multiplier forwarded to AddPositionModal so VIOP positions land
-    // on the books with the correct exposure (lots × contract size).
-    const [buyTarget, openBuyRaw, clearBuy] = useBuyTarget(keycloak);
-    const openBuy = useCallback((contract) => openBuyRaw({
-        symbol: contract.symbol,
-        price: contract.lastPrice,
-        multiplier: VIOP_MULTIPLIERS[contract.category] || 1,
-    }), [openBuyRaw]);
+    // VİOP trade modal (Long Aç / Short Aç). Futures are NOT modeled as the
+    // generic qty×price holding — they go through the dedicated /portfolio/viop
+    // endpoints (long/short, contract size, margin, net position). All
+    // simulation; no real order is sent.
+    const [trade, setTrade] = useState(null); // { contract, direction }
+    const [positions, setPositions] = useState([]);
+    const reloadPositions = useCallback(() => {
+        if (!keycloak?.authenticated) { setPositions([]); return; }
+        getViopPositions(keycloak).then(setPositions).catch(() => setPositions([]));
+    }, [keycloak]);
+    useEffect(() => { reloadPositions(); }, [reloadPositions]);
+    const openTrade = useCallback((contract, direction) => {
+        if (!keycloak?.authenticated) { keycloak?.login?.(); return; }
+        setTrade({ contract, direction });
+    }, [keycloak]);
 
     // Fetch the entire universe once; multi-select category filter is
     // applied client-side so we can flip filters instantly without re-hitting
@@ -243,7 +231,7 @@ export default function Viop({ keycloak, onAdded }) {
                                     <ThSort label={t("viop.colChange")}      onClick={() => handleSort("changePct")}  active={sortKey === "changePct"}  dir={sortDir} />
                                     <ThSort label={<>{t("viop.colVolumeTl")} <TermInfo termKey="volume" placement="bottom" /></>}    onClick={() => handleSort("volumeTl")}   active={sortKey === "volumeTl"}   dir={sortDir} />
                                     <ThSort label={t("viop.colVolumeQty")}   onClick={() => handleSort("volumeLots")} active={sortKey === "volumeLots"} dir={sortDir} />
-                                    <th style={{ ...s.th, textAlign: "right", cursor: "default" }}>İşlemler</th>
+                                    <th style={{ ...s.th, textAlign: "right", cursor: "default" }}>{t("viopTrade.colAction")}</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -263,14 +251,12 @@ export default function Viop({ keycloak, onAdded }) {
                                             </td>
                                             <td style={s.tdNum}>{numFmt(c.volumeTl, 0)}</td>
                                             <td style={s.tdNum}>{numFmt(c.volumeLots, 0)}</td>
-                                            <td style={{ ...s.tdNum, padding: "8px 14px" }}>
-                                                <button
-                                                    type="button"
-                                                    style={s.buyBtn}
-                                                    onClick={() => openBuy(c)}
-                                                    title={`Lot çarpanı: ${VIOP_MULTIPLIERS[c.category] || 1}`}
-                                                >
-                                                    Al
+                                            <td style={{ ...s.tdNum, padding: "8px 14px", whiteSpace: "nowrap" }}>
+                                                <button type="button" style={s.longBtn} onClick={() => openTrade(c, "LONG")}>
+                                                    {t("viopTrade.longOpen")}
+                                                </button>
+                                                <button type="button" style={s.shortBtn} onClick={() => openTrade(c, "SHORT")}>
+                                                    {t("viopTrade.shortOpen")}
                                                 </button>
                                             </td>
                                         </tr>
@@ -289,11 +275,30 @@ export default function Viop({ keycloak, onAdded }) {
                 </>
             )}
 
+            {keycloak?.authenticated && (
+                <section style={s.posSection}>
+                    <h2 style={s.posTitle}>{t("viopTrade.myPositions")}</h2>
+                    <SimulationDisclaimer risk="viop" style={{ marginBottom: 12 }} />
+                    <ViopPositionsTable
+                        positions={positions}
+                        keycloak={keycloak}
+                        onChanged={() => { reloadPositions(); onAdded?.(); }}
+                    />
+                </section>
+            )}
+
             <p style={s.footer}>
                 {t("viop.footerNote")}
             </p>
 
-            <BuyModalMount target={buyTarget} clear={clearBuy} keycloak={keycloak} onAdded={onAdded} />
+            <ViopTradeModal
+                open={!!trade}
+                contract={trade?.contract}
+                direction={trade?.direction}
+                keycloak={keycloak}
+                onClose={() => setTrade(null)}
+                onDone={() => { reloadPositions(); onAdded?.(); }}
+            />
         </div>
     );
 }
@@ -405,6 +410,18 @@ const s = {
         cursor: "pointer",
         boxShadow: "0 2px 6px rgba(16, 185, 129, 0.3)",
     },
+    longBtn: {
+        padding: "5px 10px", borderRadius: 6, border: "none", marginRight: 6,
+        background: "var(--accent-solid, #22c55e)", color: "#fff",
+        fontSize: 12, fontWeight: 700, cursor: "pointer",
+    },
+    shortBtn: {
+        padding: "5px 10px", borderRadius: 6, border: "none",
+        background: "#dc2626", color: "#fff",
+        fontSize: 12, fontWeight: 700, cursor: "pointer",
+    },
+    posSection: { marginTop: 28 },
+    posTitle: { fontSize: 18, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 10px" },
 };
 
 s.tdSymbol = { ...s.tdSymbol, fontVariantNumeric: "tabular-nums" };

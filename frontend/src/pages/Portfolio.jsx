@@ -1,6 +1,7 @@
 import { AddPositionModal } from "../components/features/portfolio/AddPositionModal";
 import { PortfolioCharts } from "../components/features/portfolio/PortfolioCharts";
 import { PositionsTable } from "../components/features/portfolio/PositionsTable";
+import PortfolioDerivatives from "../components/features/portfolio/PortfolioDerivatives";
 import { SellPositionModal } from "../components/features/portfolio/SellPositionModal";
 import { SummaryCards } from "../components/features/portfolio/SummaryCards";
 import { portfolioStyles as s } from "../components/features/portfolio/portfolioStyles";
@@ -74,6 +75,10 @@ export default function Portfolio({ keycloak }) {
         openAdd={portfolio.openAddModal}
         openSell={portfolio.openSellModal}
       />
+
+      {/* VİOP & bond/bill positions — shown separately (different economics
+          from qty×price holdings), each with its own metrics + simulation note. */}
+      <PortfolioDerivatives keycloak={keycloak} />
 
       <AddPositionModal
         open={portfolio.addOpen}

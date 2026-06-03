@@ -6,12 +6,14 @@ import {
     refreshBondData,
 } from "../api/bondApi";
 import BondDetailModal from "../components/BondDetailModal";
-import BuyModalMount from "../components/BuyModalMount";
+import BondBuyModal from "../components/bond/BondBuyModal";
+import BondPositionsTable from "../components/bond/BondPositionsTable";
+import SimulationDisclaimer from "../components/SimulationDisclaimer";
 import DepositRatesCard from "../components/DepositRatesCard";
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
 import TermInfo from "../components/common/TermInfo";
 import { useI18n } from "../contexts/I18nContext";
-import { useBuyTarget } from "../hooks/useBuyTarget";
+import { getBondPositions } from "../api/bondTradeApi";
 
 const TYPE_KEYS = {
     GOVERNMENT_BOND: "bonds.typeGovBond",
@@ -47,10 +49,20 @@ export default function Bonds({ keycloak, onAdded }) {
     // Selected bond for detail modal
     const [selectedBond, setSelectedBond] = useState(null);
 
-    // Buy modal target (split from selectedBond so the user can buy from
-    // either the row action or the detail card's Al button). Auth guard
-    // lives in the shared useBuyTarget hook.
-    const [buyTarget, openBuy, clearBuy] = useBuyTarget(keycloak);
+    // Bond BUY is nominal-based (not qty×price), so it uses the dedicated
+    // BondBuyModal + /portfolio/bonds endpoints rather than the generic
+    // AddPositionModal. Simulation only.
+    const [buyBondRow, setBuyBondRow] = useState(null);
+    const [positions, setPositions] = useState([]);
+    const reloadPositions = useCallback(() => {
+        if (!keycloak?.authenticated) { setPositions([]); return; }
+        getBondPositions(keycloak).then(setPositions).catch(() => setPositions([]));
+    }, [keycloak]);
+    useEffect(() => { reloadPositions(); }, [reloadPositions]);
+    const openBuy = useCallback((bondRow) => {
+        if (!keycloak?.authenticated) { keycloak?.login?.(); return; }
+        setBuyBondRow(bondRow);
+    }, [keycloak]);
 
     // Refresh state
     const [refreshing, setRefreshing] = useState(false);
@@ -373,10 +385,7 @@ export default function Bonds({ keycloak, onAdded }) {
                                                     // Don't bubble up — the parent <tr>
                                                     // click would also open the detail modal.
                                                     e.stopPropagation();
-                                                    openBuy({
-                                                        symbol: bond.symbol,
-                                                        price: bond.latestPrice ?? null,
-                                                    });
+                                                    openBuy(bond);
                                                 }}
                                             >
                                                 {t("common.buy")}
@@ -390,21 +399,40 @@ export default function Bonds({ keycloak, onAdded }) {
                 </div>
             )}
 
+            {/* My bond/bill positions (nominal-based, simulation) */}
+            {keycloak?.authenticated && (
+                <section style={s.posSection}>
+                    <h3 style={s.posTitle}>{t("bondTrade.myPositions")}</h3>
+                    <SimulationDisclaimer risk="bond" style={{ marginBottom: 12 }} />
+                    <BondPositionsTable
+                        positions={positions}
+                        keycloak={keycloak}
+                        onChanged={() => { reloadPositions(); onAdded?.(); }}
+                    />
+                </section>
+            )}
+
             {/* Bond Detail Modal */}
             {selectedBond && (
                 <BondDetailModal
                     bondId={selectedBond.id}
                     onClose={() => setSelectedBond(null)}
-                    onBuy={(payload) => {
+                    onBuy={() => {
+                        const b = selectedBond;
                         setSelectedBond(null);
-                        openBuy(payload);
+                        openBuy(b);
                     }}
                 />
             )}
 
-            {/* Buy modal — seeded with the bond symbol and (when known) its
-                latest price so the user only needs to confirm the quantity. */}
-            <BuyModalMount target={buyTarget} clear={clearBuy} keycloak={keycloak} onAdded={onAdded} />
+            {/* Nominal-based bond BUY modal (clean/dirty price, total cost). */}
+            <BondBuyModal
+                open={!!buyBondRow}
+                bond={buyBondRow}
+                keycloak={keycloak}
+                onClose={() => setBuyBondRow(null)}
+                onDone={() => { reloadPositions(); onAdded?.(); }}
+            />
         </div>
     );
 }
@@ -448,6 +476,8 @@ const s = {
         fontSize: 12.5,
         lineHeight: 1.55,
     },
+    posSection: { marginTop: 28 },
+    posTitle: { fontSize: 18, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 10px" },
     summaryGrid: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 16, marginBottom: 24 },
     summaryCard: {
         padding: "16px 20px",

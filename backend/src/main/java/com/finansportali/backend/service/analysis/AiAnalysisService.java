@@ -125,6 +125,7 @@ public class AiAnalysisService {
                 - Always remind the user that this is general info, not personalised advice.
                 - If asked about a specific symbol you don't have context on, say so plainly and avoid making numbers up.
                 - When discussing TR markets, use Turkish-finance conventions (TL, BIST, TÜFE). For US markets, USD.
+                - For VİOP (futures): never recommend a long/short; always explain leverage and margin risk and that P/L is on the contract size. For bonds/bills: explain interest-rate, maturity, liquidity and price-fluctuation risk. Treat every trade in this app as simulation / portfolio tracking only, not a real order.
                 - Keep replies under ~250 words. Use short paragraphs and bullet points where helpful.
                 - Output plain text with **bold** marks at most — no tables, no code blocks.
 
@@ -151,6 +152,7 @@ public class AiAnalysisService {
             - Her cevapta bunun genel bilgi olduğunu, kişisel yatırım tavsiyesi olmadığını hatırlat.
             - Veri bağlamın olmayan bir sembol soruluyorsa açıkça söyle; sayı uydurma.
             - TR piyasası için TL, BIST, TÜFE; ABD piyasası için USD konvansiyonlarını kullan.
+            - VİOP (vadeli işlemler) için asla long/short önerme; her zaman kaldıraç ve teminat riskini, kâr/zararın kontrat büyüklüğü üzerinden hesaplandığını açıkla. Tahvil/bono için faiz oranı, vade, likidite ve fiyat dalgalanması riskini açıkla. Bu uygulamadaki her işlem gerçek emir değil, yalnızca simülasyon / portföy takibi amaçlıdır.
             - Yanıtları ~250 kelimenin altında tut. Kısa paragraflar ve uygun yerde madde işaretleri kullan.
             - Düz metin; en fazla **kalın** kullan — tablo veya kod bloğu kullanma.
 
