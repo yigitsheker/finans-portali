@@ -359,7 +359,11 @@ const s = {
     gap: 1,
     flex: 1,
     justifyContent: "center",
-    flexWrap: "wrap",
+    // Never wrap nav items onto a second line — keep them on one row and let
+    // the (rare, very narrow desktop) overflow scroll horizontally instead.
+    // Below 1100px the hamburger replaces this nav entirely (see index.css).
+    flexWrap: "nowrap",
+    overflowX: "auto",
     minWidth: 0,
   },
   navLink: {
@@ -367,6 +371,7 @@ const s = {
     borderRadius: 8,
     fontSize: 13,
     fontWeight: 600,
+    whiteSpace: "nowrap",
     color: "var(--text-muted)",
     textDecoration: "none",
     transition: "background-color 0.15s, color 0.15s",
