@@ -99,6 +99,7 @@ public class BondDataRefreshService {
                     quotes.size(), provider.getProviderName());
 
             int updatedCount = applyQuotes(quotes);
+            deactivateStale(quotes);
             log.info("[BOND-REFRESH] Successfully updated {} bond instruments", updatedCount);
             refreshSuccessCounter.increment();
             return updatedCount;
@@ -122,6 +123,42 @@ public class BondDataRefreshService {
             }
         }
         return updatedCount;
+    }
+
+    /**
+     * Soft-delete instruments that a refreshed source no longer reports. When a
+     * provider returns its full current universe (the TCMB EVDS3 fetcher now
+     * enumerates every active bond), any active instrument it previously quoted
+     * but omitted this round is stale — a retired hand-picked symbol or a matured
+     * bond — and should drop off the listing. Scoped per source so one provider's
+     * refresh never deactivates another's rows. No-op on an empty fetch.
+     */
+    private void deactivateStale(List<BondQuoteDto> quotes) {
+        if (quotes.isEmpty()) return;
+
+        java.util.Set<String> freshSymbols = new java.util.HashSet<>();
+        java.util.Set<String> sources = new java.util.HashSet<>();
+        for (BondQuoteDto dto : quotes) {
+            if (dto.getSymbol() != null) freshSymbols.add(dto.getSymbol());
+            sources.add(dto.getSource() != null ? dto.getSource() : activeProviderName);
+        }
+        if (freshSymbols.isEmpty()) return;
+
+        for (String source : sources) {
+            try {
+                List<DebtInstrument> stale =
+                        instrumentRepo.findActiveManagedBySourceExcluding(source, freshSymbols);
+                if (stale.isEmpty()) continue;
+                stale.forEach(i -> i.setActive(false));
+                instrumentRepo.saveAll(stale);
+                log.info("[BOND-REFRESH] Deactivated {} stale '{}' instrument(s): {}",
+                        stale.size(), source,
+                        stale.stream().map(DebtInstrument::getSymbol).toList());
+            } catch (RuntimeException e) {
+                log.warn("[BOND-REFRESH] Stale-deactivation for source '{}' failed: {}",
+                        source, e.getMessage());
+            }
+        }
     }
 
     private boolean applyQuoteSafely(BondQuoteDto dto) {

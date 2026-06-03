@@ -124,4 +124,68 @@ class EvdsBondYieldFetcherTest {
         // scale must be exactly 2.
         assertThat(ytm.scale()).isEqualTo(2);
     }
+
+    // ── Proper (clean-price, cash-flow) YTM ────────────────────────────────
+
+    private final LocalDate issue = LocalDate.of(2020, 1, 15);
+    private final LocalDate maturity = LocalDate.of(2030, 1, 15);
+
+    @Test
+    void proper_par_bond_on_coupon_date_yields_near_coupon() {
+        // today is exactly a semi-annual coupon date → accrued ≈ 0, so the
+        // dirty price IS the clean price. A par bond should yield ≈ coupon.
+        LocalDate onCoupon = LocalDate.of(2026, 1, 15);
+        var r = EvdsBondYieldFetcher.computeProperYtm(
+                new BigDecimal("100"), new BigDecimal("10"), issue, maturity, onCoupon);
+        assertThat(r).isNotNull();
+        assertThat(r.cleanPrice().doubleValue()).isCloseTo(100.0, offset(0.5));
+        assertThat(r.accrued().doubleValue()).isCloseTo(0.0, offset(0.2));
+        assertThat(r.ytm().doubleValue()).isBetween(9.0, 11.0);
+    }
+
+    @Test
+    void proper_discount_bond_yields_above_coupon() {
+        LocalDate onCoupon = LocalDate.of(2026, 1, 15);
+        var r = EvdsBondYieldFetcher.computeProperYtm(
+                new BigDecimal("85"), new BigDecimal("10"), issue, maturity, onCoupon);
+        assertThat(r).isNotNull();
+        assertThat(r.ytm().doubleValue()).isGreaterThan(10.0);
+    }
+
+    @Test
+    void proper_premium_bond_yields_below_coupon() {
+        LocalDate onCoupon = LocalDate.of(2026, 1, 15);
+        var r = EvdsBondYieldFetcher.computeProperYtm(
+                new BigDecimal("120"), new BigDecimal("10"), issue, maturity, onCoupon);
+        assertThat(r).isNotNull();
+        assertThat(r.ytm().doubleValue()).isLessThan(10.0);
+    }
+
+    @Test
+    void proper_accrued_is_stripped_mid_period() {
+        // Halfway between two coupons (~3 months in) accrued should be ~1/4 of
+        // the semi-annual coupon (10%/2 = 5 → ~2.5 accrued at the midpoint),
+        // so clean price is meaningfully below the dirty price.
+        LocalDate midPeriod = LocalDate.of(2026, 4, 15); // 3 months after 2026-01-15
+        var r = EvdsBondYieldFetcher.computeProperYtm(
+                new BigDecimal("105"), new BigDecimal("10"), issue, maturity, midPeriod);
+        assertThat(r).isNotNull();
+        assertThat(r.accrued().doubleValue()).isBetween(2.0, 3.0);
+        assertThat(r.cleanPrice().doubleValue()).isLessThan(105.0);
+    }
+
+    @Test
+    void proper_matured_bond_returns_null() {
+        var r = EvdsBondYieldFetcher.computeProperYtm(
+                new BigDecimal("100"), new BigDecimal("10"), issue, today.minusDays(1), today);
+        assertThat(r).isNull();
+    }
+
+    @Test
+    void proper_null_or_zero_price_returns_null() {
+        assertThat(EvdsBondYieldFetcher.computeProperYtm(
+                null, new BigDecimal("10"), issue, maturity, today)).isNull();
+        assertThat(EvdsBondYieldFetcher.computeProperYtm(
+                BigDecimal.ZERO, new BigDecimal("10"), issue, maturity, today)).isNull();
+    }
 }

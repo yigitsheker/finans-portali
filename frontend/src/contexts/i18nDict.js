@@ -209,7 +209,7 @@ export const dict = {
       refreshing: "Güncelleniyor...",
       noteLabel: "Bilgi:",
       noteBody:
-        'Devlet tahvili getirileri TCMB EVDS3 "Gösterge Niteliğindeki Değerler" serisinden çekilir; bu fiyatlar kirli fiyattır (kupon ödeme periyodunda biriken faiz dahil). Türetilmiş Getiri (YTM), dirty-price yaklaşımıyla hesaplanan göstergedir; gerçek ikincil piyasa getirisinden ±5-10 puan farklılaşabilir. Kupon ve fiyat değerleri otoritatif, sadece YTM hesabı yaklaşıktır.',
+        'Tahviller TCMB EVDS3 "Gösterge Niteliğindeki Değerler" (bie_pydibs) veri grubundan otomatik olarak çekilir; vadesi gelmemiş tüm sabit kuponlu devlet tahvilleri listelenir. EVDS kirli fiyat (kupon ödeme periyodunda biriken faiz dahil) ve kupon oranı yayınlar, getiri yayınlamaz. Getiri (YTM); birikmiş faiz fiyattan ayrıştırılıp temiz fiyat bulunarak ve nakit akışları (yarı yıllık kuponlar + anapara) iskonto edilerek hesaplanır. Kupon ve fiyat değerleri otoritatif; YTM gösterge niteliğindedir.',
       typeGovBond: "Devlet Tahvili",
       typeTBill: "Hazine Bonosu",
       typeSukuk: "Kira Sertifikası",
@@ -891,7 +891,7 @@ export const dict = {
       refreshing: "Refreshing...",
       noteLabel: "Note:",
       noteBody:
-        'Government bond yields are pulled from the TCMB EVDS3 "Indicative Values" series; these are dirty prices (including accrued coupon interest). Derived Yield (YTM) is computed using a dirty-price approximation and can differ from the actual secondary-market yield by ±5–10 bps. Coupon and price values are authoritative; only the YTM calculation is approximate.',
+        'Bonds are enumerated automatically from the TCMB EVDS3 "Indicative Values" datagroup (bie_pydibs); every active fixed-coupon government bond is listed. EVDS publishes a dirty price (including accrued coupon interest) and the coupon rate, but no yield. Yield (YTM) is derived by stripping accrued interest to recover the clean price and discounting the cash flows (semi-annual coupons + principal). Coupon and price values are authoritative; YTM is indicative.',
       typeGovBond: "Government Bond",
       typeTBill: "Treasury Bill",
       typeSukuk: "Sukuk",

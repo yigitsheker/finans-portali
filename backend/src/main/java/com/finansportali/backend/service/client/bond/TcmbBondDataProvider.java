@@ -50,11 +50,11 @@ public class TcmbBondDataProvider implements BondDataProvider {
 
     @Override
     public List<BondQuoteDto> fetchLatestBondQuotes() {
-        // Real bond data from TCMB EVDS3 only: per-issue bonds (real price +
-        // coupon + computed YTM) plus the benchmark government-bond yield curve.
-        // Source label "TCMB_EVDS3". The Investing.com yield-curve source was
-        // dropped — it carried too little usable detail and duplicated the
-        // EVDS benchmark series we now pull directly.
+        // Real bond data from TCMB EVDS3 only. The fetcher enumerates the whole
+        // bie_pydibs datagroup at runtime (no hardcoded ISINs), keeps every
+        // active fixed-coupon government bond, and derives a clean-price YTM
+        // per issue. Source label "TCMB_EVDS3". The Investing.com yield-curve
+        // source was dropped — too little usable detail.
         List<BondQuoteDto> quotes = new ArrayList<>(evdsBondYieldFetcher.fetchAll());
         log.info("[TCMB] Returned {} bond quote(s) from EVDS3", quotes.size());
         return quotes;

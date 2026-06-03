@@ -185,11 +185,12 @@ export default function Bonds({ keycloak, onAdded }) {
                 refreshing={loading}
             />
 
-            {/* Data-quality disclosure — bond yields here are derived from EVDS3's
-                "dirty price" series via a textbook YTM approximation. Both inputs
-                are real but the dirty-price (= clean + accrued coupon) makes the
-                computed YTM read low when the bond is well into its coupon period.
-                Front-end note keeps user expectations honest without hiding the data. */}
+            {/* Data-quality disclosure — bonds are enumerated from EVDS3's
+                bie_pydibs datagroup (all active fixed-coupon issues). EVDS gives a
+                real dirty price + coupon but no yield, so YTM is derived: accrued
+                interest is stripped to recover the clean price, then the cash flows
+                are discounted. Note keeps user expectations honest about the derived
+                figure without hiding the authoritative price/coupon data. */}
             <div style={s.disclaimer}>
                 <strong>{t("bonds.noteLabel")}</strong> {t("bonds.noteBody")}
             </div>
