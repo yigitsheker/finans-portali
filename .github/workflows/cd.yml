@@ -21,10 +21,14 @@ name: CD — Deploy to GKE
 #     GCP_DEPLOYER_SA    deployer@PROJECT.iam.gserviceaccount.com
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types: [completed]
-    branches: [main]
+  # PAUSED: auto-deploy on CI completion is disabled while the GKE cluster is
+  # torn down for cost. Development happens locally; deploy on demand via
+  # "Run workflow" (workflow_dispatch). To re-enable continuous deployment,
+  # uncomment the workflow_run block below.
+  # workflow_run:
+  #   workflows: ["CI"]
+  #   types: [completed]
+  #   branches: [main]
   workflow_dispatch: {}
 
 # One deploy at a time.
