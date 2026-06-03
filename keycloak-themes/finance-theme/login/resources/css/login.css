@@ -274,6 +274,38 @@ body {
     z-index: 1;
 }
 
+/* Theme toggle — sits just left of the language switcher (which is ~70px wide). */
+.finance-theme-toggle {
+    position: absolute;
+    top: 14px;
+    right: 84px;
+    width: 34px;
+    height: 30px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+    background: var(--bg-input);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+    z-index: 1;
+    line-height: 1;
+    transition: background 0.15s, border-color 0.15s;
+}
+.finance-theme-toggle:hover {
+    border-color: var(--accent);
+}
+.finance-theme-icon {
+    font-size: 15px;
+}
+/* Show the icon for the theme you'd switch TO: in dark mode show the sun
+   (click → light), in light mode show the moon (click → dark). */
+.finance-theme-icon-light { display: inline; }
+.finance-theme-icon-dark  { display: none; }
+:root[data-theme="light"] .finance-theme-icon-light { display: none; }
+:root[data-theme="light"] .finance-theme-icon-dark  { display: inline; }
+
 .finance-lang-link {
     display: inline-flex;
     align-items: center;

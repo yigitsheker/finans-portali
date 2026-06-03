@@ -77,8 +77,15 @@ public class TcmbInflationFetcher {
      * Merges multiple series into one row per month.
      */
     public List<InflationDataPoint> fetchInflationHistory(LocalDate from, LocalDate to) {
-        if (jsessionId.isBlank() || tsCookie.isBlank()) {
-            log.warn("[Inflation] EVDS3 cookies not configured; returning empty");
+        // Proceed if EITHER auth method is available — the persistent api-key
+        // (preferred) OR session cookies. The old guard required cookies even
+        // when a valid api-key was set, dead-ending the api-key path and leaving
+        // TR inflation empty (Analysis page showed only US). Mirrors the bond fetcher.
+        boolean haveKey = apiKey != null && !apiKey.isBlank();
+        boolean haveCookies = jsessionId != null && !jsessionId.isBlank()
+                && tsCookie != null && !tsCookie.isBlank();
+        if (!haveKey && !haveCookies) {
+            log.warn("[Inflation] no EVDS auth (api-key or session cookies) configured; returning empty");
             return List.of();
         }
 

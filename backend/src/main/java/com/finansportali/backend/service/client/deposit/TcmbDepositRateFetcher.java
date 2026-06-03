@@ -76,8 +76,15 @@ public class TcmbDepositRateFetcher {
      * one row per (period, currency) with all 6 maturity buckets populated.
      */
     public List<DepositRatePoint> fetchDepositRates(LocalDate from, LocalDate to) {
-        if (jsessionId.isBlank() || tsCookie.isBlank()) {
-            log.warn("[DepositRates] EVDS3 cookies not configured; returning empty");
+        // Proceed if EITHER auth method is available — the persistent api-key
+        // (preferred) OR session cookies. The old guard required cookies even
+        // when a valid api-key was set, dead-ending the api-key path and leaving
+        // deposit rates empty. Mirrors EvdsBondYieldFetcher's OR logic.
+        boolean haveKey = apiKey != null && !apiKey.isBlank();
+        boolean haveCookies = jsessionId != null && !jsessionId.isBlank()
+                && tsCookie != null && !tsCookie.isBlank();
+        if (!haveKey && !haveCookies) {
+            log.warn("[DepositRates] no EVDS auth (api-key or session cookies) configured; returning empty");
             return List.of();
         }
 

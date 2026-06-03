@@ -57,6 +57,12 @@ app:
     realm: ${APP_KEYCLOAK_REALM:finans}
     admin-client-id: ${APP_KEYCLOAK_ADMIN_CLIENT_ID:finans-backend-admin}
     admin-client-secret: ${APP_KEYCLOAK_ADMIN_CLIENT_SECRET:finans-backend-admin-secret}
+  # TCMB EVDS3 persistent API key (preferred over session cookies). The fetchers
+  # (deposit rates, inflation, bond yields) read app.evds.api-key; without this
+  # mapping the EVDS_API_KEY env var never reached Spring, so the api-key auth
+  # path was dead and they relied solely on short-lived session cookies.
+  evds:
+    api-key: ${APP_EVDS_API_KEY:}
   bonds:
     provider: ${BONDS_PROVIDER:TCMB}  # TCMB (real: politika faizi + Bigpara scrape), DEMO
     scheduler-enabled: ${BONDS_SCHEDULER_ENABLED:true}

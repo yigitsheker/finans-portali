@@ -135,6 +135,15 @@
                      params (kc_theme, client_id, redirect_uri, state…) so the
                      auth flow doesn't break. Falls back to a plain anchor
                      when JS is disabled. -->
+                <#-- Theme toggle — flips data-theme between light/dark on the
+                     <html> element so the :root[data-theme="light"] CSS vars
+                     apply instantly. Persists the choice in localStorage so it
+                     survives the multi-step auth flow (login → 2FA → …). -->
+                <button type="button" class="finance-theme-toggle" id="kc-theme-toggle"
+                        aria-label="${msg('financeThemeToggleLabel')!'Theme'}" title="${msg('financeThemeToggleLabel')!'Theme'}">
+                    <span class="finance-theme-icon finance-theme-icon-dark" aria-hidden="true">🌙</span>
+                    <span class="finance-theme-icon finance-theme-icon-light" aria-hidden="true">☀️</span>
+                </button>
                 <div class="finance-lang-switch" aria-label="${msg('financeLangLabel')!'Language'}">
                     <a class="finance-lang-link ${(locale.currentLanguageTag!'')?contains('tr')?then('is-active','')}"
                        href="?kc_locale=tr"
@@ -143,6 +152,27 @@
                        href="?kc_locale=en"
                        data-lang="en">EN</a>
                 </div>
+                <script>
+                (function () {
+                    var KEY = 'finance-kc-theme';
+                    var root = document.documentElement;
+                    // Stored choice wins over the probe's URL/OS guess.
+                    try {
+                        var saved = localStorage.getItem(KEY);
+                        if (saved === 'light') root.setAttribute('data-theme', 'light');
+                        else if (saved === 'dark') root.removeAttribute('data-theme');
+                    } catch (e) { /* ignore */ }
+                    var btn = document.getElementById('kc-theme-toggle');
+                    if (btn) {
+                        btn.addEventListener('click', function () {
+                            var isLight = root.getAttribute('data-theme') === 'light';
+                            if (isLight) { root.removeAttribute('data-theme'); }
+                            else { root.setAttribute('data-theme', 'light'); }
+                            try { localStorage.setItem(KEY, isLight ? 'dark' : 'light'); } catch (e) { /* ignore */ }
+                        });
+                    }
+                })();
+                </script>
                 <script>
                 (function () {
                     var links = document.querySelectorAll('.finance-lang-link');

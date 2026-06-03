@@ -30,6 +30,10 @@ resources:
   - hpa-backend.yaml
   - managed-certificate.yaml
   - backendconfig.yaml
+  # playwright-service (headless Chromium scraper) — added ONLY to the GKE
+  # overlay, not base, so dev/prod overlays (which build local images) aren't
+  # forced to ship it. Powers VIOP + Investing yield curve + some news bodies.
+  - ../../base/playwright
 
 # Runtime config for the frontend SPA. The image ships an empty
 # public/runtime-config.js; we mount a populated one (frontend patch below) so
@@ -59,6 +63,9 @@ images:
   # we remap that here to our Artifact Registry build. CD sets the SHA tag.
   - name: quay.io/keycloak/keycloak
     newName: PLACEHOLDER_LOCATION-docker.pkg.dev/PLACEHOLDER_PROJECT/finans-portali/finans-keycloak
+    newTag: latest
+  - name: <registry>/finans-playwright
+    newName: PLACEHOLDER_LOCATION-docker.pkg.dev/PLACEHOLDER_PROJECT/finans-portali/finans-playwright
     newTag: latest
 
 patches:
@@ -114,6 +121,11 @@ patches:
                   # / local dev (profile off).
                   - name: SPRING_PROFILES_ACTIVE
                     value: prod,nokafka
+                  # In-cluster playwright-service for the headless-Chromium
+                  # scrapes (VIOP, Investing yield curve, news bodies). Without
+                  # this the fetchers stay disabled and VIOP shows no contracts.
+                  - name: APP_PLAYWRIGHT_SERVICE_URL
+                    value: http://playwright-service:3000
                   # Public token issuer — must equal what Keycloak stamps into
                   # the token `iss` claim. LB terminates TLS (managed cert), so
                   # the issuer is https. Must match Keycloak's KC_HOSTNAME.

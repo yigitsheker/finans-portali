@@ -356,14 +356,14 @@ const s = {
   nav: {
     display: "flex",
     alignItems: "center",
-    gap: 2,
+    gap: 1,
     flex: 1,
     justifyContent: "center",
     flexWrap: "wrap",
     minWidth: 0,
   },
   navLink: {
-    padding: "8px 11px",
+    padding: "8px 9px",
     borderRadius: 8,
     fontSize: 13.5,
     fontWeight: 600,

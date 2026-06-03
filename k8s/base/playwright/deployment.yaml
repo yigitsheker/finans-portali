@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: playwright-service
+  labels:
+    app.kubernetes.io/name: playwright-service
+    app.kubernetes.io/component: scraper
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: playwright-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: playwright-service
+        app.kubernetes.io/component: scraper
+    spec:
+      containers:
+        - name: playwright-service
+          # Headless-Chromium scraper used by the backend to render
+          # bot-protected pages (İş Yatırım VIOP, Investing.com yield curve,
+          # some news bodies). Replace <registry> in the overlay.
+          image: <registry>/finans-playwright:latest
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 3000
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            # Chromium is memory-hungry during a render; give it headroom but
+            # cap it so a stuck page can't starve the node.
+            requests:
+              cpu: 250m
+              memory: 512Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi

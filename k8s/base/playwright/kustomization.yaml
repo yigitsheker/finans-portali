@@ -1,0 +1,10 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# playwright-service component. Not wired into base/kustomization.yaml on
+# purpose — only the GKE overlay pulls this in (dev/prod build local images
+# and don't ship the scraper). Referenced as a directory so kustomize's
+# cross-directory file restriction is satisfied.
+resources:
+  - deployment.yaml
+  - service.yaml

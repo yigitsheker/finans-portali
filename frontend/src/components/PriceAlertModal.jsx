@@ -429,7 +429,12 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                             disabled={creating || !symbol || !targetPrice}
                             style={{
                                 ...s.createButton,
-                                ...(creating ? s.createButtonDisabled : {})
+                                // Show the disabled (greyed) look whenever the button is
+                                // actually disabled — not only while submitting. Before, an
+                                // empty form left the button looking enabled (the inline
+                                // cursor:pointer overrode button:disabled), so it seemed
+                                // dead until a symbol+price were filled.
+                                ...((creating || !symbol || !targetPrice) ? s.createButtonDisabled : {})
                             }}
                         >
                             {creating ? t("alerts.submitting") : t("alerts.submit")}

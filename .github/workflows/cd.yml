@@ -96,6 +96,15 @@ jobs:
           docker push "$IMAGE_BASE/finans-keycloak:$SHA_TAG"
           docker push "$IMAGE_BASE/finans-keycloak:latest"
 
+      # playwright-service (headless Chromium) powers VIOP + yield-curve scrapes.
+      - name: Build & push playwright image
+        run: |
+          docker build -t "$IMAGE_BASE/finans-playwright:$SHA_TAG" \
+                       -t "$IMAGE_BASE/finans-playwright:latest" \
+                       ./playwright-service
+          docker push "$IMAGE_BASE/finans-playwright:$SHA_TAG"
+          docker push "$IMAGE_BASE/finans-playwright:latest"
+
       # --- Get cluster credentials -----------------------------------------
       - name: Get GKE credentials
         uses: google-github-actions/get-gke-credentials@v2
@@ -111,7 +120,8 @@ jobs:
           kustomize edit set image \
             "<registry>/finans-backend=$IMAGE_BASE/finans-backend:$SHA_TAG" \
             "<registry>/finans-frontend=$IMAGE_BASE/finans-frontend:$SHA_TAG" \
-            "quay.io/keycloak/keycloak=$IMAGE_BASE/finans-keycloak:$SHA_TAG"
+            "quay.io/keycloak/keycloak=$IMAGE_BASE/finans-keycloak:$SHA_TAG" \
+            "<registry>/finans-playwright=$IMAGE_BASE/finans-playwright:$SHA_TAG"
 
           # Substitute the PLACEHOLDER_* tokens with the configured project +
           # domains. sed runs over the overlay only; base/ is untouched.
