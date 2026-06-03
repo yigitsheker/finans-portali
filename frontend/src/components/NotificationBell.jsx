@@ -146,7 +146,7 @@ export default function NotificationBell({ keycloak }) {
         title="Bildirimler"
         aria-label="Bildirimler"
       >
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
           <path d="M18 16V11C18 7.69 15.31 5 12 5C8.69 5 6 7.69 6 11V16L4 18V19H20V18L18 16Z"
                 stroke="currentColor" strokeWidth="2" strokeLinejoin="round" />
           <path d="M10 21C10 22.1 10.9 23 12 23C13.1 23 14 22.1 14 21"
@@ -216,12 +216,13 @@ function formatDate(iso) {
 const s = {
   iconBtn: {
     position: "relative",
-    width: 36, height: 36, borderRadius: 8,
+    width: 32, height: 32, borderRadius: 8,
     border: "1px solid var(--border-card)",
     background: "var(--bg-card)",
     color: "var(--text-primary)",
     cursor: "pointer",
     display: "inline-flex", alignItems: "center", justifyContent: "center",
+    flexShrink: 0,
   },
   badge: {
     position: "absolute", top: -4, right: -4,

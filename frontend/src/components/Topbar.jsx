@@ -95,19 +95,21 @@ const ctgl = {
     display: "inline-flex",
     background: "var(--input-bg)",
     border: "1px solid var(--border-card)",
-    borderRadius: 10,
+    borderRadius: 8,
     padding: 2,
+    flexShrink: 0,
   },
   btn: {
     border: "none",
     background: "transparent",
     color: "var(--text-muted)",
-    padding: "6px 12px",
-    borderRadius: 8,
-    fontSize: 12,
+    padding: "4px 7px",
+    borderRadius: 6,
+    fontSize: 11,
     fontWeight: 600,
     cursor: "pointer",
-    minWidth: 36,
+    minWidth: 26,
+    lineHeight: 1.4,
   },
   btnActive: {
     background: "var(--accent-hover-bg)",
@@ -289,7 +291,7 @@ export default function Topbar({
           // bell-shaped notification button rendered immediately above —
           // both are bells, but only this one creates a price alert.
           <button style={s.alarmBtn} onClick={onAlertsClick} title={t("topbar.priceAlertCreate")} aria-label={t("topbar.priceAlert")}>
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 5V3M12 5C8.69 5 6 7.69 6 11V16L4 18V19H20V18L18 16V11C18 7.69 15.31 5 12 5Z"
                     stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
               <path d="M9 21H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
@@ -306,13 +308,13 @@ export default function Topbar({
           aria-label={t("topbar.themeToggle")}
         >
           {isDark ? (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
                  strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="4"/>
               <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
             </svg>
           ) : (
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/>
             </svg>
           )}
@@ -397,57 +399,62 @@ const s = {
   right: {
     display: "flex",
     alignItems: "center",
-    gap: 8,
+    gap: 6,
     flexShrink: 0,
   },
   iconBtn: {
-    width: 38, height: 38,
-    borderRadius: 10,
+    width: 32, height: 32,
+    borderRadius: 8,
     border: "1px solid var(--border-card)",
     background: "var(--input-bg)",
     color: "var(--text-secondary)",
     cursor: "pointer",
     display: "grid",
     placeItems: "center",
+    flexShrink: 0,
   },
   alarmBtn: {
-    height: 38,
-    padding: "0 12px",
-    borderRadius: 10,
+    height: 32,
+    padding: "0 9px",
+    borderRadius: 8,
     border: "1px solid var(--border-card)",
     background: "var(--input-bg)",
     color: "var(--text-secondary)",
     cursor: "pointer",
     display: "inline-flex",
     alignItems: "center",
-    gap: 6,
+    gap: 5,
+    flexShrink: 0,
   },
   alarmBtnLabel: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: 600,
     color: "var(--text-primary)",
     letterSpacing: 0.2,
+    whiteSpace: "nowrap",
   },
   logoutBtn: {
-    padding: "8px 18px",
-    borderRadius: 10,
+    padding: "6px 12px",
+    borderRadius: 8,
     border: "1px solid var(--danger-border)",
     background: "var(--danger-bg)",
     color: "var(--danger-text)",
     cursor: "pointer",
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: 600,
+    flexShrink: 0,
   },
   loginBtn: {
-    padding: "9px 20px",
-    borderRadius: 10,
+    padding: "7px 14px",
+    borderRadius: 8,
     border: "none",
     background: "linear-gradient(135deg, var(--accent-strong), var(--accent-solid))",
     color: "#fff",
     cursor: "pointer",
-    fontSize: 14,
+    fontSize: 12.5,
     fontWeight: 700,
     boxShadow: "0 4px 14px rgba(34, 197, 94, 0.30)",
+    flexShrink: 0,
   },
 
   // ── Mobile drawer (visible only via media query in index.css) ──
