@@ -232,7 +232,7 @@ export default function Topbar({
           Theme-adaptive (the PNG version turned into a black box on the
           light theme — colours now read off --text-primary + --accent-solid). */}
       <Link to="/" style={s.brand} className="fp-topbar-brand" aria-label="Finans Portalı">
-        <BrandLogo size={38} />
+        <BrandLogo size={30} />
       </Link>
 
       {/* Inline nav links. Private items show only when authenticated;
@@ -343,7 +343,7 @@ const s = {
   row: {
     display: "flex",
     alignItems: "center",
-    gap: 16,
+    gap: 10,
     flexWrap: "wrap",
   },
   brand: {
@@ -363,9 +363,9 @@ const s = {
     minWidth: 0,
   },
   navLink: {
-    padding: "8px 9px",
+    padding: "8px 8px",
     borderRadius: 8,
-    fontSize: 13.5,
+    fontSize: 13,
     fontWeight: 600,
     color: "var(--text-muted)",
     textDecoration: "none",
