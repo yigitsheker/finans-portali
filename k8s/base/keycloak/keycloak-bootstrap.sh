@@ -50,18 +50,18 @@ $KCADM update "realms/$REALM" \
   -s registrationAllowed=true
 log "  realm settings updated"
 
-# ── 1b) 2FA enforcement ───────────────────────────────────────────────────
-# Make CONFIGURE_TOTP a default required action: every NEW user gets it
-# on their first login (TOTP setup screen → scan QR → 6-digit verify),
-# every EXISTING user gets it on their next login until they configure
-# it once. The realm's OTP policy (totp, SHA1, 6 digits, 30s period) is
-# already in finans-realm.json — this step just flips the action from
-# optional to enforced.
-log "Enforcing CONFIGURE_TOTP required action (2FA on first/next login)..."
+# ── 1b) 2FA (optional, user-enrolled) ──────────────────────────────────────
+# Keep CONFIGURE_TOTP available but NOT forced: enabled=true makes the action
+# usable, defaultAction=false means it is no longer auto-assigned to every
+# user at login. Users opt in themselves from Settings → Security ("Setup 2FA",
+# which calls keycloak.login({action:'CONFIGURE_TOTP'})), and admins can still
+# force it per-user via the admin API. The realm's OTP policy (totp, SHA1,
+# 6 digits, 30s period) stays in finans-realm.json.
+log "Configuring CONFIGURE_TOTP as optional action (user self-enrollment)..."
 if $KCADM update "authentication/required-actions/CONFIGURE_TOTP" -r "$REALM" \
     -s enabled=true \
-    -s defaultAction=true >/dev/null 2>&1; then
-  log "  CONFIGURE_TOTP marked as default required action"
+    -s defaultAction=false >/dev/null 2>&1; then
+  log "  CONFIGURE_TOTP available as an optional (opt-in) action"
 else
   log "  WARN — CONFIGURE_TOTP update failed (older Keycloak? check version)"
 fi

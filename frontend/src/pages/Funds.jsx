@@ -16,6 +16,7 @@ export default function Funds({ keycloak, onAdded }) {
     const [fundTypes, setFundTypes] = useState([]);
     // Multi-select fund-type filter; empty array = "all types".
     const [selectedFundTypes, setSelectedFundTypes] = useState([]);
+    const [search, setSearch] = useState("");
     const [page, setPage] = useState(1);
     const [pageSize, setPageSize] = useState(25);
     // Header sort state. `sortKey` is the field on InvestmentFund (e.g.
@@ -103,6 +104,15 @@ export default function Funds({ keycloak, onAdded }) {
             const set = new Set(selectedFundTypes);
             rows = rows.filter((f) => set.has(f.fundType));
         }
+        if (search.trim()) {
+            // Case-insensitive match on fund code or name (matches the
+            // Stocks/Analysis search pattern).
+            const q = search.trim().toLocaleUpperCase("tr");
+            rows = rows.filter((f) =>
+                (f.fundCode || "").toLocaleUpperCase("tr").includes(q) ||
+                (f.fundName || "").toLocaleUpperCase("tr").includes(q)
+            );
+        }
         if (sortKey) {
             // String columns (fund name / code) sort with Turkish locale,
             // numeric returns/prices fall back to numeric subtraction.
@@ -120,7 +130,7 @@ export default function Funds({ keycloak, onAdded }) {
             });
         }
         return rows;
-    }, [funds, selectedFundTypes, sortKey, sortDir]);
+    }, [funds, selectedFundTypes, search, sortKey, sortDir]);
 
     const toggleSort = (key) => {
         if (sortKey === key) {
@@ -161,7 +171,7 @@ export default function Funds({ keycloak, onAdded }) {
         return level;
     };
 
-    useEffect(() => { setPage(1); }, [selectedFundTypes, pageSize, sortKey, sortDir]);
+    useEffect(() => { setPage(1); }, [selectedFundTypes, search, pageSize, sortKey, sortDir]);
     const totalFiltered = filteredFunds.length;
     const pagedFunds = useMemo(() => {
         const start = (page - 1) * pageSize;
@@ -242,6 +252,20 @@ export default function Funds({ keycloak, onAdded }) {
                                 {refreshing ? `🔄 ${t("funds.refreshing")}` : `🔄 ${t("funds.refresh")}`}
                             </button>
                         )}
+                    </div>
+                </div>
+
+                {/* Search — filters the loaded fund list by code or name
+                    (client-side, like the Stocks/Analysis pages). */}
+                <div style={{ padding: "8px 0 12px" }}>
+                    <div style={s.searchBox}>
+                        <span style={{ fontSize: 14, color: "var(--text-muted)" }}>🔍</span>
+                        <input
+                            value={search}
+                            onChange={(e) => setSearch(e.target.value)}
+                            placeholder={t("funds.searchPlaceholder") || "Fon adı veya kodu ile ara…"}
+                            style={s.searchInput}
+                        />
                     </div>
                 </div>
 
@@ -488,6 +512,24 @@ const s = {
         justifyContent: "space-between",
         alignItems: "center",
         gap: 12,
+    },
+    searchBox: {
+        display: "flex",
+        alignItems: "center",
+        gap: 8,
+        padding: "10px 14px",
+        background: "var(--input-bg)",
+        border: "1px solid var(--input-border)",
+        borderRadius: 8,
+    },
+    searchInput: {
+        flex: 1,
+        background: "transparent",
+        border: "none",
+        outline: "none",
+        color: "var(--text-primary)",
+        fontSize: 13,
+        fontWeight: 500,
     },
     headerContainer: {
         padding: "16px 20px",
