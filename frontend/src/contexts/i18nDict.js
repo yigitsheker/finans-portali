@@ -495,8 +495,15 @@ export const dict = {
       mfaActive: "Hesabınızda TOTP doğrulayıcı aktif.",
       mfaInactive:
         "Hesabınıza ek bir güvenlik katmanı ekleyin (Google Authenticator, Authy vb.).",
+      mfaChecking: "Kontrol ediliyor...",
       reSetup: "Yeniden Kur",
       setup: "Kur",
+      mfaAddDevice: "Yeni cihaz ekle",
+      mfaDisable: "Devre Dışı Bırak",
+      mfaDisabling: "Kaldırılıyor...",
+      mfaDisableConfirm:
+        "İki faktörlü doğrulamayı devre dışı bırakmak istediğinize emin misiniz? Tüm doğrulayıcılarınız kaldırılacak.",
+      mfaDisableError: "2FA devre dışı bırakılamadı. Lütfen tekrar deneyin.",
       changePassword: "Şifreyi Değiştir",
       changePasswordSub: "Hesap şifrenizi güncelleyin.",
       changeBtn: "Değiştir",
@@ -1176,8 +1183,15 @@ export const dict = {
       mfaActive: "TOTP authenticator is active on your account.",
       mfaInactive:
         "Add an extra layer of security (Google Authenticator, Authy, etc.).",
+      mfaChecking: "Checking...",
       reSetup: "Re-Setup",
       setup: "Set Up",
+      mfaAddDevice: "Add device",
+      mfaDisable: "Disable",
+      mfaDisabling: "Removing...",
+      mfaDisableConfirm:
+        "Are you sure you want to disable two-factor authentication? All your authenticators will be removed.",
+      mfaDisableError: "Could not disable 2FA. Please try again.",
       changePassword: "Change Password",
       changePasswordSub: "Update your account password.",
       changeBtn: "Change",

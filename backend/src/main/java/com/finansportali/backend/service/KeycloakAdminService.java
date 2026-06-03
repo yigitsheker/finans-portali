@@ -246,6 +246,43 @@ public class KeycloakAdminService {
         }
     }
 
+    /**
+     * Whether the user currently has at least one OTP/TOTP credential.
+     * Read-only mirror of {@link #removeTotpCredentials}'s credential scan.
+     *
+     * <p>The Settings page uses this for self-service 2FA status: Keycloak's
+     * access token carries no "has TOTP" claim, so the only reliable source of
+     * truth is the user's credential list via the Admin REST API.
+     */
+    public boolean hasTotpCredential(String userId) {
+        if (userId == null || userId.isBlank()) {
+            return false;
+        }
+        String token = getAdminToken();
+        List<Map<String, Object>> creds;
+        try {
+            creds = webClient.get()
+                    .uri("/admin/realms/{realm}/users/{id}/credentials", props.getRealm(), userId)
+                    .header(AUTH_HEADER, BEARER_PREFIX + token)
+                    .retrieve()
+                    .bodyToFlux(new org.springframework.core.ParameterizedTypeReference<Map<String, Object>>() {})
+                    .collectList()
+                    .block();
+        } catch (WebClientResponseException e) {
+            throw translate(e, "Kimlik bilgileri alınamadı");
+        }
+        if (creds == null) {
+            return false;
+        }
+        for (Map<String, Object> cred : creds) {
+            String type = Objects.toString(cred.get("type"), "");
+            if ("otp".equalsIgnoreCase(type) || "totp".equalsIgnoreCase(type)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     public void removeTotpCredentials(String userId) {
         String token = getAdminToken();
 

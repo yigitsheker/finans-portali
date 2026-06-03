@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { applyTheme } from "../theme";
 import { useI18n } from "../contexts/I18nContext";
 import { getNotificationPrefs, putNotificationPrefs } from "../api/userPrefsApi";
+import { getSecurityStatus, disable2fa } from "../api/securityApi";
 
 const NOTIF_ITEMS = [
   { key: "transactions", labelKey: "settings.txNotif",         descKey: "settings.txNotifSub",         defaultOn: true },
@@ -107,7 +108,38 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
     return name ? name.slice(0, 2).toUpperCase() : "JD";
   }, [firstName, lastName]);
 
-  const otpConfigured = Boolean(parsed?.otp_enabled || parsed?.totp);
+  // 2FA status comes from the backend (Keycloak emits no "has TOTP" token
+  // claim). null = still loading / unknown. Re-fetched on mount, which also
+  // covers the return trip from Keycloak's CONFIGURE_TOTP redirect (the page
+  // reloads at baseRedirect).
+  const [totpEnabled, setTotpEnabled] = useState(null);
+  const [twoFaBusy, setTwoFaBusy] = useState(false);
+
+  useEffect(() => {
+    if (!keycloak?.authenticated) return;
+    let cancelled = false;
+    getSecurityStatus(keycloak)
+      .then((s) => { if (!cancelled) setTotpEnabled(Boolean(s.totpEnabled)); })
+      .catch((e) => {
+        console.warn("[Settings] Could not fetch 2FA status:", e?.message);
+        if (!cancelled) setTotpEnabled(false); // fail open to the "set up" CTA
+      });
+    return () => { cancelled = true; };
+  }, [keycloak]);
+
+  async function disable2FA() {
+    if (!window.confirm(t("settings.mfaDisableConfirm"))) return;
+    setTwoFaBusy(true);
+    try {
+      await disable2fa(keycloak);
+      setTotpEnabled(false);
+    } catch (e) {
+      console.error("2FA devre dışı bırakılamadı:", e?.message);
+      window.alert(t("settings.mfaDisableError"));
+    } finally {
+      setTwoFaBusy(false);
+    }
+  }
 
   async function handleSave() {
     setSaving(true);
@@ -239,14 +271,38 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
               <div style={{ flex: 1 }}>
                 <div style={s.secLabel}>{t("settings.mfa")}</div>
                 <div style={s.secDesc}>
-                  {otpConfigured
-                    ? t("settings.mfaActive")
-                    : t("settings.mfaInactive")}
+                  {totpEnabled === null
+                    ? t("settings.mfaChecking")
+                    : totpEnabled
+                      ? t("settings.mfaActive")
+                      : t("settings.mfaInactive")}
                 </div>
               </div>
-              <button style={s.secBtn} onClick={setup2FA}>
-                {otpConfigured ? t("settings.reSetup") : t("settings.setup")}
-              </button>
+              {totpEnabled === null ? (
+                <button style={{ ...s.secBtn, opacity: 0.6 }} disabled>
+                  {t("settings.mfaChecking")}
+                </button>
+              ) : totpEnabled ? (
+                // Already enrolled: don't blindly re-trigger setup (Keycloak's
+                // CONFIGURE_TOTP would silently ADD a second authenticator).
+                // Offer an explicit "add device" plus a real Disable action.
+                <div style={s.secBtnGroup}>
+                  <button style={s.secBtnOutline} onClick={setup2FA} disabled={twoFaBusy}>
+                    {t("settings.mfaAddDevice")}
+                  </button>
+                  <button
+                    style={{ ...s.secBtnDanger, opacity: twoFaBusy ? 0.6 : 1 }}
+                    onClick={disable2FA}
+                    disabled={twoFaBusy}
+                  >
+                    {twoFaBusy ? t("settings.mfaDisabling") : t("settings.mfaDisable")}
+                  </button>
+                </div>
+              ) : (
+                <button style={s.secBtn} onClick={setup2FA}>
+                  {t("settings.setup")}
+                </button>
+              )}
             </div>
 
             <div style={{ ...s.secRow, borderTop: "1px solid var(--border-soft)" }}>
@@ -326,5 +382,11 @@ const s = {
     padding: "8px 14px", borderRadius: 7,
     border: "1px solid var(--border-card)", background: "transparent",
     color: "var(--text-primary)", cursor: "pointer", fontWeight: 600, fontSize: 12, flexShrink: 0,
+  },
+  secBtnGroup: { display: "flex", gap: 8, flexShrink: 0 },
+  secBtnDanger: {
+    padding: "8px 14px", borderRadius: 7, border: "none",
+    background: "var(--danger-solid, #dc2626)", color: "#fff",
+    cursor: "pointer", fontWeight: 600, fontSize: 12, flexShrink: 0,
   },
 };

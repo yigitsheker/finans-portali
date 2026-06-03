@@ -38,4 +38,37 @@ public class UserProfileController {
                 "updated", true
         ));
     }
+
+    /**
+     * Self-service 2FA status. Returns whether the current user has a TOTP
+     * authenticator configured, so the Settings page can show "active" + a
+     * Disable action instead of always offering "set up" (Keycloak emits no
+     * such token claim, hence the Admin-REST credential lookup).
+     */
+    @GetMapping("/security")
+    public ResponseEntity<Map<String, Object>> security() {
+        String userId = userService.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
+        return ResponseEntity.ok(Map.of(
+                "totpEnabled", keycloakAdminService.hasTotpCredential(userId)
+        ));
+    }
+
+    /**
+     * Self-service 2FA disable: removes the user's own TOTP credential(s).
+     * Re-enrolling is done via Keycloak's CONFIGURE_TOTP flow from the UI.
+     */
+    @DeleteMapping("/2fa")
+    public ResponseEntity<Map<String, Object>> disable2fa() {
+        String userId = userService.getCurrentUserId();
+        if (userId == null) {
+            return ResponseEntity.status(401).build();
+        }
+        keycloakAdminService.removeTotpCredentials(userId);
+        return ResponseEntity.ok(Map.of(
+                "totpEnabled", false
+        ));
+    }
 }
