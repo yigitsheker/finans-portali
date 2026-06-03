@@ -33,13 +33,9 @@ public class TcmbBondDataProvider implements BondDataProvider {
     private static final Logger log = LoggerFactory.getLogger(TcmbBondDataProvider.class);
 
     private final EvdsBondYieldFetcher evdsBondYieldFetcher;
-    private final InvestingYieldCurveFetcher investingYieldCurveFetcher;
 
-    public TcmbBondDataProvider(
-            EvdsBondYieldFetcher evdsBondYieldFetcher,
-            InvestingYieldCurveFetcher investingYieldCurveFetcher) {
+    public TcmbBondDataProvider(EvdsBondYieldFetcher evdsBondYieldFetcher) {
         this.evdsBondYieldFetcher = evdsBondYieldFetcher;
-        this.investingYieldCurveFetcher = investingYieldCurveFetcher;
     }
 
     @Override
@@ -54,18 +50,13 @@ public class TcmbBondDataProvider implements BondDataProvider {
 
     @Override
     public List<BondQuoteDto> fetchLatestBondQuotes() {
-        // Two complementary real-data sources merged into a single response:
-        //   1. EVDS3 — per-issue bonds with real price + coupon + computed YTM
-        //      (TR2YT, TR3YT, TR4YT, …). Source label "TCMB_EVDS3".
-        //   2. Investing.com TR yield curve — gösterge yields across the full
-        //      3M…30Y tenor range. Source label "INVESTING_TR".
-        // Either source returning empty (cookies expired, site down) just
-        // drops out — the other set still populates the bonds page.
-        List<BondQuoteDto> quotes = new ArrayList<>();
-        quotes.addAll(evdsBondYieldFetcher.fetchAll());
-        quotes.addAll(investingYieldCurveFetcher.fetchAll());
-        log.info("[TCMB] Returned {} bond quote(s) (EVDS3 specific issues + Investing.com curve)",
-                quotes.size());
+        // Real bond data from TCMB EVDS3 only: per-issue bonds (real price +
+        // coupon + computed YTM) plus the benchmark government-bond yield curve.
+        // Source label "TCMB_EVDS3". The Investing.com yield-curve source was
+        // dropped — it carried too little usable detail and duplicated the
+        // EVDS benchmark series we now pull directly.
+        List<BondQuoteDto> quotes = new ArrayList<>(evdsBondYieldFetcher.fetchAll());
+        log.info("[TCMB] Returned {} bond quote(s) from EVDS3", quotes.size());
         return quotes;
     }
 
