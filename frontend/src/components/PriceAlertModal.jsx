@@ -630,12 +630,16 @@ const s = {
     },
     createButton: {
         padding: "10px 20px",
-        background: "var(--accent)",
+        // Solid accent green — NOT var(--accent), which is a ~14%-opacity tint
+        // and made the enabled button look permanently "pale". The disabled
+        // look now comes solely from createButtonDisabled (opacity 0.5), so the
+        // enabled state reads as a vivid, clearly-clickable green.
+        background: "var(--accent-solid)",
         color: "white",
         border: "none",
         borderRadius: 8,
         fontSize: 14,
-        fontWeight: 500,
+        fontWeight: 600,
         cursor: "pointer",
         alignSelf: "flex-start",
     },
