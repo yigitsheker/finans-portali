@@ -188,6 +188,18 @@ patches:
           spec:
             containers:
               - name: keycloak
+                # Keycloak (custom image) can take ~60s+ to become ready on a
+                # cold node. A startupProbe gates liveness/readiness so the slow
+                # first boot can't trip the liveness probe and CrashLoop the pod
+                # (10s * 60 = up to 600s of startup budget). Once started, the
+                # normal probes govern health. The Dockerfile also runs
+                # `kc.sh build` to cut the Quarkus augmentation out of boot time.
+                startupProbe:
+                  httpGet:
+                    path: /realms/master
+                    port: 8080
+                  periodSeconds: 10
+                  failureThreshold: 60
                 # Readiness/liveness target the SERVING port 8080 (a known-200
                 # realm path), not the 9000 management port — in start-dev the
                 # 9000 health endpoints aren't reliably up, which left the pod
