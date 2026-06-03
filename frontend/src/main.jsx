@@ -21,11 +21,17 @@ function AuthGate() {
 
         keycloak
             .init({
-                // onLoad parametresi YOK: Keycloak init sırasında hiçbir redirect/iframe
-                // kontrolü yapmaz. Kullanıcı tamamen anonim başlar; "Giriş Yap" butonuna
-                // basınca Keycloak'a yönlendirilir. Önceki oturum varsa redirect sonrası
-                // otomatik authenticate olur.
+                // check-sso: her sayfa yüklemesinde (yenileme dahil) mevcut Keycloak
+                // SSO oturumunu sessizce kontrol et. Oturum varsa kullanıcı otomatik
+                // olarak authenticate olur — F5'te "giriş yapmamış gibi" atılmaz.
+                // Kontrol gizli bir iframe ile (silentCheckSsoRedirectUri) yapılır,
+                // görünür bir yönlendirme/flash olmaz. Oturum yoksa anonim başlar ve
+                // "Giriş Yap"a basınca normal akış çalışır.
+                onLoad: "check-sso",
+                silentCheckSsoRedirectUri: window.location.origin + "/silent-check-sso.html",
                 pkceMethod: "S256",
+                // Sürekli oturum-durumu izleme iframe'ini kapalı tut (3rd-party cookie
+                // sorunlarından kaçınır); ilk SSO kontrolü silent redirect ile yapılır.
                 checkLoginIframe: false,
             })
             .then((auth) => {
