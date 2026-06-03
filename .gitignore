@@ -26,6 +26,9 @@ sonar-token.txt
 .env
 .env.local
 
+# Local GKE secret values consumed by apply-secrets.ps1 (NEVER commit real values)
+.secrets.local.env
+
 # Docker
 *.sql
 !init-db.sql

@@ -88,6 +88,21 @@ gcloud projects add-iam-policy-binding $PROJECT_ID `
 
 ### 3. Uygulama secret'larını yeniden uygula (cluster sildiyse DB ile birlikte gittiler)
 
+> **KISA YOL (önerilen):** Repo kökündeki `apply-secrets.ps1` + `.secrets.local.env`
+> ile tek komut. Bir kez kurulum:
+> ```powershell
+> Copy-Item .secrets.local.env.example .secrets.local.env   # bir kez
+> notepad .secrets.local.env                                 # gerçek değerleri doldur (bir kez)
+> ```
+> Sonra HER açılışta sadece:
+> ```powershell
+> .\apply-secrets.ps1
+> ```
+> `.secrets.local.env` gitignore'da (asla commit edilmez). Script KC_DB_PASSWORD =
+> POSTGRES_PASSWORD eşleşmesini de otomatik doğrular. Aşağıdaki elle yöntem alternatiftir.
+
+#### Elle yöntem (script kullanmıyorsan)
+
 ```powershell
 kubectl create namespace finans-portali --dry-run=client -o yaml | kubectl apply -f -
 
