@@ -148,6 +148,85 @@ public class YahooPriceFetcher {
         return fetchHistory(yahooSymbol, range, "1d");
     }
 
+    /**
+     * Fetch full OHLCV candles (the same Yahoo chart payload as
+     * {@link #fetchHistory} but keeping open/high/low/volume, not just close).
+     * Used by the native chart. Bars with a null close are skipped; missing
+     * O/H/L fall back to the close so the candle still renders as a doji.
+     */
+    public List<Bar> fetchCandles(String yahooSymbol, String range, String interval) {
+        try {
+            Map<?, ?> resp = client.get()
+                    .uri(u -> u.path("/v8/finance/chart/{symbol}")
+                            .queryParam("interval", interval)
+                            .queryParam(PARAM_RANGE, range)
+                            .build(yahooSymbol))
+                    .retrieve()
+                    .bodyToMono(Map.class)
+                    .block();
+            return parseCandles(yahooSymbol, resp);
+        } catch (WebClientResponseException e) {
+            log.warn("[Yahoo] HTTP {} candles for '{}': {}", e.getStatusCode(), yahooSymbol, e.getMessage());
+            return List.of();
+        } catch (Exception e) {
+            log.warn("[Yahoo] fetchCandles failed for '{}': {}", yahooSymbol, e.getMessage());
+            return List.of();
+        }
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<Bar> parseCandles(String symbol, Map<?, ?> resp) {
+        if (resp == null) return List.of();
+        try {
+            Map<String, Object> chart = (Map<String, Object>) resp.get("chart");
+            if (chart == null || chart.get("error") != null) return List.of();
+            List<Map<String, Object>> results = (List<Map<String, Object>>) chart.get("result");
+            if (results == null || results.isEmpty()) return List.of();
+
+            Map<String, Object> result = results.get(0);
+            List<?> ts = (List<?>) result.get("timestamp");
+            Map<String, Object> indicators = (Map<String, Object>) result.get("indicators");
+            if (ts == null || indicators == null) return List.of();
+            List<Map<String, Object>> quoteList = (List<Map<String, Object>>) indicators.get("quote");
+            if (quoteList == null || quoteList.isEmpty()) return List.of();
+
+            Map<String, Object> q = quoteList.get(0);
+            List<?> opens = (List<?>) q.get("open");
+            List<?> highs = (List<?>) q.get("high");
+            List<?> lows = (List<?>) q.get("low");
+            List<?> closes = (List<?>) q.get("close");
+            List<?> volumes = (List<?>) q.get("volume");
+            if (closes == null) return List.of();
+
+            List<Bar> out = new ArrayList<>();
+            Set<Long> seen = new LinkedHashSet<>();
+            for (int i = 0; i < ts.size(); i++) {
+                Long t = num(ts.get(i));
+                if (t == null || !seen.add(t)) continue;
+                BigDecimal c = i < closes.size() ? bd(closes.get(i)) : null;
+                if (c == null || c.signum() <= 0) continue;
+                BigDecimal o = at(opens, i, c);
+                BigDecimal h = at(highs, i, c);
+                BigDecimal l = at(lows, i, c);
+                Long v = volumes != null && i < volumes.size() ? num(volumes.get(i)) : null;
+                out.add(new Bar(t, o, h, l, c, v));
+            }
+            out.sort(Comparator.comparingLong(Bar::time));
+            log.debug("[Yahoo] candles '{}' -> {} bars", symbol, out.size());
+            return out;
+        } catch (Exception e) {
+            log.warn("[Yahoo] candle parse error for '{}': {}", symbol, e.getMessage());
+            return List.of();
+        }
+    }
+
+    /** Array element as BigDecimal, falling back to {@code dflt} when null/zero. */
+    private static BigDecimal at(List<?> arr, int i, BigDecimal dflt) {
+        if (arr == null || i >= arr.size()) return dflt;
+        BigDecimal v = bd(arr.get(i));
+        return (v == null || v.signum() <= 0) ? dflt : v;
+    }
+
     // ── Parse ────────────────────────────────────────────────────────────────
 
     @SuppressWarnings("unchecked")
@@ -417,6 +496,16 @@ public class YahooPriceFetcher {
      * timestamp: Unix epoch seconds (for sorting)
      * label: display string for chart axis (HH:mm for intraday, yyyy-MM-dd for daily)
      */
+    /** A full OHLCV candle. {@code time} is Unix epoch seconds (UTC). */
+    public record Bar(
+            long time,
+            BigDecimal open,
+            BigDecimal high,
+            BigDecimal low,
+            BigDecimal close,
+            Long volume
+    ) {}
+
     public record DayClose(
             LocalDate day,
             BigDecimal close,

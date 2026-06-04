@@ -1,6 +1,7 @@
 package com.finansportali.backend.controller;
 
 import com.finansportali.backend.entity.MarketInstrument;
+import com.finansportali.backend.dto.response.market.MarketCandleDto;
 import com.finansportali.backend.dto.response.market.MarketHistoryPoint;
 import com.finansportali.backend.dto.response.market.MarketSummaryItem;
 import com.finansportali.backend.service.MarketService;
@@ -70,6 +71,15 @@ public class MarketController {
             @RequestParam(required = false, defaultValue = "30D") String period
     ) {
         return service.history(symbol, period);
+    }
+
+    /** OHLC candles for the native chart over the given period (default 30D). */
+    @GetMapping("/candles")
+    public List<MarketCandleDto> candles(
+            @RequestParam String symbol,
+            @RequestParam(required = false, defaultValue = "30D") String period
+    ) {
+        return service.candles(symbol, period);
     }
 
     /**

@@ -90,6 +90,12 @@ public class MarketService {
         return historyService.getHistory(symbol, period);
     }
 
+    /** OHLC candles for the native chart over the given period. */
+    public List<com.finansportali.backend.dto.response.market.MarketCandleDto> candles(String symbol, String period) {
+        seedIfEmpty();
+        return historyService.getCandles(symbol, period);
+    }
+
     /** Historical FX rate points for a currency code over the given period. */
     public List<MarketHistoryPoint> historyForFx(String currencyCode, String period) {
         return historyService.getFxHistory(currencyCode, period);

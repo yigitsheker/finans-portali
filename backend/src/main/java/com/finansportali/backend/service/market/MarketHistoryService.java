@@ -3,6 +3,7 @@ package com.finansportali.backend.service.market;
 import com.finansportali.backend.entity.InstrumentType;
 import com.finansportali.backend.entity.MarketInstrument;
 import com.finansportali.backend.dto.response.market.MarketHistoryPoint;
+import com.finansportali.backend.dto.response.market.MarketCandleDto;
 import com.finansportali.backend.repository.MarketCandleRepository;
 import com.finansportali.backend.repository.MarketInstrumentRepository;
 import com.finansportali.backend.service.client.market.YahooPriceFetcher;
@@ -57,6 +58,55 @@ public class MarketHistoryService {
 
         List<MarketHistoryPoint> yahooHistory = fetchYahooHistory(inst, period);
         return yahooHistory.isEmpty() ? getDatabaseHistory(inst, period) : yahooHistory;
+    }
+
+    /**
+     * OHLC candles for the native chart. Uses Yahoo OHLCV for market
+     * instruments (works for BIST .IS too) and DB candles for FUND/BOND/VIOP
+     * (and as a Yahoo fallback). Cached like {@link #getHistory}.
+     */
+    @Cacheable(cacheNames = "marketHistory", key = "'candles:' + #symbol + ':' + #period")
+    public List<MarketCandleDto> getCandles(String symbol, String period) {
+        MarketInstrument inst = instrumentRepo.findBySymbol(symbol)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown symbol: " + symbol));
+
+        if (usesDatabaseCandles(inst.getInstrumentType())) {
+            return getDatabaseCandles(inst, period);
+        }
+
+        String yahooSymbol = instrumentService.normalizeSymbolForYahoo(symbol, inst.getInstrumentType());
+        YahooRangeConfig config = mapPeriodToYahooRange(period);
+        List<YahooPriceFetcher.Bar> bars;
+        try {
+            bars = yahooPriceFetcher.fetchCandles(yahooSymbol, config.range(), config.interval());
+        } catch (RuntimeException e) {
+            log.error("Failed to fetch Yahoo candles for symbol={} yahooSymbol={}: {}",
+                    symbol, yahooSymbol, e.getMessage());
+            return getDatabaseCandles(inst, period);
+        }
+        if (bars.isEmpty()) {
+            return getDatabaseCandles(inst, period);
+        }
+        return bars.stream()
+                .map(b -> new MarketCandleDto(b.time(), b.open(), b.high(), b.low(), b.close(), b.volume()))
+                .toList();
+    }
+
+    private List<MarketCandleDto> getDatabaseCandles(MarketInstrument inst, String period) {
+        int days = switch ((period == null ? "30D" : period).toUpperCase(Locale.ROOT)) {
+            case "1D", "1G" -> 2;
+            case "5D", "5G" -> 5;
+            case "30D", "1A" -> 30;
+            case "1Y" -> 365;
+            default -> 30;
+        };
+        LocalDate end = LocalDate.now();
+        LocalDate start = end.minusDays(days);
+        return candleRepo.findByInstrumentAndDayBetweenOrderByDayAsc(inst, start, end).stream()
+                .map(c -> new MarketCandleDto(
+                        c.getDay().atStartOfDay().toEpochSecond(java.time.ZoneOffset.UTC),
+                        c.getOpen(), c.getHigh(), c.getLow(), c.getClose(), c.getVolume()))
+                .toList();
     }
 
     private static boolean usesDatabaseCandles(InstrumentType type) {
