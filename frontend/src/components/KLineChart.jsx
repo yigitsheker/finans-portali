@@ -1,44 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
-import { init, dispose, registerIndicator } from "klinecharts";
+import { init, dispose } from "klinecharts";
 import { getCandles, searchInstruments } from "../api/marketChartApi";
 import { useI18n } from "../contexts/I18nContext";
-
-// Comparison indicator: plots the MAIN symbol and a comparison symbol both as
-// % change from the first bar (base 0) in their own pane, so two instruments
-// with very different price scales (e.g. GARAN ₺129 vs AKBNK ₺64) can be
-// compared by shape/relative performance. The comparison closes-by-timestamp
-// map is injected via the indicator's extendData. Registered once globally.
-let compareRegistered = false;
-function ensureCompareIndicator() {
-    if (compareRegistered) return;
-    try {
-        registerIndicator({
-            name: "COMPARE",
-            shortName: "Karşılaştırma %",
-            figures: [
-                { key: "base", title: "Ana: ", type: "line" },
-                { key: "cmp", title: "Karş.: ", type: "line" },
-            ],
-            calc: (dataList, indicator) => {
-                const map = (indicator.extendData && indicator.extendData.map) || {};
-                const baseFirst = dataList.length ? dataList[0].close : null;
-                let cmpFirst = null;
-                for (const d of dataList) {
-                    const v = map[d.timestamp];
-                    if (v != null) { cmpFirst = v; break; }
-                }
-                return dataList.map((d) => {
-                    const base = baseFirst ? (d.close / baseFirst - 1) * 100 : null;
-                    const cv = map[d.timestamp];
-                    const cmp = (cmpFirst && cv != null) ? (cv / cmpFirst - 1) * 100 : null;
-                    return { base, cmp };
-                });
-            },
-        });
-        compareRegistered = true;
-    } catch { /* already registered */ }
-}
 
 const PERIODS = ["1G", "5G", "1A", "1Y"];
 
@@ -84,43 +48,66 @@ const DARK_STYLES = {
     },
 };
 
+const toBars = (data) => data.map((c) => ({
+    timestamp: c.time * 1000,
+    open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume,
+}));
+
+// One-way view sync: copy the main chart's zoom (bar space) and right-edge
+// offset onto the comparison chart so the two candlestick charts stay aligned
+// by date. The comparison chart has scroll/zoom disabled, so this never loops.
+const mirrorView = (src, dst) => {
+    if (!src || !dst) return;
+    try {
+        dst.setBarSpace(src.getBarSpace());
+        dst.setOffsetRightDistance(src.getOffsetRightDistance());
+    } catch { /* charts not ready */ }
+};
+
 /**
  * Detailed chart backed by the app's OWN OHLC data (/api/v1/market/candles),
  * rendered with klinecharts — which ships a full trader drawing-tool suite
  * (trend/ray/line, horizontal & vertical, price line, parallel & channel,
  * Fibonacci) plus MA/VOL/RSI/MACD indicators. Works for every symbol incl.
  * BIST. Drawn overlays persist per-symbol in localStorage.
+ *
+ * Comparison shows the second symbol as its OWN candlestick chart stacked
+ * below the main one (a second klinecharts instance), with the two views
+ * kept in sync — instead of a single normalized % line.
  */
 export default function KLineChart({ symbol }) {
     const { t } = useI18n();
     const elRef = useRef(null);
     const chartRef = useRef(null);
+    const cmpElRef = useRef(null);
+    const cmpChartRef = useRef(null);
     const panesRef = useRef({}); // indicator name -> paneId
     const [period, setPeriod] = useState("1A");
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const [ind, setInd] = useState({ MA: true, VOL: true, RSI: true, MACD: true });
+    const [cmpLoading, setCmpLoading] = useState(false);
+    // MA + VOL on by default; RSI/MACD are opt-in to keep the default view
+    // uncluttered (no surprise extra panes at the bottom).
+    const [ind, setInd] = useState({ MA: true, VOL: true, RSI: false, MACD: false });
     const [activeTool, setActiveTool] = useState(null);
     const [compareSymbol, setCompareSymbol] = useState(null);
     const [compareInput, setCompareInput] = useState("");
     const [suggestions, setSuggestions] = useState([]);
     const [showSug, setShowSug] = useState(false);
-    const compareCreatedRef = useRef(false);
-    const compareMapRef = useRef(null);
 
     const ovKey = `chart-overlays-${symbol}`;
 
-    // ── init chart once ──────────────────────────────────────────────────────
+    // ── init main chart once ─────────────────────────────────────────────────
     useEffect(() => {
-        ensureCompareIndicator();
         const chart = init(elRef.current);
         chart.setStyles(DARK_STYLES);
         chartRef.current = chart;
-        // default indicators
+        // default indicators (MA on the candle pane, VOL in its own pane)
         panesRef.current.MA = chart.createIndicator("MA", true, { id: "candle_pane" });
         panesRef.current.VOL = chart.createIndicator("VOL");
-        panesRef.current.RSI = chart.createIndicator("RSI");
-        panesRef.current.MACD = chart.createIndicator("MACD");
+        // keep the comparison chart aligned to the main chart's pan/zoom
+        chart.subscribeAction("onScroll", () => mirrorView(chart, cmpChartRef.current));
+        chart.subscribeAction("onZoom", () => mirrorView(chart, cmpChartRef.current));
 
         const ro = new ResizeObserver(() => { try { chart.resize(); } catch { /* disposed */ } });
         ro.observe(elRef.current);
@@ -141,11 +128,9 @@ export default function KLineChart({ symbol }) {
         getCandles(symbol, period)
             .then((data) => {
                 if (cancelled || !chartRef.current) return;
-                chart.applyNewData(data.map((c) => ({
-                    timestamp: c.time * 1000,
-                    open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume,
-                })));
+                chart.applyNewData(toBars(data));
                 restoreOverlays();
+                mirrorView(chart, cmpChartRef.current);
                 setLoading(false);
             })
             .catch(() => { if (!cancelled) { setError(t("nativeChart.loadError")); setLoading(false); } });
@@ -153,44 +138,42 @@ export default function KLineChart({ symbol }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [symbol, period]);
 
-    // (Re)build the comparison pane from the cached map. Always removes then
-    // recreates so it survives indicator toggles — klinecharts re-lays-out panes
-    // when an indicator pane (e.g. VOL) is removed, which otherwise wiped the
-    // comparison pane. Idempotent and self-healing.
-    const renderCompare = useCallback(() => {
-        const chart = chartRef.current;
-        if (!chart) return;
-        try { chart.removeIndicator("compare_pane", "COMPARE"); } catch { /* none */ }
-        compareCreatedRef.current = false;
-        if (!compareSymbol || !compareMapRef.current) return;
-        try {
-            chart.createIndicator({
-                name: "COMPARE",
-                shortName: `% ${symbol} / ${compareSymbol}`,
-                extendData: { map: compareMapRef.current },
-                styles: { lines: [{ color: "#3b82f6" }, { color: "#f59e0b" }] },
-            }, false, { id: "compare_pane" });
-            compareCreatedRef.current = true;
-        } catch { /* indicator api */ }
-    }, [compareSymbol, symbol]);
-
-    // ── comparison symbol (% change pane) ─────────────────────────────────────
+    // ── comparison: second candlestick chart for the compare symbol ──────────
+    // Created when a compare symbol is chosen, reloaded on period change, and
+    // disposed when cleared. Scroll/zoom disabled — it follows the main chart.
     useEffect(() => {
-        const chart = chartRef.current;
-        if (!chart) return;
-        if (!compareSymbol) { compareMapRef.current = null; renderCompare(); return; }
+        if (!compareSymbol) return;
+        const el = cmpElRef.current;
+        if (!el) return;
+        const chart = init(el);
+        chart.setStyles(DARK_STYLES);
+        chart.setScrollEnabled(false);
+        chart.setZoomEnabled(false);
+        chart.createIndicator("MA", true, { id: "candle_pane" });
+        cmpChartRef.current = chart;
+
+        const ro = new ResizeObserver(() => { try { chart.resize(); } catch { /* disposed */ } });
+        ro.observe(el);
+
         let cancelled = false;
+        setCmpLoading(true);
         getCandles(compareSymbol, period)
             .then((data) => {
-                if (cancelled || !chartRef.current) return;
-                const map = {};
-                data.forEach((c) => { map[c.time * 1000] = c.close; });
-                compareMapRef.current = map;
-                renderCompare();
+                if (cancelled) return;
+                chart.applyNewData(toBars(data));
+                mirrorView(chartRef.current, chart);
+                setCmpLoading(false);
             })
-            .catch(() => { /* comparison fetch failed — leave chart as-is */ });
-        return () => { cancelled = true; };
-    }, [compareSymbol, period, renderCompare]);
+            .catch(() => { if (!cancelled) setCmpLoading(false); });
+
+        return () => {
+            cancelled = true;
+            ro.disconnect();
+            try { dispose(chart); } catch { /* already disposed */ }
+            cmpChartRef.current = null;
+        };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [compareSymbol, period]);
 
     // ── comparison autocomplete (debounced instrument search) ────────────────
     useEffect(() => {
@@ -263,9 +246,6 @@ export default function KLineChart({ symbol }) {
             }
         } catch { /* indicator api */ }
         setInd((prev) => ({ ...prev, [name]: on }));
-        // Removing an indicator pane re-lays-out the panes; re-assert the
-        // comparison pane so it doesn't get dropped.
-        renderCompare();
     };
 
     const pickCompare = (sym) => {
@@ -310,7 +290,7 @@ export default function KLineChart({ symbol }) {
                 <div style={s.grp}>
                     {compareSymbol ? (
                         <span style={s.cmpChip}>
-                            % {symbol}/{compareSymbol}
+                            {t("chartTools.compare")}: {compareSymbol}
                             <button type="button" style={s.cmpX} onClick={clearCompare} aria-label="x">✕</button>
                         </span>
                     ) : (
@@ -346,8 +326,18 @@ export default function KLineChart({ symbol }) {
 
             {error && <div style={s.error}>{error}</div>}
             <div style={s.chartBox}>
-                <div ref={elRef} style={s.chart} />
-                {loading && <div style={s.loading}>{t("nativeChart.loading")}</div>}
+                <div style={{ ...s.pane, flex: compareSymbol ? 1.8 : 1 }}>
+                    <span style={s.paneLabel}>{symbol}</span>
+                    <div ref={elRef} style={s.chart} />
+                    {loading && <div style={s.loading}>{t("nativeChart.loading")}</div>}
+                </div>
+                {compareSymbol && (
+                    <div style={{ ...s.pane, flex: 1, borderTop: `2px solid ${AXIS}` }}>
+                        <span style={s.paneLabel}>{compareSymbol}</span>
+                        <div ref={cmpElRef} style={s.chart} />
+                        {cmpLoading && <div style={s.loading}>{t("nativeChart.loading")}</div>}
+                    </div>
+                )}
             </div>
         </div>
     );
@@ -369,7 +359,9 @@ const s = {
     sugName: { fontSize: 11, color: "#9ba7b4" },
     cmpChip: { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", color: "#22c55e", fontSize: 12, fontWeight: 700 },
     cmpX: { border: "none", background: "transparent", color: "#9ba7b4", cursor: "pointer", fontSize: 12, padding: 0 },
-    chartBox: { position: "relative", flex: 1, minHeight: 0 },
+    chartBox: { position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" },
+    pane: { position: "relative", minHeight: 0 },
+    paneLabel: { position: "absolute", top: 6, left: 8, zIndex: 5, padding: "2px 7px", borderRadius: 5, background: "rgba(22,27,34,0.7)", color: "#e6edf3", fontSize: 12, fontWeight: 700, pointerEvents: "none" },
     chart: { width: "100%", height: "100%" },
     loading: { position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "#9ba7b4", fontSize: 14, pointerEvents: "none" },
     error: { padding: "8px 12px", borderRadius: 8, background: "rgba(220,38,38,0.1)", color: "#dc2626", fontSize: 13 },
