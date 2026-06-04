@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { init, dispose, registerIndicator } from "klinecharts";
 import { getCandles, searchInstruments } from "../api/marketChartApi";
@@ -106,6 +106,7 @@ export default function KLineChart({ symbol }) {
     const [suggestions, setSuggestions] = useState([]);
     const [showSug, setShowSug] = useState(false);
     const compareCreatedRef = useRef(false);
+    const compareMapRef = useRef(null);
 
     const ovKey = `chart-overlays-${symbol}`;
 
@@ -152,40 +153,44 @@ export default function KLineChart({ symbol }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [symbol, period]);
 
-    // ── comparison symbol (% change overlay pane) ────────────────────────────
+    // (Re)build the comparison pane from the cached map. Always removes then
+    // recreates so it survives indicator toggles — klinecharts re-lays-out panes
+    // when an indicator pane (e.g. VOL) is removed, which otherwise wiped the
+    // comparison pane. Idempotent and self-healing.
+    const renderCompare = useCallback(() => {
+        const chart = chartRef.current;
+        if (!chart) return;
+        try { chart.removeIndicator("compare_pane", "COMPARE"); } catch { /* none */ }
+        compareCreatedRef.current = false;
+        if (!compareSymbol || !compareMapRef.current) return;
+        try {
+            chart.createIndicator({
+                name: "COMPARE",
+                shortName: `% ${symbol} / ${compareSymbol}`,
+                extendData: { map: compareMapRef.current },
+                styles: { lines: [{ color: "#3b82f6" }, { color: "#f59e0b" }] },
+            }, false, { id: "compare_pane" });
+            compareCreatedRef.current = true;
+        } catch { /* indicator api */ }
+    }, [compareSymbol, symbol]);
+
+    // ── comparison symbol (% change pane) ─────────────────────────────────────
     useEffect(() => {
         const chart = chartRef.current;
         if (!chart) return;
-        if (!compareSymbol) {
-            if (compareCreatedRef.current) {
-                try { chart.removeIndicator("compare_pane", "COMPARE"); } catch { /* gone */ }
-                compareCreatedRef.current = false;
-            }
-            return;
-        }
+        if (!compareSymbol) { compareMapRef.current = null; renderCompare(); return; }
         let cancelled = false;
         getCandles(compareSymbol, period)
             .then((data) => {
                 if (cancelled || !chartRef.current) return;
                 const map = {};
                 data.forEach((c) => { map[c.time * 1000] = c.close; });
-                const cfg = {
-                    name: "COMPARE",
-                    shortName: `% ${symbol} / ${compareSymbol}`,
-                    extendData: { map },
-                    styles: { lines: [{ color: "#3b82f6" }, { color: "#f59e0b" }] },
-                };
-                if (compareCreatedRef.current) {
-                    chart.overrideIndicator(cfg, "compare_pane");
-                } else {
-                    chart.createIndicator(cfg, false, { id: "compare_pane" });
-                    compareCreatedRef.current = true;
-                }
+                compareMapRef.current = map;
+                renderCompare();
             })
             .catch(() => { /* comparison fetch failed — leave chart as-is */ });
         return () => { cancelled = true; };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [compareSymbol, period, symbol]);
+    }, [compareSymbol, period, renderCompare]);
 
     // ── comparison autocomplete (debounced instrument search) ────────────────
     useEffect(() => {
@@ -245,21 +250,22 @@ export default function KLineChart({ symbol }) {
     const toggleInd = (name) => {
         const chart = chartRef.current;
         if (!chart) return;
-        setInd((prev) => {
-            const on = !prev[name];
-            try {
-                if (on) {
-                    panesRef.current[name] = name === "MA"
-                        ? chart.createIndicator("MA", true, { id: "candle_pane" })
-                        : chart.createIndicator(name);
-                } else if (name === "MA") {
-                    chart.removeIndicator("candle_pane", "MA");
-                } else if (panesRef.current[name]) {
-                    chart.removeIndicator(panesRef.current[name], name);
-                }
-            } catch { /* indicator api */ }
-            return { ...prev, [name]: on };
-        });
+        const on = !ind[name];
+        try {
+            if (on) {
+                panesRef.current[name] = name === "MA"
+                    ? chart.createIndicator("MA", true, { id: "candle_pane" })
+                    : chart.createIndicator(name);
+            } else if (name === "MA") {
+                chart.removeIndicator("candle_pane", "MA");
+            } else if (panesRef.current[name]) {
+                chart.removeIndicator(panesRef.current[name], name);
+            }
+        } catch { /* indicator api */ }
+        setInd((prev) => ({ ...prev, [name]: on }));
+        // Removing an indicator pane re-lays-out the panes; re-assert the
+        // comparison pane so it doesn't get dropped.
+        renderCompare();
     };
 
     const pickCompare = (sym) => {
