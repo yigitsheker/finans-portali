@@ -105,6 +105,13 @@ export default function TradingViewWidget({ symbol, theme = "dark", height = "50
                     toolbar_bg: theme === "dark" ? "#161b22" : "#f1f3f6",
                     enable_publishing: false,
                     hide_top_toolbar: false,
+                    // Show the LEFT drawing-tools toolbar (trend lines, fibo,
+                    // shapes, text…). It was hidden by default; this turns the
+                    // embed into a fully interactive chart for symbols that
+                    // render (US/crypto/FX/commodities/indices).
+                    hide_side_toolbar: false,
+                    withdateranges: true,
+                    details: true,
                     hide_legend: false,
                     save_image: true,
                     allow_symbol_change: true,
