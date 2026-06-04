@@ -1,10 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, memo } from "react";
 import PropTypes from "prop-types";
 import { init, dispose } from "klinecharts";
 import { getCandles, searchInstruments } from "../api/marketChartApi";
 import { useI18n } from "../contexts/I18nContext";
 
 const PERIODS = ["1G", "5G", "1A", "1Y"];
+const IND_NAMES = ["MA", "VOL", "RSI", "MACD"];
+const MAX_COMPARES = 4;
 
 // Built-in klinecharts drawing overlays — the real "trader toolset".
 const TOOLS = [
@@ -36,7 +38,9 @@ const DARK_STYLES = {
             high: { color: TXT }, low: { color: TXT },
             last: { text: { color: "#fff" } },
         },
-        tooltip: { text: { color: TXT } },
+        // Push the always-on OHLC/MA legend below the per-pane symbol chip
+        // (top:6) so the two don't overlap in the top-left corner.
+        tooltip: { offsetLeft: 8, offsetTop: 28, text: { color: TXT } },
     },
     indicator: { tooltip: { text: { color: TXT } } },
     xAxis: { axisLine: { color: AXIS }, tickLine: { color: AXIS }, tickText: { color: TXT } },
@@ -53,67 +57,100 @@ const toBars = (data) => data.map((c) => ({
     open: c.open, high: c.high, low: c.low, close: c.close, volume: c.volume,
 }));
 
-// One-way view sync: copy the main chart's zoom (bar space) and right-edge
-// offset onto the comparison chart so the two candlestick charts stay aligned
-// by date. The comparison chart has scroll/zoom disabled, so this never loops.
+// One-way view sync: copy the main chart's zoom (bar width) and right-edge
+// offset onto a comparison chart so both anchor their most-recent bar at the
+// same place and scroll/zoom together. Exact date alignment holds when the
+// symbols share the same trading calendar (equal bar counts); otherwise the
+// charts stay right-edge aligned and drift slightly on the far left. Only the
+// main chart drives, so this never loops.
 const mirrorView = (src, dst) => {
-    if (!src || !dst) return;
+    if (!src || !dst || src === dst) return;
     try {
         dst.setBarSpace(src.getBarSpace());
         dst.setOffsetRightDistance(src.getOffsetRightDistance());
     } catch { /* charts not ready */ }
 };
 
+const overlayKey = (sym) => `chart-overlays-${sym}`;
+
+function saveOverlays(chart, sym) {
+    if (!chart?.getOverlays) return;
+    try {
+        const list = (chart.getOverlays() || []).map((o) => ({
+            name: o.name,
+            points: (o.points || []).map((p) => ({ timestamp: p.timestamp, value: p.value })),
+        })).filter((o) => o.points.length > 0);
+        localStorage.setItem(overlayKey(sym), JSON.stringify(list));
+    } catch { /* quota / api shape */ }
+}
+
+function restoreOverlays(chart, sym) {
+    if (!chart) return;
+    try { chart.removeOverlay(); } catch { /* none */ }
+    let saved = [];
+    try { saved = JSON.parse(localStorage.getItem(overlayKey(sym))) || []; } catch { saved = []; }
+    saved.forEach((o) => { try { chart.createOverlay({ name: o.name, points: o.points }); } catch { /* skip */ } });
+}
+
+// Reconcile a chart's indicators against the shared on/off selection. MA is an
+// overlay on the candle pane; VOL/RSI/MACD each get their own sub-pane. Applied
+// identically to every chart so the toolbar selection drives all of them.
+function applyIndicators(chart, paneIds, prev, next) {
+    IND_NAMES.forEach((name) => {
+        const was = !!prev[name];
+        const now = !!next[name];
+        if (was === now) return;
+        try {
+            if (now) {
+                paneIds[name] = name === "MA"
+                    ? chart.createIndicator("MA", true, { id: "candle_pane" })
+                    : chart.createIndicator(name);
+            } else if (name === "MA") {
+                chart.removeIndicator("candle_pane", "MA");
+            } else if (paneIds[name]) {
+                chart.removeIndicator(paneIds[name], name);
+            }
+        } catch { /* indicator api */ }
+    });
+}
+
 /**
- * Detailed chart backed by the app's OWN OHLC data (/api/v1/market/candles),
- * rendered with klinecharts — which ships a full trader drawing-tool suite
- * (trend/ray/line, horizontal & vertical, price line, parallel & channel,
- * Fibonacci) plus MA/VOL/RSI/MACD indicators. Works for every symbol incl.
- * BIST. Drawn overlays persist per-symbol in localStorage.
- *
- * Comparison shows the second symbol as its OWN candlestick chart stacked
- * below the main one (a second klinecharts instance), with the two views
- * kept in sync — instead of a single normalized % line.
+ * A single candlestick chart (one klinecharts instance) for one symbol. Loads
+ * its own OHLC, applies the shared indicator selection, arms the shared drawing
+ * tool on itself, restores its own drawn overlays (persisted per-symbol), and
+ * registers with the parent so the parent can drive cross-chart sync.
  */
-export default function KLineChart({ symbol }) {
+const CandlePane = memo(function CandlePane({
+    paneKey, symbol, period, indicators, activeTool, isMain, grow, basis, borderTop,
+    register, getMainChart, onMainView, onDrawn,
+}) {
     const { t } = useI18n();
     const elRef = useRef(null);
     const chartRef = useRef(null);
-    const cmpElRef = useRef(null);
-    const cmpChartRef = useRef(null);
-    const panesRef = useRef({}); // indicator name -> paneId
-    const [period, setPeriod] = useState("1A");
+    const paneIdsRef = useRef({});
+    const prevIndRef = useRef({});
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-    const [cmpLoading, setCmpLoading] = useState(false);
-    // MA + VOL on by default; RSI/MACD are opt-in to keep the default view
-    // uncluttered (no surprise extra panes at the bottom).
-    const [ind, setInd] = useState({ MA: true, VOL: true, RSI: false, MACD: false });
-    const [activeTool, setActiveTool] = useState(null);
-    const [compareSymbol, setCompareSymbol] = useState(null);
-    const [compareInput, setCompareInput] = useState("");
-    const [suggestions, setSuggestions] = useState([]);
-    const [showSug, setShowSug] = useState(false);
+    const [error, setError] = useState(false);
 
-    const ovKey = `chart-overlays-${symbol}`;
-
-    // ── init main chart once ─────────────────────────────────────────────────
+    // ── init this pane's chart once ──────────────────────────────────────────
     useEffect(() => {
         const chart = init(elRef.current);
         chart.setStyles(DARK_STYLES);
         chartRef.current = chart;
-        // default indicators (MA on the candle pane, VOL in its own pane)
-        panesRef.current.MA = chart.createIndicator("MA", true, { id: "candle_pane" });
-        panesRef.current.VOL = chart.createIndicator("VOL");
-        // keep the comparison chart aligned to the main chart's pan/zoom
-        chart.subscribeAction("onScroll", () => mirrorView(chart, cmpChartRef.current));
-        chart.subscribeAction("onZoom", () => mirrorView(chart, cmpChartRef.current));
-
+        applyIndicators(chart, paneIdsRef.current, {}, indicators);
+        prevIndRef.current = { ...indicators };
+        // Only the main chart drives the shared view; compares follow it.
+        if (isMain) {
+            chart.subscribeAction("onScroll", () => onMainView(chart));
+            chart.subscribeAction("onZoom", () => onMainView(chart));
+        }
+        register(paneKey, chart, isMain, symbol);
         const ro = new ResizeObserver(() => { try { chart.resize(); } catch { /* disposed */ } });
         ro.observe(elRef.current);
         return () => {
             ro.disconnect();
-            try { dispose(elRef.current); } catch { /* already disposed */ }
+            register(paneKey, null, isMain, symbol);
+            try { dispose(chart); } catch { /* already disposed */ }
             chartRef.current = null;
         };
         // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -124,143 +161,171 @@ export default function KLineChart({ symbol }) {
         const chart = chartRef.current;
         if (!chart) return;
         let cancelled = false;
-        setLoading(true); setError(null);
+        setLoading(true); setError(false);
         getCandles(symbol, period)
             .then((data) => {
                 if (cancelled || !chartRef.current) return;
                 chart.applyNewData(toBars(data));
-                restoreOverlays();
-                mirrorView(chart, cmpChartRef.current);
+                restoreOverlays(chart, symbol);
+                if (isMain) onMainView(chart);          // re-align compares to new data
+                else mirrorView(getMainChart(), chart); // align this new compare to main
                 setLoading(false);
             })
-            .catch(() => { if (!cancelled) { setError(t("nativeChart.loadError")); setLoading(false); } });
+            .catch(() => { if (!cancelled) { setError(true); setLoading(false); } });
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [symbol, period]);
 
-    // ── comparison: second candlestick chart for the compare symbol ──────────
-    // Created when a compare symbol is chosen, reloaded on period change, and
-    // disposed when cleared. Scroll/zoom disabled — it follows the main chart.
+    // ── apply shared indicator selection ─────────────────────────────────────
     useEffect(() => {
-        if (!compareSymbol) return;
-        const el = cmpElRef.current;
-        if (!el) return;
-        const chart = init(el);
-        chart.setStyles(DARK_STYLES);
-        chart.setScrollEnabled(false);
-        chart.setZoomEnabled(false);
-        chart.createIndicator("MA", true, { id: "candle_pane" });
-        cmpChartRef.current = chart;
+        const chart = chartRef.current;
+        if (!chart) return;
+        applyIndicators(chart, paneIdsRef.current, prevIndRef.current, indicators);
+        prevIndRef.current = { ...indicators };
+    }, [indicators]);
 
-        const ro = new ResizeObserver(() => { try { chart.resize(); } catch { /* disposed */ } });
-        ro.observe(el);
-
-        let cancelled = false;
-        setCmpLoading(true);
-        getCandles(compareSymbol, period)
-            .then((data) => {
-                if (cancelled) return;
-                chart.applyNewData(toBars(data));
-                mirrorView(chartRef.current, chart);
-                setCmpLoading(false);
-            })
-            .catch(() => { if (!cancelled) setCmpLoading(false); });
-
+    // ── arm the shared drawing tool on THIS pane ─────────────────────────────
+    // Reactive: every pane (incl. ones added after a tool is picked) arms the
+    // active tool. Drawing on any one pane finishes it (onDrawn clears the
+    // selection); the cleanup then disarms the still-pending overlays on the
+    // other panes. The `done` guard keeps the completed drawing from being
+    // removed by its own cleanup.
+    useEffect(() => {
+        const chart = chartRef.current;
+        if (!chart || !activeTool) return;
+        let overlayId = null;
+        let done = false;
+        try {
+            overlayId = chart.createOverlay({
+                name: activeTool,
+                onDrawEnd: () => { done = true; saveOverlays(chart, symbol); onDrawn(); return true; },
+            });
+        } catch { /* overlay api */ }
         return () => {
-            cancelled = true;
-            ro.disconnect();
-            try { dispose(chart); } catch { /* already disposed */ }
-            cmpChartRef.current = null;
+            if (!done && typeof overlayId === "string") {
+                try { chart.removeOverlay(overlayId); } catch { /* gone */ }
+            }
         };
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [compareSymbol, period]);
+    }, [activeTool, symbol, onDrawn]);
+
+    return (
+        <div style={{ ...s.pane, flexGrow: grow, flexBasis: basis, ...(borderTop ? { borderTop: `2px solid ${AXIS}` } : {}) }}>
+            <span style={s.paneLabel}>{symbol}</span>
+            <div ref={elRef} style={s.chart} />
+            {loading && <div style={s.loading}>{t("nativeChart.loading")}</div>}
+            {error && <div style={s.paneError}>{t("nativeChart.loadError")}</div>}
+        </div>
+    );
+});
+
+CandlePane.propTypes = {
+    paneKey: PropTypes.string.isRequired,
+    symbol: PropTypes.string.isRequired,
+    period: PropTypes.string.isRequired,
+    indicators: PropTypes.object.isRequired,
+    activeTool: PropTypes.string,
+    isMain: PropTypes.bool.isRequired,
+    grow: PropTypes.number.isRequired,
+    basis: PropTypes.number.isRequired,
+    borderTop: PropTypes.bool,
+    register: PropTypes.func.isRequired,
+    getMainChart: PropTypes.func.isRequired,
+    onMainView: PropTypes.func.isRequired,
+    onDrawn: PropTypes.func.isRequired,
+};
+
+/**
+ * Detailed chart backed by the app's OWN OHLC data (/api/v1/market/candles),
+ * rendered with klinecharts — a full trader drawing-tool suite (trend/ray/line,
+ * horizontal & vertical, price line, parallel & channel, Fibonacci) plus
+ * MA/VOL/RSI/MACD. Works for every symbol incl. BIST.
+ *
+ * Comparison: up to MAX_COMPARES extra symbols, each shown as its OWN
+ * candlestick chart stacked below the main one. The indicator selection AND the
+ * drawing tools apply to EVERY chart, and the compares follow the main chart's
+ * pan/zoom. Drawn overlays persist per-symbol in localStorage.
+ */
+export default function KLineChart({ symbol }) {
+    const { t } = useI18n();
+    const mainChartRef = useRef(null);
+    const comparesRef = useRef(new Map()); // paneKey -> { chart, symbol }
+    const [period, setPeriod] = useState("1A");
+    // MA + VOL on by default; RSI/MACD opt-in to keep the view uncluttered.
+    const [ind, setInd] = useState({ MA: true, VOL: true, RSI: false, MACD: false });
+    const [activeTool, setActiveTool] = useState(null);
+    const [compareSymbols, setCompareSymbols] = useState([]);
+    const [compareInput, setCompareInput] = useState("");
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSug, setShowSug] = useState(false);
+
+    // ── chart registry (stable callbacks; CandlePane registers on mount) ──────
+    const register = useCallback((key, chart, isMain, sym) => {
+        if (isMain) { mainChartRef.current = chart; return; }
+        if (chart) comparesRef.current.set(key, { chart, symbol: sym });
+        else comparesRef.current.delete(key);
+    }, []);
+    const getMainChart = useCallback(() => mainChartRef.current, []);
+    const onMainView = useCallback((mainChart) => {
+        comparesRef.current.forEach(({ chart }) => mirrorView(mainChart, chart));
+    }, []);
+    const onDrawn = useCallback(() => setActiveTool(null), []);
+
+    // Every live chart paired with the symbol its drawings persist under. Main
+    // uses the current `symbol` prop; compares use their (stable) registry key.
+    const allEntries = () => {
+        const list = [];
+        if (mainChartRef.current) list.push({ chart: mainChartRef.current, symbol });
+        comparesRef.current.forEach(({ chart, symbol: sym }) => list.push({ chart, symbol: sym }));
+        return list;
+    };
+
+    // ── handlers ─────────────────────────────────────────────────────────────
+    const toggleInd = (name) => setInd((prev) => ({ ...prev, [name]: !prev[name] }));
+
+    // Pick a tool: just flip the shared selection. Each pane arms itself (see
+    // CandlePane's arming effect), so newly-added panes become drawable too.
+    const pickTool = (name) => setActiveTool((prev) => (prev === name ? null : name));
+
+    const clearTools = () => {
+        setActiveTool(null);
+        allEntries().forEach(({ chart, symbol: sym }) => {
+            try { chart.removeOverlay(); } catch { /* none */ }
+            try { localStorage.removeItem(overlayKey(sym)); } catch { /* ignore */ }
+        });
+    };
+
+    const addCompare = (raw) => {
+        const v = (raw || "").toUpperCase().trim();
+        setCompareInput(""); setSuggestions([]); setShowSug(false);
+        if (!v || v === symbol) return;
+        setCompareSymbols((prev) =>
+            (prev.includes(v) || prev.length >= MAX_COMPARES) ? prev : [...prev, v]);
+    };
+    const applyCompare = () => addCompare(suggestions.length ? suggestions[0].symbol : compareInput);
+    const removeCompare = (sym) => setCompareSymbols((prev) => prev.filter((s) => s !== sym));
+
+    // Changing the symbol or period reloads every pane (which clears in-progress
+    // overlays); drop any armed tool so the toolbar state stays truthful.
+    useEffect(() => { setActiveTool(null); }, [period, symbol]);
 
     // ── comparison autocomplete (debounced instrument search) ────────────────
     useEffect(() => {
-        if (compareSymbol) { setSuggestions([]); setShowSug(false); return; }
         const q = compareInput.trim();
-        if (q.length < 2) { setSuggestions([]); setShowSug(false); return; }
+        if (q.length < 2 || compareSymbols.length >= MAX_COMPARES) {
+            setSuggestions([]); setShowSug(false); return;
+        }
         let cancelled = false;
         const id = setTimeout(() => {
             searchInstruments(q).then((r) => {
                 if (cancelled) return;
-                const list = r.filter((x) => (x.symbol || "").toUpperCase() !== symbol).slice(0, 8);
+                const taken = new Set([symbol, ...compareSymbols]);
+                const list = r.filter((x) => !taken.has((x.symbol || "").toUpperCase())).slice(0, 8);
                 setSuggestions(list);
                 setShowSug(list.length > 0);
             });
         }, 250);
         return () => { cancelled = true; clearTimeout(id); };
-    }, [compareInput, compareSymbol, symbol]);
-
-    // ── overlay persistence ──────────────────────────────────────────────────
-    function saveOverlays() {
-        const chart = chartRef.current;
-        if (!chart?.getOverlays) return;
-        try {
-            const list = (chart.getOverlays() || []).map((o) => ({
-                name: o.name,
-                points: (o.points || []).map((p) => ({ timestamp: p.timestamp, value: p.value })),
-            })).filter((o) => o.points.length > 0);
-            localStorage.setItem(ovKey, JSON.stringify(list));
-        } catch { /* quota / api shape */ }
-    }
-
-    function restoreOverlays() {
-        const chart = chartRef.current;
-        if (!chart) return;
-        try { chart.removeOverlay(); } catch { /* none */ }
-        let saved = [];
-        try { saved = JSON.parse(localStorage.getItem(ovKey)) || []; } catch { saved = []; }
-        saved.forEach((o) => { try { chart.createOverlay({ name: o.name, points: o.points }); } catch { /* skip */ } });
-    }
-
-    // ── handlers ─────────────────────────────────────────────────────────────
-    const pickTool = (name) => {
-        const chart = chartRef.current;
-        if (!chart) return;
-        setActiveTool(name);
-        chart.createOverlay({ name, onDrawEnd: () => { saveOverlays(); setActiveTool(null); return true; } });
-    };
-
-    const clearTools = () => {
-        const chart = chartRef.current;
-        if (!chart) return;
-        try { chart.removeOverlay(); } catch { /* none */ }
-        try { localStorage.removeItem(ovKey); } catch { /* ignore */ }
-        setActiveTool(null);
-    };
-
-    const toggleInd = (name) => {
-        const chart = chartRef.current;
-        if (!chart) return;
-        const on = !ind[name];
-        try {
-            if (on) {
-                panesRef.current[name] = name === "MA"
-                    ? chart.createIndicator("MA", true, { id: "candle_pane" })
-                    : chart.createIndicator(name);
-            } else if (name === "MA") {
-                chart.removeIndicator("candle_pane", "MA");
-            } else if (panesRef.current[name]) {
-                chart.removeIndicator(panesRef.current[name], name);
-            }
-        } catch { /* indicator api */ }
-        setInd((prev) => ({ ...prev, [name]: on }));
-    };
-
-    const pickCompare = (sym) => {
-        const v = (sym || "").toUpperCase();
-        if (v && v !== symbol) setCompareSymbol(v);
-        setCompareInput(""); setSuggestions([]); setShowSug(false);
-    };
-    const applyCompare = () => {
-        // Enter with an open list picks the first match; otherwise use raw text.
-        if (suggestions.length > 0) { pickCompare(suggestions[0].symbol); return; }
-        pickCompare(compareInput.trim());
-    };
-    const clearCompare = () => {
-        setCompareSymbol(null); setCompareInput(""); setSuggestions([]); setShowSug(false);
-    };
+    }, [compareInput, compareSymbols, symbol]);
 
     return (
         <div style={s.wrap}>
@@ -273,7 +338,7 @@ export default function KLineChart({ symbol }) {
                     ))}
                 </div>
                 <div style={s.grp}>
-                    {["MA", "VOL", "RSI", "MACD"].map((n) => (
+                    {IND_NAMES.map((n) => (
                         <button key={n} type="button"
                             style={{ ...s.btn, ...(ind[n] ? s.btnActive : {}) }}
                             onClick={() => toggleInd(n)}>{n}</button>
@@ -288,12 +353,13 @@ export default function KLineChart({ symbol }) {
                     <button type="button" style={s.btn} onClick={clearTools}>{t("nativeChart.clear")}</button>
                 </div>
                 <div style={s.grp}>
-                    {compareSymbol ? (
-                        <span style={s.cmpChip}>
-                            {t("chartTools.compare")}: {compareSymbol}
-                            <button type="button" style={s.cmpX} onClick={clearCompare} aria-label="x">✕</button>
+                    {compareSymbols.map((sym) => (
+                        <span key={sym} style={s.cmpChip}>
+                            {sym}
+                            <button type="button" style={s.cmpX} onClick={() => removeCompare(sym)} aria-label="remove">✕</button>
                         </span>
-                    ) : (
+                    ))}
+                    {compareSymbols.length < MAX_COMPARES && (
                         <div style={s.cmpSearchWrap}>
                             <input
                                 value={compareInput}
@@ -312,7 +378,7 @@ export default function KLineChart({ symbol }) {
                                 <div style={s.sugBox}>
                                     {suggestions.map((it) => (
                                         <button key={it.symbol} type="button" style={s.sugItem}
-                                            onMouseDown={() => pickCompare(it.symbol)}>
+                                            onMouseDown={() => addCompare(it.symbol)}>
                                             <span style={s.sugSym}>{it.symbol}</span>
                                             <span style={s.sugName}>{it.name}</span>
                                         </button>
@@ -324,20 +390,19 @@ export default function KLineChart({ symbol }) {
                 </div>
             </div>
 
-            {error && <div style={s.error}>{error}</div>}
             <div style={s.chartBox}>
-                <div style={{ ...s.pane, flex: compareSymbol ? 1.8 : 1 }}>
-                    <span style={s.paneLabel}>{symbol}</span>
-                    <div ref={elRef} style={s.chart} />
-                    {loading && <div style={s.loading}>{t("nativeChart.loading")}</div>}
-                </div>
-                {compareSymbol && (
-                    <div style={{ ...s.pane, flex: 1, borderTop: `2px solid ${AXIS}` }}>
-                        <span style={s.paneLabel}>{compareSymbol}</span>
-                        <div ref={cmpElRef} style={s.chart} />
-                        {cmpLoading && <div style={s.loading}>{t("nativeChart.loading")}</div>}
-                    </div>
-                )}
+                <CandlePane
+                    key="main" paneKey="main" symbol={symbol} period={period} indicators={ind}
+                    activeTool={activeTool} isMain grow={1.3} basis={300}
+                    register={register} getMainChart={getMainChart} onMainView={onMainView} onDrawn={onDrawn}
+                />
+                {compareSymbols.map((sym) => (
+                    <CandlePane
+                        key={sym} paneKey={sym} symbol={sym} period={period} indicators={ind}
+                        activeTool={activeTool} isMain={false} grow={1} basis={260} borderTop
+                        register={register} getMainChart={getMainChart} onMainView={onMainView} onDrawn={onDrawn}
+                    />
+                ))}
             </div>
         </div>
     );
@@ -359,10 +424,10 @@ const s = {
     sugName: { fontSize: 11, color: "#9ba7b4" },
     cmpChip: { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", color: "#22c55e", fontSize: 12, fontWeight: 700 },
     cmpX: { border: "none", background: "transparent", color: "#9ba7b4", cursor: "pointer", fontSize: 12, padding: 0 },
-    chartBox: { position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column" },
-    pane: { position: "relative", minHeight: 0 },
+    chartBox: { position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflowY: "auto" },
+    pane: { position: "relative", flexShrink: 0, minHeight: 220 },
     paneLabel: { position: "absolute", top: 6, left: 8, zIndex: 5, padding: "2px 7px", borderRadius: 5, background: "rgba(22,27,34,0.7)", color: "#e6edf3", fontSize: 12, fontWeight: 700, pointerEvents: "none" },
     chart: { width: "100%", height: "100%" },
     loading: { position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "#9ba7b4", fontSize: 14, pointerEvents: "none" },
-    error: { padding: "8px 12px", borderRadius: 8, background: "rgba(220,38,38,0.1)", color: "#dc2626", fontSize: 13 },
+    paneError: { position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "#dc2626", fontSize: 13, pointerEvents: "none" },
 };
