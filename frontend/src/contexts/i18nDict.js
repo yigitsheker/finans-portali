@@ -352,6 +352,14 @@ export const dict = {
       totalNominal: "Toplam Nominal",
       marketValue: "Güncel Değer",
     },
+    nativeChart: {
+      loading: "Grafik yükleniyor…",
+      loadError: "Grafik verisi alınamadı.",
+      empty: "Bu sembol için veri bulunamadı.",
+      hLine: "Yatay Çizgi",
+      hLineHint: "Aç ve grafiğe tıklayarak yatay çizgi ekle",
+      clear: "Temizle",
+    },
     inflation: {
       empty: "Henüz enflasyon verisi yok.",
       emptyHint: "TCMB EVDS3 erişimi sağlandığında otomatik dolacak.",
@@ -1119,6 +1127,14 @@ export const dict = {
       realizedPnl: "Realized P/L",
       totalNominal: "Total Nominal",
       marketValue: "Market Value",
+    },
+    nativeChart: {
+      loading: "Loading chart…",
+      loadError: "Could not load chart data.",
+      empty: "No data found for this symbol.",
+      hLine: "Horizontal Line",
+      hLineHint: "Enable, then click the chart to add a horizontal line",
+      clear: "Clear",
     },
     inflation: {
       empty: "No inflation data yet.",

@@ -1,12 +1,11 @@
 import { useSearchParams } from "react-router-dom";
-import TradingViewWidget from "../components/TradingViewWidget";
+import NativeChart from "../components/NativeChart";
 
-// Full-page TradingView chart opened in its own browser tab (route /chart).
-// The widget itself — tv.js bootstrap, SYMBOL_MAP, the S5725/SRI handling
-// and the widget-instance lifecycle — lives once in TradingViewWidget. This
-// page is just the surrounding chrome (close button + symbol header) and
-// maps the query string onto the widget's props, so there's a single copy
-// of the embed logic to maintain.
+// Full-page detailed chart opened in its own browser tab (route /chart).
+// Uses the native lightweight-charts component fed by our OWN backend OHLC
+// (/api/v1/market/candles) — so BIST and every other symbol render with data
+// consistent with the rest of the app, unlike the TradingView free embed which
+// gated BIST. The page is just the chrome (close button + symbol header).
 export default function ChartPage() {
     const [searchParams] = useSearchParams();
     const symbol = searchParams.get("symbol") || "THYAO";
@@ -23,7 +22,7 @@ export default function ChartPage() {
                 <div></div>
             </div>
             <div style={s.widget}>
-                <TradingViewWidget symbol={symbol} theme="dark" height="100%" />
+                <NativeChart symbol={symbol} />
             </div>
         </div>
     );
