@@ -370,6 +370,8 @@ export const dict = {
       parallel: "Paralel",
       channel: "Kanal",
       fib: "Fibonacci",
+      compare: "Karşılaştır",
+      comparePh: "Sembol (örn. AKBNK)",
     },
     inflation: {
       empty: "Henüz enflasyon verisi yok.",
@@ -1157,6 +1159,8 @@ export const dict = {
       parallel: "Parallel",
       channel: "Channel",
       fib: "Fibonacci",
+      compare: "Compare",
+      comparePh: "Symbol (e.g. AKBNK)",
     },
     inflation: {
       empty: "No inflation data yet.",

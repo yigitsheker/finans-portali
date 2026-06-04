@@ -1,8 +1,44 @@
 import { useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
-import { init, dispose } from "klinecharts";
+import { init, dispose, registerIndicator } from "klinecharts";
 import { getCandles } from "../api/marketChartApi";
 import { useI18n } from "../contexts/I18nContext";
+
+// Comparison indicator: plots the MAIN symbol and a comparison symbol both as
+// % change from the first bar (base 0) in their own pane, so two instruments
+// with very different price scales (e.g. GARAN ₺129 vs AKBNK ₺64) can be
+// compared by shape/relative performance. The comparison closes-by-timestamp
+// map is injected via the indicator's extendData. Registered once globally.
+let compareRegistered = false;
+function ensureCompareIndicator() {
+    if (compareRegistered) return;
+    try {
+        registerIndicator({
+            name: "COMPARE",
+            shortName: "Karşılaştırma %",
+            figures: [
+                { key: "base", title: "Ana: ", type: "line" },
+                { key: "cmp", title: "Karş.: ", type: "line" },
+            ],
+            calc: (dataList, indicator) => {
+                const map = (indicator.extendData && indicator.extendData.map) || {};
+                const baseFirst = dataList.length ? dataList[0].close : null;
+                let cmpFirst = null;
+                for (const d of dataList) {
+                    const v = map[d.timestamp];
+                    if (v != null) { cmpFirst = v; break; }
+                }
+                return dataList.map((d) => {
+                    const base = baseFirst ? (d.close / baseFirst - 1) * 100 : null;
+                    const cv = map[d.timestamp];
+                    const cmp = (cmpFirst && cv != null) ? (cv / cmpFirst - 1) * 100 : null;
+                    return { base, cmp };
+                });
+            },
+        });
+        compareRegistered = true;
+    } catch { /* already registered */ }
+}
 
 const PERIODS = ["1G", "5G", "1A", "1Y"];
 
@@ -65,11 +101,15 @@ export default function KLineChart({ symbol }) {
     const [error, setError] = useState(null);
     const [ind, setInd] = useState({ MA: true, VOL: true, RSI: true, MACD: true });
     const [activeTool, setActiveTool] = useState(null);
+    const [compareSymbol, setCompareSymbol] = useState(null);
+    const [compareInput, setCompareInput] = useState("");
+    const compareCreatedRef = useRef(false);
 
     const ovKey = `chart-overlays-${symbol}`;
 
     // ── init chart once ──────────────────────────────────────────────────────
     useEffect(() => {
+        ensureCompareIndicator();
         const chart = init(elRef.current);
         chart.setStyles(DARK_STYLES);
         chartRef.current = chart;
@@ -109,6 +149,41 @@ export default function KLineChart({ symbol }) {
         return () => { cancelled = true; };
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [symbol, period]);
+
+    // ── comparison symbol (% change overlay pane) ────────────────────────────
+    useEffect(() => {
+        const chart = chartRef.current;
+        if (!chart) return;
+        if (!compareSymbol) {
+            if (compareCreatedRef.current) {
+                try { chart.removeIndicator("compare_pane", "COMPARE"); } catch { /* gone */ }
+                compareCreatedRef.current = false;
+            }
+            return;
+        }
+        let cancelled = false;
+        getCandles(compareSymbol, period)
+            .then((data) => {
+                if (cancelled || !chartRef.current) return;
+                const map = {};
+                data.forEach((c) => { map[c.time * 1000] = c.close; });
+                const cfg = {
+                    name: "COMPARE",
+                    shortName: `% ${symbol} / ${compareSymbol}`,
+                    extendData: { map },
+                    styles: { lines: [{ color: "#3b82f6" }, { color: "#f59e0b" }] },
+                };
+                if (compareCreatedRef.current) {
+                    chart.overrideIndicator(cfg, "compare_pane");
+                } else {
+                    chart.createIndicator(cfg, false, { id: "compare_pane" });
+                    compareCreatedRef.current = true;
+                }
+            })
+            .catch(() => { /* comparison fetch failed — leave chart as-is */ });
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [compareSymbol, period, symbol]);
 
     // ── overlay persistence ──────────────────────────────────────────────────
     function saveOverlays() {
@@ -168,6 +243,12 @@ export default function KLineChart({ symbol }) {
         });
     };
 
+    const applyCompare = () => {
+        const v = compareInput.trim().toUpperCase();
+        if (v && v !== symbol) setCompareSymbol(v);
+    };
+    const clearCompare = () => { setCompareSymbol(null); setCompareInput(""); };
+
     return (
         <div style={s.wrap}>
             <div style={s.toolbar}>
@@ -193,6 +274,25 @@ export default function KLineChart({ symbol }) {
                     ))}
                     <button type="button" style={s.btn} onClick={clearTools}>{t("nativeChart.clear")}</button>
                 </div>
+                <div style={s.grp}>
+                    {compareSymbol ? (
+                        <span style={s.cmpChip}>
+                            % {symbol}/{compareSymbol}
+                            <button type="button" style={s.cmpX} onClick={clearCompare} aria-label="x">✕</button>
+                        </span>
+                    ) : (
+                        <>
+                            <input
+                                value={compareInput}
+                                onChange={(e) => setCompareInput(e.target.value.toUpperCase())}
+                                onKeyDown={(e) => { if (e.key === "Enter") applyCompare(); }}
+                                placeholder={t("chartTools.comparePh")}
+                                style={s.cmpInput}
+                            />
+                            <button type="button" style={s.btn} onClick={applyCompare}>{t("chartTools.compare")}</button>
+                        </>
+                    )}
+                </div>
             </div>
 
             {error && <div style={s.error}>{error}</div>}
@@ -212,6 +312,9 @@ const s = {
     grp: { display: "inline-flex", flexWrap: "wrap", gap: 4, background: "#161b22", border: "1px solid #222a33", borderRadius: 8, padding: 3 },
     btn: { padding: "5px 9px", borderRadius: 6, border: "none", background: "transparent", color: "#9ba7b4", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
     btnActive: { background: "rgba(34,197,94,0.15)", color: "#22c55e" },
+    cmpInput: { width: 120, padding: "5px 8px", borderRadius: 6, border: "none", background: "transparent", color: "#e6edf3", fontSize: 12, outline: "none" },
+    cmpChip: { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", color: "#22c55e", fontSize: 12, fontWeight: 700 },
+    cmpX: { border: "none", background: "transparent", color: "#9ba7b4", cursor: "pointer", fontSize: 12, padding: 0 },
     chartBox: { position: "relative", flex: 1, minHeight: 0 },
     chart: { width: "100%", height: "100%" },
     loading: { position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "#9ba7b4", fontSize: 14, pointerEvents: "none" },
