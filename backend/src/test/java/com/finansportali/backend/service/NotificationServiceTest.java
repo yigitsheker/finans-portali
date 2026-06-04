@@ -46,7 +46,12 @@ class NotificationServiceTest {
 
     @BeforeEach
     void setup() {
-        ReflectionTestUtils.setField(service, "fromEmail", "noreply@finansportali.com");
+        // isMailConfigured() needs the master switch ON and a REAL sender (not
+        // blank, not the literal noreply fallback) before it will attempt an
+        // SMTP send. Plain Mockito doesn't inject @Value fields, so set both
+        // here; individual tests override fromEmail to exercise the skip path.
+        ReflectionTestUtils.setField(service, "mailEnabled", true);
+        ReflectionTestUtils.setField(service, "fromEmail", "alerts@finansportali.com");
         // Default: mail sender returns a real MimeMessage so MimeMessageHelper can fill it in.
         MimeMessage real = new MimeMessage(Session.getInstance(new Properties()));
         when(mailSender.createMimeMessage()).thenReturn(real);
@@ -221,7 +226,11 @@ class NotificationServiceTest {
     // ---------- fromEmail fallback ----------
 
     @Test
-    void empty_fromEmail_falls_back_to_literal_noreply() {
+    void blank_fromEmail_skips_email_as_safety_net() {
+        // When app.mail.from resolves to blank (or only the literal noreply
+        // fallback), isMailConfigured() returns false, so the SMTP send is
+        // skipped to avoid noisy auth failures with a bogus sender. The in-app
+        // notification is still recorded.
         ReflectionTestUtils.setField(service, "fromEmail", "");
         when(keycloakUserService.getUserEmail(auth)).thenReturn("alice@x");
         when(keycloakUserService.getUsername(auth)).thenReturn("alice");
@@ -231,7 +240,8 @@ class NotificationServiceTest {
                 new BigDecimal("315"),
                 auth);
 
-        verify(mailSender).send(any(MimeMessage.class));
+        verify(notificationRepository).save(any());
+        verify(mailSender, never()).send(any(MimeMessage.class));
     }
 
     // ---------- formatAlertMessage variants ----------
