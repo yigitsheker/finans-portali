@@ -84,12 +84,28 @@ function saveOverlays(chart, sym) {
     } catch { /* quota / api shape */ }
 }
 
-function restoreOverlays(chart, sym) {
+// Standard overlay event wiring so the parent can track selection, removal and
+// draw-order (for "delete selected" / "undo") across every chart. `cbs` is the
+// stable callback bag from the parent.
+function overlayEvents(chart, cbs) {
+    return {
+        onSelected: (e) => { cbs.onSelected(chart, e.overlay.id); return false; },
+        onDeselected: (e) => { cbs.onDeselected(chart, e.overlay.id); return false; },
+        onRemoved: (e) => { cbs.onRemoved(chart, e.overlay.id); return false; },
+    };
+}
+
+function restoreOverlays(chart, sym, cbs) {
     if (!chart) return;
     try { chart.removeOverlay(); } catch { /* none */ }
     let saved = [];
     try { saved = JSON.parse(localStorage.getItem(overlayKey(sym))) || []; } catch { saved = []; }
-    saved.forEach((o) => { try { chart.createOverlay({ name: o.name, points: o.points }); } catch { /* skip */ } });
+    saved.forEach((o) => {
+        try {
+            const id = chart.createOverlay({ name: o.name, points: o.points, ...overlayEvents(chart, cbs) });
+            if (typeof id === "string") cbs.onAdded(chart, id);
+        } catch { /* skip */ }
+    });
 }
 
 // Reconcile a chart's indicators against the shared on/off selection. MA is an
@@ -122,13 +138,14 @@ function applyIndicators(chart, paneIds, prev, next) {
  */
 const CandlePane = memo(function CandlePane({
     paneKey, symbol, period, indicators, activeTool, isMain, grow, basis, borderTop,
-    register, getMainChart, onMainView, onDrawn,
+    register, getMainChart, onMainView, onDrawn, overlayCbs,
 }) {
     const { t } = useI18n();
     const elRef = useRef(null);
     const chartRef = useRef(null);
     const paneIdsRef = useRef({});
     const prevIndRef = useRef({});
+    const restoredSymRef = useRef(null); // last symbol whose saved drawings were restored
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(false);
 
@@ -150,6 +167,7 @@ const CandlePane = memo(function CandlePane({
         return () => {
             ro.disconnect();
             register(paneKey, null, isMain, symbol);
+            overlayCbs.onChartGone(chart);
             try { dispose(chart); } catch { /* already disposed */ }
             chartRef.current = null;
         };
@@ -166,7 +184,14 @@ const CandlePane = memo(function CandlePane({
             .then((data) => {
                 if (cancelled || !chartRef.current) return;
                 chart.applyNewData(toBars(data));
-                restoreOverlays(chart, symbol);
+                // Restore drawings only when the SYMBOL changes — not on a mere
+                // period switch. Overlays are positioned by timestamp and survive
+                // applyNewData, so a timeframe change keeps them (incl. unsaved
+                // ones) instead of wiping them via restore's clear-all.
+                if (restoredSymRef.current !== symbol) {
+                    restoreOverlays(chart, symbol, overlayCbs);
+                    restoredSymRef.current = symbol;
+                }
                 if (isMain) onMainView(chart);          // re-align compares to new data
                 else mirrorView(getMainChart(), chart); // align this new compare to main
                 setLoading(false);
@@ -189,7 +214,8 @@ const CandlePane = memo(function CandlePane({
     // active tool. Drawing on any one pane finishes it (onDrawn clears the
     // selection); the cleanup then disarms the still-pending overlays on the
     // other panes. The `done` guard keeps the completed drawing from being
-    // removed by its own cleanup.
+    // removed by its own cleanup. Drawings are NOT auto-saved — the toolbar's
+    // "Kaydet" button persists them explicitly.
     useEffect(() => {
         const chart = chartRef.current;
         if (!chart || !activeTool) return;
@@ -198,7 +224,8 @@ const CandlePane = memo(function CandlePane({
         try {
             overlayId = chart.createOverlay({
                 name: activeTool,
-                onDrawEnd: () => { done = true; saveOverlays(chart, symbol); onDrawn(); return true; },
+                onDrawEnd: (e) => { done = true; overlayCbs.onAdded(chart, e.overlay.id); onDrawn(); return true; },
+                ...overlayEvents(chart, overlayCbs),
             });
         } catch { /* overlay api */ }
         return () => {
@@ -206,7 +233,7 @@ const CandlePane = memo(function CandlePane({
                 try { chart.removeOverlay(overlayId); } catch { /* gone */ }
             }
         };
-    }, [activeTool, symbol, onDrawn]);
+    }, [activeTool, symbol, onDrawn, overlayCbs]);
 
     return (
         <div style={{ ...s.pane, flexGrow: grow, flexBasis: basis, ...(borderTop ? { borderTop: `2px solid ${AXIS}` } : {}) }}>
@@ -232,6 +259,7 @@ CandlePane.propTypes = {
     getMainChart: PropTypes.func.isRequired,
     onMainView: PropTypes.func.isRequired,
     onDrawn: PropTypes.func.isRequired,
+    overlayCbs: PropTypes.object.isRequired,
 };
 
 /**
@@ -249,14 +277,43 @@ export default function KLineChart({ symbol }) {
     const { t } = useI18n();
     const mainChartRef = useRef(null);
     const comparesRef = useRef(new Map()); // paneKey -> { chart, symbol }
+    const selectedRef = useRef(null);      // { chart, id } of the selected overlay
+    const historyRef = useRef([]);         // [{ chart, id }] in draw order (for undo)
+    const flashRef = useRef(null);         // "Kaydedildi ✓" flash timer
     const [period, setPeriod] = useState("1A");
     // MA + VOL on by default; RSI/MACD opt-in to keep the view uncluttered.
     const [ind, setInd] = useState({ MA: true, VOL: true, RSI: false, MACD: false });
     const [activeTool, setActiveTool] = useState(null);
+    const [hasSelection, setHasSelection] = useState(false);
+    const [justSaved, setJustSaved] = useState(false);
     const [compareSymbols, setCompareSymbols] = useState([]);
     const [compareInput, setCompareInput] = useState("");
     const [suggestions, setSuggestions] = useState([]);
     const [showSug, setShowSug] = useState(false);
+
+    // Stable overlay-event bag shared by every chart: tracks draw-order (undo),
+    // the currently-selected overlay (delete-selected) and removals.
+    const overlayCbs = useRef({
+        onAdded: (chart, id) => { historyRef.current.push({ chart, id }); },
+        onSelected: (chart, id) => { selectedRef.current = { chart, id }; setHasSelection(true); },
+        onDeselected: (chart, id) => {
+            const sel = selectedRef.current;
+            if (sel && sel.chart === chart && sel.id === id) { selectedRef.current = null; setHasSelection(false); }
+        },
+        onRemoved: (chart, id) => {
+            historyRef.current = historyRef.current.filter((h) => !(h.chart === chart && h.id === id));
+            const sel = selectedRef.current;
+            if (sel && sel.chart === chart && sel.id === id) { selectedRef.current = null; setHasSelection(false); }
+        },
+        // A pane was disposed (compare removed): drop its overlays from the undo
+        // history and clear selection if it pointed there — dispose() does NOT
+        // fire onRemoved, so without this they'd become phantom undo steps.
+        onChartGone: (chart) => {
+            historyRef.current = historyRef.current.filter((h) => h.chart !== chart);
+            const sel = selectedRef.current;
+            if (sel && sel.chart === chart) { selectedRef.current = null; setHasSelection(false); }
+        },
+    }).current;
 
     // ── chart registry (stable callbacks; CandlePane registers on mount) ──────
     const register = useCallback((key, chart, isMain, sym) => {
@@ -286,12 +343,30 @@ export default function KLineChart({ symbol }) {
     // CandlePane's arming effect), so newly-added panes become drawable too.
     const pickTool = (name) => setActiveTool((prev) => (prev === name ? null : name));
 
-    const clearTools = () => {
-        setActiveTool(null);
-        allEntries().forEach(({ chart, symbol: sym }) => {
-            try { chart.removeOverlay(); } catch { /* none */ }
-            try { localStorage.removeItem(overlayKey(sym)); } catch { /* ignore */ }
-        });
+    // Undo: remove the most recently drawn overlay (across all charts). On
+    // success onRemoved prunes history; on a genuine removal failure, drop that
+    // specific entry from the live ref so the next undo advances.
+    const undo = () => {
+        const h = historyRef.current;
+        if (!h.length) return;
+        const last = h[h.length - 1];
+        try { last.chart.removeOverlay(last.id); }
+        catch { historyRef.current = historyRef.current.filter((x) => x !== last); }
+    };
+
+    // Delete only the overlay the user has selected (clicked) — not everything.
+    const deleteSelected = () => {
+        const sel = selectedRef.current;
+        if (!sel) return;
+        try { sel.chart.removeOverlay(sel.id); } catch { /* gone */ }
+    };
+
+    // Explicit save: persist the current drawings of every chart (per symbol).
+    const saveDrawings = () => {
+        allEntries().forEach(({ chart, symbol: sym }) => saveOverlays(chart, sym));
+        setJustSaved(true);
+        clearTimeout(flashRef.current);
+        flashRef.current = setTimeout(() => setJustSaved(false), 1500);
     };
 
     const addCompare = (raw) => {
@@ -307,6 +382,9 @@ export default function KLineChart({ symbol }) {
     // Changing the symbol or period reloads every pane (which clears in-progress
     // overlays); drop any armed tool so the toolbar state stays truthful.
     useEffect(() => { setActiveTool(null); }, [period, symbol]);
+
+    // Clear the save-flash timer on unmount.
+    useEffect(() => () => clearTimeout(flashRef.current), []);
 
     // ── comparison autocomplete (debounced instrument search) ────────────────
     useEffect(() => {
@@ -350,7 +428,17 @@ export default function KLineChart({ symbol }) {
                             style={{ ...s.btn, ...(activeTool === tool.name ? s.btnActive : {}) }}
                             onClick={() => pickTool(tool.name)}>{t(tool.key)}</button>
                     ))}
-                    <button type="button" style={s.btn} onClick={clearTools}>{t("nativeChart.clear")}</button>
+                </div>
+                <div style={s.grp}>
+                    <button type="button" style={s.btn} onClick={undo}
+                        title={t("chartTools.undo")}>↶ {t("chartTools.undo")}</button>
+                    <button type="button"
+                        style={{ ...s.btn, ...(hasSelection ? {} : s.btnDisabled) }}
+                        onClick={deleteSelected} disabled={!hasSelection}
+                        title={t("chartTools.delSelected")}>🗑 {t("chartTools.delSelected")}</button>
+                    <button type="button"
+                        style={{ ...s.btn, ...(justSaved ? s.btnActive : {}) }}
+                        onClick={saveDrawings}>{justSaved ? t("chartTools.saved") : t("chartTools.save")}</button>
                 </div>
                 <div style={s.grp}>
                     {compareSymbols.map((sym) => (
@@ -394,13 +482,15 @@ export default function KLineChart({ symbol }) {
                 <CandlePane
                     key="main" paneKey="main" symbol={symbol} period={period} indicators={ind}
                     activeTool={activeTool} isMain grow={1.3} basis={300}
-                    register={register} getMainChart={getMainChart} onMainView={onMainView} onDrawn={onDrawn}
+                    register={register} getMainChart={getMainChart} onMainView={onMainView}
+                    onDrawn={onDrawn} overlayCbs={overlayCbs}
                 />
                 {compareSymbols.map((sym) => (
                     <CandlePane
                         key={sym} paneKey={sym} symbol={sym} period={period} indicators={ind}
                         activeTool={activeTool} isMain={false} grow={1} basis={260} borderTop
-                        register={register} getMainChart={getMainChart} onMainView={onMainView} onDrawn={onDrawn}
+                        register={register} getMainChart={getMainChart} onMainView={onMainView}
+                        onDrawn={onDrawn} overlayCbs={overlayCbs}
                     />
                 ))}
             </div>
@@ -416,6 +506,7 @@ const s = {
     grp: { display: "inline-flex", flexWrap: "wrap", gap: 4, background: "#161b22", border: "1px solid #222a33", borderRadius: 8, padding: 3 },
     btn: { padding: "5px 9px", borderRadius: 6, border: "none", background: "transparent", color: "#9ba7b4", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
     btnActive: { background: "rgba(34,197,94,0.15)", color: "#22c55e" },
+    btnDisabled: { opacity: 0.4, cursor: "not-allowed" },
     cmpSearchWrap: { position: "relative", display: "inline-flex", gap: 4, alignItems: "center" },
     cmpInput: { width: 120, padding: "5px 8px", borderRadius: 6, border: "none", background: "transparent", color: "#e6edf3", fontSize: 12, outline: "none" },
     sugBox: { position: "absolute", top: "calc(100% + 4px)", left: 0, minWidth: 220, maxHeight: 260, overflowY: "auto", background: "#161b22", border: "1px solid #222a33", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", zIndex: 50 },
