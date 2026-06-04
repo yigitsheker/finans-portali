@@ -5,6 +5,7 @@ import "./index.css";
 import App from "./App";
 import ChartPage from "./pages/ChartPage";
 import keycloak from "./auth/keycloak";
+import { I18nProvider } from "./contexts/I18nContext";
 
 // AuthGate: holds auth state in React so re-renders happen on login/logout
 function AuthGate() {
@@ -68,7 +69,9 @@ function AuthGate() {
     return (
         <BrowserRouter>
             <Routes>
-                <Route path="/chart" element={<ChartPage />} />
+                {/* /chart opens in its own tab, OUTSIDE App — so it needs its
+                    own I18nProvider for NativeChart's labels (t()) to resolve. */}
+                <Route path="/chart" element={<I18nProvider><ChartPage /></I18nProvider>} />
                 <Route path="/*" element={<App keycloak={keycloak} />} />
             </Routes>
         </BrowserRouter>
