@@ -1,11 +1,11 @@
 import { useSearchParams } from "react-router-dom";
-import NativeChart from "../components/NativeChart";
+import KLineChart from "../components/KLineChart";
 
 // Full-page detailed chart opened in its own browser tab (route /chart).
-// Uses the native lightweight-charts component fed by our OWN backend OHLC
-// (/api/v1/market/candles) — so BIST and every other symbol render with data
-// consistent with the rest of the app, unlike the TradingView free embed which
-// gated BIST. The page is just the chrome (close button + symbol header).
+// Backed by the app's OWN OHLC data (/api/v1/market/candles) and rendered with
+// klinecharts, which provides a full trader drawing-tool suite (trend, ray,
+// Fibonacci, parallel/channel…) plus MA/VOL/RSI/MACD. Works for every symbol
+// incl. BIST, unlike the old TradingView free embed. The page is just chrome.
 export default function ChartPage() {
     const [searchParams] = useSearchParams();
     const symbol = searchParams.get("symbol") || "THYAO";
@@ -22,7 +22,7 @@ export default function ChartPage() {
                 <div></div>
             </div>
             <div style={s.widget}>
-                <NativeChart symbol={symbol} />
+                <KLineChart symbol={symbol} />
             </div>
         </div>
     );

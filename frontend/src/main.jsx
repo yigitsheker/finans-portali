@@ -70,7 +70,7 @@ function AuthGate() {
         <BrowserRouter>
             <Routes>
                 {/* /chart opens in its own tab, OUTSIDE App — so it needs its
-                    own I18nProvider for NativeChart's labels (t()) to resolve. */}
+                    own I18nProvider for KLineChart's labels (t()) to resolve. */}
                 <Route path="/chart" element={<I18nProvider><ChartPage /></I18nProvider>} />
                 <Route path="/*" element={<App keycloak={keycloak} />} />
             </Routes>
