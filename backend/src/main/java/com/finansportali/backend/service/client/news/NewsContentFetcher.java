@@ -21,6 +21,14 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
+/**
+ * Extracts the readable article body from an arbitrary news URL.
+ *
+ * <p>Fetches the page through a tiered strategy (Jsoup → system curl →
+ * playwright headless Chromium) to defeat Cloudflare / TLS-fingerprint
+ * bot blocks, then pulls the text via JSON-LD, site-specific selectors,
+ * or a body-paragraph fallback.
+ */
 @Service
 public class NewsContentFetcher {
 
@@ -118,6 +126,11 @@ public class NewsContentFetcher {
         }
     }
 
+    /**
+     * Fetch and extract the main article text for the given URL, falling back
+     * across HTTP tiers and extraction strategies. Returns the clipped article
+     * body, or {@code null} if nothing substantial could be extracted.
+     */
     public String fetchArticleContent(String url) {
         if (url == null || url.isBlank()) {
             return null;

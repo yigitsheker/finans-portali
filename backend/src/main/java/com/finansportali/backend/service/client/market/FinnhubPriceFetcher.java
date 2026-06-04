@@ -34,6 +34,7 @@ public class FinnhubPriceFetcher {
     private final WebClient client;
     private final String apiKey;
 
+    /** Builds the WebClient with connect/read/write timeouts and binds the configured API key. */
     public FinnhubPriceFetcher(@Value("${finnhub.api-key:disabled}") String apiKey) {
         this.apiKey = apiKey;
         HttpClient httpClient = HttpClient.create()
@@ -116,5 +117,6 @@ public class FinnhubPriceFetcher {
         return ((Number) o).doubleValue();
     }
 
+    /** Finnhub quote: last price, absolute change and percent change. */
     public record FinnhubQuote(BigDecimal last, BigDecimal changeAbs, BigDecimal changePct) {}
 }

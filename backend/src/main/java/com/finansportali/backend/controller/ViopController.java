@@ -10,6 +10,10 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.List;
 import java.util.Locale;
 
+/**
+ * REST endpoint exposing VİOP (Turkish derivatives) contracts, optionally
+ * filtered by category. Read-only listing for the trading UI.
+ */
 @RestController
 @RequestMapping("/api/v1/viop")
 public class ViopController {
@@ -20,6 +24,10 @@ public class ViopController {
         this.service = service;
     }
 
+    /**
+     * Lists VİOP contracts. When {@code category} is blank all contracts are
+     * returned; an unrecognised category yields an empty list rather than an error.
+     */
     @GetMapping
     public List<ViopContract> list(@RequestParam(required = false) String category) {
         if (category == null || category.isBlank()) {

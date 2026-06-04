@@ -16,6 +16,11 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
 
+/**
+ * Maintains the TCMB deposit-rate series, upserting ~10 years of monthly history
+ * per currency on a daily schedule, and exposes cached read accessors for the
+ * full history and the latest point per currency.
+ */
 @Service
 public class DepositRateService {
 
@@ -83,11 +88,13 @@ public class DepositRateService {
         }
     }
 
+    /** Full monthly deposit-rate history for a currency, oldest first. */
     @Cacheable("deposit-rates-all")
     public List<DepositRatePoint> getAllForCurrency(String currency) {
         return repo.findByCurrencyOrderByPeriodDateAsc(currency);
     }
 
+    /** Latest deposit-rate point on or before today for a currency. */
     @Cacheable(value = "deposit-rates-latest", key = "#currency")
     public java.util.Optional<DepositRatePoint> getLatest(String currency) {
         return repo.findLatestOnOrBefore(currency, LocalDate.now());

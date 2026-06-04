@@ -349,16 +349,19 @@ public class TechnicalAnalysisService {
 
     // ── Legacy passthrough used by older callers ───────────────────────
 
+    /** Legacy wrapper: returns the full 3-month analysis bundle under a "data" key. */
     public Map<String, Object> calculateMovingAverages(String symbol, int period) {
         LocalDate to = LocalDate.now();
         return Map.of("data", getTechnicalAnalysis(symbol, to.minusMonths(3), to));
     }
 
+    /** Legacy wrapper: returns just the trend classification over the last 3 months. */
     public Map<String, Object> analyzeTrend(String symbol) {
         LocalDate to = LocalDate.now();
         return Map.of("trend", getTechnicalAnalysis(symbol, to.minusMonths(3), to).getTrend());
     }
 
+    /** Legacy wrapper: approximates support/resistance as the 3-month low/high close. */
     public Map<String, Object> calculateSupportResistance(String symbol) {
         LocalDate to = LocalDate.now();
         TechnicalAnalysisResponse r = getTechnicalAnalysis(symbol, to.minusMonths(3), to);
@@ -366,6 +369,7 @@ public class TechnicalAnalysisService {
                 "resistance", r.getSummary().getHighestClose());
     }
 
+    /** Legacy wrapper: returns the 3-month percentage change as a momentum proxy. */
     public Map<String, Object> calculateMomentum(String symbol, int period) {
         LocalDate to = LocalDate.now();
         return Map.of("momentum", getTechnicalAnalysis(symbol, to.minusMonths(3), to)

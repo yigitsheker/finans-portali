@@ -14,6 +14,11 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+/**
+ * Manages user watchlists and their symbol membership. Owns CRUD over
+ * watchlists/items, enforces per-user ownership on every operation, and maps
+ * entities to {@link WatchlistDto} for the API layer.
+ */
 @Service
 public class WatchlistService {
     

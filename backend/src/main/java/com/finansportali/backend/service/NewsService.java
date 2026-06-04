@@ -29,6 +29,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Aggregates financial news: fetches and parses RSS feeds on a schedule,
+ * persists articles per category, prunes the backlog, and serves locale-aware
+ * lists/details with on-demand and background LibreTranslate translation.
+ */
 @Service
 public class NewsService {
 
@@ -282,6 +287,10 @@ public class NewsService {
     // the first @PostConstruct fire and after each fetchAndSaveNews cycle.
     private final AtomicBoolean prewarmRunning = new AtomicBoolean(false);
 
+    /**
+     * Latest 50 articles, optionally restricted to a single category slug.
+     * Blank/null category returns the newest across all categories.
+     */
     public List<NewsArticle> latest(String category) {
         if (category == null || category.isBlank()) {
             return repo.findTop50ByOrderByPublishedAtDesc();
@@ -394,6 +403,7 @@ public class NewsService {
         if (a.getContentTranslated() != null) a.setContent(a.getContentTranslated());
     }
 
+    /** The fixed set of supported category slugs. */
     public List<String> getCategories() {
         return List.of(
             CAT_GENEL_EKONOMI, CAT_HISSE, CAT_DOVIZ, CAT_TAHVIL, CAT_KRIPTO, 
@@ -401,6 +411,7 @@ public class NewsService {
         );
     }
 
+    /** Article count per category plus an "all" total, for the category nav badges. */
     public Map<String, Long> getCategoryCounts() {
         Map<String, Long> counts = new HashMap<>();
         
@@ -419,6 +430,7 @@ public class NewsService {
         return counts;
     }
 
+    /** Fetch a single article by id, or null if it doesn't exist. */
     public NewsArticle getById(Long id) {
         return repo.findById(id).orElse(null);
     }
@@ -439,6 +451,10 @@ public class NewsService {
         return a;
     }
 
+    /**
+     * Lazily back-fill an article's full body from its source URL when the
+     * stored content is missing or too short, persisting the fetched text.
+     */
     public NewsArticle fetchContentForArticle(Long id) {
         NewsArticle article = repo.findById(id).orElse(null);
         if (article == null) {
@@ -463,6 +479,10 @@ public class NewsService {
         return article;
     }
 
+    /**
+     * Scheduled refresh cycle: pulls every enabled RSS feed, saves new articles,
+     * prunes old ones, and kicks off background translation. Runs every 6 hours.
+     */
     @Scheduled(initialDelay = 5_000, fixedDelay = 6 * 60 * 60 * 1000L)
     public void fetchAndSaveNews() {
         refreshDurationTimer.record(this::doFetchAndSaveNews);
@@ -667,6 +687,10 @@ public class NewsService {
         }
     }
 
+    /**
+     * Ensure the table holds some readable articles: if none have real content,
+     * clear stubs and seed a handful of sample Turkish articles across categories.
+     */
     public void seedIfEmpty() {
         // Always ensure we have at least some articles with content
         long articlesWithContent = repo.findAll().stream()
@@ -802,6 +826,10 @@ public class NewsService {
         log.info("Seeded {} sample news articles", 8);
     }
 
+    /**
+     * Keep only the newest 50 articles per category and drop rows in unknown
+     * categories, bounding table growth. Returns a per-category and total tally.
+     */
     @Transactional
     public Map<String, Object> cleanupOldNews() {
         log.info("Starting news cleanup...");

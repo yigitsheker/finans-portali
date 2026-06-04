@@ -47,6 +47,7 @@ public class FredInflationFetcher {
 
     private final WebClient webClient;
 
+    /** Wires the WebClient to the configured FRED base URL. */
     public FredInflationFetcher(@Value("${app.fred.base-url:https://api.stlouisfed.org}") String baseUrl) {
         this.webClient = WebClient.builder()
                 .baseUrl(baseUrl)

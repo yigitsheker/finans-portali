@@ -22,6 +22,11 @@ import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.List;
 
+/**
+ * Borçlanma araçları (tahvil/bono) için sorgu servisi. Enstrüman ve en güncel
+ * kotasyon verilerini birleştirerek listeleme, detay, tarihsel getiri ve özet
+ * istatistik DTO'larını üretir.
+ */
 @Service
 public class DebtInstrumentService {
 

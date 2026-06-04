@@ -45,6 +45,7 @@ public class UserPreferencesController {
         this.objectMapper = objectMapper;
     }
 
+    /** Returns the current user's stored notification preferences (empty map if none). */
     @GetMapping
     public ResponseEntity<Map<String, Boolean>> get() {
         String userId = userService.getCurrentUserId();
@@ -56,6 +57,7 @@ public class UserPreferencesController {
         return ResponseEntity.ok(prefs);
     }
 
+    /** Replaces the current user's notification preferences, returning the saved map. */
     @PutMapping
     public ResponseEntity<Map<String, Boolean>> put(@RequestBody Map<String, Boolean> incoming) {
         String userId = userService.getCurrentUserId();

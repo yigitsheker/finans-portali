@@ -11,6 +11,11 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.util.Map;
 
+/**
+ * REST endpoints exposing technical analysis (moving averages, trend,
+ * support/resistance, momentum) for a given symbol. The primary endpoint
+ * returns a consolidated response; the others remain for backward compatibility.
+ */
 @RestController
 @RequestMapping("/api/v1/technical-analysis")
 public class TechnicalAnalysisController {
@@ -54,6 +59,8 @@ public class TechnicalAnalysisController {
     }
 
     // Legacy endpoints for backward compatibility
+
+    /** Legacy: returns the moving average for the symbol over the given period. */
     @GetMapping("/{symbol}/moving-averages")
     public Map<String, Object> getMovingAverages(
             @PathVariable String symbol,
@@ -61,16 +68,19 @@ public class TechnicalAnalysisController {
         return service.calculateMovingAverages(symbol, period);
     }
 
+    /** Legacy: returns trend-direction analysis for the symbol. */
     @GetMapping("/{symbol}/trend")
     public Map<String, Object> getTrendAnalysis(@PathVariable String symbol) {
         return service.analyzeTrend(symbol);
     }
 
+    /** Legacy: returns computed support and resistance levels for the symbol. */
     @GetMapping("/{symbol}/support-resistance")
     public Map<String, Object> getSupportResistance(@PathVariable String symbol) {
         return service.calculateSupportResistance(symbol);
     }
 
+    /** Legacy: returns a momentum indicator for the symbol over the given period. */
     @GetMapping("/{symbol}/momentum")
     public Map<String, Object> getMomentum(
             @PathVariable String symbol,

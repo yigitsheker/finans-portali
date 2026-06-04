@@ -44,6 +44,7 @@ public class YahooPriceFetcher {
 
     private final WebClient client;
 
+    /** Builds the WebClient with timeouts and a browser User-Agent (Yahoo rejects default Java agents). */
     public YahooPriceFetcher() {
         HttpClient httpClient = HttpClient.create()
                 .responseTimeout(Duration.ofSeconds(10))
@@ -61,6 +62,11 @@ public class YahooPriceFetcher {
 
     // ── Quote ────────────────────────────────────────────────────────────────
 
+    /**
+     * Fetch the latest quote (price, previous close, change, currency, volume)
+     * for a Yahoo symbol. Returns empty on HTTP error, missing data, or a
+     * zero/invalid price.
+     */
     public Optional<YahooQuote> fetchQuote(String yahooSymbol) {
         try {
             // `range=1d`, not `2d`. With range=2d Yahoo reports

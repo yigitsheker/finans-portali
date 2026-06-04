@@ -23,6 +23,11 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Maintains the CPI inflation series for Turkey (TCMB EVDS3) and the US (FRED),
+ * upserting ~10 years of monthly history on a schedule. Also exposes cached
+ * read accessors and computes cumulative inflation / real-return comparisons.
+ */
 @Service
 public class InflationService {
 
@@ -152,6 +157,7 @@ public class InflationService {
         }
     }
 
+    /** Full monthly history for a country, oldest first. */
     @Cacheable(value = "inflation-all", key = "#country")
     public List<InflationDataPoint> getAllAscending(String country) {
         return repo.findAllByCountryOrderByPeriodDateAsc(country);
@@ -162,15 +168,18 @@ public class InflationService {
         return getAllAscending(COUNTRY_TR);
     }
 
+    /** Latest data point on or before today for a country. */
     @Cacheable(value = "inflation-latest", key = "#country")
     public Optional<InflationDataPoint> getLatest(String country) {
         return repo.findLatestOnOrBefore(LocalDate.now(), country);
     }
 
+    /** Back-compat overload — defaults to Turkey. */
     public Optional<InflationDataPoint> getLatest() {
         return getLatest(COUNTRY_TR);
     }
 
+    /** Latest Turkey data point on or before the given target date. */
     public Optional<InflationDataPoint> getOnOrBefore(LocalDate target) {
         return repo.findLatestOnOrBefore(target, COUNTRY_TR);
     }

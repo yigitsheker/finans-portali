@@ -54,6 +54,12 @@ public class AiAnalysisService {
         this.llm = llm;
     }
 
+    /**
+     * Single entrypoint for the chatbot. Routes the message through the
+     * rule-based intents (budget, instrument lookup) first, then the live
+     * LLM when configured, then the remaining mock intents, and finally a
+     * help message. Every reply carries the localized disclaimer footer.
+     */
     public ChatResponseDto generateReply(String message, String lang) {
         String text = message == null ? "" : message.trim();
         String l = (lang == null || lang.isBlank()) ? "tr" : lang.toLowerCase(Locale.ROOT);

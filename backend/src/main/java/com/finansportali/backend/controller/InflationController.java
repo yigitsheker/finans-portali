@@ -12,6 +12,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * REST endpoints serving monthly inflation (CPI) series per country, plus a
+ * cumulative real-return comparison and an admin refresh trigger.
+ */
 @RestController
 @RequestMapping("/api/v1/inflation")
 public class InflationController {

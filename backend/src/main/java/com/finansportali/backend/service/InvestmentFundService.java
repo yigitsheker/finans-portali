@@ -14,6 +14,11 @@ import java.time.LocalDate;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Manages investment fund (TEFAS) data: cached read queries (listing, filtering
+ * by type/company, search, top performers) and write operations that refresh
+ * fund prices and returns from the TEFAS fetcher.
+ */
 @Service
 public class InvestmentFundService {
 
@@ -27,40 +32,52 @@ public class InvestmentFundService {
         this.tefasFundFetcher = tefasFundFetcher;
     }
 
+    /** All funds ordered by total value, descending. */
     @Cacheable("investment-funds")
     public List<InvestmentFund> getAllFunds() {
         return repository.findAllOrderByTotalValueDesc();
     }
 
+    /** Funds of a given type, ordered by total value descending. */
     @Cacheable("funds-by-type")
     public List<InvestmentFund> getFundsByType(String fundType) {
         return repository.findByFundTypeOrderByTotalValueDesc(fundType);
     }
 
+    /** Distinct fund types present in the catalog. */
     public List<String> getFundTypes() {
         return repository.findDistinctFundTypes();
     }
 
+    /** Distinct fund management companies present in the catalog. */
     public List<String> getManagementCompanies() {
         return repository.findDistinctManagementCompanies();
     }
 
+    /** Funds managed by the given company, ordered by total value descending. */
     public List<InvestmentFund> getFundsByCompany(String company) {
         return repository.findByManagementCompanyOrderByTotalValueDesc(company);
     }
 
+    /** Looks up a single fund by its TEFAS code. */
     public Optional<InvestmentFund> getFundByCode(String fundCode) {
         return repository.findByFundCode(fundCode);
     }
 
+    /** Funds ranked by performance (top yearly returns). */
     public List<InvestmentFund> getTopPerformers() {
         return repository.findTopPerformers();
     }
 
+    /** Free-text search across fund code/name. */
     public List<InvestmentFund> searchFunds(String query) {
         return repository.searchFunds(query);
     }
 
+    /**
+     * Fetches the latest fund data from TEFAS and upserts it: updates prices and
+     * returns for existing funds, inserts new ones. Logs and swallows failures.
+     */
     public void updateFundPrices() {
         log.info("Updating investment fund prices from TEFAS...");
         
@@ -124,6 +141,7 @@ public class InvestmentFundService {
         return (int) count;
     }
 
+    /** Populates the fund catalog from TEFAS on first boot when the table is empty. */
     public void seedIfEmpty() {
         if (repository.count() > 0) {
             log.info("Investment funds already exist in database, skipping seed");

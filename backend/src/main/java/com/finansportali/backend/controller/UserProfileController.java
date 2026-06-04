@@ -24,8 +24,10 @@ public class UserProfileController {
         this.keycloakAdminService = keycloakAdminService;
     }
 
+    /** Request body for a profile update; {@code phone} is stored as a Keycloak custom attribute. */
     public record ProfileUpdate(String firstName, String lastName, String email, String phone) {}
 
+    /** Updates the current user's name, email and phone via the Keycloak Admin API. */
     @PatchMapping
     public ResponseEntity<Map<String, Object>> updateProfile(@RequestBody ProfileUpdate req) {
         String userId = userService.getCurrentUserId();

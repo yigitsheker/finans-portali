@@ -12,6 +12,11 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST endpoints for user-defined price alerts: creating, listing, deleting and
+ * manually testing alerts. Each endpoint maps service-layer exceptions to the
+ * appropriate HTTP status with a localised (Turkish) error message.
+ */
 @RestController
 @RequestMapping("/api/v1/alerts")
 @RequiredArgsConstructor
@@ -20,6 +25,7 @@ public class PriceAlertController {
 
     private final PriceAlertService alertService;
 
+    /** Creates a new price alert for the authenticated user. */
     @PostMapping
     public ResponseEntity<?> createAlert(
             @RequestBody CreateAlertRequest request,
@@ -36,6 +42,7 @@ public class PriceAlertController {
         }
     }
 
+    /** Returns all alerts belonging to the authenticated user. */
     @GetMapping
     public ResponseEntity<?> getUserAlerts(Authentication authentication) {
         try {
@@ -47,6 +54,7 @@ public class PriceAlertController {
         }
     }
 
+    /** Deletes an alert owned by the user; returns 403 if it belongs to someone else. */
     @DeleteMapping("/{alertId}")
     public ResponseEntity<?> deleteAlert(
             @PathVariable Long alertId,
@@ -64,6 +72,7 @@ public class PriceAlertController {
         }
     }
 
+    /** Manually triggers an alert to verify delivery (sends the notification email). */
     @PostMapping("/{alertId}/test")
     public ResponseEntity<?> testAlert(
             @PathVariable Long alertId,

@@ -65,6 +65,7 @@ public class TcmbInflationFetcher {
     private final WebClient webClient;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
+    /** Builds the WebClient with a browser User-Agent and an enlarged in-memory buffer for EVDS3 payloads. */
     public TcmbInflationFetcher() {
         this.webClient = WebClient.builder()
                 .defaultHeader("User-Agent", USER_AGENT)

@@ -19,6 +19,11 @@ import java.math.BigDecimal;
 import java.text.NumberFormat;
 import java.util.Locale;
 
+/**
+ * Dispatches user notifications for triggered price alerts. Records an in-app
+ * notification row and, when mail is configured, sends a localized HTML email,
+ * resolving the recipient address from the JWT or live from Keycloak.
+ */
 @Service
 public class NotificationService {
 
@@ -389,11 +394,13 @@ public class NotificationService {
 
     // Gelecekte eklenebilecek notification türleri:
     
+    /** Placeholder for future push-notification delivery; currently logs only. */
     public void sendPushNotification(String userId, String title, String message) {
         // Push notification implementasyonu
         log.info("Push notification sent to {}: {}", userId, title);
     }
-    
+
+    /** Placeholder for future WebSocket delivery; currently logs only. */
     public void sendWebSocketNotification(String userId, Object payload) {
         // WebSocket notification implementasyonu
         log.info("WebSocket notification sent to {}: {}", userId, payload);

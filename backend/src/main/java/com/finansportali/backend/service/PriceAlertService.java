@@ -23,6 +23,11 @@ import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 
+/**
+ * Manages user price alerts: creation, listing, deletion and testing, plus the
+ * scheduled evaluation that trips active alerts. Compares prices in the alert's
+ * chosen currency and delegates delivery to {@link NotificationService}.
+ */
 @Service
 @RequiredArgsConstructor
 @Slf4j
@@ -35,6 +40,11 @@ public class PriceAlertService {
     private final KeycloakUserService keycloakUserService;
     private final PortfolioCurrencyService currencyService;
 
+    /**
+     * Create a price alert for the authenticated user. Denominates target and
+     * creation prices in the requested (or instrument-native) currency so all
+     * downstream comparisons are in one unit.
+     */
     @Transactional
     public AlertView createAlert(CreateAlertRequest request, Authentication authentication) {
         String userId = keycloakUserService.getUserId(authentication);
@@ -138,6 +148,7 @@ public class PriceAlertService {
         return convertPrice(nativePrice, nativeCurrency, alert.getCurrency());
     }
 
+    /** List the authenticated user's alerts, each with its current price. */
     @Transactional(readOnly = true)
     public List<AlertView> getUserAlerts(Authentication authentication) {
         String userId = keycloakUserService.getUserId(authentication);
@@ -148,6 +159,7 @@ public class PriceAlertService {
                 .collect(Collectors.toList());
     }
 
+    /** Delete an alert, rejecting the request if it doesn't belong to the caller. */
     @Transactional
     public void deleteAlert(Long alertId, Authentication authentication) {
         String userId = keycloakUserService.getUserId(authentication);
@@ -162,6 +174,10 @@ public class PriceAlertService {
         log.info("Deleted alert {} by user {}", alertId, userId);
     }
 
+    /**
+     * Force-trigger an alert (the "Test" button): marks it triggered at the
+     * current price and dispatches the notification through the JWT path.
+     */
     @Transactional
     public AlertView testAlert(Long alertId, Authentication authentication) {
         String userId = keycloakUserService.getUserId(authentication);
@@ -189,6 +205,10 @@ public class PriceAlertService {
         return AlertView.fromAlert(alert, currentPrice);
     }
 
+    /**
+     * Evaluate every active alert against its current price and trigger those
+     * whose condition is met. Invoked by the background scheduler.
+     */
     @Transactional
     public void checkAllAlerts() {
         List<PriceAlert> activeAlerts = alertRepository.findByActiveTrue();

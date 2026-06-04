@@ -17,6 +17,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
+/**
+ * Provides historical daily price series for instruments, backed by a local
+ * cache. Serves cached rows from the database when available and lazily
+ * back-fills from Yahoo Finance when coverage is insufficient.
+ */
 @Service
 public class HistoricalPriceService {
     

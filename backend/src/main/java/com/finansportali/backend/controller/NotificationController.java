@@ -13,6 +13,10 @@ import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * REST endpoints for per-user notifications: listing, unread count for the bell
+ * badge, and marking notifications read (single or all).
+ */
 @RestController
 @RequestMapping("/api/v1/notifications")
 public class NotificationController {

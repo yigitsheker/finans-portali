@@ -24,6 +24,11 @@ import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+/**
+ * Provides foreign-exchange rates sourced from TCMB. Periodically scrapes the
+ * TCMB daily XML feed, persists per-currency rows, and exposes cached read
+ * accessors (latest rates, by-source, history) for the rest of the application.
+ */
 @Service
 public class ExchangeRateService {
 
@@ -42,6 +47,10 @@ public class ExchangeRateService {
     private final Counter currenciesFetchedCounter;
     private final Timer refreshDurationTimer;
 
+    /**
+     * Builds a timeout-bounded WebClient for the TCMB feed and registers the
+     * FX refresh business metrics on the supplied registry.
+     */
     public ExchangeRateService(ExchangeRateRepository repository, MeterRegistry meterRegistry) {
         this.repository = repository;
         HttpClient httpClient = HttpClient.create()
@@ -69,25 +78,30 @@ public class ExchangeRateService {
                 .register(meterRegistry);
     }
 
+    /** Returns the most recent rate row per source. */
     @Cacheable("exchange-rates")
     public List<ExchangeRate> getLatestRates() {
         return repository.findLatestRatesBySource();
     }
 
+    /** Returns today's rates for the given source. */
     @Cacheable("exchange-rates-by-source")
     public List<ExchangeRate> getRatesBySource(String source) {
         LocalDate today = LocalDate.now();
         return repository.findBySourceAndRateDate(source, today);
     }
 
+    /** Lists the distinct rate sources stored in the database. */
     public List<String> getSources() {
         return repository.findDistinctSources();
     }
 
+    /** Returns the full rate history for a currency, newest first. */
     public List<ExchangeRate> getCurrencyHistory(String currencyCode) {
         return repository.findByCurrencyCodeOrderByRateDateDesc(currencyCode);
     }
 
+    /** Scheduled TCMB refresh — runs every 4 hours, timed via the duration timer. */
     @Scheduled(initialDelay = 10_000, fixedDelay = 4 * 60 * 60 * 1000L) // Every 4 hours
     public void fetchTcmbRates() {
         refreshDurationTimer.record(this::doFetchTcmbRates);
@@ -174,6 +188,7 @@ public class ExchangeRateService {
         return matcher.find() ? matcher.group(1).trim() : null;
     }
 
+    /** Seeds a few sample USD/EUR/GBP rows when the table is empty (dev bootstrap). */
     public void seedIfEmpty() {
         if (repository.count() > 0) return;
 

@@ -66,20 +66,24 @@ public class AdminController {
 
     // ── RSS feed management ─────────────────────────────────────────────────
 
+    /** Lightweight view of a configured RSS news feed returned to the admin UI. */
     public record FeedDto(Long id, String url, String category, String source, boolean enabled) {
         static FeedDto from(NewsFeed f) {
             return new FeedDto(f.getId(), f.getUrl(), f.getCategory(), f.getSource(), f.isEnabled());
         }
     }
 
+    /** Payload for registering a new RSS feed; category and source may be blank (defaults applied). */
     public record CreateFeedRequest(String url, String category, String source) {}
 
+    /** List all configured RSS feeds, ordered by category then source. */
     @GetMapping("/feeds")
     @PreAuthorize("hasRole('ADMIN')")
     public List<FeedDto> listFeeds() {
         return feedRepo.findAllByOrderByCategoryAscSourceAsc().stream().map(FeedDto::from).toList();
     }
 
+    /** Register a new feed; rejects blank URLs (400) and duplicates (409). */
     @PostMapping("/feeds")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<FeedDto> addFeed(@RequestBody CreateFeedRequest req) {
@@ -98,6 +102,7 @@ public class AdminController {
         return ResponseEntity.ok(FeedDto.from(saved));
     }
 
+    /** Flip a feed's enabled flag; returns 404 if the feed does not exist. */
     @PostMapping("/feeds/{id}/toggle")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<FeedDto> toggleFeed(@PathVariable Long id) {
@@ -227,6 +232,7 @@ public class AdminController {
 
     // ── User management (Keycloak) ────────────────────────────────────────
 
+    /** Page through Keycloak users, optionally filtered by a search term. */
     @GetMapping("/users")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<List<KeycloakUserDto>> listUsers(
@@ -236,6 +242,7 @@ public class AdminController {
         return ResponseEntity.ok(keycloakAdminService.listUsers(search, first, max));
     }
 
+    /** Disable a Keycloak user account, blocking further logins. */
     @PostMapping("/users/{id}/ban")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> banUser(@PathVariable String id) {
@@ -247,6 +254,7 @@ public class AdminController {
         ));
     }
 
+    /** Re-enable a previously banned Keycloak user account. */
     @PostMapping("/users/{id}/unban")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> unbanUser(@PathVariable String id) {

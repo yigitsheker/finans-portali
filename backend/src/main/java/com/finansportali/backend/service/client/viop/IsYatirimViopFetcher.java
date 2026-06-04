@@ -56,6 +56,7 @@ public class IsYatirimViopFetcher {
     private final RestClient playwrightClient;
     private final boolean enabled;
 
+    /** Wires the playwright-service RestClient; disables the fetcher when no service URL is configured. */
     public IsYatirimViopFetcher(
             @Value("${app.playwright.service-url:}") String playwrightUrl) {
         this.enabled = playwrightUrl != null && !playwrightUrl.isBlank();

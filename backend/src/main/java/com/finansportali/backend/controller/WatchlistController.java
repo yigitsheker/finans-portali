@@ -12,6 +12,11 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+/**
+ * REST endpoints for managing the authenticated user's watchlists and the
+ * symbols within them. The user is resolved from the JWT so callers can only
+ * access their own watchlists.
+ */
 @RestController
 @RequestMapping("/api/v1/watchlists")
 public class WatchlistController {

@@ -30,6 +30,10 @@ public class TechnicalAnalysisService {
     public static final String HOLD = "HOLD";
     public static final String NEUTRAL = "NEUTRAL";
 
+    /**
+     * Short-term BUY/HOLD/SELL signal from weekly + monthly momentum.
+     * Returns NEUTRAL when both inputs are null.
+     */
     public String shortTermSignal(BigDecimal weeklyPct, BigDecimal monthlyPct) {
         if (weeklyPct == null && monthlyPct == null) return NEUTRAL;
         double w = weeklyPct != null ? weeklyPct.doubleValue() : 0;
@@ -40,6 +44,10 @@ public class TechnicalAnalysisService {
         return HOLD;
     }
 
+    /**
+     * Long-term BUY/HOLD/SELL signal from monthly + yearly momentum.
+     * Returns NEUTRAL when both inputs are null.
+     */
     public String longTermSignal(BigDecimal monthlyPct, BigDecimal yearlyPct) {
         if (monthlyPct == null && yearlyPct == null) return NEUTRAL;
         double m = monthlyPct != null ? monthlyPct.doubleValue() : 0;
@@ -49,6 +57,9 @@ public class TechnicalAnalysisService {
         return HOLD;
     }
 
+    /**
+     * Coarse trend label: UP / DOWN / SIDEWAYS from weekly + monthly change.
+     */
     public String trend(BigDecimal weeklyPct, BigDecimal monthlyPct) {
         if (weeklyPct == null && monthlyPct == null) return "SIDEWAYS";
         double w = weeklyPct != null ? weeklyPct.doubleValue() : 0;
@@ -58,6 +69,10 @@ public class TechnicalAnalysisService {
         return "SIDEWAYS";
     }
 
+    /**
+     * Volatility bucket (LOW / MEDIUM / HIGH) from the absolute size of the
+     * monthly and yearly moves.
+     */
     public String volatility(BigDecimal monthlyPct, BigDecimal yearlyPct) {
         double absMonthly = monthlyPct == null ? 0 : Math.abs(monthlyPct.doubleValue());
         double absYearly  = yearlyPct  == null ? 0 : Math.abs(yearlyPct.doubleValue());

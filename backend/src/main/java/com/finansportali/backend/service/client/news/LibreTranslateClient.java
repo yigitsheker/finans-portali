@@ -44,6 +44,7 @@ public class LibreTranslateClient {
     private final WebClient webClient;
     private final boolean enabled;
 
+    /** Wires the WebClient to the configured LibreTranslate base URL; disables the client when the URL is blank. */
     public LibreTranslateClient(@Value("${app.libretranslate.url:}") String baseUrl) {
         this.enabled = baseUrl != null && !baseUrl.isBlank();
         if (!enabled) {
@@ -65,6 +66,7 @@ public class LibreTranslateClient {
         log.info("[Translate] LibreTranslate client wired to {}", baseUrl);
     }
 
+    /** Whether a LibreTranslate base URL is configured (the client is active). */
     public boolean isEnabled() {
         return enabled;
     }

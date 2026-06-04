@@ -13,6 +13,11 @@ import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * Maintains the VIOP (Borsa İstanbul derivatives) contract table by periodically
+ * fetching delayed quotes from İş Yatırım, upserting them, and exposing ordered
+ * read queries for the full list and per-category views.
+ */
 @Service
 public class ViopService {
 
@@ -26,11 +31,13 @@ public class ViopService {
         this.repo = repo;
     }
 
+    /** All contracts ordered by category, underlying, then maturity. */
     @Transactional(readOnly = true)
     public List<ViopContract> findAll() {
         return repo.findAllByOrderByCategoryAscUnderlyingAscMaturityYearAscMaturityMonthAsc();
     }
 
+    /** Contracts in a single category, ordered by maturity then underlying. */
     @Transactional(readOnly = true)
     public List<ViopContract> findByCategory(ViopContract.Category category) {
         return repo.findByCategoryOrderByMaturityYearAscMaturityMonthAscUnderlyingAsc(category);

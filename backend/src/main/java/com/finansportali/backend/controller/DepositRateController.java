@@ -11,6 +11,10 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+/**
+ * REST endpoints exposing TCMB bank deposit (mevduat) interest rates per
+ * currency, plus an admin-only refresh trigger.
+ */
 @RestController
 @RequestMapping("/api/v1/deposit-rates")
 public class DepositRateController {
@@ -39,6 +43,7 @@ public class DepositRateController {
         return out;
     }
 
+    /** Latest deposit rate for a single currency; 204 when none is available. */
     @GetMapping("/latest/{currency}")
     public ResponseEntity<DepositRateDto> getLatestForCurrency(@PathVariable String currency) {
         return service.getLatest(currency.toUpperCase(Locale.ROOT))
@@ -47,6 +52,7 @@ public class DepositRateController {
                 .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
+    /** Admin-only manual refresh from TCMB; returns the number of rows upserted. */
     @PostMapping("/refresh")
     @org.springframework.security.access.prepost.PreAuthorize("hasRole('ADMIN')")
     public Map<String, Object> refresh() {

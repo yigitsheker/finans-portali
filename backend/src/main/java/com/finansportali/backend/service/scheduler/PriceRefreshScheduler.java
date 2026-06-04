@@ -173,6 +173,12 @@ public class PriceRefreshScheduler {
                 updated, failed, skipped);
     }
 
+    /**
+     * Refreshes one instrument inside its own transaction (invoked via the
+     * {@code self} proxy so {@code @Transactional} actually applies). Updates
+     * the provider symbol if it drifted, then fetches and persists the quote
+     * and candles. Returns false when the upstream quote could not be fetched.
+     */
     @Transactional
     public boolean refreshInstrumentInTransaction(MarketInstrument inst, String yahooSym) {
         // Update provider symbol if it's different from normalized
@@ -186,6 +192,7 @@ public class PriceRefreshScheduler {
         return refreshInstrument(inst, yahooSym);
     }
 
+    /** Runs the post-refresh price-alert evaluation in its own transaction. */
     @Transactional
     public void checkAlertsInTransaction() {
         priceAlertService.checkAllAlerts();

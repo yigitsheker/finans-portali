@@ -73,6 +73,11 @@ public class InstrumentAnalysisService {
         this.ta = ta;
     }
 
+    /**
+     * Builds the full cross-asset table for the Analysis page: market
+     * instruments, TCMB FX, funds and inflation rows, de-duplicated and
+     * each stamped with its inflation-adjusted (real) yearly return.
+     */
     public List<AnalysisInstrumentDto> getAllInstruments() {
         List<AnalysisInstrumentDto> out = new ArrayList<>();
         // De-dup set keyed by "<CATEGORY>:<SYMBOL>" so the TCMB FX feed
@@ -172,6 +177,11 @@ public class InstrumentAnalysisService {
         }
     }
 
+    /**
+     * Detail view for a single symbol — resolves it as a market instrument
+     * first (covers FX/crypto/commodities), then falls back to funds.
+     * Empty when the symbol is blank or unknown.
+     */
     public Optional<AnalysisDetailDto> getDetail(String symbol) {
         if (symbol == null || symbol.isBlank()) return Optional.empty();
         String upper = symbol.toUpperCase(Locale.ROOT);

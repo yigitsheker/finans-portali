@@ -11,6 +11,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
 
+/**
+ * REST endpoints for market data: instrument summaries and listings, spot FX,
+ * latest prices, and (single/FX/batch) price history for charts and sparklines.
+ */
 @RestController
 @RequestMapping("/api/v1/market")
 public class MarketController {
@@ -21,6 +25,7 @@ public class MarketController {
         this.service = service;
     }
 
+    /** Cached cross-asset summary (last price + change) for every instrument. */
     @GetMapping("/summary")
     public List<MarketSummaryItem> summary() {
         return service.summary();
@@ -40,21 +45,25 @@ public class MarketController {
                 .toList();
     }
 
+    /** All tradable instruments known to the platform. */
     @GetMapping("/instruments")
     public List<MarketInstrument> instruments() {
         return service.instruments();
     }
 
+    /** Search instruments by symbol or name. */
     @GetMapping("/search")
     public List<MarketInstrument> search(@RequestParam String query) {
         return service.searchInstruments(query);
     }
 
+    /** Latest price snapshot for a single symbol. */
     @GetMapping("/price")
     public java.util.Map<String, Object> price(@RequestParam String symbol) {
         return service.latestPrice(symbol);
     }
 
+    /** Price history for one symbol over the given period (default 30D). */
     @GetMapping("/history")
     public List<MarketHistoryPoint> history(
             @RequestParam String symbol,

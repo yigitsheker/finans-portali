@@ -65,6 +65,10 @@ public class KeycloakAdminService {
                 .build();
     }
 
+    /**
+     * List realm users, optionally filtered by a free-text {@code search} term,
+     * with pagination via {@code first} offset and {@code max} page size.
+     */
     public List<KeycloakUserDto> listUsers(String search, int first, int max) {
         String token = getAdminToken();
         int pageSize = max > 0 ? max : DEFAULT_PAGE_SIZE;
@@ -185,6 +189,7 @@ public class KeycloakAdminService {
         }
     }
 
+    /** Enable or disable a user account in Keycloak. */
     public void setUserEnabled(String userId, boolean enabled) {
         String token = getAdminToken();
         Map<String, Object> body = Map.of("enabled", enabled);
@@ -204,6 +209,10 @@ public class KeycloakAdminService {
         }
     }
 
+    /**
+     * Add a required action (e.g. UPDATE_PASSWORD, CONFIGURE_TOTP) to the user,
+     * merging with any existing actions so the user must complete it at next login.
+     */
     public void addRequiredAction(String userId, String action) {
         String token = getAdminToken();
 
@@ -283,6 +292,7 @@ public class KeycloakAdminService {
         return false;
     }
 
+    /** Delete all OTP/TOTP credentials for the user, effectively disabling 2FA. */
     public void removeTotpCredentials(String userId) {
         String token = getAdminToken();
 

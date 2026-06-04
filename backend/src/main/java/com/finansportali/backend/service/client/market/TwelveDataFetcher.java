@@ -44,6 +44,7 @@ public class TwelveDataFetcher {
     private final WebClient client;
     private final String apiKey;
 
+    /** Zaman aşımlı WebClient'i kurar ve yapılandırılmış API anahtarını bağlar. */
     public TwelveDataFetcher(@Value("${twelvedata.api-key:disabled}") String apiKey) {
         this.apiKey = apiKey;
         HttpClient httpClient = HttpClient.create()
@@ -160,6 +161,7 @@ public class TwelveDataFetcher {
         try { return Double.parseDouble(o.toString()); } catch (Exception e) { return 0.0; }
     }
 
+    /** Twelve Data anlık fiyat: son fiyat, önceki kapanış, mutlak ve yüzde değişim. */
     public record TwelveQuote(
             BigDecimal last,
             BigDecimal previousClose,  // null olabilir
@@ -167,5 +169,6 @@ public class TwelveDataFetcher {
             BigDecimal changePct
     ) {}
 
+    /** Tek bir günün kapanış fiyatı (tarihsel seri noktası). */
     public record DayClose(LocalDate day, BigDecimal close) {}
 }

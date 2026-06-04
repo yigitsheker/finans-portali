@@ -94,6 +94,11 @@ public class TefasFundFetcher {
                 .build();
     }
 
+    /**
+     * Fetch the full list of TEFAS investment funds (up to {@code maxFundsToFetch}),
+     * then enrich each with its latest unit price and daily return. Returns an empty
+     * list on any failure — never throws.
+     */
     public List<InvestmentFund> fetchAllFunds() {
         log.info("Fetching investment funds from TEFAS: POST {}{}", BASE_URL, ENDPOINT);
         LocalDate today = LocalDate.now();
@@ -266,6 +271,10 @@ public class TefasFundFetcher {
         }
     }
 
+    /**
+     * Placeholder for a single-fund detail lookup. Not used by the bulk refresh
+     * flow, so it currently returns {@code null}.
+     */
     public InvestmentFund fetchFundDetails(String fundCode) {
         // Per-fund detail call would hit a different TEFAS endpoint.
         // Not needed by the bulk refresh flow; returning null is safe.

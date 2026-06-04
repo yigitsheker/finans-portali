@@ -4,9 +4,20 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.stereotype.Service;
 
+/**
+ * Resolves user identity attributes (email, username, stable id) from the
+ * Keycloak-issued JWT held in the Spring Security {@link Authentication}.
+ * Used wherever a request-scoped principal needs to be turned into a persisted
+ * user reference (alerts, portfolio positions, notifications).
+ */
 @Service
 public class KeycloakUserService {
 
+    /**
+     * Extract the user's email from the JWT "email" claim.
+     * Falls back to the TEST_EMAIL environment variable when the claim is absent
+     * (used in test/dev tokens that carry no email).
+     */
     public String getUserEmail(Authentication authentication) {
         if (authentication == null || authentication.getPrincipal() == null) {
             return null;
@@ -26,6 +37,10 @@ public class KeycloakUserService {
         return null;
     }
 
+    /**
+     * Resolve a human-readable username, preferring "preferred_username" and
+     * falling back through "name", the subject, and finally the authentication name.
+     */
     public String getUsername(Authentication authentication) {
         if (authentication == null || authentication.getPrincipal() == null) {
             return null;
@@ -45,6 +60,11 @@ public class KeycloakUserService {
         return authentication.getName();
     }
 
+    /**
+     * Resolve a stable per-user identifier for persistence. Normally the OIDC
+     * subject ("sub"), but falls back to preferred_username / email / "sid" when
+     * the access token omits "sub" so NOT-NULL user_id columns never break.
+     */
     public String getUserId(Authentication authentication) {
         if (authentication == null || authentication.getPrincipal() == null) {
             return null;
