@@ -22,3 +22,18 @@ export async function getCandles(symbol, period = "30D") {
         }))
         .filter((c) => Number.isFinite(c.time) && Number.isFinite(c.close));
 }
+
+/**
+ * Instrument search for the comparison autocomplete. Public endpoint; returns
+ * up to a handful of {symbol, name, instrumentType} matches. Empty for < 2 chars.
+ */
+export async function searchInstruments(query) {
+    const q = (query || "").trim();
+    if (q.length < 2) return [];
+    try {
+        const { data } = await axios.get("/api/v1/market/search", { params: { query: q } });
+        return Array.isArray(data) ? data : [];
+    } catch {
+        return [];
+    }
+}

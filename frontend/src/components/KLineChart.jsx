@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { init, dispose, registerIndicator } from "klinecharts";
-import { getCandles } from "../api/marketChartApi";
+import { getCandles, searchInstruments } from "../api/marketChartApi";
 import { useI18n } from "../contexts/I18nContext";
 
 // Comparison indicator: plots the MAIN symbol and a comparison symbol both as
@@ -103,6 +103,8 @@ export default function KLineChart({ symbol }) {
     const [activeTool, setActiveTool] = useState(null);
     const [compareSymbol, setCompareSymbol] = useState(null);
     const [compareInput, setCompareInput] = useState("");
+    const [suggestions, setSuggestions] = useState([]);
+    const [showSug, setShowSug] = useState(false);
     const compareCreatedRef = useRef(false);
 
     const ovKey = `chart-overlays-${symbol}`;
@@ -185,6 +187,23 @@ export default function KLineChart({ symbol }) {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [compareSymbol, period, symbol]);
 
+    // ── comparison autocomplete (debounced instrument search) ────────────────
+    useEffect(() => {
+        if (compareSymbol) { setSuggestions([]); setShowSug(false); return; }
+        const q = compareInput.trim();
+        if (q.length < 2) { setSuggestions([]); setShowSug(false); return; }
+        let cancelled = false;
+        const id = setTimeout(() => {
+            searchInstruments(q).then((r) => {
+                if (cancelled) return;
+                const list = r.filter((x) => (x.symbol || "").toUpperCase() !== symbol).slice(0, 8);
+                setSuggestions(list);
+                setShowSug(list.length > 0);
+            });
+        }, 250);
+        return () => { cancelled = true; clearTimeout(id); };
+    }, [compareInput, compareSymbol, symbol]);
+
     // ── overlay persistence ──────────────────────────────────────────────────
     function saveOverlays() {
         const chart = chartRef.current;
@@ -243,11 +262,19 @@ export default function KLineChart({ symbol }) {
         });
     };
 
-    const applyCompare = () => {
-        const v = compareInput.trim().toUpperCase();
+    const pickCompare = (sym) => {
+        const v = (sym || "").toUpperCase();
         if (v && v !== symbol) setCompareSymbol(v);
+        setCompareInput(""); setSuggestions([]); setShowSug(false);
     };
-    const clearCompare = () => { setCompareSymbol(null); setCompareInput(""); };
+    const applyCompare = () => {
+        // Enter with an open list picks the first match; otherwise use raw text.
+        if (suggestions.length > 0) { pickCompare(suggestions[0].symbol); return; }
+        pickCompare(compareInput.trim());
+    };
+    const clearCompare = () => {
+        setCompareSymbol(null); setCompareInput(""); setSuggestions([]); setShowSug(false);
+    };
 
     return (
         <div style={s.wrap}>
@@ -281,16 +308,32 @@ export default function KLineChart({ symbol }) {
                             <button type="button" style={s.cmpX} onClick={clearCompare} aria-label="x">✕</button>
                         </span>
                     ) : (
-                        <>
+                        <div style={s.cmpSearchWrap}>
                             <input
                                 value={compareInput}
                                 onChange={(e) => setCompareInput(e.target.value.toUpperCase())}
-                                onKeyDown={(e) => { if (e.key === "Enter") applyCompare(); }}
+                                onKeyDown={(e) => {
+                                    if (e.key === "Enter") applyCompare();
+                                    else if (e.key === "Escape") setShowSug(false);
+                                }}
+                                onFocus={() => { if (suggestions.length) setShowSug(true); }}
+                                onBlur={() => setTimeout(() => setShowSug(false), 150)}
                                 placeholder={t("chartTools.comparePh")}
                                 style={s.cmpInput}
                             />
                             <button type="button" style={s.btn} onClick={applyCompare}>{t("chartTools.compare")}</button>
-                        </>
+                            {showSug && (
+                                <div style={s.sugBox}>
+                                    {suggestions.map((it) => (
+                                        <button key={it.symbol} type="button" style={s.sugItem}
+                                            onMouseDown={() => pickCompare(it.symbol)}>
+                                            <span style={s.sugSym}>{it.symbol}</span>
+                                            <span style={s.sugName}>{it.name}</span>
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     )}
                 </div>
             </div>
@@ -312,7 +355,12 @@ const s = {
     grp: { display: "inline-flex", flexWrap: "wrap", gap: 4, background: "#161b22", border: "1px solid #222a33", borderRadius: 8, padding: 3 },
     btn: { padding: "5px 9px", borderRadius: 6, border: "none", background: "transparent", color: "#9ba7b4", fontSize: 12, fontWeight: 600, cursor: "pointer", whiteSpace: "nowrap" },
     btnActive: { background: "rgba(34,197,94,0.15)", color: "#22c55e" },
+    cmpSearchWrap: { position: "relative", display: "inline-flex", gap: 4, alignItems: "center" },
     cmpInput: { width: 120, padding: "5px 8px", borderRadius: 6, border: "none", background: "transparent", color: "#e6edf3", fontSize: 12, outline: "none" },
+    sugBox: { position: "absolute", top: "calc(100% + 4px)", left: 0, minWidth: 220, maxHeight: 260, overflowY: "auto", background: "#161b22", border: "1px solid #222a33", borderRadius: 8, boxShadow: "0 8px 24px rgba(0,0,0,0.4)", zIndex: 50 },
+    sugItem: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 1, width: "100%", padding: "7px 10px", border: "none", borderBottom: "1px solid #1b232c", background: "transparent", color: "#e6edf3", cursor: "pointer", textAlign: "left" },
+    sugSym: { fontSize: 12.5, fontWeight: 700, color: "#e6edf3" },
+    sugName: { fontSize: 11, color: "#9ba7b4" },
     cmpChip: { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", color: "#22c55e", fontSize: 12, fontWeight: 700 },
     cmpX: { border: "none", background: "transparent", color: "#9ba7b4", cursor: "pointer", fontSize: 12, padding: 0 },
     chartBox: { position: "relative", flex: 1, minHeight: 0 },
