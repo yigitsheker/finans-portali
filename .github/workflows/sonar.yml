@@ -29,20 +29,19 @@ jobs:
   sonarcloud:
     name: SonarCloud scan
     runs-on: ubuntu-latest
-    # Hard cap so a stuck run can never burn an hour of Actions minutes again.
-    timeout-minutes: 25
+    # Headroom for the ONE-TIME cache-warming run; once SonarCloud's analysis
+    # cache is populated, subsequent scans finish in a few minutes.
+    timeout-minutes: 45
     # Skip if the token isn't available (e.g. on a fork without the secret).
     if: ${{ github.repository == 'yigitsheker/finans-portali' }}
     steps:
       - uses: actions/checkout@v4
         with:
           # SonarCloud needs full git history for accurate "new code" blame
-          # attribution. Shallow clones break the Quality Gate's "new code"
-          # delta calculation. `blob:none` keeps the full COMMIT history (so
-          # blame still works) while skipping file-blob downloads until needed —
-          # a much faster checkout on a repo with this much history + binaries.
+          # attribution. Full clone (with blobs) keeps blame LOCAL and fast — a
+          # `blob:none` partial clone makes Sonar's blame fetch each historical
+          # blob on demand over the network, which is far slower.
           fetch-depth: 0
-          filter: blob:none
 
       - uses: actions/setup-java@v4
         with:
