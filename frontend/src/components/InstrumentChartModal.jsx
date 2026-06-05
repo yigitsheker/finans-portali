@@ -8,12 +8,14 @@ import {
 } from "../api/portfolioApi";
 import { watchlistApi } from "../api/watchlistApi";
 import { readHistoryCache, writeHistoryCache } from "../utils/historyCache";
+import { useI18n } from "../contexts/I18nContext";
 
+// Period değerleri sabit; etiketler render anında t() ile çevrilir.
 const PERIODS = [
-    { label: "1G", value: "1D" },
-    { label: "5G", value: "5D" },
-    { label: "1A", value: "30D" },
-    { label: "1Y", value: "1Y" },
+    { labelKey: "instrumentChart.p1G", value: "1D" },
+    { labelKey: "instrumentChart.p5G", value: "5D" },
+    { labelKey: "instrumentChart.p1A", value: "30D" },
+    { labelKey: "instrumentChart.p1Y", value: "1Y" },
 ];
 
 const BellIcon = () => (
@@ -59,6 +61,7 @@ const LockIcon = () => (
 );
 
 export default function InstrumentChartModal({ instrument, onClose, keycloak, onAddToPortfolio, onCompare }) {
+    const { t } = useI18n();
     const [period, setPeriod] = useState("30D");
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -191,7 +194,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                         ? { ...w, symbols: w.symbols.filter((s) => s !== instrument.symbol) }
                         : w))
                 );
-                setWatchlistFlash(`"${list.name}" listesinden kaldırıldı`);
+                setWatchlistFlash(t("instrumentChart.removedFromList", { name: list.name }));
             } else {
                 await watchlistApi.addToWatchlist(keycloak, {
                     watchlistId: list.id,
@@ -200,13 +203,13 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                 setWatchlists((prev) =>
                     prev.map((w) => (w.id === list.id ? { ...w, symbols: [...w.symbols, instrument.symbol] } : w))
                 );
-                setWatchlistFlash(`"${list.name}" listesine eklendi`);
+                setWatchlistFlash(t("instrumentChart.addedToList", { name: list.name }));
             }
             setShowWatchlistMenu(false);
             setTimeout(() => setWatchlistFlash(null), 2500);
         } catch (error) {
             console.error("Failed to toggle watchlist membership:", error);
-            setWatchlistFlash(alreadyIn ? "Kaldırılamadı" : "Eklenemedi");
+            setWatchlistFlash(alreadyIn ? t("instrumentChart.removeListError") : t("instrumentChart.addListError"));
             setTimeout(() => setWatchlistFlash(null), 2500);
         } finally {
             setWatchlistBusy(false);
@@ -229,11 +232,11 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
             setCreatingList(false);
             setNewListName("");
             setShowWatchlistMenu(false);
-            setWatchlistFlash(`"${name}" listesi oluşturuldu`);
+            setWatchlistFlash(t("instrumentChart.listCreated", { name }));
             setTimeout(() => setWatchlistFlash(null), 2500);
         } catch (error) {
             console.error("Failed to create watchlist:", error);
-            setWatchlistFlash("Liste oluşturulamadı");
+            setWatchlistFlash(t("instrumentChart.listCreateError"));
             setTimeout(() => setWatchlistFlash(null), 2500);
         } finally {
             setWatchlistBusy(false);
@@ -284,10 +287,10 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                         <button
                             onClick={() => setShowAlertModal(true)}
                             style={s.iconBtn}
-                            title="Fiyat Alarmı"
-                            aria-label="Fiyat Alarmı"
+                            title={t("instrumentChart.priceAlert")}
+                            aria-label={t("instrumentChart.priceAlert")}
                         >
-                            <BellIcon /> <span style={s.btnLabel}>Alarm</span>
+                            <BellIcon /> <span style={s.btnLabel}>{t("instrumentChart.alarm")}</span>
                         </button>
                     )}
 
@@ -296,10 +299,10 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                         <button
                             onClick={() => onCompare(instrument)}
                             style={s.iconBtn}
-                            title="Karşılaştır"
-                            aria-label="Karşılaştır"
+                            title={t("instrumentChart.compare")}
+                            aria-label={t("instrumentChart.compare")}
                         >
-                            <CompareIcon /> <span style={s.btnLabel}>Karşılaştır</span>
+                            <CompareIcon /> <span style={s.btnLabel}>{t("instrumentChart.compare")}</span>
                         </button>
                     )}
 
@@ -312,17 +315,17 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                                     ensureWatchlistsLoaded();
                                 }}
                                 style={s.iconBtn}
-                                title="Listeme Ekle"
-                                aria-label="Listeme Ekle"
+                                title={t("instrumentChart.addToList")}
+                                aria-label={t("instrumentChart.addToList")}
                             >
-                                <StarIcon /> <span style={s.btnLabel}>Liste</span>
+                                <StarIcon /> <span style={s.btnLabel}>{t("instrumentChart.list")}</span>
                             </button>
                         {showWatchlistMenu && (
                             <div style={s.watchlistMenu}>
                                 {!watchlistsLoaded ? (
-                                    <div style={s.watchlistEmpty}>Yükleniyor...</div>
+                                    <div style={s.watchlistEmpty}>{t("common.loading")}</div>
                                 ) : watchlists.length === 0 && !creatingList ? (
-                                    <div style={s.watchlistEmpty}>Henüz listen yok</div>
+                                    <div style={s.watchlistEmpty}>{t("instrumentChart.noLists")}</div>
                                 ) : (
                                     watchlists.map((list) => {
                                         const alreadyIn = list.symbols.includes(instrument.symbol);
@@ -336,7 +339,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                                                 }}
                                                 disabled={watchlistBusy}
                                                 onClick={() => handleToggleList(list)}
-                                                title={alreadyIn ? "Listeden kaldır" : "Listeye ekle"}
+                                                title={alreadyIn ? t("instrumentChart.removeFromList") : t("instrumentChart.addToListTooltip")}
                                             >
                                                 <span>{list.name}</span>
                                                 <span
@@ -345,7 +348,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                                                         ...(alreadyIn ? s.watchlistMenuCountActive : {}),
                                                     }}
                                                 >
-                                                    {alreadyIn ? "✓ Kaldır" : `${list.symbols.length}`}
+                                                    {alreadyIn ? t("instrumentChart.remove") : `${list.symbols.length}`}
                                                 </span>
                                             </button>
                                         );
@@ -356,7 +359,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                                         <input
                                             type="text"
                                             autoFocus
-                                            placeholder="Liste adı"
+                                            placeholder={t("instrumentChart.newListPh")}
                                             value={newListName}
                                             onChange={(e) => setNewListName(e.target.value)}
                                             onKeyDown={(e) => {
@@ -373,7 +376,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                                             disabled={watchlistBusy || !newListName.trim()}
                                             style={s.watchlistCreateBtn}
                                         >
-                                            Ekle
+                                            {t("instrumentChart.add")}
                                         </button>
                                     </div>
                                 ) : (
@@ -381,7 +384,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                                         style={s.watchlistNewBtn}
                                         onClick={() => setCreatingList(true)}
                                     >
-                                        + Yeni Liste Oluştur
+                                        {t("instrumentChart.newListBtn")}
                                     </button>
                                 )}
                             </div>

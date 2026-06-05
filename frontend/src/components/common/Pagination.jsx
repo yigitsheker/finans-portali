@@ -13,6 +13,8 @@
  *  - onPageSizeChange:(nextSize:number) => void
  *  - pageSizeOptions: optional override of the per-page dropdown
  */
+import { useI18n } from "../../contexts/I18nContext";
+
 export default function Pagination({
     page,
     pageSize,
@@ -21,6 +23,7 @@ export default function Pagination({
     onPageSizeChange,
     pageSizeOptions = [10, 25, 50, 100],
 }) {
+    const { t } = useI18n();
     const totalPages = Math.max(1, Math.ceil((total || 0) / pageSize));
     const safePage = Math.min(Math.max(1, page || 1), totalPages);
     const from = total === 0 ? 0 : (safePage - 1) * pageSize + 1;
@@ -31,7 +34,7 @@ export default function Pagination({
     return (
         <div style={s.wrap}>
             <div style={s.info}>
-                {total === 0 ? "Kayıt yok" : <><strong>{from}–{to}</strong> / {total.toLocaleString("tr-TR")} kayıt</>}
+                {total === 0 ? t("pagination.empty") : <><strong>{from}–{to}</strong> / {total.toLocaleString("tr-TR")} {t("pagination.records")}</>}
             </div>
 
             <div style={s.controls}>
@@ -40,7 +43,7 @@ export default function Pagination({
                     style={{ ...s.navBtn, ...(safePage === 1 ? s.navBtnDisabled : {}) }}
                     disabled={safePage === 1}
                     onClick={() => onPageChange(safePage - 1)}
-                    aria-label="Önceki sayfa"
+                    aria-label={t("pagination.prevPage")}
                 >
                     ‹
                 </button>
@@ -64,7 +67,7 @@ export default function Pagination({
                     style={{ ...s.navBtn, ...(safePage === totalPages ? s.navBtnDisabled : {}) }}
                     disabled={safePage === totalPages}
                     onClick={() => onPageChange(safePage + 1)}
-                    aria-label="Sonraki sayfa"
+                    aria-label={t("pagination.nextPage")}
                 >
                     ›
                 </button>
@@ -72,7 +75,7 @@ export default function Pagination({
 
             {onPageSizeChange && (
                 <label style={s.sizeWrap}>
-                    <span style={s.sizeLabel}>Sayfa başı</span>
+                    <span style={s.sizeLabel}>{t("pagination.perPage")}</span>
                     <select
                         value={pageSize}
                         onChange={(e) => onPageSizeChange(Number(e.target.value))}

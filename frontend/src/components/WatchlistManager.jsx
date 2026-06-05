@@ -1,9 +1,11 @@
 import { useState, useEffect } from 'react';
 import { watchlistApi } from '../api/watchlistApi';
 import { getMarketSummary } from '../api/portfolioApi';
+import { useI18n } from '../contexts/I18nContext';
 import FinexStyleMarket from './FinexStyleMarket';
 
 const WatchlistManager = ({ keycloak }) => {
+  const { t } = useI18n();
   const [watchlists, setWatchlists] = useState([]);
   const [selectedWatchlist, setSelectedWatchlist] = useState(null);
   const [instruments, setInstruments] = useState([]);
@@ -52,7 +54,7 @@ const WatchlistManager = ({ keycloak }) => {
       setShowCreateModal(false);
     } catch (error) {
       console.error('Failed to create watchlist:', error);
-      alert('Liste oluşturulamadı');
+      alert(t("watchlist.createFailed"));
     }
   };
 
@@ -69,12 +71,12 @@ const WatchlistManager = ({ keycloak }) => {
       setShowRenameModal(false);
     } catch (error) {
       console.error('Failed to rename watchlist:', error);
-      alert('Liste adı değiştirilemedi');
+      alert(t("watchlist.renameFailed"));
     }
   };
 
   const handleDeleteWatchlist = async (id) => {
-    if (!confirm('Bu listeyi silmek istediğinizden emin misiniz?')) return;
+    if (!confirm(t("watchlist.deleteConfirm"))) return;
 
     try {
       await watchlistApi.deleteWatchlist(keycloak, id);
@@ -85,13 +87,13 @@ const WatchlistManager = ({ keycloak }) => {
       }
     } catch (error) {
       console.error('Failed to delete watchlist:', error);
-      alert('Liste silinemedi');
+      alert(t("watchlist.deleteFailed"));
     }
   };
 
   const handleAddToWatchlist = async (symbol) => {
     if (!selectedWatchlist) {
-      alert('Lütfen önce bir liste seçin');
+      alert(t("watchlist.selectFirst"));
       return;
     }
 
@@ -107,7 +109,7 @@ const WatchlistManager = ({ keycloak }) => {
       setSelectedWatchlist(updated);
     } catch (error) {
       console.error('Failed to add to watchlist:', error);
-      alert('Hisse listeye eklenemedi');
+      alert(t("watchlist.addFailed"));
     }
   };
 
@@ -123,7 +125,7 @@ const WatchlistManager = ({ keycloak }) => {
       setSelectedWatchlist(updated);
     } catch (error) {
       console.error('Failed to remove from watchlist:', error);
-      alert('Hisse listeden çıkarılamadı');
+      alert(t("watchlist.removeFailed"));
     }
   };
 
@@ -132,7 +134,7 @@ const WatchlistManager = ({ keycloak }) => {
     : [];
 
   if (loading) {
-    return <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>Yükleniyor...</div>;
+    return <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>{t("common.loading")}</div>;
   }
 
   return (
@@ -189,7 +191,7 @@ const WatchlistManager = ({ keycloak }) => {
                     fontSize: '14px',
                     opacity: 0.7
                   }}
-                  title="Yeniden Adlandır"
+                  title={t("watchlist.rename")}
                 >
                   ✏️
                 </button>
@@ -207,7 +209,7 @@ const WatchlistManager = ({ keycloak }) => {
                     color: 'var(--red)',
                     opacity: 0.7
                   }}
-                  title="Sil"
+                  title={t("watchlist.delete")}
                 >
                   🗑️
                 </button>
@@ -229,7 +231,7 @@ const WatchlistManager = ({ keycloak }) => {
             transition: 'all 0.2s'
           }}
         >
-          + Yeni Liste
+          {t("watchlist.newList")}
         </button>
       </div>
 
@@ -254,12 +256,12 @@ const WatchlistManager = ({ keycloak }) => {
             minWidth: '400px',
             border: '1px solid var(--border)'
           }}>
-            <h3 style={{ marginTop: 0, color: 'var(--text-primary)' }}>Yeni Liste Oluştur</h3>
+            <h3 style={{ marginTop: 0, color: 'var(--text-primary)' }}>{t("watchlist.createTitle")}</h3>
             <input
               type="text"
               value={newWatchlistName}
               onChange={(e) => setNewWatchlistName(e.target.value)}
-              placeholder="Liste adı"
+              placeholder={t("watchlist.listNamePh")}
               style={{
                 width: '100%',
                 padding: '10px',
@@ -288,7 +290,7 @@ const WatchlistManager = ({ keycloak }) => {
                   color: 'var(--text-primary)'
                 }}
               >
-                İptal
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleCreateWatchlist}
@@ -302,7 +304,7 @@ const WatchlistManager = ({ keycloak }) => {
                   fontWeight: 'bold'
                 }}
               >
-                Oluştur
+                {t("watchlist.create")}
               </button>
             </div>
           </div>
@@ -330,12 +332,12 @@ const WatchlistManager = ({ keycloak }) => {
             minWidth: '400px',
             border: '1px solid var(--border)'
           }}>
-            <h3 style={{ marginTop: 0, color: 'var(--text-primary)' }}>Liste Adını Değiştir</h3>
+            <h3 style={{ marginTop: 0, color: 'var(--text-primary)' }}>{t("watchlist.renameTitle")}</h3>
             <input
               type="text"
               value={renameWatchlistName}
               onChange={(e) => setRenameWatchlistName(e.target.value)}
-              placeholder="Yeni liste adı"
+              placeholder={t("watchlist.newListNamePh")}
               style={{
                 width: '100%',
                 padding: '10px',
@@ -364,7 +366,7 @@ const WatchlistManager = ({ keycloak }) => {
                   color: 'var(--text-primary)'
                 }}
               >
-                İptal
+                {t("common.cancel")}
               </button>
               <button
                 onClick={handleRenameWatchlist}
@@ -378,7 +380,7 @@ const WatchlistManager = ({ keycloak }) => {
                   fontWeight: 'bold'
                 }}
               >
-                Kaydet
+                {t("common.save")}
               </button>
             </div>
           </div>
@@ -403,10 +405,10 @@ const WatchlistManager = ({ keycloak }) => {
             border: '2px dashed var(--border)'
           }}>
             <p style={{ fontSize: '18px', color: 'var(--text-muted)', marginBottom: '10px' }}>
-              Bu liste henüz boş
+              {t("watchlist.emptyListTitle")}
             </p>
             <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>
-              Hisse Senetleri sekmesinden hisse ekleyebilirsiniz
+              {t("watchlist.emptyListSub")}
             </p>
           </div>
         )
@@ -419,7 +421,7 @@ const WatchlistManager = ({ keycloak }) => {
           border: '1px solid var(--border)'
         }}>
           <p style={{ fontSize: '18px', color: 'var(--text-muted)' }}>
-            Bir liste seçin veya yeni liste oluşturun
+            {t("watchlist.noSelection")}
           </p>
         </div>
       )}

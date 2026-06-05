@@ -1,22 +1,24 @@
 import { useEffect, useState } from "react";
 import { getLatestDepositRates } from "../api/depositRateApi";
+import { useI18n } from "../contexts/I18nContext";
 
 const MATURITY_COLS = [
-  { key: "rate1m",       label: "1 Ay" },
-  { key: "rate3m",       label: "1-3 Ay" },
-  { key: "rate6m",       label: "3-6 Ay" },
-  { key: "rate12m",      label: "6-12 Ay" },
-  { key: "rateOver12m",  label: "12 Ay+" },
-  { key: "rateAvg",      label: "Ortalama" },
+  { key: "rate1m",       labelKey: "depositRates.col1m" },
+  { key: "rate3m",       labelKey: "depositRates.col1to3m" },
+  { key: "rate6m",       labelKey: "depositRates.col3to6m" },
+  { key: "rate12m",      labelKey: "depositRates.col6to12m" },
+  { key: "rateOver12m",  labelKey: "depositRates.colOver12m" },
+  { key: "rateAvg",      labelKey: "depositRates.colAvg" },
 ];
 
 const CURRENCIES = [
-  { code: "TRY", label: "₺ Türk Lirası", flag: "🇹🇷" },
-  { code: "USD", label: "$ ABD Doları",  flag: "🇺🇸" },
-  { code: "EUR", label: "€ Euro",        flag: "🇪🇺" },
+  { code: "TRY", labelKey: "depositRates.ccyTry", flag: "🇹🇷" },
+  { code: "USD", labelKey: "depositRates.ccyUsd", flag: "🇺🇸" },
+  { code: "EUR", labelKey: "depositRates.ccyEur", flag: "🇪🇺" },
 ];
 
 export default function DepositRatesCard() {
+  const { t } = useI18n();
   const [data, setData] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,7 +27,7 @@ export default function DepositRatesCard() {
     setLoading(true);
     getLatestDepositRates()
       .then((d) => setData(d || {}))
-      .catch((e) => setError(e?.message || "Yüklenemedi"))
+      .catch((e) => setError(e?.message || t("depositRates.loadError")))
       .finally(() => setLoading(false));
   }, []);
 
@@ -47,28 +49,28 @@ export default function DepositRatesCard() {
     <div style={s.card}>
       <div style={s.header}>
         <div>
-          <div style={s.title}>🏦 Mevduat Faiz Oranları</div>
+          <div style={s.title}>{t("depositRates.title")}</div>
           <div style={s.subtitle}>
-            Bankalar ortalama mevduat faizi (TCMB EVDS3)
+            {t("depositRates.subtitle")}
             {periodLabel && <span style={s.periodBadge}>{periodLabel}</span>}
           </div>
         </div>
       </div>
 
       {loading ? (
-        <div style={s.loadingRow}>Yükleniyor…</div>
+        <div style={s.loadingRow}>{t("common.loadingDots")}</div>
       ) : error ? (
         <div style={s.errorRow}>{error}</div>
       ) : Object.keys(data).length === 0 ? (
-        <div style={s.errorRow}>Henüz veri yok — TCMB EVDS3 cookie'leri yenilenmeli.</div>
+        <div style={s.errorRow}>{t("depositRates.empty")}</div>
       ) : (
         <div style={s.tableWrap}>
           <table style={s.table}>
             <thead>
               <tr>
-                <th style={s.th}>Para Birimi</th>
+                <th style={s.th}>{t("depositRates.colCurrency")}</th>
                 {MATURITY_COLS.map((col) => (
-                  <th key={col.key} style={{ ...s.th, textAlign: "right" }}>{col.label}</th>
+                  <th key={col.key} style={{ ...s.th, textAlign: "right" }}>{t(col.labelKey)}</th>
                 ))}
               </tr>
             </thead>
@@ -80,7 +82,7 @@ export default function DepositRatesCard() {
                   <tr key={ccy.code} style={s.tr}>
                     <td style={s.td}>
                       <span style={{ marginRight: 8 }}>{ccy.flag}</span>
-                      <span style={{ fontWeight: 600 }}>{ccy.label}</span>
+                      <span style={{ fontWeight: 600 }}>{t(ccy.labelKey)}</span>
                     </td>
                     {MATURITY_COLS.map((col) => (
                       <td key={col.key} style={{

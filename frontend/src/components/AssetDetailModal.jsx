@@ -6,9 +6,9 @@ import { getFxHistory } from "../api/portfolioApi";
 import { useI18n } from "../contexts/I18nContext";
 
 const PERIODS = [
-    { label: "5G", value: "5D" },
-    { label: "1A", value: "30D" },
-    { label: "1Y", value: "1Y" },
+    { labelKey: "assetDetail.p5G", value: "5D" },
+    { labelKey: "assetDetail.p1A", value: "30D" },
+    { labelKey: "assetDetail.p1Y", value: "1Y" },
 ];
 
 /**
@@ -104,7 +104,7 @@ export default function AssetDetailModal({ asset, kind, onClose, keycloak, onBuy
                                         }}
                                         onClick={() => setPeriod(p.value)}
                                     >
-                                        {p.label}
+                                        {t(p.labelKey)}
                                     </button>
                                 ))}
                             </div>

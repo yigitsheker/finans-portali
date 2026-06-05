@@ -3,17 +3,19 @@ import PropTypes from "prop-types";
 import Modal from "./Modal";
 import { getBondDetail, getBondHistory } from "../api/bondApi";
 import { LWAreaChart } from "./common/LWAreaChart";
+import { useI18n } from "../contexts/I18nContext";
 
-const TYPE_LABELS = {
-    GOVERNMENT_BOND: "Devlet Tahvili",
-    TREASURY_BILL: "Hazine Bonosu",
-    LEASE_CERTIFICATE: "Kira Sertifikası",
+const TYPE_LABEL_KEYS = {
+    GOVERNMENT_BOND: "bonds.typeGovBond",
+    TREASURY_BILL: "bonds.typeTBill",
+    LEASE_CERTIFICATE: "bonds.typeSukuk",
     EUROBOND: "Eurobond",
-    CORPORATE_BOND: "Özel Sektör Tahvili",
-    OTHER: "Diğer",
+    CORPORATE_BOND: "bonds.typeCorp",
+    OTHER: "bonds.typeOther",
 };
 
 export default function BondDetailModal({ bondId, onClose, onBuy }) {
+    const { t } = useI18n();
     const [bond, setBond] = useState(null);
     const [history, setHistory] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -38,7 +40,7 @@ export default function BondDetailModal({ bondId, onClose, onBuy }) {
             const data = await getBondDetail(bondId);
             setBond(data);
         } catch (e) {
-            setError(e?.message ?? "Veri yüklenirken hata oluştu");
+            setError(e?.message ?? t("bondDetail.loadError"));
         } finally {
             setLoading(false);
         }
@@ -69,16 +71,16 @@ export default function BondDetailModal({ bondId, onClose, onBuy }) {
 
     if (loading) {
         return (
-            <Modal open={true} title="Yükleniyor..." onClose={onClose}>
-                <div style={s.loading}>Yükleniyor...</div>
+            <Modal open={true} title={t("common.loading")} onClose={onClose}>
+                <div style={s.loading}>{t("common.loading")}</div>
             </Modal>
         );
     }
 
     if (error || !bond) {
         return (
-            <Modal open={true} title="Hata" onClose={onClose}>
-                <div style={s.error}>{error || "Veri bulunamadı"}</div>
+            <Modal open={true} title={t("common.error")} onClose={onClose}>
+                <div style={s.error}>{error || t("bondDetail.notFound")}</div>
             </Modal>
         );
     }
@@ -97,13 +99,13 @@ export default function BondDetailModal({ bondId, onClose, onBuy }) {
                 {/* Header Info */}
                 <div style={s.headerRow}>
                     <div>
-                        <div style={s.yieldLabel}>Getiri Oranı</div>
+                        <div style={s.yieldLabel}>{t("bondDetail.yieldRate")}</div>
                         <div style={s.yieldValue}>
                             {bond.latestYieldRate ? `${bond.latestYieldRate.toFixed(2)}%` : "-"}
                         </div>
                     </div>
                     <div style={{ textAlign: "right" }}>
-                        <div style={s.changeLabel}>Değişim</div>
+                        <div style={s.changeLabel}>{t("bondDetail.change")}</div>
                         <div style={{ ...s.changeValue, color: changeColor }}>
                             {bond.changeRate
                                 ? `${positive ? "+" : ""}${bond.changeRate.toFixed(2)}%`
@@ -115,23 +117,29 @@ export default function BondDetailModal({ bondId, onClose, onBuy }) {
                 {/* Details Grid */}
                 <div style={s.detailsGrid}>
                     <div style={s.detailCard}>
-                        <div style={s.detailLabel}>Tür</div>
-                        <div style={s.detailValue}>{TYPE_LABELS[bond.type] || bond.type}</div>
+                        <div style={s.detailLabel}>{t("bonds.colType")}</div>
+                        <div style={s.detailValue}>
+                            {bond.type === "EUROBOND"
+                                ? TYPE_LABEL_KEYS.EUROBOND
+                                : TYPE_LABEL_KEYS[bond.type]
+                                    ? t(TYPE_LABEL_KEYS[bond.type])
+                                    : bond.type}
+                        </div>
                     </div>
                     <div style={s.detailCard}>
                         <div style={s.detailLabel}>ISIN</div>
                         <div style={s.detailValue}>{bond.isin || "-"}</div>
                     </div>
                     <div style={s.detailCard}>
-                        <div style={s.detailLabel}>İhraççı</div>
+                        <div style={s.detailLabel}>{t("assetDetail.issuer")}</div>
                         <div style={s.detailValue}>{bond.issuer || "-"}</div>
                     </div>
                     <div style={s.detailCard}>
-                        <div style={s.detailLabel}>Para Birimi</div>
+                        <div style={s.detailLabel}>{t("assetDetail.currency")}</div>
                         <div style={s.detailValue}>{bond.currency || "-"}</div>
                     </div>
                     <div style={s.detailCard}>
-                        <div style={s.detailLabel}>Vade Tarihi</div>
+                        <div style={s.detailLabel}>{t("bondDetail.maturityDate")}</div>
                         <div style={s.detailValue}>
                             {bond.maturityDate
                                 ? new Date(bond.maturityDate).toLocaleDateString("tr-TR")
@@ -139,39 +147,39 @@ export default function BondDetailModal({ bondId, onClose, onBuy }) {
                         </div>
                     </div>
                     <div style={s.detailCard}>
-                        <div style={s.detailLabel}>Vadeye Kalan Gün</div>
+                        <div style={s.detailLabel}>{t("bondDetail.daysToMaturity")}</div>
                         <div style={s.detailValue}>{bond.daysToMaturity || "-"}</div>
                     </div>
                     <div style={s.detailCard}>
-                        <div style={s.detailLabel}>Kupon Oranı</div>
+                        <div style={s.detailLabel}>{t("bondDetail.couponRate")}</div>
                         <div style={s.detailValue}>
                             {bond.couponRate ? `${bond.couponRate.toFixed(2)}%` : "-"}
                         </div>
                     </div>
                     <div style={s.detailCard}>
-                        <div style={s.detailLabel}>Kupon Tipi</div>
+                        <div style={s.detailLabel}>{t("bondDetail.couponType")}</div>
                         <div style={s.detailValue}>{bond.couponType || "-"}</div>
                     </div>
                     <div style={s.detailCard}>
-                        <div style={s.detailLabel}>Fiyat</div>
+                        <div style={s.detailLabel}>{t("bonds.colPrice")}</div>
                         <div style={s.detailValue}>
                             {bond.latestPrice ? bond.latestPrice.toFixed(2) : "-"}
                         </div>
                     </div>
                     <div style={s.detailCard}>
-                        <div style={s.detailLabel}>Temiz Fiyat</div>
+                        <div style={s.detailLabel}>{t("bondDetail.colCleanPrice")}</div>
                         <div style={s.detailValue}>
                             {bond.cleanPrice ? bond.cleanPrice.toFixed(2) : "-"}
                         </div>
                     </div>
                     <div style={s.detailCard}>
-                        <div style={s.detailLabel}>Kirli Fiyat</div>
+                        <div style={s.detailLabel}>{t("bondDetail.colDirtyPrice")}</div>
                         <div style={s.detailValue}>
                             {bond.dirtyPrice ? bond.dirtyPrice.toFixed(2) : "-"}
                         </div>
                     </div>
                     <div style={s.detailCard}>
-                        <div style={s.detailLabel}>Hacim</div>
+                        <div style={s.detailLabel}>{t("common.volume")}</div>
                         <div style={s.detailValue}>
                             {bond.volume ? bond.volume.toLocaleString("tr-TR") : "-"}
                         </div>
@@ -181,7 +189,7 @@ export default function BondDetailModal({ bondId, onClose, onBuy }) {
                 {/* Chart Section */}
                 <div style={s.chartSection}>
                     <div style={s.chartHeader}>
-                        <h3 style={s.chartTitle}>Getiri Grafiği</h3>
+                        <h3 style={s.chartTitle}>{t("bondDetail.chartTitle")}</h3>
                         <div style={s.periodButtons}>
                             {["30D", "90D", "1Y"].map((p) => (
                                 <button
@@ -199,9 +207,9 @@ export default function BondDetailModal({ bondId, onClose, onBuy }) {
                     </div>
 
                     {historyLoading ? (
-                        <div style={s.chartLoading}>Yükleniyor...</div>
+                        <div style={s.chartLoading}>{t("common.loading")}</div>
                     ) : history.length === 0 ? (
-                        <div style={s.chartEmpty}>Tarihsel veri bulunamadı</div>
+                        <div style={s.chartEmpty}>{t("bondDetail.chartEmpty")}</div>
                     ) : (
                         <div style={s.chartWrapper}>
                             <LWAreaChart
@@ -228,7 +236,7 @@ export default function BondDetailModal({ bondId, onClose, onBuy }) {
                                 price: bond.latestPrice ?? null,
                             })}
                         >
-                            + Al
+                            {t("bondDetail.buyAction")}
                         </button>
                     </div>
                 )}
@@ -236,10 +244,10 @@ export default function BondDetailModal({ bondId, onClose, onBuy }) {
                 {/* Footer */}
                 <div style={s.footer}>
                     <span style={s.footerText}>
-                        Kaynak: {bond.source}
+                        {t("bondDetail.footerSource")} {bond.source}
                     </span>
                     <span style={s.footerText}>
-                        Son Güncelleme: {bond.lastUpdatedAt
+                        {t("bondDetail.footerLastUpdate")} {bond.lastUpdatedAt
                             ? new Date(bond.lastUpdatedAt).toLocaleString("tr-TR")
                             : "-"}
                     </span>

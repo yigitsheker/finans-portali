@@ -78,7 +78,7 @@ const NewsDetail = () => {
             })
             .catch((e) => {
                 console.error('Failed to load article:', e);
-                if (!cancelled) setError('Haber yüklenemedi');
+                if (!cancelled) setError(t('news.detailLoadError'));
             })
             .finally(() => {
                 if (!cancelled) setLoading(false);

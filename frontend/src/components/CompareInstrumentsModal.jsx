@@ -3,6 +3,7 @@ import Modal from "./Modal";
 import { getMarketHistory, getMarketSummary } from "../api/portfolioApi";
 import { getInflationHistory } from "../api/inflationApi";
 import { clickable } from "../utils/clickable";
+import { useI18n } from "../contexts/I18nContext";
 
 // Instrument types whose prices are denominated in TRY. When the user picks
 // "USD Bazlı" view we need to divide these by the historical USDTRY rate of
@@ -96,10 +97,10 @@ function interpolateCpiOntoDates(cpiRows, targetDates) {
 }
 
 const PERIODS = [
-    { label: "1G", value: "1D" },
-    { label: "5G", value: "5D" },
-    { label: "1A", value: "30D" },
-    { label: "1Y", value: "1Y" },
+    { labelKey: "compare.p1G", value: "1D" },
+    { labelKey: "compare.p5G", value: "5D" },
+    { labelKey: "compare.p1A", value: "30D" },
+    { labelKey: "compare.p1Y", value: "1Y" },
 ];
 
 // Visually distinct, high-contrast palette for dark backgrounds.
@@ -109,6 +110,7 @@ const COLORS = ["#22c55e", "#3b82f6", "#f97316", "#ec4899", "#a855f7"];
 // ── Pure SVG multi-line chart ──────────────────────────────────────────────
 
 function SVGChart({ series, xLabels, yLabel, mode, independentX = false }) {
+    const { t } = useI18n();
     const [tooltip, setTooltip] = useState(null);
     // zoomRange = null → full extent; otherwise {startIdx, endIdx} inclusive over xLabels.
     const [zoomRange, setZoomRange] = useState(null);
@@ -318,9 +320,9 @@ function SVGChart({ series, xLabels, yLabel, mode, independentX = false }) {
                         color: "var(--text-primary)",
                         cursor: "pointer",
                     }}
-                    title="Yakınlaştırmayı sıfırla"
+                    title={t("compare.resetZoomTooltip")}
                 >
-                    🔍 Sıfırla
+                    {t("compare.resetZoom")}
                 </button>
             )}
             <svg
@@ -569,6 +571,7 @@ function SVGChart({ series, xLabels, yLabel, mode, independentX = false }) {
 
 // ── Main component ─────────────────────────────────────────────────────────
 export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
+    const { t } = useI18n();
     const [period, setPeriod] = useState("30D");
     const [mode, setMode] = useState("percentage");
     const [loading, setLoading] = useState(false);
@@ -772,8 +775,8 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
     }, [rawData]);
 
     const getYAxisLabel = () => {
-        if (mode === "percentage") return "Değişim (%)";
-        return "Fiyat (USD)";
+        if (mode === "percentage") return t("compare.yAxisChange");
+        return t("compare.yAxisPrice");
     };
 
     if (!baseInstrument) return null;
@@ -781,7 +784,7 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
     return (
         <Modal
             open={!!baseInstrument}
-            title={`Karşılaştır: ${baseInstrument.symbol}`}
+            title={t("compare.title", { symbol: baseInstrument.symbol })}
             onClose={onClose}
             maxWidth={860}
         >
@@ -795,7 +798,7 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
                                 style={{ ...s.periodBtn, ...(period === p.value ? s.periodActive : {}) }}
                                 onClick={() => setPeriod(p.value)}
                             >
-                                {p.label}
+                                {t(p.labelKey)}
                             </button>
                         ))}
                     </div>
@@ -806,7 +809,7 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
                                 style={{ ...s.modeBtn, ...(mode === m ? s.modeActive : {}) }}
                                 onClick={() => setMode(m)}
                             >
-                                {m === "percentage" ? "Yüzde (%)" : "USD Bazlı"}
+                                {m === "percentage" ? t("compare.modePercent") : t("compare.modeUsd")}
                             </button>
                         ))}
                     </div>
@@ -832,7 +835,7 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
                             <div style={s.spinner} />
                         </div>
                     ) : series.length === 0 || xLabels.length === 0 ? (
-                        <div style={s.loading}>Veri bulunamadı</div>
+                        <div style={s.loading}>{t("compare.noData")}</div>
                     ) : (
                         <SVGChart
                             series={series}
@@ -853,18 +856,19 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
                         type="button"
                         style={s.inflationBtn}
                         onClick={() => addInstrument(INFLATION_INSTRUMENT)}
-                        title="Türkiye enflasyon (TÜFE) eğrisini grafiğe ekle"
+                        title={t("compare.addInflationTooltip")}
                     >
-                        📊 Enflasyon (TÜFE) ile karşılaştır
+                        {t("compare.addInflation")}
                     </button>
                 )}
 
                 {/* Hint when inflation chip is present but current mode/period can't render it */}
                 {selectedInstruments.find((i) => i.isInflation) &&
                   (mode !== "percentage" || period === "1D" || period === "5D") && (
-                    <div style={s.inflationHint}>
-                        💡 Enflasyon (TÜFE) yalnızca <b>Yüzde (%)</b> modunda ve <b>1A / 1Y</b> periyotlarında gösterilebilir.
-                    </div>
+                    <div
+                        style={s.inflationHint}
+                        dangerouslySetInnerHTML={{ __html: t("compare.inflationModeHint") }}
+                    />
                 )}
 
                 {/* When inflation is selected and the window extends past the latest published
@@ -875,7 +879,7 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
                   (period === "30D" || period === "1Y") &&
                   series.find((s) => s.symbol === "TÜFE" && typeof s.estimatedFromIdx === "number") && (
                     <div style={s.inflationHint}>
-                        💡 TCMB en güncel TÜFE'yi <b>{latestCpiLabel ?? "Ocak 2026"}</b> olarak yayınladı.
+                        💡 TCMB en güncel TÜFE'yi <b>{latestCpiLabel ?? t("compare.cpiFallbackMonth")}</b> olarak yayınladı.
                         Sonraki günler için TÜFE eğrisi <b>son 3 aylık ortalama enflasyon hızıyla</b> tahmin
                         ediliyor ve <span style={{ borderBottom: "2px dashed currentColor" }}>kesik çizgi</span> ile gösterilir.
                     </div>

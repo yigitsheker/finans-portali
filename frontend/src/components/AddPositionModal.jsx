@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import PropTypes from "prop-types";
 import Modal from "./Modal";
 import { upsertPosition } from "../api/portfolioApi";
+import { useI18n } from "../contexts/I18nContext";
 
 export default function AddPositionModal({
     open,
@@ -12,6 +13,7 @@ export default function AddPositionModal({
     initialPrice = "",
     contractMultiplier = 1,
 }) {
+    const { t } = useI18n();
     // Seed the form from the optional props so callers (e.g. Analysis page's
     // chart modal, Bonds/Funds/FX/VIOP rows) can pre-fill the symbol/price
     // the user just clicked on.
@@ -87,10 +89,10 @@ export default function AddPositionModal({
     }
 
     return (
-        <Modal open={open} title="Pozisyon Ekle" onClose={onClose}>
+        <Modal open={open} title={t("addPosition.title")} onClose={onClose}>
             <div style={s.grid}>
                 <label style={s.label}>
-                    Sembol
+                    {t("addPosition.symbol")}
                     <input
                         style={s.input}
                         placeholder="THYAO / AAPL / BTC"
@@ -100,7 +102,7 @@ export default function AddPositionModal({
                 </label>
 
                 <label style={s.label}>
-                    Adet
+                    {t("addPosition.quantity")}
                     <input
                         style={s.input}
                         type="number"
@@ -111,7 +113,7 @@ export default function AddPositionModal({
                 </label>
 
                 <label style={s.label}>
-                    Ortalama Maliyet
+                    {t("addPosition.avgCost")}
                     <input
                         style={s.input}
                         type="number"
@@ -126,15 +128,15 @@ export default function AddPositionModal({
             {multiplier > 1 && (
                 <div style={s.viopInfo}>
                     <div style={s.viopRow}>
-                        <span style={s.viopLabel}>Sözleşme Çarpanı</span>
+                        <span style={s.viopLabel}>{t("addPosition.contractMultiplier")}</span>
                         <strong style={s.viopValue}>{multiplier.toLocaleString("tr-TR")}</strong>
                     </div>
                     <div style={s.viopRow}>
-                        <span style={s.viopLabel}>Toplam Pozisyon Büyüklüğü</span>
-                        <strong style={s.viopValue}>{totalUnits.toLocaleString("tr-TR")} birim</strong>
+                        <span style={s.viopLabel}>{t("addPosition.totalPositionSize")}</span>
+                        <strong style={s.viopValue}>{totalUnits.toLocaleString("tr-TR")} {t("addPosition.units")}</strong>
                     </div>
                     <div style={s.viopRow}>
-                        <span style={s.viopLabel}>Tahmini Toplam Maliyet</span>
+                        <span style={s.viopLabel}>{t("addPosition.estTotalCost")}</span>
                         <strong style={s.viopValue}>
                             {totalCost.toLocaleString("tr-TR", {
                                 minimumFractionDigits: 2,
@@ -145,14 +147,14 @@ export default function AddPositionModal({
                 </div>
             )}
 
-            {err && <div style={s.err}>Hata: {err}</div>}
+            {err && <div style={s.err}>{t("addPosition.errorPrefix")} {err}</div>}
 
             <div style={s.actions}>
                 <button style={s.secondaryBtn} onClick={onClose} disabled={saving}>
-                    Vazgeç
+                    {t("common.cancel")}
                 </button>
                 <button style={{ ...s.primaryBtn, opacity: canSave ? 1 : 0.6 }} onClick={onSubmit} disabled={!canSave || saving}>
-                    {saving ? "Kaydediliyor..." : "Kaydet"}
+                    {saving ? t("common.saving") : t("common.save")}
                 </button>
             </div>
         </Modal>
