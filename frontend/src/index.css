@@ -52,6 +52,10 @@
    Two themes share the same token names; only values differ.
    ────────────────────────────────────────────────────────────────────────── */
 :root {
+  /* Render native controls (date-picker icon, dropdowns, scrollbars) dark by
+     default so the calendar icon stays visible on dark inputs. */
+  color-scheme: dark;
+
   /* Surfaces */
   --bg-page:        #0a0e14;
   --bg-sidebar:     #0d1218;
@@ -150,6 +154,7 @@
 
 /* Light theme — clean neutral with same emerald accent */
 [data-theme="light"] {
+  color-scheme: light;
   --bg-page:        #f7f9fc;
   --bg-sidebar:     #ffffff;
   --bg-content:     #f7f9fc;
