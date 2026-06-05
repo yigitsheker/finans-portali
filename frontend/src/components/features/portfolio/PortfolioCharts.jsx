@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { PortfolioAreaChart } from "../../common/PortfolioAreaChart";
 import { ALLOC_COLORS, portfolioStyles as s } from "./portfolioStyles";
@@ -43,6 +44,12 @@ export function PortfolioCharts({
   const tooltipBg = isDark ? "#1c2128" : "#ffffff";
   const tooltipBorder = isDark ? "#30363d" : "#d0d7de";
   const tooltipColor = isDark ? "#e6edf3" : "#1f2328";
+
+  // Which allocation slice is shown in the donut centre. null → default to the
+  // largest. Clicking a slice or a legend row selects it. Reset when the
+  // grouping (symbol/type/market) changes so a stale name doesn't linger.
+  const [activeName, setActiveName] = useState(null);
+  useEffect(() => { setActiveName(null); }, [allocView]);
 
   return (
     <div style={s.chartsRow}>
@@ -114,9 +121,12 @@ export function PortfolioCharts({
           const sorted = [...allocData].sort((a, b) => b.value - a.value);
           const display = consolidateSmallSlices(sorted);
           const total = sorted.reduce((sum, x) => sum + x.value, 0);
-          // Largest slice gets the centre label.
+          // Largest slice is the default; the user can select another by
+          // clicking a slice or a legend row. Fall back to the largest when the
+          // selected name isn't in the current grouping.
           const top = sorted[0];
-          const topPct = total > 0 ? (top.value / total) * 100 : 0;
+          const active = display.find((d) => d.name === activeName) || top;
+          const activePct = total > 0 ? (active.value / total) * 100 : 0;
           return (
             <>
               {/* Toplam değer — kullanıcı her şeyden önce ne kadarı toplam
@@ -140,13 +150,20 @@ export function PortfolioCharts({
                       paddingAngle={display.length > 1 ? 2 : 0}
                       dataKey="value"
                       stroke="none"
+                      style={{ cursor: "pointer", outline: "none" }}
+                      onClick={(d) => setActiveName(d?.name ?? d?.payload?.name ?? null)}
                     >
-                      {display.map((d, index) => (
-                        <Cell key={index}
-                          fill={d.isOther ? "var(--text-muted)" : ALLOC_COLORS[index % ALLOC_COLORS.length]}
-                          fillOpacity={d.isOther ? 0.45 : 1}
-                        />
-                      ))}
+                      {display.map((d, index) => {
+                        const isActive = d.name === active.name;
+                        return (
+                          <Cell key={index}
+                            fill={d.isOther ? "var(--text-muted)" : ALLOC_COLORS[index % ALLOC_COLORS.length]}
+                            fillOpacity={d.isOther ? 0.45 : (isActive ? 1 : 0.7)}
+                            stroke={isActive ? "var(--text-primary)" : "none"}
+                            strokeWidth={isActive ? 2 : 0}
+                          />
+                        );
+                      })}
                     </Pie>
                     <Tooltip
                       contentStyle={{ background: tooltipBg, border: "1px solid " + tooltipBorder, borderRadius: 6, color: tooltipColor, fontSize: 11 }}
@@ -157,11 +174,11 @@ export function PortfolioCharts({
                     />
                   </PieChart>
                 </ResponsiveContainer>
-                {/* En büyük dilimi ortada özet olarak göster. */}
-                {top && (
+                {/* Seçili (varsayılan: en büyük) dilimi ortada özetle. */}
+                {active && (
                   <div style={s.allocCenter}>
-                    <div style={s.allocCenterPct}>{topPct.toFixed(0)}%</div>
-                    <div style={s.allocCenterLabel}>{top.name}</div>
+                    <div style={s.allocCenterPct}>{activePct.toFixed(0)}%</div>
+                    <div style={s.allocCenterLabel}>{active.name}</div>
                   </div>
                 )}
               </div>
@@ -173,10 +190,19 @@ export function PortfolioCharts({
                   const color = item.isOther
                     ? "var(--text-muted)"
                     : ALLOC_COLORS[index % ALLOC_COLORS.length];
+                  const isActive = item.name === active.name;
                   return (
-                    <div key={item.name} style={s.allocLegendRow}>
+                    <div
+                      key={item.name}
+                      style={{
+                        ...s.allocLegendRow,
+                        cursor: "pointer",
+                        ...(isActive ? { background: "var(--bg-elev)", borderRadius: 6 } : {}),
+                      }}
+                      onClick={() => setActiveName(item.name)}
+                    >
                       <span style={{ ...s.legendDot, background: color, opacity: item.isOther ? 0.45 : 1 }} />
-                      <span style={s.allocLegendName}>{item.name}</span>
+                      <span style={{ ...s.allocLegendName, ...(isActive ? { fontWeight: 700 } : {}) }}>{item.name}</span>
                       <span style={s.allocLegendValue}>
                         ₺{Math.round(item.value).toLocaleString("tr-TR")}
                       </span>
