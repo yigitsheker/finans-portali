@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import PropTypes from "prop-types";
 import { portfolioStyles as s } from "./portfolioStyles";
 import { usePriceDisplay } from "../../../contexts/CurrencyDisplayContext";
@@ -22,9 +23,12 @@ export function PositionsTable({
   summaryDetail,
   openAdd,
   openSell,
+  onImport,
+  importing,
 }) {
   const { format: formatPrice } = usePriceDisplay();
   const { t } = useI18n();
+  const fileRef = useRef(null);
 
   // Helper: look up the InstrumentType for a symbol from the loaded market data.
   // Used in the fallback path where positions don't carry currency.
@@ -38,9 +42,36 @@ export function PositionsTable({
           <div style={s.chartTitle}>{t("portfolio.positionsTitle")}</div>
           <div style={s.chartSub}>{t("portfolio.positionsSub")}</div>
         </div>
-        <button style={s.addBtn} onClick={openAdd}>
-          {t("portfolio.addPosition")}
-        </button>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {onImport && (
+            <>
+              <a href="/ornek-portfoy.xlsx" download style={impStyles.sampleLink}>
+                {t("portfolio.importSample")}
+              </a>
+              <button
+                style={{ ...impStyles.importBtn, ...(importing ? { opacity: 0.6, cursor: "default" } : {}) }}
+                onClick={() => fileRef.current?.click()}
+                disabled={importing}
+              >
+                {importing ? t("portfolio.importing") : t("portfolio.importBtn")}
+              </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".xlsx,.xls,.csv"
+                style={{ display: "none" }}
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  e.target.value = "";
+                  if (f) onImport(f);
+                }}
+              />
+            </>
+          )}
+          <button style={s.addBtn} onClick={openAdd}>
+            {t("portfolio.addPosition")}
+          </button>
+        </div>
       </div>
 
       {loading ? (
@@ -179,4 +210,26 @@ PositionsTable.propTypes = {
   summaryDetail: PropTypes.object,
   openAdd: PropTypes.func.isRequired,
   openSell: PropTypes.func.isRequired,
+  onImport: PropTypes.func,
+  importing: PropTypes.bool,
+};
+
+const impStyles = {
+  importBtn: {
+    padding: "8px 14px",
+    borderRadius: 8,
+    border: "1px solid var(--accent-border)",
+    background: "transparent",
+    color: "var(--accent-solid)",
+    cursor: "pointer",
+    fontWeight: 600,
+    fontSize: 13,
+    whiteSpace: "nowrap",
+  },
+  sampleLink: {
+    fontSize: 12,
+    color: "var(--text-muted)",
+    textDecoration: "underline",
+    whiteSpace: "nowrap",
+  },
 };

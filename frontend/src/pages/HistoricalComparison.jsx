@@ -1,10 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import Modal from "../components/Modal";
-import { getLatestPrice, getMarketInstruments } from "../api/portfolioApi";
+import { getLatestPrice, getMarketHistory, getMarketInstruments } from "../api/portfolioApi";
 import { compareInflation } from "../api/inflationApi";
 import { useI18n } from "../contexts/I18nContext";
 import { useCurrencyDisplay } from "../contexts/CurrencyDisplayContext";
+import notify from "../utils/notify";
+import { parsePortfolioExcel } from "../utils/excelImport";
 
 export default function HistoricalComparison({ keycloak }) {
   const { t } = useI18n();
@@ -41,6 +43,8 @@ export default function HistoricalComparison({ keycloak }) {
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState(null);
   const [showSugg, setShowSugg] = useState(false);
+  const [importing, setImporting] = useState(false);
+  const fileRef = useRef(null);
 
   useEffect(() => {
     getMarketInstruments().then(setInstruments).catch(() => {});
@@ -93,6 +97,63 @@ export default function HistoricalComparison({ keycloak }) {
     return "$";
   };
 
+  // Build one historical position row (price at buy date from history, current
+  // price, inflation-adjusted real return). Returns the row WITHOUT an id, or
+  // null when there's no price history for that symbol/window. Shared by the
+  // manual add modal and the Excel bulk-import.
+  async function buildHistoricalPosition(sym, dateISO, lots) {
+    const selectedDate = new Date(dateISO);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    const currentPrice = await getLatestPrice(sym, keycloak);
+
+    const daysDiff = Math.floor((today.getTime() - selectedDate.getTime()) / (1000 * 60 * 60 * 24));
+    let period = "30D";
+    if (daysDiff > 365) period = "5Y";
+    else if (daysDiff > 180) period = "1Y";
+    else if (daysDiff > 90) period = "6M";
+    else if (daysDiff > 30) period = "3M";
+
+    const historyData = await getMarketHistory(sym, period);
+    if (!historyData || historyData.length === 0) return null;
+
+    const targetTime = selectedDate.getTime();
+    let closestPoint = historyData[0];
+    let minDiff = Math.abs(new Date(historyData[0].day).getTime() - targetTime);
+    for (const point of historyData) {
+      const diff = Math.abs(new Date(point.day).getTime() - targetTime);
+      if (diff < minDiff) { minDiff = diff; closestPoint = point; }
+    }
+
+    const buyPrice = closestPoint.close;
+    const instrument = instruments.find((i) => i.symbol === sym);
+    const currency = getCurrency(sym);
+
+    // Real return adjusted for cumulative CPI over the same window. The compare
+    // endpoint returns null outside available CPI months — tolerated.
+    const nominalPct = buyPrice > 0 ? ((currentPrice - buyPrice) / buyPrice) * 100 : 0;
+    const todayISO = new Date().toISOString().split("T")[0];
+    let inflationData = null;
+    try {
+      inflationData = await compareInflation(dateISO, todayISO, nominalPct);
+    } catch (e) {
+      console.debug("Inflation compare unavailable:", e?.message);
+    }
+
+    return {
+      symbol: sym,
+      name: instrument?.name || sym,
+      buyDate: dateISO,
+      buyPrice,
+      currentPrice,
+      lots,
+      currency,
+      cumulativeInflationPct: inflationData?.cumulativeInflationPct ?? null,
+      realReturnPct: inflationData?.realReturnPct ?? null,
+    };
+  }
+
   async function onAdd() {
     const sym = addSymbol.trim().toUpperCase();
     if (!sym) {
@@ -121,70 +182,13 @@ export default function HistoricalComparison({ keycloak }) {
       setAddLoading(true);
       setAddError(null);
 
-      // Get current price
-      const currentPrice = await getLatestPrice(sym, keycloak);
-
-      // Calculate days difference to determine appropriate period
-      const daysDiff = Math.floor((today.getTime() - selectedDate.getTime()) / (1000 * 60 * 60 * 24));
-      let period = "30D";
-      if (daysDiff > 365) period = "5Y";
-      else if (daysDiff > 180) period = "1Y";
-      else if (daysDiff > 90) period = "6M";
-      else if (daysDiff > 30) period = "3M";
-
-      // Fetch historical data
-      const { getMarketHistory } = await import("../api/portfolioApi");
-      const historyData = await getMarketHistory(sym, period);
-
-      if (!historyData || historyData.length === 0) {
+      const pos = await buildHistoricalPosition(sym, addDate, addLots);
+      if (!pos) {
         setAddError(t("historical.errNoHistory"));
         return;
       }
 
-      // Find the closest date to the selected date
-      const targetTime = selectedDate.getTime();
-      let closestPoint = historyData[0];
-      let minDiff = Math.abs(new Date(historyData[0].day).getTime() - targetTime);
-
-      for (const point of historyData) {
-        const pointTime = new Date(point.day).getTime();
-        const diff = Math.abs(pointTime - targetTime);
-        if (diff < minDiff) {
-          minDiff = diff;
-          closestPoint = point;
-        }
-      }
-
-      const buyPrice = closestPoint.close;
-      const instrument = instruments.find(i => i.symbol === sym);
-      const currency = getCurrency(sym);
-
-      // Compute real return adjusted for cumulative CPI inflation over the same window.
-      // /inflation/compare returns null when buy/today fall outside available CPI months;
-      // we tolerate that and just leave realReturnPct empty.
-      const nominalPct = buyPrice > 0 ? ((currentPrice - buyPrice) / buyPrice) * 100 : 0;
-      const todayISO = new Date().toISOString().split("T")[0];
-      let inflationData = null;
-      try {
-        inflationData = await compareInflation(addDate, todayISO, nominalPct);
-      } catch (e) {
-        console.debug("Inflation compare unavailable:", e?.message);
-      }
-
-      const newPosition = {
-        id: Date.now().toString(),
-        symbol: sym,
-        name: instrument?.name || sym,
-        buyDate: addDate,
-        buyPrice,
-        currentPrice,
-        lots: addLots,
-        currency,
-        cumulativeInflationPct: inflationData?.cumulativeInflationPct ?? null,
-        realReturnPct: inflationData?.realReturnPct ?? null,
-      };
-
-      setPositions([...positions, newPosition]);
+      setPositions([...positions, { id: Date.now().toString(), ...pos }]);
       setAddOpen(false);
       setAddSymbol("");
       setAddDate("");
@@ -194,6 +198,59 @@ export default function HistoricalComparison({ keycloak }) {
       setAddError(e?.message ?? t("historical.errPrice"));
     } finally {
       setAddLoading(false);
+    }
+  }
+
+  // Excel bulk-import (columns: symbol + lot + buy date, all required). Unknown
+  // symbols and rows with a missing/future date are skipped and counted; the
+  // outcome is surfaced as a site notification.
+  async function onImportFile(file) {
+    if (!file) return;
+    setImporting(true);
+    try {
+      const parsed = await parsePortfolioExcel(file, { requireDate: true });
+      if (!parsed.ok) {
+        notify(t("historical.importUnreadable"), { variant: "error" });
+        return;
+      }
+      // Catalog loads async; fetch it now if the user imported before it's ready
+      // so symbol validation doesn't silently skip every row.
+      let catalog = instruments;
+      if (!catalog.length) {
+        catalog = await getMarketInstruments().catch(() => []);
+        if (catalog.length) setInstruments(catalog);
+      }
+      const valid = new Set(catalog.map((i) => String(i.symbol).toUpperCase()));
+      // Compare dates as yyyy-MM-dd strings (local "today") to avoid the UTC
+      // shift that new Date("yyyy-MM-dd") introduces near midnight.
+      const now = new Date();
+      const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      const rid = () => (typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.round(Math.random() * 1e9)}`);
+
+      const added = [];
+      let skipped = 0;
+      for (const row of parsed.rows) {
+        const dateOk = row.date && row.date < todayISO;
+        if (!row.symbol || !valid.has(row.symbol) || !(row.lot > 0) || !dateOk) { skipped++; continue; }
+        try {
+          const pos = await buildHistoricalPosition(row.symbol, row.date, row.lot);
+          if (pos) added.push({ id: rid(), ...pos });
+          else skipped++;
+        } catch {
+          skipped++;
+        }
+      }
+
+      if (added.length > 0) setPositions((prev) => [...prev, ...added]);
+      if (added.length === 0 && skipped === 0) {
+        notify(t("historical.importEmpty"), { variant: "warning" });
+      } else {
+        notify.tx(t("historical.importDone", { imported: added.length, skipped }));
+      }
+    } finally {
+      setImporting(false);
     }
   }
 
@@ -233,7 +290,28 @@ export default function HistoricalComparison({ keycloak }) {
           <div style={s.title}>{t("historical.title")}</div>
           <div style={s.subtitle}>{t("historical.subtitle")}</div>
         </div>
-        <div style={{ display: "flex", gap: 8 }}>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          <a href="/ornek-gecmis.xlsx" download style={s.sampleLink}>
+            {t("historical.importSample")}
+          </a>
+          <button
+            style={{ ...s.importBtn, ...(importing ? { opacity: 0.6, cursor: "default" } : {}) }}
+            onClick={() => fileRef.current?.click()}
+            disabled={importing}
+          >
+            {importing ? t("historical.importing") : t("historical.importBtn")}
+          </button>
+          <input
+            ref={fileRef}
+            type="file"
+            accept=".xlsx,.xls,.csv"
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              e.target.value = "";
+              if (f) onImportFile(f);
+            }}
+          />
           {positions.length > 0 && (
             <button style={s.clearBtn} onClick={onClearAll}>
               {t("historical.clearAll")}
@@ -493,6 +571,8 @@ const s = {
   td: { padding: "10px 12px", fontSize: 13, color: "var(--text-primary)", whiteSpace: "nowrap" },
   symbolBadge: { padding: "2px 8px", borderRadius: 4, background: "rgba(37,99,235,0.15)", border: "1px solid var(--accent-border)", fontSize: 12, fontWeight: 600 },
   addBtn: { padding: "8px 16px", borderRadius: 8, border: "none", background: "var(--accent-solid)", color: "#fff", cursor: "pointer", fontWeight: 600, fontSize: 13 },
+  importBtn: { padding: "8px 16px", borderRadius: 8, border: "1px solid var(--accent-border)", background: "transparent", color: "var(--accent-solid)", cursor: "pointer", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" },
+  sampleLink: { fontSize: 12, color: "var(--text-muted)", textDecoration: "underline", whiteSpace: "nowrap" },
   clearBtn: { padding: "8px 16px", borderRadius: 8, border: "1px solid var(--danger-border)", background: "var(--danger-bg)", color: "var(--danger-text)", cursor: "pointer", fontWeight: 600, fontSize: 13 },
   deleteBtn: { padding: "6px 12px", borderRadius: 6, border: "1px solid var(--danger-border)", background: "var(--danger-bg)", color: "var(--danger-text)", cursor: "pointer", fontSize: 12, fontWeight: 500 },
   ghostBtn: { padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border-card)", background: "transparent", color: "var(--text-primary)", cursor: "pointer" },

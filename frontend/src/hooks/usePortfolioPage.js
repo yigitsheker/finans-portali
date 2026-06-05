@@ -10,6 +10,7 @@ import {
   upsertPosition,
 } from "../api/portfolioApi";
 import notify from "../utils/notify";
+import { parsePortfolioExcel } from "../utils/excelImport";
 
 export function usePortfolioPage(keycloak) {
   const [items, setItems] = useState([]);
@@ -31,6 +32,7 @@ export function usePortfolioPage(keycloak) {
   const [addAmount, setAddAmount] = useState(0);
   const [addPriceLoading, setAddPriceLoading] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
+  const [importing, setImporting] = useState(false);
   const [showSugg, setShowSugg] = useState(false);
   const [sellOpen, setSellOpen] = useState(false);
   const [sellTarget, setSellTarget] = useState(null);
@@ -329,6 +331,42 @@ export function usePortfolioPage(keycloak) {
     }
   }, [sellTarget, sellQty, keycloak, refresh]);
 
+  // Bulk-import positions from an Excel/CSV file (columns: symbol + lot).
+  // Unknown symbols (not in the instrument catalog) are skipped and counted.
+  // Returns a result the page turns into a toast — no UI strings live here.
+  const importFromExcel = useCallback(async (file) => {
+    if (!file) return { ok: false, reason: "empty" };
+    setImporting(true);
+    try {
+      const parsed = await parsePortfolioExcel(file, { requireDate: false });
+      if (!parsed.ok) return parsed; // { ok:false, reason }
+      // The catalog loads async on mount; if the user imports before it's ready
+      // fetch it now so symbol validation isn't silently skipping everything.
+      let catalog = instruments;
+      if (!catalog.length) catalog = await getMarketInstruments().catch(() => []);
+      const valid = new Set(catalog.map((i) => String(i.symbol).toUpperCase()));
+      let imported = 0;
+      let skipped = 0;
+      for (const row of parsed.rows) {
+        if (!row.symbol || !(row.lot > 0) || !valid.has(row.symbol)) { skipped++; continue; }
+        try {
+          const price = await getLatestPrice(row.symbol, keycloak);
+          // No live quote → skip rather than book a position at cost 0 (which
+          // would corrupt P&L). Counted as skipped.
+          if (!(price > 0)) { skipped++; continue; }
+          await upsertPosition(keycloak, { symbol: row.symbol, quantity: row.lot, avgCost: price });
+          imported++;
+        } catch {
+          skipped++;
+        }
+      }
+      if (imported > 0) await refresh();
+      return { ok: true, imported, skipped };
+    } finally {
+      setImporting(false);
+    }
+  }, [instruments, keycloak, refresh]);
+
   return {
     items,
     prices,
@@ -348,6 +386,8 @@ export function usePortfolioPage(keycloak) {
     addPrice,
     addPriceLoading,
     addSaving,
+    importing,
+    importFromExcel,
     addTotal,
     addInputMode,
     addAmount,
