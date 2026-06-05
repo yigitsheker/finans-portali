@@ -383,7 +383,7 @@ const s = {
     placeholder: { padding: 40, textAlign: "center", color: "var(--text-muted)" },
     error: {
         padding: 12, marginBottom: 12, borderRadius: 8,
-        background: "rgba(239, 68, 68, 0.1)", color: "#ef4444",
+        background: "var(--danger-bg)", color: "var(--red)",
         border: "1px solid rgba(239, 68, 68, 0.3)",
         display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12,
     },
@@ -403,7 +403,7 @@ const s = {
         padding: "6px 14px",
         borderRadius: 6,
         border: "none",
-        background: "#10b981",
+        background: "var(--accent-solid)",
         color: "#000",
         fontSize: 12,
         fontWeight: 700,
@@ -417,7 +417,7 @@ const s = {
     },
     shortBtn: {
         padding: "5px 10px", borderRadius: 6, border: "none",
-        background: "#dc2626", color: "#fff",
+        background: "var(--red)", color: "#fff",
         fontSize: 12, fontWeight: 700, cursor: "pointer",
     },
     posSection: { marginTop: 28 },

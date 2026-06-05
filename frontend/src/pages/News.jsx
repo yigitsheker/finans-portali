@@ -148,7 +148,7 @@ const News = ({ keycloak }) => {
                                         <div
                                             style={{
                                                 ...s.heroStatChange,
-                                                color: positive ? '#10b981' : '#ef4444',
+                                                color: positive ? 'var(--green)' : 'var(--red)',
                                             }}
                                         >
                                             {positive ? '▲' : '▼'} {positive ? '+' : ''}
@@ -453,7 +453,7 @@ const s = {
     readMore: {
         fontSize: 13,
         fontWeight: 600,
-        color: '#3b82f6',
+        color: 'var(--blue)',
     },
 
     list: { display: 'flex', flexDirection: 'column', gap: 10 },

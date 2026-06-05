@@ -260,7 +260,7 @@ const s = {
         width: 40,
         height: 40,
         border: "3px solid var(--border)",
-        borderTop: "3px solid #3b82f6",
+        borderTop: "3px solid var(--blue)",
         borderRadius: "50%",
         animation: "spin 0.8s linear infinite",
     },

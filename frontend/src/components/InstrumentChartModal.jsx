@@ -505,7 +505,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                                     <span style={s.footerDot}>·</span>
                                     <span
                                         style={{
-                                            color: "#f59e0b",
+                                            color: "var(--amber)",
                                             fontWeight: 600,
                                         }}
                                         title="Çevrimdışı veri — önbellekteki son görüntü gösteriliyor. Bağlantı geri gelince otomatik yenilenir."
@@ -579,12 +579,12 @@ const s = {
     },
     changePillUp: {
         background: "rgba(34, 197, 94, 0.14)",
-        color: "#22c55e",
+        color: "var(--green)",
         border: "1px solid rgba(34, 197, 94, 0.30)",
     },
     changePillDown: {
-        background: "rgba(239, 68, 68, 0.12)",
-        color: "#ef4444",
+        background: "var(--danger-bg)",
+        color: "var(--red)",
         border: "1px solid rgba(239, 68, 68, 0.30)",
     },
     subline: {

@@ -549,7 +549,7 @@ const s = {
         padding: "6px 14px",
         borderRadius: 6,
         border: "none",
-        background: "#10b981",
+        background: "var(--accent-solid)",
         color: "#000",
         fontSize: 12,
         fontWeight: 700,

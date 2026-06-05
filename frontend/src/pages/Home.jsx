@@ -56,12 +56,12 @@ export default function Home({ keycloak }) {
     useEffect(() => {
         Promise.all([
             getMarketSummary().catch(() => []),
-            getNews().catch(() => []),
+            getNews(undefined, lang).catch(() => []),
         ]).then(([s, n]) => {
             setSummary(Array.isArray(s) ? s : []);
             setNews(Array.isArray(n) ? n : []);
         });
-    }, []);
+    }, [lang]);
 
     // BIST 100 universe — backend tags these specifically with type "BIST"
     // (US stocks come back as type "STOCK"). Filter buttons sort/restrict.

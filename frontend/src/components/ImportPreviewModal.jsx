@@ -162,7 +162,7 @@ const st = {
     inputBad: { border: "1px solid var(--danger-border)", background: "var(--danger-bg)" },
     badge: { display: "inline-block", padding: "2px 8px", borderRadius: 999, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" },
     bOk: { background: "rgba(34,197,94,0.15)", color: "var(--green)" },
-    bWarn: { background: "rgba(245,158,11,0.15)", color: "#f59e0b" },
+    bWarn: { background: "rgba(245,158,11,0.15)", color: "var(--amber)" },
     bBad: { background: "var(--danger-bg)", color: "var(--danger-text)" },
     ghost: { padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border-card)", background: "transparent", color: "var(--text-primary)", cursor: "pointer" },
     primary: { padding: "8px 16px", borderRadius: 8, border: "none", background: "var(--accent-solid)", color: "#fff", cursor: "pointer", fontWeight: 600 },

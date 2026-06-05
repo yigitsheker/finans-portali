@@ -9,7 +9,7 @@ const fmt = (v, d = 2) => {
     if (!Number.isFinite(n)) return "—";
     return n.toLocaleString("tr-TR", { minimumFractionDigits: d, maximumFractionDigits: d });
 };
-const pnlColor = (v) => (v == null || Number(v) === 0 ? "var(--text-muted)" : Number(v) > 0 ? "#16a34a" : "#dc2626");
+const pnlColor = (v) => (v == null || Number(v) === 0 ? "var(--text-muted)" : Number(v) > 0 ? "var(--green)" : "var(--red)");
 
 /** Renders a user's OPEN VİOP positions with a Kapat (close/partial) action. */
 export default function ViopPositionsTable({ positions, keycloak, onChanged }) {
@@ -43,7 +43,7 @@ export default function ViopPositionsTable({ positions, keycloak, onChanged }) {
                         <tr key={p.id} style={s.tr}>
                             <td style={s.tdBold}>{p.contractSymbol}</td>
                             <td>
-                                <span style={{ ...s.badge, background: p.direction === "LONG" ? "rgba(22,163,74,0.15)" : "rgba(220,38,38,0.15)", color: p.direction === "LONG" ? "#16a34a" : "#dc2626" }}>
+                                <span style={{ ...s.badge, background: p.direction === "LONG" ? "rgba(22,163,74,0.15)" : "rgba(220,38,38,0.15)", color: p.direction === "LONG" ? "var(--green)" : "var(--red)" }}>
                                     {p.direction === "LONG" ? t("viopTrade.long") : t("viopTrade.short")}
                                 </span>
                             </td>

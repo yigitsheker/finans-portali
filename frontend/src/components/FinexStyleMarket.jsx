@@ -559,7 +559,7 @@ export default function FinexStyleMarket({
                         <div style={s.indexGrid} className="fp-index-grid">
                             {indices.map((idx) => {
                                 const pos = idx.changePct >= 0;
-                                const color = pos ? "#10b981" : "#ef4444";
+                                const color = pos ? "var(--green)" : "var(--red)";
                                 const isActive = indexFilter === idx.symbol;
                                 return (
                                     <div
@@ -580,7 +580,7 @@ export default function FinexStyleMarket({
                                     >
                                         <div style={s.indexLabel}>
                                             {idx.symbol}
-                                            {isActive && <span style={{ marginLeft: 8, color: "#00ff00", fontSize: 10 }}><CheckIcon /></span>}
+                                            {isActive && <span style={{ marginLeft: 8, color: "var(--accent-solid)", fontSize: 10 }}><CheckIcon /></span>}
                                         </div>
                                         <div style={s.indexPrice}>
                                             {idx.last?.toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
@@ -680,13 +680,15 @@ export default function FinexStyleMarket({
 
                     {/* Table Body */}
                     <div style={s.tableBody}>
-                        {groupedStocks ? (
+                        {pagedFiltered.length === 0 ? (
+                            <div style={s.emptyState}>{t("common.noResults")}</div>
+                        ) : groupedStocks ? (
                             // Grouped view for stocks page
                             Object.entries(groupedStocks).map(([category, categoryItems]) => (
                                 <div key={category}>
                                     {categoryItems.map((item) => {
                                         const pos = item.changePct >= 0;
-                                        const color = pos ? "#10b981" : "#ef4444";
+                                        const color = pos ? "var(--green)" : "var(--red)";
                                         return (
                                             <div
                                                 key={item.symbol}
@@ -784,7 +786,7 @@ export default function FinexStyleMarket({
                             // Regular view for other pages — paginated slice.
                             pagedFiltered.map((item) => {
                                 const pos = item.changePct >= 0;
-                                const color = pos ? "#10b981" : "#ef4444";
+                                const color = pos ? "var(--green)" : "var(--red)";
                                 return (
                                     <div
                                         key={item.symbol}
@@ -1019,7 +1021,7 @@ export default function FinexStyleMarket({
                                     </span>
                                 </div>
                             </div>
-                            {addErr && <div style={{ color: "#ef4444", fontSize: 13 }}>{addErr}</div>}
+                            {addErr && <div style={{ color: "var(--red)", fontSize: 13 }}>{addErr}</div>}
                         </div>
                     );
                 })()}
@@ -1113,7 +1115,7 @@ const s = {
         width: 40,
         height: 40,
         border: "3px solid var(--border)",
-        borderTop: "3px solid #3b82f6",
+        borderTop: "3px solid var(--blue)",
         borderRadius: "50%",
         animation: "spin 0.8s linear infinite",
     },
@@ -1138,7 +1140,7 @@ const s = {
         transition: "all 0.2s",
     },
     indexCardActive: {
-        border: "2px solid #22c55e",
+        border: "2px solid var(--green)",
         background: "rgba(34, 197, 94, 0.1)",
         boxShadow: "0 0 0 3px rgba(34, 197, 94, 0.1)",
     },
@@ -1179,9 +1181,9 @@ const s = {
         gap: 8,
     },
     categoryFilterActive: {
-        border: "2px solid #00ff00",
+        border: "2px solid var(--accent-solid)",
         background: "rgba(0, 255, 0, 0.15)",
-        color: "#00ff00",
+        color: "var(--accent-solid)",
         boxShadow: "0 0 0 3px rgba(0, 255, 0, 0.1)",
     },
     filterBanner: {
@@ -1199,7 +1201,7 @@ const s = {
         borderRadius: 6,
         border: "1px solid rgba(59, 130, 246, 0.5)",
         background: "transparent",
-        color: "#3b82f6",
+        color: "var(--blue)",
         fontSize: 12,
         fontWeight: 600,
         cursor: "pointer",
@@ -1242,9 +1244,9 @@ const s = {
         transition: "all 0.2s",
     },
     filterActive_old: {
-        border: "1px solid #10b981",
+        border: "1px solid var(--green)",
         background: "rgba(16, 185, 129, 0.15)",
-        color: "#10b981",
+        color: "var(--green)",
     },
     mainLayout: {
         display: "flex",
@@ -1280,6 +1282,12 @@ const s = {
         display: "flex",
         flexDirection: "column",
     },
+    emptyState: {
+        padding: "40px 20px",
+        textAlign: "center",
+        color: "var(--text-muted)",
+        fontSize: 14,
+    },
     categoryHeader: {
         display: "flex",
         alignItems: "center",
@@ -1294,7 +1302,7 @@ const s = {
     categoryTitle: {
         fontSize: 14,
         fontWeight: 700,
-        color: "#3b82f6",
+        color: "var(--blue)",
         textTransform: "uppercase",
         letterSpacing: "0.5px",
     },
@@ -1342,7 +1350,7 @@ const s = {
         padding: "8px 20px",
         borderRadius: 6,
         border: "none",
-        background: "#10b981",
+        background: "var(--accent-solid)",
         color: "#000",
         fontSize: 13,
         fontWeight: 700,
@@ -1380,7 +1388,7 @@ const s = {
         transition: "all 0.2s",
     },
     filterActive: {
-        border: "1px solid #3b82f6",
+        border: "1px solid var(--blue)",
         background: "rgba(59, 130, 246, 0.15)",
         color: "var(--text-primary)",
     },
@@ -1404,7 +1412,7 @@ const s = {
         transition: "all 0.2s",
     },
     stockItemActive: {
-        border: "1px solid #3b82f6",
+        border: "1px solid var(--blue)",
         background: "rgba(59, 130, 246, 0.1)",
     },
     stockLeft: { display: "flex", flexDirection: "column", gap: 2 },
@@ -1451,7 +1459,7 @@ const s = {
         padding: "12px",
         borderRadius: 8,
         border: "none",
-        background: "#10b981",
+        background: "var(--accent-solid)",
         color: "#fff",
         fontSize: 14,
         fontWeight: 600,
@@ -1462,7 +1470,7 @@ const s = {
         padding: "12px",
         borderRadius: 8,
         border: "none",
-        background: "#ef4444",
+        background: "var(--red)",
         color: "#fff",
         fontSize: 14,
         fontWeight: 600,
@@ -1503,7 +1511,7 @@ const s = {
         padding: "10px 20px",
         borderRadius: 8,
         border: "none",
-        background: "#10b981",
+        background: "var(--accent-solid)",
         color: "#000",
         cursor: "pointer",
         fontWeight: 700,

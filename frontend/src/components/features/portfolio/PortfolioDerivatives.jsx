@@ -13,7 +13,7 @@ const fmt = (v, d = 2) => {
     if (!Number.isFinite(n)) return "—";
     return n.toLocaleString("tr-TR", { minimumFractionDigits: d, maximumFractionDigits: d });
 };
-const pnlColor = (v) => (v == null || Number(v) === 0 ? "var(--text-muted)" : Number(v) > 0 ? "#16a34a" : "#dc2626");
+const pnlColor = (v) => (v == null || Number(v) === 0 ? "var(--text-muted)" : Number(v) > 0 ? "var(--green)" : "var(--red)");
 
 /**
  * VİOP and bond/bill positions on the portfolio page — shown SEPARATELY from
@@ -67,7 +67,7 @@ export default function PortfolioDerivatives({ keycloak }) {
                             <Metric label={t("portfolioDeriv.totalNominal")} value={fmt(bondSum.totalNominal)} />
                             <Metric label={t("portfolioDeriv.marketValue")} value={fmt(bondSum.currentMarketValue)} />
                             <Metric label={t("bondTrade.colUnrealized")} value={fmt(bondSum.totalUnrealizedPnl)} color={pnlColor(bondSum.totalUnrealizedPnl)} />
-                            <Metric label={t("bondTrade.colCouponIncome")} value={fmt(bondSum.realizedCouponIncome)} color={Number(bondSum.realizedCouponIncome) > 0 ? "#16a34a" : "var(--text-muted)"} />
+                            <Metric label={t("bondTrade.colCouponIncome")} value={fmt(bondSum.realizedCouponIncome)} color={Number(bondSum.realizedCouponIncome) > 0 ? "var(--green)" : "var(--text-muted)"} />
                         </div>
                     )}
                     <SimulationDisclaimer risk="bond" style={{ marginBottom: 12 }} />

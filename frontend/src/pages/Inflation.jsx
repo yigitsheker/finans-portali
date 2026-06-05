@@ -277,7 +277,7 @@ function BarChart({ data, field, view, t }) {
                 style={{
                   fontSize: 11,
                   fontWeight: 600,
-                  color: v >= 0 ? "#dc2626" : "#059669",
+                  color: v >= 0 ? "var(--red)" : "var(--green)",
                   marginBottom: 4,
                   whiteSpace: "nowrap",
                 }}
@@ -289,7 +289,7 @@ function BarChart({ data, field, view, t }) {
               style={{
                 width: "85%",
                 height: `${heightPct}%`,
-                background: v >= 0 ? "linear-gradient(180deg, #ef4444 0%, #dc2626 100%)" : "linear-gradient(180deg, #10b981 0%, #059669 100%)",
+                background: v >= 0 ? "linear-gradient(180deg, var(--red) 0%, var(--red) 100%)" : "linear-gradient(180deg, var(--green) 0%, var(--green) 100%)",
                 borderRadius: "3px 3px 0 0",
                 minHeight: 2,
               }}

@@ -297,7 +297,7 @@ const s = {
         padding: "10px 18px",
         borderRadius: 8,
         border: "none",
-        background: "#10b981",
+        background: "var(--accent-solid)",
         color: "#000",
         fontSize: 13,
         fontWeight: 700,

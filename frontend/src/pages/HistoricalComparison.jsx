@@ -439,8 +439,8 @@ export default function HistoricalComparison({ keycloak }) {
             <table style={s.table}>
               <thead>
                 <tr>
-                  {[t("historical.colSymbol"), t("historical.colName"), t("historical.colBuyDate"), t("historical.colLots"), t("historical.colBuy"), t("historical.colCurrent"), t("historical.colInvested"), t("historical.colValue"), t("historical.colPnl"), t("historical.colNominal"), t("historical.colInflation"), t("historical.colReal"), ""].map((h) => (
-                    <th key={h} style={s.th}>{h}</th>
+                  {[t("historical.colSymbol"), t("historical.colName"), t("historical.colBuyDate"), t("historical.colLots"), t("historical.colBuy"), t("historical.colCurrent"), t("historical.colInvested"), t("historical.colValue"), t("historical.colPnl"), t("historical.colNominal"), t("historical.colInflation"), t("historical.colReal"), ""].map((h, i) => (
+                    <th key={i} style={s.th}>{h}</th>
                   ))}
                 </tr>
               </thead>
@@ -616,7 +616,7 @@ export default function HistoricalComparison({ keycloak }) {
               {t("common.cancel")}
             </button>
             <button style={s.primaryBtn} onClick={onSaveEdit} disabled={editSaving}>
-              {editSaving ? t("common.adding") : t("common.save")}
+              {editSaving ? t("common.saving") : t("common.save")}
             </button>
           </>
         }

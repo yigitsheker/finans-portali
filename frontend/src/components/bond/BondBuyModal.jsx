@@ -138,7 +138,7 @@ const s = {
     row: { display: "flex", justifyContent: "space-between", fontSize: 13 },
     rowK: { color: "var(--text-muted)" },
     rowV: { color: "var(--text-primary)" },
-    error: { color: "#ef4444", fontSize: 13 },
+    error: { color: "var(--danger-text)", fontSize: 13 },
     submit: {
         marginTop: 4, padding: "12px", borderRadius: 8, border: "none",
         background: "var(--accent-solid, #22c55e)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer",

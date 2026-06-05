@@ -95,7 +95,7 @@ export default function BondSellModal({ open, position, keycloak, onClose, onDon
                         {preview.estimatedRealizedPnl != null && (
                             <Row k={t("bondTrade.estRealizedPnl")}
                                 v={`${fmt(preview.estimatedRealizedPnl)} ${position.currency || "TRY"}`}
-                                color={Number(preview.estimatedRealizedPnl) >= 0 ? "#16a34a" : "#dc2626"} strong />
+                                color={Number(preview.estimatedRealizedPnl) >= 0 ? "var(--green)" : "var(--red)"} strong />
                         )}
                     </div>
                 )}
@@ -143,9 +143,9 @@ const s = {
     row: { display: "flex", justifyContent: "space-between", fontSize: 13 },
     rowK: { color: "var(--text-muted)" },
     rowV: { color: "var(--text-primary)" },
-    error: { color: "#ef4444", fontSize: 13 },
+    error: { color: "var(--danger-text)", fontSize: 13 },
     submit: {
         marginTop: 4, padding: "12px", borderRadius: 8, border: "none",
-        background: "#dc2626", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer",
+        background: "var(--red)", color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer",
     },
 };

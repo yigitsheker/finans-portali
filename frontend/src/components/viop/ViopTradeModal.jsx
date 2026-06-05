@@ -147,7 +147,7 @@ const s = {
     rowK: { color: "var(--text-muted)" },
     rowV: { color: "var(--text-primary)" },
     flipNote: { marginTop: 4, fontSize: 12, color: "#d97706", fontWeight: 600 },
-    error: { color: "#ef4444", fontSize: 13 },
+    error: { color: "var(--red)", fontSize: 13 },
     submit: {
         marginTop: 4, padding: "12px", borderRadius: 8, border: "none",
         color: "#fff", fontWeight: 700, fontSize: 14, cursor: "pointer",

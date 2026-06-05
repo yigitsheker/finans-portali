@@ -188,7 +188,7 @@ export default function Funds({ keycloak, onAdded }) {
 
     const formatPercent = (value) => {
         if (value === undefined || value === null) return '-';
-        const color = value >= 0 ? '#10b981' : '#ef4444';
+        const color = value >= 0 ? 'var(--green)' : 'var(--red)';
         const sign = value >= 0 ? '▲' : '▼';
         return <span style={{ color }}>{sign} {value >= 0 ? '+' : ''}{value.toFixed(2)}%</span>;
     };
@@ -492,7 +492,7 @@ const s = {
         padding: "10px 20px",
         borderRadius: 8,
         border: "none",
-        background: "#10b981",
+        background: "var(--accent-solid)",
         color: "#000",
         fontSize: 14,
         fontWeight: 700,
@@ -569,7 +569,7 @@ const s = {
         padding: "8px 16px",
         borderRadius: 6,
         border: "none",
-        background: "#10b981",
+        background: "var(--accent-solid)",
         color: "#000",
         fontSize: 13,
         fontWeight: 700,
@@ -634,7 +634,7 @@ const s = {
         padding: "6px 14px",
         borderRadius: 6,
         border: "none",
-        background: "#10b981",
+        background: "var(--accent-solid)",
         color: "#000",
         fontSize: 12,
         fontWeight: 700,
@@ -655,14 +655,14 @@ const s = {
     },
     riskLow: {
         background: "rgba(16, 185, 129, 0.15)",
-        color: "#10b981",
+        color: "var(--green)",
     },
     riskMedium: {
         background: "rgba(251, 191, 36, 0.15)",
-        color: "#fbbf24",
+        color: "var(--amber)",
     },
     riskHigh: {
         background: "rgba(239, 68, 68, 0.15)",
-        color: "#ef4444",
+        color: "var(--red)",
     },
 };
