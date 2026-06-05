@@ -68,6 +68,7 @@ export function AddPositionModal({
       open={open}
       title="Pozisyon Ekle"
       onClose={onClose}
+      busy={saving}
       footer={
         <>
           <button style={s.ghostBtn} onClick={onClose} disabled={saving}>Vazgec</button>

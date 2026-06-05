@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { applyTheme } from "../theme";
 import { useI18n } from "../contexts/I18nContext";
 import { getNotificationPrefs, putNotificationPrefs } from "../api/userPrefsApi";
@@ -119,19 +119,25 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
   // covers the return trip from Keycloak's CONFIGURE_TOTP redirect (the page
   // reloads at baseRedirect).
   const [totpEnabled, setTotpEnabled] = useState(null);
+  const [totpError, setTotpError] = useState(false); // status fetch failed
   const [twoFaBusy, setTwoFaBusy] = useState(false);
 
-  useEffect(() => {
+  // Don't fail-OPEN: if the status can't be fetched, show an explicit
+  // "couldn't check" + retry rather than assuming 2FA is off (which would
+  // wrongly nudge an already-protected user to "set up").
+  const loadSecurity = useCallback(() => {
     if (!keycloak?.authenticated) return;
-    let cancelled = false;
+    setTotpError(false);
     getSecurityStatus(keycloak)
-      .then((s) => { if (!cancelled) setTotpEnabled(Boolean(s.totpEnabled)); })
+      .then((s) => { setTotpEnabled(Boolean(s.totpEnabled)); })
       .catch((e) => {
         console.warn("[Settings] Could not fetch 2FA status:", e?.message);
-        if (!cancelled) setTotpEnabled(false); // fail open to the "set up" CTA
+        setTotpEnabled(null);
+        setTotpError(true);
       });
-    return () => { cancelled = true; };
   }, [keycloak]);
+
+  useEffect(() => { loadSecurity(); }, [loadSecurity]);
 
   async function disable2FA() {
     if (!window.confirm(t("settings.mfaDisableConfirm"))) return;
@@ -172,6 +178,17 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
   }
 
   async function handleSave() {
+    // Client-side validation before the PATCH: name required, email well-formed.
+    const validationError =
+      !firstName.trim() ? t("settings.errNameRequired")
+      : (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) ? t("settings.errEmailInvalid")
+      : null;
+    if (validationError) {
+      setSaveStatus("error");
+      setSaveError(validationError);
+      notify(validationError, { variant: "error" });
+      return;
+    }
     setSaving(true);
     setSaveStatus(null);
     setSaveError(null);
@@ -311,14 +328,20 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
               <div style={{ flex: 1 }}>
                 <div style={s.secLabel}>{t("settings.mfa")}</div>
                 <div style={s.secDesc}>
-                  {totpEnabled === null
-                    ? t("settings.mfaChecking")
-                    : totpEnabled
-                      ? t("settings.mfaActive")
-                      : t("settings.mfaInactive")}
+                  {totpError
+                    ? t("settings.mfaCheckError")
+                    : totpEnabled === null
+                      ? t("settings.mfaChecking")
+                      : totpEnabled
+                        ? t("settings.mfaActive")
+                        : t("settings.mfaInactive")}
                 </div>
               </div>
-              {totpEnabled === null ? (
+              {totpError ? (
+                <button style={s.secBtnOutline} onClick={loadSecurity}>
+                  {t("common.retry")}
+                </button>
+              ) : totpEnabled === null ? (
                 <button style={{ ...s.secBtn, opacity: 0.6 }} disabled>
                   {t("settings.mfaChecking")}
                 </button>

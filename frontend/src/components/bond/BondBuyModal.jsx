@@ -68,7 +68,7 @@ export default function BondBuyModal({ open, bond, keycloak, onClose, onDone }) 
     };
 
     return (
-        <Modal open={open} title={`${t("bondTrade.buyTitle")} — ${bond.symbol || identifier}`} onClose={onClose} maxWidth={460}>
+        <Modal open={open} title={`${t("bondTrade.buyTitle")} — ${bond.symbol || identifier}`} onClose={onClose} maxWidth={460} busy={submitting}>
             <div style={s.wrap}>
                 <SimulationDisclaimer risk="bond" />
                 <div style={s.meta}>{bond.name}</div>

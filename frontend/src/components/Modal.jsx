@@ -1,9 +1,13 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
 
-export default function Modal({ open, title, children, onClose, footer, maxWidth = 560 }) {
+export default function Modal({ open, title, children, onClose, footer, maxWidth = 560, busy = false }) {
+    // When `busy` (e.g. a save/submit in flight) the modal won't close via
+    // Escape, backdrop click or the ✕ — prevents a half-finished action from
+    // being dismissed mid-request.
+    const requestClose = () => { if (!busy) onClose(); };
     useEffect(() => {
-        function onKey(e) { if (e.key === "Escape") onClose(); }
+        function onKey(e) { if (e.key === "Escape" && !busy) onClose(); }
         if (open) {
             window.addEventListener("keydown", onKey);
             // Prevent body scroll
@@ -13,7 +17,7 @@ export default function Modal({ open, title, children, onClose, footer, maxWidth
             window.removeEventListener("keydown", onKey);
             document.body.style.overflow = 'unset';
         };
-    }, [open, onClose]);
+    }, [open, onClose, busy]);
 
     if (!open) return null;
 
@@ -30,7 +34,7 @@ export default function Modal({ open, title, children, onClose, footer, maxWidth
                 justifyContent: "center",
                 padding: 16
             }}
-            onMouseDown={onClose}
+            onMouseDown={requestClose}
         >
             <div
                 className="fp-modal-card"
@@ -75,9 +79,11 @@ export default function Modal({ open, title, children, onClose, footer, maxWidth
                             fontSize: 12,
                             display: "flex",
                             alignItems: "center",
-                            justifyContent: "center"
+                            justifyContent: "center",
+                            opacity: busy ? 0.5 : 1
                         }}
-                        onClick={onClose}
+                        onClick={requestClose}
+                        disabled={busy}
                         aria-label="Close"
                     >
                         ✕

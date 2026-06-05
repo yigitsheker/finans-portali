@@ -57,7 +57,7 @@ export default function ViopCloseModal({ open, position, keycloak, onClose, onDo
     };
 
     return (
-        <Modal open={open} title={`${title} — ${position.contractSymbol}`} onClose={onClose} maxWidth={440}>
+        <Modal open={open} title={`${title} — ${position.contractSymbol}`} onClose={onClose} maxWidth={440} busy={submitting}>
             <div style={s.wrap}>
                 <SimulationDisclaimer risk="viop" />
                 <div style={s.row}><span style={s.k}>{t("viopTrade.openContracts")}</span><span style={s.v}>{fmt(max, 0)}</span></div>

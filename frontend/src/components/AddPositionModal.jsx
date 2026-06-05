@@ -89,7 +89,7 @@ export default function AddPositionModal({
     }
 
     return (
-        <Modal open={open} title={t("addPosition.title")} onClose={onClose}>
+        <Modal open={open} title={t("addPosition.title")} onClose={onClose} busy={saving}>
             <div style={s.grid}>
                 <label style={s.label}>
                     {t("addPosition.symbol")}

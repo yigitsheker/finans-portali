@@ -885,3 +885,12 @@ button[role="switch"]:focus-visible { outline: 2px solid var(--accent-solid); ou
 @media (max-width: 560px) {
   .settings-form-grid { grid-template-columns: 1fr; }
 }
+
+/* Market index cards (BIST30/50/100) — 3 across on desktop, fewer on small
+   screens. !important overrides the component's inline 3-col default. */
+@media (max-width: 900px) {
+  .fp-index-grid { grid-template-columns: repeat(2, 1fr) !important; }
+}
+@media (max-width: 560px) {
+  .fp-index-grid { grid-template-columns: 1fr !important; }
+}

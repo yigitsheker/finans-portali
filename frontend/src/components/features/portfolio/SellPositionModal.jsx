@@ -26,6 +26,7 @@ export function SellPositionModal({
       open={open}
       title={"Sat - " + (target?.symbol ?? "")}
       onClose={onClose}
+      busy={saving}
       footer={
         <>
           <button style={s.ghostBtn} onClick={onClose} disabled={saving}>Vazgec</button>
