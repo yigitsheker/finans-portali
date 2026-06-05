@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<title>Finans Portalı — Teknik Analiz Dokümanı</title>
+<style>
+@page { size: A4; margin: 16mm 15mm 16mm 15mm; }
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: "Segoe UI", Calibri, Arial, sans-serif;
+  color: #1f2937; font-size: 10.6pt; line-height: 1.5;
+  -webkit-print-color-adjust: exact; print-color-adjust: exact;
+}
+h1,h2,h3,h4 { color: #0f172a; line-height: 1.25; }
+p { margin: 0 0 8px; }
+ul, ol { margin: 0 0 9px; padding-left: 20px; }
+li { margin: 2px 0; }
+strong { color: #0f172a; }
+code { font-family: Consolas, "Courier New", monospace; background: #eef2f7; padding: 1px 5px; border-radius: 4px; font-size: 9pt; color: #0f766e; }
+
+.cover {
+  height: 256mm; page-break-after: always;
+  display: flex; flex-direction: column; justify-content: center;
+  margin: -16mm -15mm 0 -15mm; padding: 0 22mm;
+  background: linear-gradient(140deg, #0b1f3a 0%, #155e75 55%, #0f766e 115%);
+  color: #ffffff;
+}
+.cover .kick { font-size: 12pt; letter-spacing: 3px; text-transform: uppercase; opacity: .85; margin-bottom: 14px; }
+.cover h1 { color: #fff; font-size: 36pt; margin: 0 0 10px; line-height: 1.08; }
+.cover .sub { font-size: 14.5pt; font-weight: 400; opacity: .95; max-width: 150mm; margin-bottom: 32px; }
+.cover .rule { width: 70mm; height: 4px; background: #7dd3fc; border-radius: 2px; margin-bottom: 28px; }
+.cover .meta { font-size: 11pt; opacity: .92; }
+.cover .meta b { color: #e0f2fe; font-weight: 600; }
+.cover .foot { margin-top: auto; padding-top: 24px; font-size: 9.5pt; opacity: .8; }
+
+section { page-break-before: always; }
+h2 { font-size: 16.5pt; margin: 4px 0 11px; padding-bottom: 6px; border-bottom: 3px solid #155e75; }
+h2 .n { color: #0ea5e9; margin-right: 8px; }
+h3 { font-size: 12.5pt; margin: 15px 0 5px; color: #155e75; }
+h4 { font-size: 10.8pt; margin: 11px 0 4px; color: #0f172a; }
+.lead { font-size: 11.4pt; color: #334155; margin-bottom: 12px; }
+
+table { width: 100%; border-collapse: collapse; margin: 9px 0 13px; font-size: 9.4pt; }
+th { background: #155e75; color: #fff; text-align: left; padding: 6px 8px; font-weight: 600; }
+td { padding: 5px 8px; border-bottom: 1px solid #e2e8f0; vertical-align: top; }
+tr:nth-child(even) td { background: #f1f5f9; }
+td code { font-size: 8.6pt; }
+
+pre {
+  background: #0f172a; color: #e2e8f0; padding: 11px 13px; border-radius: 8px;
+  font-size: 8.2pt; line-height: 1.32; white-space: pre-wrap;
+  font-family: Consolas, "Courier New", monospace; page-break-inside: avoid; margin: 10px 0;
+}
+
+.callout { border-left: 4px solid #155e75; background: #ecfeff; padding: 10px 13px; border-radius: 0 6px 6px 0; margin: 11px 0; }
+.callout.ok { border-color: #16a34a; background: #f0fdf4; }
+.callout.warn { border-color: #d97706; background: #fffbeb; }
+.callout h4 { margin: 0 0 4px; color: #155e75; }
+.callout.warn h4 { color: #b45309; }
+.callout.ok h4 { color: #15803d; }
+
+.badge { display:inline-block; background:#16a34a; color:#fff; font-size:8pt; padding:1px 7px; border-radius:999px; }
+.toc ol { font-size: 10.6pt; line-height: 1.85; }
+.muted { color: #64748b; }
+.center { text-align: center; }
+.small { font-size: 9pt; }
+</style>
+</head>
+<body>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="kick">Teknik Analiz Dokümanı</div>
+  <h1>Finans Portalı</h1>
+  <div class="sub">Mimari, teknoloji yığını, veri akışları, güvenlik, gözlemlenebilirlik ve dağıtım — uçtan uca teknik dokümantasyon</div>
+  <div class="rule"></div>
+  <div class="meta">
+    <b>Belge:</b> Teknik Analiz Dokümanı &nbsp;·&nbsp; <b>Sürüm:</b> 2.0<br>
+    <b>Hedef okuyucu:</b> Yazılım mimarları, geliştiriciler ve teknik değerlendiriciler<br>
+    <b>Mimari:</b> React SPA · Spring Boot · PostgreSQL · Keycloak · Kafka · OpenTelemetry · Docker/Kubernetes
+  </div>
+  <div class="foot">İş ve kullanıcı değeri için ayrı "İş ve Ürün Analizi Dokümanı"na bakınız.</div>
+</div>
+
+<!-- İÇİNDEKİLER -->
+<section style="page-break-before:avoid;">
+  <h2><span class="n">·</span>İçindekiler</h2>
+  <div class="toc"><ol>
+    <li>Mimari Genel Bakış</li>
+    <li>Teknoloji Yığını</li>
+    <li>Sistem Diyagramları</li>
+    <li>Veri Akışları</li>
+    <li>Güvenlik Mimarisi</li>
+    <li>Performans ve Önbellekleme</li>
+    <li>Hata Yönetimi</li>
+    <li>Test ve Kod Kalitesi</li>
+    <li>Dağıtım (Deployment) ve CI/CD</li>
+    <li>Veri Modeli</li>
+    <li>API Tasarımı</li>
+    <li>Gözlemlenebilirlik (Observability)</li>
+    <li>Frontend Mimarisi</li>
+    <li>Bilinen Sınırlamalar</li>
+    <li>Geliştirici Onboarding</li>
+  </ol></div>
+</section>
+
+<!-- 1 -->
+<section>
+  <h2><span class="n">1</span>Mimari Genel Bakış</h2>
+  <p class="lead">Finans Portalı, <strong>3 katmanlı (SPA → REST API → veritabanı)</strong> bir uygulama olup yanında tam bir <strong>gözlemlenebilirlik (logs + metrics + traces)</strong> ve <strong>kimlik yönetimi</strong> yığını barındırır.</p>
+  <pre>┌──────────────────────────────────────────────────────────────┐
+│ TARAYICI — React SPA  →  Keycloak (OIDC/PKCE)  →  nginx proxy │
+└───────────────────────────┬──────────────────────────────────┘
+┌───────────────────────────┴──────────────────────────────────┐
+│ FRONTEND (nginx)  — statik React + /api/* ters vekil → :8080  │
+└───────────────────────────┬──────────────────────────────────┘
+┌───────────────────────────┴──────────────────────────────────┐
+│ BACKEND (Spring Boot 3.5, Java 21)                            │
+│   Controller → Service → Repository (JPA) → PostgreSQL        │
+│   ├─ Log4j2 KafkaAppender  ─────────► Kafka → log-consumer → OpenSearch
+│   └─ OpenTelemetry Java Agent ──────► OTel Collector → Jaeger / Prometheus
+└────────┬──────────────┬───────────────────┬───────────────────┘
+   PostgreSQL       Keycloak           Dış veri kaynakları
+                                       (TCMB, TEFAS, Yahoo, FRED, İş Yatırım…)</pre>
+  <p>Katmanlar net biçimde ayrılmıştır: <strong>Controller</strong> (HTTP), <strong>Service</strong> (iş mantığı), <strong>Repository</strong> (veri erişimi), <strong>Entity/DTO</strong> (model). Dış kaynaklara erişim ayrı <code>client</code> paketinde izole edilmiştir. Tüm yazma uçları kimlik doğrulamalıdır; okuma uçlarının bir kısmı kamuya açıktır.</p>
+</section>
+
+<!-- 2 -->
+<section>
+  <h2><span class="n">2</span>Teknoloji Yığını</h2>
+
+  <h3>2.1 Frontend</h3>
+  <table>
+    <tr><th>Bileşen</th><th>Sürüm</th><th>Rol</th></tr>
+    <tr><td>React</td><td>19.2</td><td>UI framework</td></tr>
+    <tr><td>Vite</td><td>7.x (SWC)</td><td>Build aracı + dev sunucu</td></tr>
+    <tr><td>React Router DOM</td><td>7.x</td><td>İstemci tarafı yönlendirme</td></tr>
+    <tr><td>Zustand</td><td>5.x</td><td>Hafif global durum yönetimi</td></tr>
+    <tr><td>Axios</td><td>1.x</td><td>HTTP istemcisi</td></tr>
+    <tr><td>Keycloak JS</td><td>26.x</td><td>OAuth2/OIDC PKCE akışı</td></tr>
+    <tr><td>Recharts</td><td>3.x</td><td>Pasta/bar grafikleri (dağılım, enflasyon)</td></tr>
+    <tr><td>Lightweight Charts</td><td>5.x</td><td>Alan/fiyat &amp; tahvil getiri grafikleri (canvas)</td></tr>
+    <tr><td>KLineCharts</td><td>9.8</td><td>Detaylı mum grafiği + çizim araçları + indikatörler</td></tr>
+    <tr><td>react-window</td><td>2.x</td><td>Uzun listelerde sanal kaydırma</td></tr>
+    <tr><td>SheetJS (xlsx)</td><td>0.20</td><td>Excel ile portföy içe aktarma/örnek dosya</td></tr>
+    <tr><td>react-hot-toast</td><td>2.x</td><td>Bildirim (toast) sistemi</td></tr>
+    <tr><td>Tailwind + PostCSS</td><td>—</td><td>Yardımcı sınıflar (inline stil ağırlıklı)</td></tr>
+  </table>
+
+  <h3>2.2 Backend</h3>
+  <table>
+    <tr><th>Bileşen</th><th>Sürüm</th><th>Rol</th></tr>
+    <tr><td>Java</td><td>21 (LTS)</td><td>Çalışma zamanı</td></tr>
+    <tr><td>Spring Boot</td><td>3.5.x</td><td>Uygulama çerçevesi</td></tr>
+    <tr><td>Spring Web MVC</td><td>6.x</td><td>REST controller'lar</td></tr>
+    <tr><td>Spring WebFlux (WebClient)</td><td>6.x</td><td>Reaktif dış servis çağrıları</td></tr>
+    <tr><td>Spring Data JPA / Hibernate</td><td>3.x / 6.x</td><td>ORM katmanı</td></tr>
+    <tr><td>Spring Security (OAuth2 RS)</td><td>6.x</td><td>JWT doğrulama (Resource Server)</td></tr>
+    <tr><td>Spring Cache + Caffeine</td><td>—</td><td>In-memory önbellek</td></tr>
+    <tr><td>Spring Kafka</td><td>3.x</td><td>Log tüketici (log-consumer)</td></tr>
+    <tr><td>Flyway</td><td>10.x</td><td>Şema göçü (V1–V26)</td></tr>
+    <tr><td>Log4j2 + JSON layout</td><td>2.24</td><td>Loglama + Kafka appender</td></tr>
+    <tr><td>Micrometer + OTel köprüsü</td><td>1.x</td><td>Metrik + iz (trace)</td></tr>
+    <tr><td>Apache POI</td><td>—</td><td>Excel okuma/yazma (sunucu tarafı)</td></tr>
+    <tr><td>Spring Mail</td><td>—</td><td>E-posta (alarm bildirimleri)</td></tr>
+    <tr><td>SpringDoc OpenAPI</td><td>2.7</td><td>Swagger UI / OpenAPI 3</td></tr>
+    <tr><td>Lombok</td><td>1.18</td><td>Boilerplate azaltma</td></tr>
+  </table>
+
+  <h3>2.3 Altyapı &amp; Çevre Bileşenleri</h3>
+  <table>
+    <tr><th>Kategori</th><th>Teknoloji</th></tr>
+    <tr><td>Veritabanı</td><td>PostgreSQL 15 (üretim), H2 (test, in-memory)</td></tr>
+    <tr><td>Kimlik sağlayıcı</td><td>Keycloak 26 (OIDC + 2FA TOTP), opsiyonel OpenLDAP federasyonu</td></tr>
+    <tr><td>Mesajlaşma</td><td>Apache Kafka 7.5 (Confluent) + Zookeeper</td></tr>
+    <tr><td>İzleme / Loglar</td><td>OpenSearch 2.11 + Dashboards, log-consumer (Spring Boot)</td></tr>
+    <tr><td>Metrik</td><td>Prometheus + Grafana (4 dashboard)</td></tr>
+    <tr><td>İz (Trace)</td><td>OpenTelemetry Collector + Jaeger</td></tr>
+    <tr><td>Çeviri</td><td>LibreTranslate (self-hosted, TR↔EN)</td></tr>
+    <tr><td>Yapay zeka (LLM)</td><td>OpenAI-uyumlu istemci (yapılandırılabilir taban URL/model; örn. Groq <code>llama-3.3-70b</code> veya OpenAI <code>gpt-4o-mini</code>)</td></tr>
+    <tr><td>Headless tarayıcı</td><td>Playwright servisi (Cloudflare korumalı sayfa içerik çekimi)</td></tr>
+    <tr><td>E-posta (dev/prod)</td><td>Mailpit (dev SMTP) / SMTP (prod)</td></tr>
+    <tr><td>Konteyner / Orkestrasyon</td><td>Docker + Docker Compose; Kubernetes (Kustomize) + GKE</td></tr>
+    <tr><td>CI/CD</td><td>GitHub Actions (CI + GKE'ye CD), SonarCloud</td></tr>
+  </table>
+</section>
+
+<!-- 3 -->
+<section>
+  <h2><span class="n">3</span>Sistem Diyagramları</h2>
+
+  <h3>3.1 Dağıtım yığını (Docker Compose)</h3>
+  <pre>postgres · keycloak (+ keycloak-bootstrap) · backend · frontend(nginx)
+kafka + zookeeper · log-consumer · opensearch + dashboards
+prometheus · grafana · jaeger · otel-collector
+libretranslate · playwright-service · mailpit · openldap (+ phpLdapAdmin)</pre>
+
+  <h3>3.2 Kimlik doğrulama akışı (OIDC / PKCE)</h3>
+  <pre>Tarayıcı            Frontend(nginx)        Keycloak              Backend
+  │  GET /             │                      │                     │
+  ├───────────────────►│ not-authed → 302     │                     │
+  │  /auth?code_chal…  ├─────────────────────►│                     │
+  │  Giriş + TOTP      ├─────────────────────►│                     │
+  │  302 ?code=…  ◄────┤                      │                     │
+  │  code → token ─────┼─────────────────────►│  access+refresh JWT │
+  │  Bearer <JWT> ─────┼──────────────────────┼────────────────────►│
+  │                    │                      │◄── JWK (cache) ─────┤
+  │  200 + veri   ◄────┼──────────────────────┼─────────────────────┤</pre>
+
+  <h3>3.3 Log hattı (Log4j2 → Kafka → OpenSearch)</h3>
+  <pre>Backend → Log4j2 KafkaAppender (acks=0, async, JSON layout)
+       → Kafka topic "finans-logs"
+       → log-consumer (@KafkaListener, manuel ack)
+       → OpenSearch indeks "finans-logs-YYYY-MM-DD"
+       → OpenSearch Dashboards (Discover / Visualize)</pre>
+
+  <h3>3.4 Metrik &amp; İz hatları</h3>
+  <pre>Metrik:  Micrometer → /actuator/prometheus → Prometheus (15s scrape) → Grafana
+İz:      OTel Java Agent (auto-instrument: MVC/WebFlux/JDBC/Hibernate/HttpClient)
+         → OTel Collector (OTLP) → Jaeger UI</pre>
+</section>
+
+<!-- 4 -->
+<section>
+  <h2><span class="n">4</span>Veri Akışları</h2>
+
+  <h3>4.1 Piyasa fiyatı (çok sağlayıcılı)</h3>
+  <p>Fiyat verisi, sağlayıcı-bağımsız bir katmanla çekilir: <code>YahooPriceFetcher</code> (birincil), <code>TwelveDataFetcher</code> ve <code>FinnhubPriceFetcher</code> (alternatif/yedek). <code>PriceRefreshScheduler</code> üç tetikleyiciyle çalışır:</p>
+  <ul>
+    <li><strong>Açılışta</strong> (startup) — tüm enstrümanlar için kota + 1 yıllık mum geçmişi.</li>
+    <li><strong>Günlük 18:00 UTC</strong> — tüm enstrümanlar (kapanış).</li>
+    <li><strong>15 dakikada bir (intraday)</strong> — yalnızca gecikmesiz (<code>delayed=false</code>) enstrümanlar; BIST hisseleri gibi gecikmeli olanlar gün-sonu yenilenir.</li>
+  </ul>
+  <pre>Sağlayıcı API → *PriceFetcher (WebClient, 10s timeout)
+  → PriceRefreshScheduler (@Scheduled) → @Transactional upsert
+  → market_quotes + market_candles (find-and-update)
+  → MarketService.summary() @Cacheable → GET /api/v1/market/summary</pre>
+
+  <h3>4.2 Tahvil getiri verisi ve geçmiş (EVDS3, YTM)</h3>
+  <p><code>EvdsBondYieldFetcher</code>, TCMB EVDS3'ten devlet tahvili fiyat + kupon serilerini çeker ve <strong>nakit akışlarını iskontolayarak vadeye kadar getiriyi (YTM)</strong> hesaplar (yarı yıllık kupon takvimi yeniden kurulur, birikmiş faiz ayrıştırılarak temiz fiyat bulunur, bisection ile yıllık oran çözülür).</p>
+  <div class="callout ok">
+    <h4>Getiri geçmişi backfill'i (yenilik)</h4>
+    <p>Önceden yalnızca en güncel gün saklanıyordu; getiri grafiği düz görünüyordu. Artık EVDS3'ten <strong>yapılandırılabilir bir günlük pencere</strong> (<code>app.bonds.tcmb.history-days</code>, varsayılan 120 gün) çekilip <strong>her işlem günü için bir YTM</strong> hesaplanıp saklanır. Yenileme servisi kayıtları ISIN'e göre gruplar, enstrümanı bir kez upsert eder ve tarih-aralığı tek sorguyla ön-getirilerek (N+1 önlenir) günlük kotalar yazılır. Yenileme <strong>2 saatte bir + açılışta</strong> çalışır.</p>
+  </div>
+  <p>Mevduat faizleri <code>TcmbDepositRateFetcher</code> ile ayrıca çekilir. Sağlayıcı soyutlaması <code>BondDataProvider</code> (TCMB birincil, Demo yedek) ile yapılır.</p>
+
+  <h3>4.3 Enflasyon (TR + ABD)</h3>
+  <pre>TCMB EVDS3 (TÜFE/ÜFE) + FRED (CPIAUCSL)
+  → TcmbInflationFetcher / FredInflationFetcher
+  → günlük 09:00 (@Scheduled) + açılışta (tablo boşsa)
+  → 10 yıllık geçmiş, (period_date, country) tekil anahtarla upsert
+  → inflation_data_points → InflationService @Cacheable
+  → GET /api/v1/inflation?country=TR</pre>
+
+  <h3>4.4 Haberler ve otomatik çeviri</h3>
+  <pre>Çok sayıda RSS feed → NewsService.fetch (@Scheduled 6s)
+  → WebClient → RSS XML parse → kaynak dili sınıflandırma
+  → NewsContentFetcher (Jsoup; fallback: Playwright headless)
+  → kategori başına en yeni 50 haber upsert
+  → arka plan prewarm: LibreTranslateClient ile TR↔EN çeviri cache'i
+  → GET /api/v1/news?lang=tr (cache'ten sunum, satır içi çeviri yok)</pre>
+
+  <h3>4.5 Analiz tablosu ve reel getiri</h3>
+  <p><code>InstrumentAnalysisService</code>; piyasa özetini, döviz kurlarını, fonları ve enflasyonu birleştirir. Her satır için haftalık/aylık/yıllık değişim mum geçmişinden hesaplanır; <code>RiskProfileService</code> risk sınıfı, <code>TechnicalAnalysisService</code> kısa/uzun vade sinyali üretir. <strong>Reel getiri</strong> para-birimi duyarlıdır: TRY enstrümanlar TR TÜFE'sine, USD enstrümanlar ABD CPI'sine karşı <code>(1+nominal)/(1+enflasyon) − 1</code> ile hesaplanır.</p>
+
+  <h3>4.6 Yapay zeka sohbet danışmanı</h3>
+  <pre>POST /api/v1/analysis/chat (JWT)  → AiAnalysisService.generateReply
+  ├─ Bütçe niyeti (regex "5000 TL")  → 3 senaryo (Güvenli/Dengeli/Riskli)
+  ├─ Sembol niyeti (regex ticker)    → DB'den güncel veri + sinyaller
+  ├─ LLM etkinse → finans-only sistem promptu + piyasa bağlamı
+  │                → LlmClient.complete() → /chat/completions
+  └─ Anahtar-kelime fallback / yardım yanıtı
+  → finalize(): "yatırım tavsiyesi değildir" + zaman damgası</pre>
+  <div class="callout warn"><h4>Güvenlik kuralları</h4><p>LLM yalnızca finans kapsamında yanıt verir; garanti/komut vermez. Servis devre dışıyken kural tabanlı yanıtlar devreye girer (dayanıklılık).</p></div>
+
+  <h3>4.7 VİOP &amp; Tahvil simülasyon işlemleri</h3>
+  <p>Vadeli işlemler ve tahvil/bono, hisse gibi "adet × maliyet" mantığıyla değil, kendi ekonomileriyle modellenir (ayrı <code>ViopTradeController</code> / <code>BondTradeController</code> ve pozisyon/işlem tabloları): VİOP'ta <strong>long/short yön, kontrat büyüklüğü, teminat, net pozisyon ve kısmi kapatma</strong>; tahvilde <strong>nominal, temiz/kirli fiyat, birikmiş faiz, ağırlıklı ortalama maliyet, kupon ve itfa</strong>. Tüm hesaplar sunucuda yapılır; her ekranda "gerçek emir değildir, simülasyondur" uyarısı bulunur. Mevcut hisse/kripto/fon portföyü bu değişiklikten etkilenmez.</p>
+</section>
+
+<!-- 5 -->
+<section>
+  <h2><span class="n">5</span>Güvenlik Mimarisi</h2>
+  <h3>5.1 Kimlik doğrulama</h3>
+  <ul>
+    <li><strong>Sağlayıcı:</strong> Keycloak realm <code>finans</code>.</li>
+    <li><strong>Akış:</strong> Authorization Code + PKCE (frontend = public client).</li>
+    <li><strong>Backend:</strong> OAuth2 Resource Server; RS256 imzalı JWT, JWK Set URI ile doğrulanır. Erişim token'ı kısa ömürlü (~5 dk) + refresh token.</li>
+  </ul>
+  <h3>5.2 İki adımlı doğrulama (2FA / TOTP)</h3>
+  <p>HMAC-SHA1, 6 hane, 30 sn periyot. İlk girişte QR kod (Google/Microsoft Authenticator, Authy uyumlu). Realm düzeyinde <code>CONFIGURE_TOTP</code> varsayılan zorunlu eylem olarak ayarlanır (keycloak-bootstrap).</p>
+  <h3>5.3 Yetkilendirme</h3>
+  <pre>/api/v1/admin/**           → hasRole("ADMIN")
+GET /api/v1/market/**       → permitAll (public read)
+GET /api/v1/news/**         → permitAll
+/api/v1/portfolio/**        → authenticated
+/api/v1/analysis/**         → authenticated  (AI sohbet dahil)
+/api/v1/alerts|notifications|users/me/**  → authenticated
+anyRequest()                → authenticated</pre>
+  <p>JWT'deki <code>realm_access.roles</code> claim'i özel bir <code>JwtAuthenticationConverter</code> ile Spring rollerine (<code>ROLE_user</code>, <code>ROLE_admin</code>) çevrilir.</p>
+  <h3>5.4 CORS / CSRF / Loglama güvenliği</h3>
+  <ul>
+    <li><strong>CORS:</strong> Yalnızca yapılandırılan frontend origin'ine izin (env ile).</li>
+    <li><strong>CSRF:</strong> Stateless REST olduğundan kapalı.</li>
+    <li><strong>Güvenlik başlıkları:</strong> Spring Security varsayılanları (HSTS, X-Frame-Options, X-Content-Type-Options) + nginx başlıkları.</li>
+    <li><strong>Log injection:</strong> kullanıcı girdisi <code>LogSanitizer</code> ile temizlenir; iz kayıtlarında <code>Authorization</code> başlığı hariç tutulur; sırlar <code>.env</code>/secret ile yönetilir.</li>
+  </ul>
+</section>
+
+<!-- 6 -->
+<section>
+  <h2><span class="n">6</span>Performans ve Önbellekleme</h2>
+  <h3>6.1 Caffeine in-memory cache</h3>
+  <p>Sık çağrılan okuma uçları kısa TTL'li (≈30 sn) adlandırılmış cache'lerle hızlandırılır: <code>market-summary</code>, <code>exchange-rates</code>, <code>investment-funds</code>, <code>inflation-*</code>, <code>bondsList</code> vb. Yenileme sonrası <code>@CacheEvict</code> ile geçersiz kılınır.</p>
+  <h3>6.2 Zamanlayıcı havuzu</h3>
+  <p>Zamanlanmış görevler 4 iş parçacıklı havuzda paralel çalışır (uzun süren haber çekimi diğer yenilemeleri bloke etmez).</p>
+  <h3>6.3 Log üreticisi (Kafka)</h3>
+  <p><code>acks=0</code> (fire-and-forget), <code>linger.ms=1000</code> (batch), <code>max.block.ms=0</code> (broker yoksa anında düşür) — log yolu hiçbir zaman istek yolunu bloke etmez.</p>
+  <h3>6.4 nginx dinamik upstream</h3>
+  <div class="callout">
+    <h4>Dayanıklılık iyileştirmesi</h4>
+    <p>nginx, backend host'unu Docker DNS ile <strong>her istekte yeniden çözer</strong> (<code>resolver 127.0.0.11</code> + değişkenli <code>proxy_pass</code>). Böylece backend konteyneri yeniden başlatılıp IP değiştiğinde frontend'i yeniden başlatmaya gerek kalmadan ~30 sn içinde otomatik toparlanır (eskiden stale IP nedeniyle 502 oluşuyordu).</p>
+  </div>
+  <h3>6.5 Frontend</h3>
+  <p>Hash'li statik varlıklar 1 yıl cache'lenir; <code>index.html</code> asla cache'lenmez (yeni deploy'da eski bundle'a takılma olmaz). Uzun listelerde sanal kaydırma (react-window) kullanılır.</p>
+</section>
+
+<!-- 7 -->
+<section>
+  <h2><span class="n">7</span>Hata Yönetimi</h2>
+  <h3>7.1 Global exception handler</h3>
+  <p><code>@ControllerAdvice</code> ile merkezi: doğrulama hataları → 400 (+ alan hataları), erişim reddi → 403, bulunamadı → 404, beklenmeyen → 500 (+ loglama + temizlenmiş mesaj).</p>
+  <h3>7.2 Frontend</h3>
+  <ul>
+    <li>Axios interceptor: 401 → yeniden giriş.</li>
+    <li>Global hata sınırı (error boundary).</li>
+    <li>Her tabloda iskelet (skeleton) yükleme + boş durum (empty state).</li>
+    <li>Kullanıcı bildirimleri toast ile.</li>
+  </ul>
+  <h3>7.3 Dış servis hataları</h3>
+  <p>Her dış çağrı try/catch + log + güvenli fallback ile sarılır: fiyat sağlayıcı düşerse o tur atlanır; TCMB/EVDS düşerse son veri korunur; çeviri düşerse orijinal metin döner; LLM düşerse kural tabanlı yanıt; Kafka yoksa log sessizce düşürülür. Tek bir bozuk kayıt tüm toplu işlemi bozmaz.</p>
+</section>
+
+<!-- 8 -->
+<section>
+  <h2><span class="n">8</span>Test ve Kod Kalitesi</h2>
+  <h3>8.1 Testler</h3>
+  <ul>
+    <li><strong>Birim testleri (JUnit 5):</strong> 50+ test sınıfı — servis katmanı (portföy, piyasa, enflasyon, risk, tahvil YTM, yenileme servisleri), controller (WebMvcTest), yardımcı sınıflar.</li>
+    <li><strong>Entegrasyon:</strong> H2 in-memory + Flyway göçleriyle repository testleri; <code>@SpringBootTest</code> context testi.</li>
+    <li><strong>Kapsam:</strong> JaCoCo; DTO/entity/config/dış istemci/scheduler sarmalları hariç; servis+controller+exception için hedef %80+.</li>
+  </ul>
+  <h3>8.2 SonarCloud Quality Gate — <span class="badge">PASSED</span></h3>
+  <table>
+    <tr><th>Metrik (New Code)</th><th>Değer</th><th>Eşik</th><th>Durum</th></tr>
+    <tr><td>Security Rating</td><td>A</td><td>A</td><td>✅</td></tr>
+    <tr><td>Reliability Rating</td><td>A</td><td>A</td><td>✅</td></tr>
+    <tr><td>Maintainability Rating</td><td>A</td><td>A</td><td>✅</td></tr>
+    <tr><td>Coverage</td><td>%80.6</td><td>≥%80</td><td>✅</td></tr>
+    <tr><td>Duplicated Lines</td><td>%0.1</td><td>≤%3</td><td>✅</td></tr>
+    <tr><td>Security Hotspots Reviewed</td><td>%100</td><td>%100</td><td>✅</td></tr>
+  </table>
+  <p class="small muted">Tarama her <code>main</code> push'unda ve PR'larda CI içindeki <code>sonarcloud</code> job'ı ile tetiklenir; görünüm-katmanı boilerplate'i CPD kapsamından bilinçli hariç tutulmuştur (backend tam kapsamdadır).</p>
+</section>
+
+<!-- 9 -->
+<section>
+  <h2><span class="n">9</span>Dağıtım (Deployment) ve CI/CD</h2>
+  <h3>9.1 Docker Compose (geliştirme/demo)</h3>
+  <p>Tek komutla (<code>docker compose up -d</code>) tüm yığın ayağa kalkar: Postgres, Keycloak, backend, frontend, gözlemlenebilirlik ve yardımcı servisler.</p>
+  <h3>9.2 Kubernetes (Kustomize)</h3>
+  <p><code>k8s/</code> dizini base + overlay yapısındadır: <code>base</code> (Postgres StatefulSet, Keycloak Deployment + bootstrap Job, backend/frontend Deployment, Service'ler, Ingress), <code>overlays/dev</code> (kind/Docker Desktop), <code>overlays/prod</code> (HPA, anti-affinity, cert-manager TLS) ve <code>overlays/gke</code> (canlı hedef).</p>
+  <h3>9.3 Google Kubernetes Engine (GKE)</h3>
+  <ul>
+    <li><strong>GCE Ingress</strong> (L7 HTTP(S) LB) + global statik IP; <strong>Google-managed TLS</strong> sertifikası, HTTP→HTTPS 301.</li>
+    <li><strong>BackendConfig</strong> ile servis bazlı sağlık kontrolü; <strong>backend HPA</strong> (CPU %70, 1–3 replica); <strong>startupProbe</strong> ile uzun açılış toleransı.</li>
+    <li><strong>Frontend runtime-config:</strong> Keycloak URL'i build yerine çalışma zamanında çözülür → tek imaj her ortamda çalışır.</li>
+    <li><code>SPRING_PROFILES_ACTIVE=prod,nokafka</code> ile çekirdek deploy'da Kafka log hattı kapatılır (broker yok).</li>
+  </ul>
+  <h3>9.4 CI/CD (GitHub Actions)</h3>
+  <ul>
+    <li><strong>CI</strong> (<code>ci.yml</code>): paralel job'lar — backend (Maven verify + JaCoCo), frontend (Vite build), docker-compose sözdizimi, SonarCloud taraması.</li>
+    <li><strong>CD</strong> (<code>cd.yml</code>): CI yeşil olunca GKE'ye deploy. Google Cloud'a <strong>Workload Identity Federation</strong> ile anahtarsız kimlik; imajlar commit SHA tag'iyle <strong>Artifact Registry</strong>'ye; <code>kubectl apply -k overlays/gke</code> + <code>rollout status</code> doğrulaması. Yalnızca dokümantasyon değişen push'larda deploy atlanır.</li>
+  </ul>
+</section>
+
+<!-- 10 -->
+<section>
+  <h2><span class="n">10</span>Veri Modeli</h2>
+  <p><strong>26 Flyway göçü (V1–V26).</strong> Başlıca tablolar:</p>
+  <table>
+    <tr><th>Tablo</th><th>Açıklama</th></tr>
+    <tr><td><code>market_instruments</code></td><td>Sembol kataloğu (sağlayıcı sembolü + görünen ad, gecikme bayrağı)</td></tr>
+    <tr><td><code>market_quotes</code></td><td>Anlık fiyat (latest, change_abs/pct, previous_close, volume, as_of)</td></tr>
+    <tr><td><code>market_candles</code></td><td>Günlük OHLC mumlar — <code>(instrument_id, day)</code> tekil</td></tr>
+    <tr><td><code>portfolio_positions</code></td><td>Kullanıcı pozisyonları (symbol, quantity, avg_cost, purchase_date)</td></tr>
+    <tr><td><code>watchlist</code> / <code>watchlist_items</code></td><td>Takip listeleri</td></tr>
+    <tr><td><code>debt_instruments</code> / <code>debt_instrument_quotes</code></td><td>Tahvil/bono enstrümanları ve <strong>günlük getiri geçmişi</strong></td></tr>
+    <tr><td><code>investment_funds</code></td><td>TEFAS fon kataloğu + getiri yüzdeleri</td></tr>
+    <tr><td><code>inflation_data_points</code></td><td><code>(period_date, country)</code> tekil — endeks + aylık/yıllık değişim</td></tr>
+    <tr><td><code>deposit_rate_points</code></td><td>TCMB banka mevduat faizleri</td></tr>
+    <tr><td><code>exchange_rates</code></td><td>TCMB kurları (alış/satış/efektif, kaynak)</td></tr>
+    <tr><td><code>news_feeds</code> / <code>news_articles</code></td><td>RSS kaynak listesi + haberler (kaynak dili + çeviri cache kolonları)</td></tr>
+    <tr><td><code>viop_contracts</code></td><td>Vadeli işlem kontratları snapshot</td></tr>
+    <tr><td><code>viop_positions</code> / <code>viop_transactions</code></td><td>Simülasyon: long/short net pozisyon + işlem geçmişi</td></tr>
+    <tr><td><code>bond_positions</code> / <code>bond_transactions</code></td><td>Simülasyon: nominal/kupon/itfa pozisyonları + işlem geçmişi</td></tr>
+    <tr><td><code>price_alerts</code> / <code>notifications</code></td><td>Fiyat alarmları + uygulama içi bildirimler</td></tr>
+    <tr><td><code>user_preferences</code></td><td>Bildirim/dil/tema tercihleri</td></tr>
+  </table>
+  <p class="small">İndeksleme: her tabloda PK; bileşik tekil anahtarlar (mum, enflasyon, tahvil kotaları); sık sorgulanan kolonlarda azalan indeksler (haber <code>published_at</code>, kota <code>as_of</code>).</p>
+</section>
+
+<!-- 11 -->
+<section>
+  <h2><span class="n">11</span>API Tasarımı</h2>
+  <p><strong>19 controller</strong>, tümü <code>/api/v1/...</code> önekiyle: Admin, Analysis, Bond, BondTrade, DepositRate, ExchangeRate, Inflation, InvestmentFund, Market, News, Notification, Portfolio, PriceAlert, TechnicalAnalysis, UserPreferences, UserProfile, Viop, ViopTrade, Watchlist.</p>
+  <ul>
+    <li><strong>OpenAPI/Swagger:</strong> SpringDoc 2.7 — <code>/swagger-ui/index.html</code>, <code>/v3/api-docs</code>.</li>
+    <li><strong>Doğrulama:</strong> Bean Validation (<code>@NotNull</code>, <code>@DecimalMin</code> vb.); hatalar global handler'da standart formatta döner.</li>
+  </ul>
+  <pre>{
+  "timestamp": "2026-06-05T13:00:00Z",
+  "status": 400, "error": "Bad Request",
+  "message": "Validation failed",
+  "fieldErrors": [{"field": "quantity", "message": "must be positive"}]
+}</pre>
+</section>
+
+<!-- 12 -->
+<section>
+  <h2><span class="n">12</span>Gözlemlenebilirlik (Observability)</h2>
+  <h3>12.1 Grafana dashboard'ları (4)</h3>
+  <ul>
+    <li><strong>Backend Monitoring:</strong> HTTP hız/hata, p95 gecikme, JVM heap, HikariCP havuzu, GC.</li>
+    <li><strong>Business Metrics:</strong> servis bazlı yenileme başarı/başarısızlık, süre, veri alım hızı (FX/enflasyon/haber/fiyat).</li>
+    <li><strong>Prometheus Health</strong> ve <strong>OTel Collector Health.</strong></li>
+  </ul>
+  <h3>12.2 İş metrikleri</h3>
+  <p>Her zamanlanmış görev için sayaç/zamanlayıcı: <code>bond_refresh_*</code>, <code>fx_refresh_*</code>, <code>inflation_refresh_*</code>, <code>news_refresh_*</code>, <code>price_refresh_*</code> (updated/failed/skipped), <code>price_alert_check_failure_total</code>.</p>
+  <h3>12.3 Log analitiği (OpenSearch)</h3>
+  <p>Indeks deseni <code>finans-logs-*</code>; seviye bazlı hacim, en aktif logger'lar, zaman serisi ve trace_id bazlı görselleştirmeler; kayıtlı aramalar (tümü / hata-uyarı).</p>
+</section>
+
+<!-- 13 -->
+<section>
+  <h2><span class="n">13</span>Frontend Mimarisi</h2>
+  <ul>
+    <li><strong>Yapı:</strong> React 19 SPA; <code>pages/</code> (rota başına sayfa), <code>components/</code> (paylaşılan + özellik bazlı), <code>api/</code> (Axios istemcileri), <code>contexts/</code> (i18n, para birimi gösterimi), <code>hooks/</code>, <code>utils/</code>.</li>
+    <li><strong>Yönlendirme:</strong> React Router 7; korumalı rotalar Keycloak oturumuna bağlı.</li>
+    <li><strong>Durum:</strong> Zustand (hafif global), bağlamlar (i18n/para birimi/tema).</li>
+    <li><strong>Çok dillilik:</strong> Özel i18n sözlüğü (TR/EN); eksik anahtarlar TR'ye, sonra anahtarın kendisine güvenli düşer; 36 terimlik araç ipucu sözlüğü (TermInfo).</li>
+    <li><strong>Tema:</strong> CSS değişkenleriyle açık/koyu tema; <code>data-theme</code> ile anlık geçiş.</li>
+    <li><strong>Grafikler:</strong> recharts (pasta/bar), lightweight-charts (alan/getiri — canvas; CSS değişkeni renkler somut değere çözülür), klinecharts (detaylı mum + çizim araçları + indikatör senkronizasyonu, çoklu karşılaştırma).</li>
+    <li><strong>Bildirim:</strong> merkezi <code>notify</code> yardımcı (toast), kullanıcı tercihlerine duyarlı.</li>
+    <li><strong>Modal altyapısı:</strong> Escape/arka plan ile kapanma; işlem sırasında kilitlenebilir (yarım işlem iptalini önler).</li>
+    <li><strong>Para birimi gösterimi:</strong> Orijinal / TL / USD dönüşümü tüm tablolarda tutarlı.</li>
+  </ul>
+</section>
+
+<!-- 14 -->
+<section>
+  <h2><span class="n">14</span>Bilinen Sınırlamalar</h2>
+  <ul>
+    <li><strong>Veri sağlayıcı limitleri:</strong> Ücretsiz uçlarda IP bazlı kısıtlamalar; üretimde ücretli sağlayıcı (TwelveData/Finnhub) önerilir.</li>
+    <li><strong>EVDS3 oturumu:</strong> API anahtarı kullanılır; bazı uçlar oturum çerezi gerektirebilir (süresi dolunca yenileme).</li>
+    <li><strong>Çeviri kalitesi:</strong> LibreTranslate hızlı ama jargonda zayıf; üretimde DeepL/OpenAI alternatif.</li>
+    <li><strong>In-memory cache:</strong> Caffeine — çok örnekli dağıtımda tutarlılık için Redis'e geçiş hazır.</li>
+    <li><strong>Gerçek zamanlı push yok:</strong> Polling tabanlı; alarmlar toplu kontrol.</li>
+  </ul>
+</section>
+
+<!-- 15 -->
+<section>
+  <h2><span class="n">15</span>Geliştirici Onboarding</h2>
+  <ol>
+    <li>Önkoşullar: Docker, Docker Compose, Git, ~8 GB RAM.</li>
+    <li><code>.env.example</code> → <code>.env</code> kopyalayın (anahtarlar/sırlar).</li>
+    <li><code>docker compose up -d</code></li>
+  </ol>
+  <table>
+    <tr><th>Servis</th><th>Adres</th></tr>
+    <tr><td>Frontend</td><td><code>http://localhost</code></td></tr>
+    <tr><td>Backend API / Swagger</td><td><code>http://localhost:8080/swagger-ui/</code></td></tr>
+    <tr><td>Keycloak admin</td><td><code>http://localhost:8090/admin</code></td></tr>
+    <tr><td>Grafana</td><td><code>http://localhost:3001</code></td></tr>
+    <tr><td>Jaeger</td><td><code>http://localhost:16686</code></td></tr>
+    <tr><td>OpenSearch Dashboards</td><td><code>http://localhost:5601</code></td></tr>
+    <tr><td>Mailpit</td><td><code>http://localhost:8025</code></td></tr>
+  </table>
+  <p class="small muted">Frontend dev: <code>cd frontend &amp;&amp; npm install &amp;&amp; npm run dev</code> · Backend dev: <code>cd backend &amp;&amp; ./mvnw spring-boot:run</code> · Test: <code>./mvnw test</code></p>
+  <p class="center muted" style="margin-top:22px;">— Belge sonu —</p>
+</section>
+
+</body>
+</html>
