@@ -1,12 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import Modal from "../components/Modal";
+import ImportPreviewModal from "../components/ImportPreviewModal";
 import { getLatestPrice, getMarketHistory, getMarketInstruments } from "../api/portfolioApi";
 import { compareInflation } from "../api/inflationApi";
 import { useI18n } from "../contexts/I18nContext";
 import { useCurrencyDisplay } from "../contexts/CurrencyDisplayContext";
 import notify from "../utils/notify";
 import { parsePortfolioExcel } from "../utils/excelImport";
+
+const localYmd = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+// Buy date must be in the past → the date pickers cap at yesterday (local), in
+// step with the "< today" validation (avoids the UTC drift of toISOString()).
+const yesterdayLocal = () => { const d = new Date(); d.setDate(d.getDate() - 1); return localYmd(d); };
 
 export default function HistoricalComparison({ keycloak }) {
   const { t } = useI18n();
@@ -44,7 +50,20 @@ export default function HistoricalComparison({ keycloak }) {
   const [addError, setAddError] = useState(null);
   const [showSugg, setShowSugg] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [histPreview, setHistPreview] = useState(null);
   const fileRef = useRef(null);
+
+  // Inline edit (lot + date) for an existing row.
+  const [editTarget, setEditTarget] = useState(null);
+  const [editLots, setEditLots] = useState(1);
+  const [editDate, setEditDate] = useState("");
+  const [editSaving, setEditSaving] = useState(false);
+  const [editError, setEditError] = useState(null);
+
+  const validSymbols = useMemo(
+    () => new Set(instruments.map((i) => String(i.symbol).toUpperCase())),
+    [instruments],
+  );
 
   useEffect(() => {
     getMarketInstruments().then(setInstruments).catch(() => {});
@@ -107,6 +126,9 @@ export default function HistoricalComparison({ keycloak }) {
     today.setHours(0, 0, 0, 0);
 
     const currentPrice = await getLatestPrice(sym, keycloak);
+    // No live quote (endpoint returned 0) → bail rather than persist a bogus
+    // -100% row. Import counts it skipped; edit shows an error (keeps old row).
+    if (!(currentPrice > 0)) return null;
 
     const daysDiff = Math.floor((today.getTime() - selectedDate.getTime()) / (1000 * 60 * 60 * 24));
     let period = "30D";
@@ -201,20 +223,33 @@ export default function HistoricalComparison({ keycloak }) {
     }
   }
 
-  // Excel bulk-import (columns: symbol + lot + buy date, all required). Unknown
-  // symbols and rows with a missing/future date are skipped and counted; the
-  // outcome is surfaced as a site notification.
+  // Excel pick → parse (columns symbol + lot + buy date, all required) → open
+  // the editable preview so missing/wrong cells can be fixed before importing.
   async function onImportFile(file) {
     if (!file) return;
+    const parsed = await parsePortfolioExcel(file, { requireDate: true });
+    if (!parsed.ok) {
+      notify(t("historical.importUnreadable"), { variant: "error" });
+      return;
+    }
+    if (!parsed.rows.length) {
+      notify(t("historical.importEmpty"), { variant: "warning" });
+      return;
+    }
+    // Ensure the catalog is loaded so the preview flags unknown symbols.
+    if (!instruments.length) {
+      const fetched = await getMarketInstruments().catch(() => []);
+      if (fetched.length) setInstruments(fetched);
+    }
+    setHistPreview(parsed.rows);
+  }
+
+  // Confirm import: unknown symbols and rows with a missing/future date are
+  // skipped and counted; the outcome is surfaced as a site notification.
+  async function runHistoricalImport(rows) {
     setImporting(true);
     try {
-      const parsed = await parsePortfolioExcel(file, { requireDate: true });
-      if (!parsed.ok) {
-        notify(t("historical.importUnreadable"), { variant: "error" });
-        return;
-      }
-      // Catalog loads async; fetch it now if the user imported before it's ready
-      // so symbol validation doesn't silently skip every row.
+      // Catalog loads async; fetch it now if needed so validation works.
       let catalog = instruments;
       if (!catalog.length) {
         catalog = await getMarketInstruments().catch(() => []);
@@ -231,11 +266,12 @@ export default function HistoricalComparison({ keycloak }) {
 
       const added = [];
       let skipped = 0;
-      for (const row of parsed.rows) {
+      for (const row of rows) {
+        const sym = String(row.symbol || "").trim().toUpperCase();
         const dateOk = row.date && row.date < todayISO;
-        if (!row.symbol || !valid.has(row.symbol) || !(row.lot > 0) || !dateOk) { skipped++; continue; }
+        if (!sym || !valid.has(sym) || !(Number(row.lot) > 0) || !dateOk) { skipped++; continue; }
         try {
-          const pos = await buildHistoricalPosition(row.symbol, row.date, row.lot);
+          const pos = await buildHistoricalPosition(sym, row.date, Number(row.lot));
           if (pos) added.push({ id: rid(), ...pos });
           else skipped++;
         } catch {
@@ -244,13 +280,46 @@ export default function HistoricalComparison({ keycloak }) {
       }
 
       if (added.length > 0) setPositions((prev) => [...prev, ...added]);
+      setHistPreview(null);
       if (added.length === 0 && skipped === 0) {
         notify(t("historical.importEmpty"), { variant: "warning" });
       } else {
-        notify.tx(t("historical.importDone", { imported: added.length, skipped }));
+        notify(t("historical.importDone", { imported: added.length, skipped }),
+          { variant: added.length > 0 ? "success" : "warning" });
       }
     } finally {
       setImporting(false);
+    }
+  }
+
+  function openEdit(p) {
+    setEditTarget(p);
+    setEditLots(p.lots);
+    setEditDate(p.buyDate);
+    setEditError(null);
+  }
+
+  // Save a row edit: a new date re-fetches the buy price from history and
+  // re-runs the inflation adjustment, so all derived figures stay correct.
+  async function onSaveEdit() {
+    if (!editTarget) return;
+    if (!(Number(editLots) > 0)) { setEditError(t("historical.errQty")); return; }
+    if (!editDate) { setEditError(t("historical.errDate")); return; }
+    const sel = new Date(editDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (sel >= today) { setEditError(t("historical.errPast")); return; }
+    try {
+      setEditSaving(true);
+      setEditError(null);
+      const pos = await buildHistoricalPosition(editTarget.symbol, editDate, Number(editLots));
+      if (!pos) { setEditError(t("historical.errNoHistory")); return; }
+      setPositions((prev) => prev.map((x) => (x.id === editTarget.id ? { id: editTarget.id, ...pos } : x)));
+      setEditTarget(null);
+    } catch (e) {
+      setEditError(e?.message ?? t("historical.errPrice"));
+    } finally {
+      setEditSaving(false);
     }
   }
 
@@ -293,6 +362,9 @@ export default function HistoricalComparison({ keycloak }) {
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
           <a href="/ornek-gecmis.xlsx" download style={s.sampleLink}>
             {t("historical.importSample")}
+          </a>
+          <a href="/ornek-gecmis-eksik.xlsx" download style={s.sampleLink}>
+            {t("historical.importSampleMissing")}
           </a>
           <button
             style={{ ...s.importBtn, ...(importing ? { opacity: 0.6, cursor: "default" } : {}) }}
@@ -426,9 +498,14 @@ export default function HistoricalComparison({ keycloak }) {
                           : "—"}
                       </td>
                       <td style={s.td}>
-                        <button style={s.deleteBtn} onClick={() => onDelete(p.id)}>
-                          {t("historical.delete")}
-                        </button>
+                        <div style={{ display: "flex", gap: 6 }}>
+                          <button style={s.editBtn} onClick={() => openEdit(p)}>
+                            {t("common.edit")}
+                          </button>
+                          <button style={s.deleteBtn} onClick={() => onDelete(p.id)}>
+                            {t("historical.delete")}
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   );
@@ -527,6 +604,67 @@ export default function HistoricalComparison({ keycloak }) {
           </div>
         </div>
       </Modal>
+
+      {/* Edit a row (lot + buy date) */}
+      <Modal
+        open={!!editTarget}
+        title={t("historical.editTitle")}
+        onClose={() => setEditTarget(null)}
+        footer={
+          <>
+            <button style={s.ghostBtn} onClick={() => setEditTarget(null)} disabled={editSaving}>
+              {t("common.cancel")}
+            </button>
+            <button style={s.primaryBtn} onClick={onSaveEdit} disabled={editSaving}>
+              {editSaving ? t("common.adding") : t("common.save")}
+            </button>
+          </>
+        }
+      >
+        <div style={{ display: "grid", gap: 14 }}>
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={s.label}>{t("historical.modalSymbol")}</label>
+            <div style={{ ...s.input, opacity: 0.7 }}>{editTarget?.symbol}</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+            <div style={{ display: "grid", gap: 6 }}>
+              <label style={s.label}>{t("historical.modalDate")}</label>
+              <input
+                type="date"
+                value={editDate}
+                max={yesterdayLocal()}
+                onChange={(e) => setEditDate(e.target.value)}
+                style={s.input}
+              />
+            </div>
+            <div style={{ display: "grid", gap: 6 }}>
+              <label style={s.label}>{t("historical.modalQty")}</label>
+              <input
+                type="number"
+                value={editLots}
+                min={1}
+                onChange={(e) => setEditLots(Math.max(1, Number(e.target.value)))}
+                style={s.input}
+              />
+            </div>
+          </div>
+          {editError && (
+            <div style={{ color: "var(--danger-text)", fontSize: 13, padding: "8px 12px", background: "var(--danger-bg)", borderRadius: 6, border: "1px solid var(--danger-border)" }}>
+              {editError}
+            </div>
+          )}
+        </div>
+      </Modal>
+
+      <ImportPreviewModal
+        open={!!histPreview}
+        initialRows={histPreview || []}
+        requireDate
+        validSymbols={validSymbols}
+        importing={importing}
+        onConfirm={runHistoricalImport}
+        onClose={() => { if (!importing) setHistPreview(null); }}
+      />
     </div>
   );
 }
@@ -574,6 +712,7 @@ const s = {
   importBtn: { padding: "8px 16px", borderRadius: 8, border: "1px solid var(--accent-border)", background: "transparent", color: "var(--accent-solid)", cursor: "pointer", fontWeight: 600, fontSize: 13, whiteSpace: "nowrap" },
   sampleLink: { fontSize: 12, color: "var(--text-muted)", textDecoration: "underline", whiteSpace: "nowrap" },
   clearBtn: { padding: "8px 16px", borderRadius: 8, border: "1px solid var(--danger-border)", background: "var(--danger-bg)", color: "var(--danger-text)", cursor: "pointer", fontWeight: 600, fontSize: 13 },
+  editBtn: { padding: "6px 12px", borderRadius: 6, border: "1px solid var(--accent-border)", background: "transparent", color: "var(--accent-solid)", cursor: "pointer", fontSize: 12, fontWeight: 600 },
   deleteBtn: { padding: "6px 12px", borderRadius: 6, border: "1px solid var(--danger-border)", background: "var(--danger-bg)", color: "var(--danger-text)", cursor: "pointer", fontSize: 12, fontWeight: 500 },
   ghostBtn: { padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border-card)", background: "transparent", color: "var(--text-primary)", cursor: "pointer" },
   primaryBtn: { padding: "8px 16px", borderRadius: 8, border: "none", background: "var(--accent-solid)", color: "#fff", cursor: "pointer", fontWeight: 600 },

@@ -22,18 +22,28 @@ function findKey(keys, aliases) {
     return keys.find((k) => aliases.includes(norm(k)));
 }
 
-// Parse a lot/quantity cell. Accepts numbers and strings ("10", "10,5",
-// "1.234"). Turkish thousand/decimal separators are tolerated.
+// Parse a lot/quantity cell. Numbers pass through untouched (Excel numeric
+// cells arrive as JS numbers). For text, a dot is treated as a DECIMAL point
+// unless a comma is also present — only then is it the Turkish thousands
+// separator ("1.234,5" → 1234.5). This avoids silently turning "1.5" lots into
+// 15 or "1.234" into 1234 when no decimal comma signals TR grouping.
 function parseLot(v) {
     if (v == null || v === "") return NaN;
     if (typeof v === "number") return v;
-    const s = String(v).trim().replace(/\s/g, "").replace(/\.(?=\d{3}\b)/g, "").replace(",", ".");
+    let s = String(v).trim().replace(/\s/g, "");
+    if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
     const n = Number(s);
     return Number.isFinite(n) ? n : NaN;
 }
 
-// Normalize a date cell to "yyyy-MM-dd", or null if unparseable. Handles Excel
-// date objects (cellDates) and the common TR/ISO text formats.
+// True only for a real calendar date (rejects month 13, day 32, 2024-02-31…).
+function validYmd(y, m, d) {
+    const dt = new Date(Date.UTC(y, m - 1, d));
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === m - 1 && dt.getUTCDate() === d;
+}
+
+// Normalize a date cell to "yyyy-MM-dd", or null if unparseable / out of range.
+// Handles Excel date objects (cellDates) and the common TR/ISO text formats.
 function parseDate(v) {
     if (v == null || v === "") return null;
     if (v instanceof Date && !Number.isNaN(v.getTime())) {
@@ -41,9 +51,15 @@ function parseDate(v) {
     }
     const s = String(v).trim();
     let m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/); // yyyy-MM-dd
-    if (m) return `${m[1]}-${pad(m[2])}-${pad(m[3])}`;
+    if (m) {
+        const [y, mo, d] = [Number(m[1]), Number(m[2]), Number(m[3])];
+        return validYmd(y, mo, d) ? `${m[1]}-${pad(mo)}-${pad(d)}` : null;
+    }
     m = s.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{4})$/); // dd.MM.yyyy / dd/MM/yyyy
-    if (m) return `${m[3]}-${pad(m[2])}-${pad(m[1])}`;
+    if (m) {
+        const [d, mo, y] = [Number(m[1]), Number(m[2]), Number(m[3])];
+        return validYmd(y, mo, d) ? `${m[3]}-${pad(mo)}-${pad(d)}` : null;
+    }
     return null;
 }
 

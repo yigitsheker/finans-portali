@@ -28,3 +28,17 @@ write("ornek-gecmis.xlsx", [
     { Sembol: "ASELS", Lot: 75, "Alış Tarihi": "2024-03-20" },
     { Sembol: "KCHOL", Lot: 40, "Alış Tarihi": "2023-11-05" },
 ]);
+
+// Missing-field samples to demo the import preview's "fill in the blanks" step.
+// First row has every column so the header is complete; a later row omits a cell.
+write("ornek-portfoy-eksik.xlsx", [
+    { Sembol: "THYAO", Lot: 100 },
+    { Sembol: "GARAN" },            // lot missing
+    { Sembol: "ASELS", Lot: 75 },
+]);
+
+write("ornek-gecmis-eksik.xlsx", [
+    { Sembol: "THYAO", Lot: 100, "Alış Tarihi": "2024-01-15" },
+    { Sembol: "GARAN", Lot: 50 },   // buy date missing
+    { Sembol: "ASELS", Lot: 75, "Alış Tarihi": "2024-03-20" },
+]);

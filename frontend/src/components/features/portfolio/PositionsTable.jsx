@@ -48,6 +48,9 @@ export function PositionsTable({
               <a href="/ornek-portfoy.xlsx" download style={impStyles.sampleLink}>
                 {t("portfolio.importSample")}
               </a>
+              <a href="/ornek-portfoy-eksik.xlsx" download style={impStyles.sampleLink}>
+                {t("portfolio.importSampleMissing")}
+              </a>
               <button
                 style={{ ...impStyles.importBtn, ...(importing ? { opacity: 0.6, cursor: "default" } : {}) }}
                 onClick={() => fileRef.current?.click()}

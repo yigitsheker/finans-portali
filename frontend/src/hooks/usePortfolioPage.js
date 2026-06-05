@@ -10,7 +10,6 @@ import {
   upsertPosition,
 } from "../api/portfolioApi";
 import notify from "../utils/notify";
-import { parsePortfolioExcel } from "../utils/excelImport";
 
 export function usePortfolioPage(keycloak) {
   const [items, setItems] = useState([]);
@@ -331,30 +330,37 @@ export function usePortfolioPage(keycloak) {
     }
   }, [sellTarget, sellQty, keycloak, refresh]);
 
-  // Bulk-import positions from an Excel/CSV file (columns: symbol + lot).
-  // Unknown symbols (not in the instrument catalog) are skipped and counted.
-  // Returns a result the page turns into a toast — no UI strings live here.
-  const importFromExcel = useCallback(async (file) => {
-    if (!file) return { ok: false, reason: "empty" };
+  // Bulk-add positions from already-parsed (and possibly user-edited, via the
+  // import preview) rows: [{ symbol, lot }]. Unknown symbols and rows without a
+  // live quote are skipped and counted. Returns counts for the page's toast.
+  const importRows = useCallback(async (rows) => {
+    if (!rows || !rows.length) return { ok: true, imported: 0, skipped: 0 };
     setImporting(true);
     try {
-      const parsed = await parsePortfolioExcel(file, { requireDate: false });
-      if (!parsed.ok) return parsed; // { ok:false, reason }
       // The catalog loads async on mount; if the user imports before it's ready
       // fetch it now so symbol validation isn't silently skipping everything.
       let catalog = instruments;
       if (!catalog.length) catalog = await getMarketInstruments().catch(() => []);
       const valid = new Set(catalog.map((i) => String(i.symbol).toUpperCase()));
-      let imported = 0;
+      // Collapse duplicate symbols (e.g. after preview edits) into one upsert
+      // with the summed lots — upsert is additive, so per-row calls would double
+      // the booked quantity and over-count "imported".
+      const bySymbol = new Map();
       let skipped = 0;
-      for (const row of parsed.rows) {
-        if (!row.symbol || !(row.lot > 0) || !valid.has(row.symbol)) { skipped++; continue; }
+      for (const row of rows) {
+        const sym = String(row.symbol || "").trim().toUpperCase();
+        const lot = Number(row.lot);
+        if (!sym || !(lot > 0) || !valid.has(sym)) { skipped++; continue; }
+        bySymbol.set(sym, (bySymbol.get(sym) || 0) + lot);
+      }
+      let imported = 0;
+      for (const [sym, lot] of bySymbol) {
         try {
-          const price = await getLatestPrice(row.symbol, keycloak);
+          const price = await getLatestPrice(sym, keycloak);
           // No live quote → skip rather than book a position at cost 0 (which
           // would corrupt P&L). Counted as skipped.
           if (!(price > 0)) { skipped++; continue; }
-          await upsertPosition(keycloak, { symbol: row.symbol, quantity: row.lot, avgCost: price });
+          await upsertPosition(keycloak, { symbol: sym, quantity: lot, avgCost: price });
           imported++;
         } catch {
           skipped++;
@@ -387,7 +393,8 @@ export function usePortfolioPage(keycloak) {
     addPriceLoading,
     addSaving,
     importing,
-    importFromExcel,
+    importRows,
+    instruments,
     addTotal,
     addInputMode,
     addAmount,
