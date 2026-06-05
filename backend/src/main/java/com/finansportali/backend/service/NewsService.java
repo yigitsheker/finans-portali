@@ -489,6 +489,25 @@ public class NewsService {
     }
 
     /**
+     * Fire-and-forget manual refresh for the admin UI. A full fetch can take
+     * minutes; running it on the request thread would blow past the reverse
+     * proxy's read timeout (and the browser would give up) before it finishes.
+     * So we kick it off on a background daemon thread and return immediately.
+     * Goes through the @Lazy self proxy so the timer/transaction wrappers apply.
+     */
+    public void triggerManualFetchAsync() {
+        Thread t = new Thread(() -> {
+            try {
+                self.fetchAndSaveNews();
+            } catch (RuntimeException e) {
+                log.warn("Manual news fetch failed: {}", e.getMessage());
+            }
+        }, "manual-news-fetch");
+        t.setDaemon(true);
+        t.start();
+    }
+
+    /**
      * Removes news_articles rows whose (sourceName, category) pair is not
      * covered by any ENABLED feed — articles left behind by a feed that was
      * deleted OR disabled. (A disabled feed keeps its row but its news must no

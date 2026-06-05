@@ -29,6 +29,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
@@ -211,13 +212,20 @@ class AdminControllerTest {
 
     @Test
     void reset_news_clears_and_fetches() throws Exception {
-        when(userService.getCurrentUsername()).thenReturn("admin");
-
         mvc.perform(post("/api/v1/admin/reset-news").with(csrf()))
                 .andExpect(status().isOk());
 
         verify(newsRepo).deleteAll();
-        verify(newsService).fetchAndSaveNews();
+        verify(newsService).triggerManualFetchAsync();
+    }
+
+    @Test
+    void refresh_news_fetches_without_reset() throws Exception {
+        mvc.perform(post("/api/v1/admin/refresh-news").with(csrf()))
+                .andExpect(status().isOk());
+
+        verify(newsService).triggerManualFetchAsync();
+        verify(newsRepo, never()).deleteAll();
     }
 
     @Test

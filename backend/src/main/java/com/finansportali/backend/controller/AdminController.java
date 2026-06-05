@@ -207,16 +207,31 @@ public class AdminController {
         return ResponseEntity.ok("Price refresh triggered by " + userService.getCurrentUsername());
     }
 
-    /** 
-     * Clears old news and fetches fresh ones from RSS.
-     * Requires ADMIN role.
+    /**
+     * Wipes all news and re-fetches from every enabled RSS feed in the
+     * background (a full fetch can exceed the proxy read timeout). Requires ADMIN.
      */
     @PostMapping("/reset-news")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<String> resetNews() {
+        long removed = newsRepo.count();
         newsRepo.deleteAll();
-        newsService.fetchAndSaveNews();
-        return ResponseEntity.ok("News cleared and fetch triggered by " + userService.getCurrentUsername());
+        newsService.triggerManualFetchAsync();
+        return ResponseEntity.ok(removed + " haber silindi. Baştan çekme arka planda başlatıldı; "
+                + "haberler birkaç dakika içinde görünecek.");
+    }
+
+    /**
+     * Manually triggers a news fetch WITHOUT wiping existing articles — fills
+     * under-stocked categories (e.g. after re-enabling a feed). Runs in the
+     * background and returns immediately. Requires ADMIN.
+     */
+    @PostMapping("/refresh-news")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<String> refreshNews() {
+        newsService.triggerManualFetchAsync();
+        return ResponseEntity.ok("Haber çekme arka planda başlatıldı; "
+                + "yeni haberler birkaç dakika içinde görünecek.");
     }
 
     /**

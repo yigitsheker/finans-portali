@@ -435,6 +435,38 @@ function FeedsPanel({ keycloak }) {
         }
     };
 
+    // Manual news fetch (no reset) — fills under-stocked categories, e.g. right
+    // after re-enabling a feed. The server runs it in the background.
+    const [fetchingNews, setFetchingNews] = useState(false);
+    const fetchNews = async () => {
+        setFetchingNews(true);
+        try {
+            const r = await authFetch("/api/v1/admin/refresh-news", { method: "POST" });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            alert((await r.text()) || "Haber çekme başlatıldı.");
+        } catch (e) {
+            alert("Haber çekme başarısız: " + e.message);
+        } finally {
+            setFetchingNews(false);
+        }
+    };
+
+    // Reset: wipe ALL news and re-fetch from scratch (background on the server).
+    const [resettingNews, setResettingNews] = useState(false);
+    const resetNews = async () => {
+        if (!confirm("Tüm haberler silinip RSS kaynaklarından baştan çekilecek. Devam edilsin mi?")) return;
+        setResettingNews(true);
+        try {
+            const r = await authFetch("/api/v1/admin/reset-news", { method: "POST" });
+            if (!r.ok) throw new Error(`HTTP ${r.status}`);
+            alert((await r.text()) || "Sıfırlandı; baştan çekme başlatıldı.");
+        } catch (e) {
+            alert("Sıfırlama başarısız: " + e.message);
+        } finally {
+            setResettingNews(false);
+        }
+    };
+
     const filtered = filter.trim()
         ? feeds.filter((f) =>
             f.url.toLowerCase().includes(filter.toLowerCase()) ||
@@ -483,6 +515,24 @@ function FeedsPanel({ keycloak }) {
                     {t("admin.rssSummary", { count: feeds.length, enabled: enabledCount })}
                 </div>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <button
+                        type="button"
+                        style={s.button}
+                        onClick={fetchNews}
+                        disabled={fetchingNews}
+                        title="RSS kaynaklarından yeni haberleri çeker (mevcutları silmez). Bir feed'i yeniden aktif ettikten sonra kullanın."
+                    >
+                        {fetchingNews ? "Çekiliyor..." : "📰 Haberleri Çek"}
+                    </button>
+                    <button
+                        type="button"
+                        style={{ ...s.button, background: "var(--red, #dc2626)" }}
+                        onClick={resetNews}
+                        disabled={resettingNews}
+                        title="Tüm haberleri siler ve RSS kaynaklarından baştan çeker"
+                    >
+                        {resettingNews ? "Sıfırlanıyor..." : "🔄 Sıfırla & Baştan Çek"}
+                    </button>
                     <button
                         type="button"
                         style={{ ...s.button, background: "var(--bg-card)", color: "var(--text-primary)", border: "1px solid var(--border-card)" }}
