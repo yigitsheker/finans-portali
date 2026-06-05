@@ -19,9 +19,12 @@ import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.NavigableMap;
+import java.util.TreeMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -114,6 +117,9 @@ public class EvdsBondYieldFetcher {
     private double minYtm;
     @Value("${app.bonds.tcmb.max-ytm:60}")
     private double maxYtm;
+    /** How many calendar days of daily history to pull per refresh (chart backfill). */
+    @Value("${app.bonds.tcmb.history-days:120}")
+    private int historyDays;
 
     /** Series codes sent per /fe request (price + coupon together → ~40 bonds/request). */
     private static final int FETCH_CHUNK = 80;
@@ -160,73 +166,93 @@ public class EvdsBondYieldFetcher {
         }
 
         LocalDate today = LocalDate.now();
-        LocalDate startDate = today.minusDays(12); // span weekends/holidays
+        LocalDate startDate = today.minusDays(historyDays); // daily-history window for the chart
 
-        // Batch-fetch every price + coupon series in one set of requests.
+        // Batch-fetch the full daily price + coupon series over the window.
         List<String> allCodes = new ArrayList<>(defs.size() * 2);
         for (BondDef d : defs) {
             allCodes.add(d.priceSeries());
             allCodes.add(d.couponSeries());
         }
-        Map<String, BigDecimal> values = batchFetchLatest(allCodes, startDate, today);
+        Map<String, NavigableMap<LocalDate, BigDecimal>> series = batchFetchSeries(allCodes, startDate, today);
 
-        List<BondQuoteDto> out = new ArrayList<>();
+        // ── Phase 1: pick the canonical bond set from each bond's LATEST quote ──
+        // Same selection as before (dedup reopened tranches, sort, cap) so the
+        // listed universe is unchanged — Phase 2 only ADDS daily history for them.
+        List<BondDef> ranked = new ArrayList<>();
+        Map<String, BigDecimal> couponOf = new HashMap<>();
+        Map<String, BigDecimal> latestCleanOf = new HashMap<>();
         for (BondDef bond : defs) {
-            try {
-                BigDecimal dirty = values.get(bond.priceSeries());
-                BigDecimal coupon = values.get(bond.couponSeries());
-                if (dirty == null) continue;
+            NavigableMap<LocalDate, BigDecimal> prices = series.get(bond.priceSeries());
+            if (prices == null || prices.isEmpty()) continue;
+            BigDecimal coupon = lastValue(series.get(bond.couponSeries()));
+            if (coupon == null) {
+                // Fixed-coupon catalog bond with no coupon data in the window —
+                // YTM falls back to a zero-coupon model; surface it for diagnosis.
+                log.warn("[EVDS-BOND] {} coupon series empty/sparse over {}d window; YTM treated as zero-coupon",
+                        bond.isin(), historyDays);
+            }
+            Map.Entry<LocalDate, BigDecimal> last = prices.lastEntry();
+            YtmResult r = computeProperYtm(last.getValue(), coupon, bond.issue(), bond.maturity(), last.getKey());
+            if (r == null || r.ytm() == null || r.cleanPrice() == null) continue;
+            double clean = r.cleanPrice().doubleValue();
+            double y = r.ytm().doubleValue();
+            if (clean < minCleanPrice || clean > maxCleanPrice) continue;
+            if (y < minYtm || y > maxYtm) continue;
+            ranked.add(bond);
+            couponOf.put(bond.isin(), coupon != null ? coupon : BigDecimal.ZERO);
+            latestCleanOf.put(bond.isin(), r.cleanPrice());
+        }
+        ranked.sort((a, b) -> a.maturity().compareTo(b.maturity()));
+        Map<String, BondDef> unique = new LinkedHashMap<>();
+        for (BondDef bond : ranked) {
+            String key = bond.maturity() + "|" + couponOf.get(bond.isin()) + "|" + latestCleanOf.get(bond.isin());
+            unique.putIfAbsent(key, bond);
+        }
+        List<BondDef> chosen = new ArrayList<>(unique.values());
+        if (chosen.size() > maxBonds) chosen = new ArrayList<>(chosen.subList(0, maxBonds));
 
-                YtmResult r = computeProperYtm(dirty, coupon, bond.issue(), bond.maturity(), today);
-                if (r == null || r.ytm() == null || r.cleanPrice() == null) continue;
+        // ── Phase 2: emit one quote per available trading day for each bond ──
+        List<BondQuoteDto> out = new ArrayList<>();
+        for (BondDef bond : chosen) {
+            NavigableMap<LocalDate, BigDecimal> prices = series.get(bond.priceSeries());
+            if (prices == null) continue;
+            BigDecimal coupon = couponOf.getOrDefault(bond.isin(), BigDecimal.ZERO);
+            for (Map.Entry<LocalDate, BigDecimal> e : prices.entrySet()) {
+                LocalDate d = e.getKey();
+                BigDecimal dirty = e.getValue();
+                try {
+                    YtmResult r = computeProperYtm(dirty, coupon, bond.issue(), bond.maturity(), d);
+                    if (r == null || r.ytm() == null || r.cleanPrice() == null) continue;
+                    double clean = r.cleanPrice().doubleValue();
+                    double y = r.ytm().doubleValue();
+                    if (clean < minCleanPrice || clean > maxCleanPrice) continue;
+                    if (y < minYtm || y > maxYtm) continue;
 
-                double clean = r.cleanPrice().doubleValue();
-                double y = r.ytm().doubleValue();
-                if (clean < minCleanPrice || clean > maxCleanPrice) continue;
-                if (y < minYtm || y > maxYtm) continue;
-
-                BigDecimal couponEffective = coupon != null ? coupon : BigDecimal.ZERO;
-
-                BondQuoteDto dto = new BondQuoteDto();
-                dto.setSymbol(bond.isin());                 // ISIN is the natural unique key
-                dto.setIsin(bond.isin());
-                dto.setName(displayName(bond));
-                dto.setType(DebtInstrumentType.GOVERNMENT_BOND);
-                dto.setIssuer("Hazine ve Maliye Bakanlığı");
-                dto.setCurrency("TRY");
-                dto.setMaturityDate(bond.maturity());
-                dto.setCouponRate(couponEffective);
-                dto.setCouponType("FIXED");
-                dto.setQuoteDate(today);
-                dto.setPrice(r.cleanPrice());               // show the clean (market) price
-                dto.setCleanPrice(r.cleanPrice());
-                dto.setDirtyPrice(dirty);
-                dto.setYieldRate(r.ytm());
-                dto.setSource("TCMB_EVDS3");
-                out.add(dto);
-            } catch (RuntimeException e) {
-                log.debug("[EVDS-BOND] {} compute failed: {}", bond.isin(), e.getMessage());
+                    BondQuoteDto dto = new BondQuoteDto();
+                    dto.setSymbol(bond.isin());                 // ISIN is the natural unique key
+                    dto.setIsin(bond.isin());
+                    dto.setName(displayName(bond));
+                    dto.setType(DebtInstrumentType.GOVERNMENT_BOND);
+                    dto.setIssuer("Hazine ve Maliye Bakanlığı");
+                    dto.setCurrency("TRY");
+                    dto.setMaturityDate(bond.maturity());
+                    dto.setCouponRate(coupon);
+                    dto.setCouponType("FIXED");
+                    dto.setQuoteDate(d);
+                    dto.setPrice(r.cleanPrice());               // clean (market) price
+                    dto.setCleanPrice(r.cleanPrice());
+                    dto.setDirtyPrice(dirty);
+                    dto.setYieldRate(r.ytm());
+                    dto.setSource("TCMB_EVDS3");
+                    out.add(dto);
+                } catch (RuntimeException ex) {
+                    log.debug("[EVDS-BOND] {} @ {} compute failed: {}", bond.isin(), d, ex.getMessage());
+                }
             }
         }
-
-        // Collapse exact economic duplicates: TCMB reopens bonds under several
-        // ISIN tranches (…T19 / …T27) that share maturity, coupon and price.
-        // Listing them as separate rows looks like a bug, so keep one per
-        // (maturity, coupon, clean price). Catalog order is stable → deterministic.
-        Map<String, BondQuoteDto> unique = new LinkedHashMap<>();
-        for (BondQuoteDto q : out) {
-            String key = q.getMaturityDate() + "|" + q.getCouponRate() + "|" + q.getCleanPrice();
-            unique.putIfAbsent(key, q);
-        }
-        out = new ArrayList<>(unique.values());
-
-        // Stable, useful ordering; bound the count so the page never explodes.
-        out.sort((a, b) -> a.getMaturityDate().compareTo(b.getMaturityDate()));
-        if (out.size() > maxBonds) {
-            out = new ArrayList<>(out.subList(0, maxBonds));
-        }
-        log.info("[EVDS-BOND] {} active fixed-coupon bonds → {} unique quotes after YTM + sanity filters",
-                defs.size(), out.size());
+        log.info("[EVDS-BOND] {} active bonds → {} chosen → {} daily quotes over {}d window",
+                defs.size(), chosen.size(), out.size(), historyDays);
         return out;
     }
 
@@ -342,17 +368,20 @@ public class EvdsBondYieldFetcher {
     // ── Batched data fetch ─────────────────────────────────────────────────
 
     /**
-     * Fetch the latest non-null observation for each series code. EVDS3's /fe
+     * Fetch the full daily series for each code over [from, to]. EVDS3's /fe
      * accepts many series at once when {@code series}, {@code aggregationTypes}
      * and {@code formulas} are dash-joined with matching arity (this is exactly
      * how the EVDS3 SPA batches its basket), so we chunk to keep bodies sane.
+     * With {@code frequency=1} (daily) the "last" aggregation is a no-op, so the
+     * response carries every daily observation — we keep them all keyed by date
+     * (instead of collapsing to the latest), which is what backfills the chart.
      */
-    private Map<String, BigDecimal> batchFetchLatest(List<String> codes, LocalDate from, LocalDate to) {
-        Map<String, BigDecimal> out = new LinkedHashMap<>();
+    private Map<String, NavigableMap<LocalDate, BigDecimal>> batchFetchSeries(List<String> codes, LocalDate from, LocalDate to) {
+        Map<String, NavigableMap<LocalDate, BigDecimal>> out = new LinkedHashMap<>();
         for (int i = 0; i < codes.size(); i += FETCH_CHUNK) {
             List<String> chunk = codes.subList(i, Math.min(i + FETCH_CHUNK, codes.size()));
             try {
-                out.putAll(fetchChunk(chunk, from, to));
+                out.putAll(fetchChunkSeries(chunk, from, to));
             } catch (RuntimeException e) {
                 log.warn("[EVDS-BOND] chunk [{}..{}) failed: {}", i, i + chunk.size(), e.getMessage());
             }
@@ -360,7 +389,7 @@ public class EvdsBondYieldFetcher {
         return out;
     }
 
-    private Map<String, BigDecimal> fetchChunk(List<String> codes, LocalDate from, LocalDate to) {
+    private Map<String, NavigableMap<LocalDate, BigDecimal>> fetchChunkSeries(List<String> codes, LocalDate from, LocalDate to) {
         String series = String.join("-", codes);
         StringBuilder aggs = new StringBuilder();
         StringBuilder formulas = new StringBuilder();
@@ -394,7 +423,7 @@ public class EvdsBondYieldFetcher {
                 .bodyToMono(String.class)
                 .block(Duration.ofSeconds(20));
 
-        Map<String, BigDecimal> result = new LinkedHashMap<>();
+        Map<String, NavigableMap<LocalDate, BigDecimal>> result = new LinkedHashMap<>();
         if (response == null || response.isBlank() || response.startsWith("<")) {
             return result;
         }
@@ -403,26 +432,58 @@ public class EvdsBondYieldFetcher {
             JsonNode items = root.path("items");
             if (!items.isArray()) return result;
 
-            // EVDS returns oldest-first; the last non-null per column is "latest".
-            // Column names are the series codes with dots replaced by underscores.
-            for (String code : codes) {
-                String column = code.replace('.', '_');
-                BigDecimal latest = null;
-                for (JsonNode item : items) {
-                    JsonNode val = item.get(column);
+            // items are daily rows (oldest-first). Each row has a "Tarih" date and
+            // one column per series (dots→underscores). Keep every dated value.
+            int datedRows = 0;
+            for (JsonNode item : items) {
+                LocalDate date = parseItemDate(item);
+                if (date == null) continue;
+                datedRows++;
+                for (String code : codes) {
+                    JsonNode val = item.get(code.replace('.', '_'));
                     if (val == null || val.isNull()) continue;
                     String s = val.asText("").trim();
                     if (s.isEmpty() || "null".equalsIgnoreCase(s)) continue;
                     try {
-                        latest = new BigDecimal(s.replace(",", "."));
-                    } catch (NumberFormatException ignored) { /* keep prior */ }
+                        // decimalSeperator='.', so commas are thousands separators → strip.
+                        BigDecimal num = new BigDecimal(s.replace(",", ""));
+                        result.computeIfAbsent(code, k -> new TreeMap<>()).put(date, num);
+                    } catch (NumberFormatException ignored) { /* skip this cell */ }
                 }
-                if (latest != null) result.put(code, latest);
+            }
+            // If EVDS returned rows but none had a parseable date, the "Tarih"
+            // format likely drifted — warn (otherwise history silently collapses).
+            if (datedRows == 0 && items.size() > 0) {
+                JsonNode sample = items.get(0).get("Tarih");
+                log.warn("[EVDS-BOND] 0/{} rows had a parseable date — EVDS date-format drift? sample Tarih={}",
+                        items.size(), sample == null ? "<missing>" : sample.asText(""));
             }
         } catch (Exception e) {
             log.debug("[EVDS-BOND] chunk parse failed: {}", e.getMessage());
         }
         return result;
+    }
+
+    /** EVDS daily rows date the value under "Tarih" (format dd-MM-yyyy). */
+    private static final DateTimeFormatter[] TARIH_FMTS = {
+            DateTimeFormatter.ofPattern("dd-MM-yyyy"),
+            DateTimeFormatter.ofPattern("yyyy-MM-dd"),
+            DateTimeFormatter.ofPattern("dd.MM.yyyy"),
+    };
+
+    private static LocalDate parseItemDate(JsonNode item) {
+        JsonNode t = item.get("Tarih");
+        if (t == null || t.isNull()) return null;
+        String s = t.asText("").trim();
+        if (s.isEmpty()) return null;
+        for (DateTimeFormatter f : TARIH_FMTS) {
+            try { return LocalDate.parse(s, f); } catch (RuntimeException ignored) { /* try next */ }
+        }
+        return null;
+    }
+
+    private static BigDecimal lastValue(NavigableMap<LocalDate, BigDecimal> m) {
+        return (m == null || m.isEmpty()) ? null : m.lastEntry().getValue();
     }
 
     /** Apply EVDS auth (api-key header, or session cookies as fallback) to a GET. */

@@ -86,8 +86,8 @@ class BondDataRefreshServiceTest {
         when(primaryProvider.fetchLatestBondQuotes()).thenReturn(List.of(dto("TR2YT", "2Y")));
         when(instrumentRepo.findBySymbol("TR2YT")).thenReturn(Optional.empty());
         when(instrumentRepo.save(any(DebtInstrument.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(quoteRepo.findByInstrumentAndQuoteDateAndSource(any(), any(), any()))
-                .thenReturn(Optional.empty());
+        when(quoteRepo.findByInstrumentAndQuoteDateBetween(any(), any(), any()))
+                .thenReturn(List.of());
 
         BondDataRefreshService service = newService(List.of(primaryProvider), "DEMO", true);
         assertThat(service.refreshBondData()).isEqualTo(1);
@@ -120,8 +120,10 @@ class BondDataRefreshServiceTest {
         when(instrumentRepo.save(any(DebtInstrument.class))).thenAnswer(inv -> inv.getArgument(0));
 
         DebtInstrumentQuote existingQuote = new DebtInstrumentQuote();
-        when(quoteRepo.findByInstrumentAndQuoteDateAndSource(any(), any(), any()))
-                .thenReturn(Optional.of(existingQuote));
+        existingQuote.setQuoteDate(LocalDate.now());
+        existingQuote.setSource("TCMB");
+        when(quoteRepo.findByInstrumentAndQuoteDateBetween(any(), any(), any()))
+                .thenReturn(List.of(existingQuote));
 
         BondDataRefreshService service = newService(List.of(primaryProvider), "DEMO", true);
         service.refreshBondData();
@@ -140,8 +142,8 @@ class BondDataRefreshServiceTest {
         when(instrumentRepo.findBySymbol("A")).thenThrow(new RuntimeException("db down"));
         when(instrumentRepo.findBySymbol("B")).thenReturn(Optional.empty());
         when(instrumentRepo.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(quoteRepo.findByInstrumentAndQuoteDateAndSource(any(), any(), any()))
-                .thenReturn(Optional.empty());
+        when(quoteRepo.findByInstrumentAndQuoteDateBetween(any(), any(), any()))
+                .thenReturn(List.of());
 
         BondDataRefreshService service = newService(List.of(primaryProvider), "DEMO", true);
         // The second DTO should still be processed.

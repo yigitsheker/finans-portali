@@ -16,7 +16,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 /**
@@ -115,9 +119,17 @@ public class BondDataRefreshService {
     }
 
     private int applyQuotes(List<BondQuoteDto> quotes) {
-        int updatedCount = 0;
+        // The fetcher now returns one dto per (bond, day) — many rows share an
+        // ISIN. Group by symbol so the instrument is upserted ONCE per bond and
+        // each day's quote is stored, instead of re-saving the instrument N times.
+        Map<String, List<BondQuoteDto>> bySymbol = new LinkedHashMap<>();
         for (BondQuoteDto dto : quotes) {
-            if (applyQuoteSafely(dto)) {
+            if (dto.getSymbol() == null) continue;
+            bySymbol.computeIfAbsent(dto.getSymbol(), k -> new ArrayList<>()).add(dto);
+        }
+        int updatedCount = 0;
+        for (List<BondQuoteDto> group : bySymbol.values()) {
+            if (applyBondSafely(group)) {
                 updatedCount++;
                 instrumentsFetchedCounter.increment();
             }
@@ -161,25 +173,61 @@ public class BondDataRefreshService {
         }
     }
 
-    private boolean applyQuoteSafely(BondQuoteDto dto) {
+    private boolean applyBondSafely(List<BondQuoteDto> group) {
         try {
-            upsertInstrumentAndQuote(dto);
+            upsertBond(group);
             return true;
         } catch (RuntimeException e) {
             // JPA DataAccessException + constraint violations + null edge cases
-            // all surface as RuntimeException; skip the bad row and let the
+            // all surface as RuntimeException; skip the bad bond and let the
             // outer loop move on so one corrupt feed entry doesn't poison the
             // whole batch.
-            log.error("[BOND-REFRESH] Failed to upsert bond: {}", dto.getSymbol(), e);
+            log.error("[BOND-REFRESH] Failed to upsert bond: {}", group.get(0).getSymbol(), e);
             return false;
         }
     }
 
     /**
-     * Enstrüman ve fiyat verisini upsert eder.
+     * Upsert one bond: the instrument once (from the most recent dto) and a quote
+     * row per dated dto in the group. A single bad day is skipped without dropping
+     * the rest of the bond's history.
      */
-    private void upsertInstrumentAndQuote(BondQuoteDto dto) {
-        // Find or create instrument
+    private void upsertBond(List<BondQuoteDto> group) {
+        BondQuoteDto latest = group.stream()
+            .max(Comparator.comparing(d -> d.getQuoteDate() != null ? d.getQuoteDate() : LocalDate.MIN))
+            .orElse(group.get(0));
+        DebtInstrument instrument = upsertInstrument(latest);
+
+        // Prefetch the bond's existing quotes over the day span in ONE query so
+        // the per-day upserts below don't each fire a SELECT (avoids an N+1 over
+        // the ~120-day window). Keyed by "date|source".
+        LocalDate min = LocalDate.MAX;
+        LocalDate max = LocalDate.MIN;
+        for (BondQuoteDto dto : group) {
+            LocalDate d = dto.getQuoteDate() != null ? dto.getQuoteDate() : LocalDate.now();
+            if (d.isBefore(min)) min = d;
+            if (d.isAfter(max)) max = d;
+        }
+        Map<String, DebtInstrumentQuote> existing = new LinkedHashMap<>();
+        for (DebtInstrumentQuote q : quoteRepo.findByInstrumentAndQuoteDateBetween(instrument, min, max)) {
+            existing.put(q.getQuoteDate() + "|" + q.getSource(), q);
+        }
+
+        int ok = 0;
+        for (BondQuoteDto dto : group) {
+            try {
+                upsertQuote(instrument, dto, existing);
+                ok++;
+            } catch (RuntimeException e) {
+                log.debug("[BOND-REFRESH] quote upsert failed {} @ {}: {}",
+                    instrument.getSymbol(), dto.getQuoteDate(), e.getMessage());
+            }
+        }
+        log.debug("[BOND-REFRESH] Upserted {} with {}/{} quote(s)", instrument.getSymbol(), ok, group.size());
+    }
+
+    /** Find-or-create the instrument and refresh its (static) fields. */
+    private DebtInstrument upsertInstrument(BondQuoteDto dto) {
         DebtInstrument instrument = instrumentRepo.findBySymbol(dto.getSymbol())
             .orElseGet(() -> {
                 DebtInstrument newInst = new DebtInstrument();
@@ -189,7 +237,6 @@ public class BondDataRefreshService {
                 return newInst;
             });
 
-        // Update instrument fields
         if (dto.getIsin() != null) instrument.setIsin(dto.getIsin());
         if (dto.getName() != null) instrument.setName(dto.getName());
         if (dto.getType() != null) instrument.setType(dto.getType());
@@ -200,25 +247,23 @@ public class BondDataRefreshService {
         if (dto.getCouponType() != null) instrument.setCouponType(dto.getCouponType());
         instrument.setActive(true);
 
-        final DebtInstrument savedInstrument = instrumentRepo.save(instrument);
+        return instrumentRepo.save(instrument);
+    }
 
-        // Create or update quote
+    /** Create or update the (instrument, date, source) quote from one dto, using
+     *  a prefetched map (date|source → quote) so no per-quote SELECT is issued. */
+    private void upsertQuote(DebtInstrument savedInstrument, BondQuoteDto dto, Map<String, DebtInstrumentQuote> existingByKey) {
         final LocalDate quoteDate = dto.getQuoteDate() != null ? dto.getQuoteDate() : LocalDate.now();
         final String source = dto.getSource() != null ? dto.getSource() : activeProviderName;
 
-        Optional<DebtInstrumentQuote> existingQuote = quoteRepo.findByInstrumentAndQuoteDateAndSource(
-            savedInstrument, quoteDate, source
-        );
+        DebtInstrumentQuote quote = existingByKey.get(quoteDate + "|" + source);
+        if (quote == null) {
+            quote = new DebtInstrumentQuote();
+            quote.setInstrument(savedInstrument);
+            quote.setQuoteDate(quoteDate);
+            quote.setSource(source);
+        }
 
-        DebtInstrumentQuote quote = existingQuote.orElseGet(() -> {
-            DebtInstrumentQuote newQuote = new DebtInstrumentQuote();
-            newQuote.setInstrument(savedInstrument);
-            newQuote.setQuoteDate(quoteDate);
-            newQuote.setSource(source);
-            return newQuote;
-        });
-
-        // Update quote fields
         if (dto.getPrice() != null) quote.setPrice(dto.getPrice());
         if (dto.getYieldRate() != null) quote.setYieldRate(dto.getYieldRate());
         if (dto.getCleanPrice() != null) quote.setCleanPrice(dto.getCleanPrice());
@@ -227,9 +272,6 @@ public class BondDataRefreshService {
         if (dto.getChangeRate() != null) quote.setChangeRate(dto.getChangeRate());
 
         quoteRepo.save(quote);
-
-        log.debug("[BOND-REFRESH] Upserted: {} - {} (yield: {}%)", 
-            savedInstrument.getSymbol(), savedInstrument.getName(), quote.getYieldRate());
     }
 
     /**
