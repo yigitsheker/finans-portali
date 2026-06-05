@@ -41,6 +41,8 @@ export function LWAreaChart({ data, color = "#22c55e", height = 300 }) {
     useEffect(() => {
         if (!containerRef.current) return;
         const palette = readChartPalette();
+        // Canvas can't parse CSS vars — resolve var(--x) to a concrete value.
+        const resolvedColor = resolveColor(color);
 
         const chart = createChart(containerRef.current, {
             layout: {
@@ -55,8 +57,8 @@ export function LWAreaChart({ data, color = "#22c55e", height = 300 }) {
             },
             crosshair: {
                 mode: CrosshairMode.Magnet,
-                vertLine: { color: color, width: 1, style: 3, labelBackgroundColor: palette.crosshairBg },
-                horzLine: { color: color, width: 1, style: 3, labelBackgroundColor: palette.crosshairBg },
+                vertLine: { color: resolvedColor, width: 1, style: 3, labelBackgroundColor: palette.crosshairBg },
+                horzLine: { color: resolvedColor, width: 1, style: 3, labelBackgroundColor: palette.crosshairBg },
             },
             rightPriceScale: {
                 borderColor: palette.border,
@@ -79,15 +81,15 @@ export function LWAreaChart({ data, color = "#22c55e", height = 300 }) {
         });
 
         const series = chart.addSeries(AreaSeries, {
-            lineColor: color,
-            topColor: color.replace(")", ", 0.25)").replace("rgb", "rgba"),
+            lineColor: resolvedColor,
+            topColor: resolvedColor.startsWith("#") ? hexToRgba(resolvedColor, 0.25) : resolvedColor,
             bottomColor: "transparent",
             lineWidth: 2,
             priceLineVisible: false,
             lastValueVisible: true,
             crosshairMarkerVisible: true,
             crosshairMarkerRadius: 5,
-            crosshairMarkerBorderColor: color,
+            crosshairMarkerBorderColor: resolvedColor,
             crosshairMarkerBackgroundColor: "#0f1410",
         });
 
@@ -114,6 +116,15 @@ export function LWAreaChart({ data, color = "#22c55e", height = 300 }) {
                 rightPriceScale: { borderColor: p.border },
                 timeScale: { borderColor: p.border },
             });
+            // A var() color (e.g. var(--accent-solid)) resolves differently per
+            // theme — re-apply the series colour on flip so it stays visible.
+            if (seriesRef.current) {
+                const rc = resolveColor(color);
+                seriesRef.current.applyOptions({
+                    lineColor: rc,
+                    topColor: rc.startsWith("#") ? hexToRgba(rc, 0.25) : rc,
+                });
+            }
         };
         const themeObs = new MutationObserver(repaintTheme);
         themeObs.observe(document.documentElement, {
@@ -141,11 +152,12 @@ export function LWAreaChart({ data, color = "#22c55e", height = 300 }) {
 
     useEffect(() => {
         if (!seriesRef.current) return;
-        const tc = color.startsWith("#")
-            ? hexToRgba(color, 0.25)
-            : color;
+        const rc = resolveColor(color);
+        const tc = rc.startsWith("#")
+            ? hexToRgba(rc, 0.25)
+            : rc;
         seriesRef.current.applyOptions({
-            lineColor: color,
+            lineColor: rc,
             topColor: tc,
         });
     }, [color]);
@@ -156,6 +168,20 @@ export function LWAreaChart({ data, color = "#22c55e", height = 300 }) {
             <div ref={containerRef} style={{ width: "100%", height }} />
         </div>
     );
+}
+
+/**
+ * Resolve a `var(--name)` color to its concrete value via getComputedStyle,
+ * because lightweight-charts paints on a canvas that can't parse CSS vars
+ * (an unresolved var renders invisible). Concrete colors pass through.
+ */
+function resolveColor(c) {
+    if (typeof c === "string" && c.startsWith("var(")) {
+        const name = c.slice(4, -1).split(",")[0].trim(); // var(--x[, fallback]) → --x
+        const resolved = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+        return resolved || "#22c55e";
+    }
+    return c;
 }
 
 function hexToRgba(hex, alpha) {
