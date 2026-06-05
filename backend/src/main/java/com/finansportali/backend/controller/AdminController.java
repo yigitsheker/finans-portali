@@ -110,7 +110,15 @@ public class AdminController {
                 .map(f -> {
                     f.setEnabled(!f.isEnabled());
                     f.setUpdatedAt(java.time.LocalDateTime.now());
-                    return ResponseEntity.ok(FeedDto.from(feedRepo.save(f)));
+                    NewsFeed saved = feedRepo.save(f);
+                    // Feed turned OFF → immediately drop its already-fetched news
+                    // (anything no longer covered by an enabled feed). Reuses the
+                    // enabled-aware sweep so a (source, category) still served by
+                    // another enabled feed is preserved.
+                    if (!saved.isEnabled()) {
+                        newsService.cleanupOrphanArticles();
+                    }
+                    return ResponseEntity.ok(FeedDto.from(saved));
                 })
                 .orElseGet(() -> ResponseEntity.notFound().build());
     }

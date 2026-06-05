@@ -34,10 +34,12 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
     int deleteBySourceNameAndCategory(@Param("sourceName") String sourceName, @Param("category") String category);
 
     /**
-     * One-shot cleanup for articles whose (sourceName, category) pair no
-     * longer matches any row in news_feeds. Used by the admin "Yetim
-     * haberleri temizle" button to remove orphans left behind by feed
-     * deletes that happened before the cascade-on-delete fix landed.
+     * Removes articles whose (sourceName, category) pair is not covered by any
+     * ENABLED feed — i.e. articles left behind by a feed that was deleted OR
+     * disabled. A disabled feed keeps its row but its news must no longer
+     * surface, so the {@code f.enabled = true} guard treats a disabled feed
+     * the same as a missing one. Used by the admin cleanup button, the
+     * scheduled/startup sweeps, and the feed-toggle handler.
      */
     @Modifying
     @Query("""
@@ -45,6 +47,7 @@ public interface NewsArticleRepository extends JpaRepository<NewsArticle, Long> 
         where not exists (
             select 1 from NewsFeed f
             where f.source = a.sourceName and f.category = a.category
+              and f.enabled = true
         )
         """)
     int deleteOrphanedArticles();

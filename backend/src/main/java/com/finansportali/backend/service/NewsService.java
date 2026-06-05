@@ -489,17 +489,16 @@ public class NewsService {
     }
 
     /**
-     * Removes news_articles rows whose (sourceName, category) pair no longer
-     * matches any row in news_feeds — i.e. articles left behind by a feed
-     * that has been deleted. The DELETE endpoint cascades on delete now,
-     * but rows orphaned BEFORE that fix landed need a sweeper. Returns the
-     * number of rows removed.
+     * Removes news_articles rows whose (sourceName, category) pair is not
+     * covered by any ENABLED feed — articles left behind by a feed that was
+     * deleted OR disabled. (A disabled feed keeps its row but its news must no
+     * longer surface.) Returns the number of rows removed.
      */
     @Transactional
     public int cleanupOrphanArticles() {
         int removed = repo.deleteOrphanedArticles();
         if (removed > 0) {
-            log.info("Orphan-article cleanup: removed {} rows whose feed no longer exists", removed);
+            log.info("Orphan-article cleanup: removed {} rows not covered by an enabled feed", removed);
         }
         return removed;
     }
