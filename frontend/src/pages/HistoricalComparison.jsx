@@ -564,9 +564,18 @@ export default function HistoricalComparison({ keycloak }) {
                     <div
                       key={inst.symbol}
                       style={s.dropdownItem}
+                      role="button"
+                      tabIndex={0}
                       onMouseDown={() => {
                         setAddSymbol(inst.symbol);
                         setShowSugg(false);
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setAddSymbol(inst.symbol);
+                          setShowSugg(false);
+                        }
                       }}
                     >
                       <span style={{ fontWeight: 600 }}>{inst.symbol}</span>

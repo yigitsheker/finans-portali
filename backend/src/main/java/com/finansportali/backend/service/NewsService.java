@@ -122,9 +122,7 @@ public class NewsService {
     // the proxy and the @Modifying DELETE inside would throw
     // "Executing an update/delete query" because no tx is active.
     // @Lazy breaks the constructor cycle (NewsService → NewsService).
-    @org.springframework.beans.factory.annotation.Autowired
-    @org.springframework.context.annotation.Lazy
-    private NewsService self;
+    private final NewsService self;
 
     // Business metrics — refresh cycle stats and per-article saved counter.
     private final Counter refreshSuccessCounter;
@@ -137,11 +135,13 @@ public class NewsService {
                        NewsFeedRepository feedRepo,
                        NewsContentFetcher contentFetcher,
                        LibreTranslateClient translator,
-                       MeterRegistry meterRegistry) {
+                       MeterRegistry meterRegistry,
+                       @org.springframework.context.annotation.Lazy NewsService self) {
         this.repo = repo;
         this.feedRepo = feedRepo;
         this.contentFetcher = contentFetcher;
         this.translator = translator;
+        this.self = self;
         this.client = WebClient.builder()
                 .defaultHeader("User-Agent", "Mozilla/5.0 (compatible; FinansPortali/1.0)")
                 .build();

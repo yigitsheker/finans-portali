@@ -42,7 +42,7 @@ export function SummaryCards({ stats, loading, error, asOf, onRefresh, refreshin
   // "Durum" card combines data freshness (value) with BIST market state (sub).
   const now = new Date();
   const marketOpen = isBistOpen(now);
-  const asOfMs = asOf ? new Date(asOf).getTime() : NaN;
+  const asOfMs = asOf ? new Date(asOf).getTime() : Number.NaN;
   const ageMin = Number.isFinite(asOfMs) ? (now.getTime() - asOfMs) / 60000 : null;
   // Stale only matters while the market is open — when it's closed the last
   // close IS the current value, so the status stays "Güncel".

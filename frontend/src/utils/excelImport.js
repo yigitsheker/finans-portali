@@ -28,12 +28,12 @@ function findKey(keys, aliases) {
 // separator ("1.234,5" → 1234.5). This avoids silently turning "1.5" lots into
 // 15 or "1.234" into 1234 when no decimal comma signals TR grouping.
 function parseLot(v) {
-    if (v == null || v === "") return NaN;
+    if (v == null || v === "") return Number.NaN;
     if (typeof v === "number") return v;
-    let s = String(v).trim().replace(/\s/g, "");
-    if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+    let s = String(v).trim().replaceAll(/\s/g, "");
+    if (s.includes(",")) s = s.replaceAll(/\./g, "").replace(",", ".");
     const n = Number(s);
-    return Number.isFinite(n) ? n : NaN;
+    return Number.isFinite(n) ? n : Number.NaN;
 }
 
 // True only for a real calendar date (rejects month 13, day 32, 2024-02-31…).

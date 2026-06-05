@@ -377,7 +377,6 @@ const s = {
     color: "var(--text-muted)",
     textDecoration: "none",
     transition: "background-color 0.15s, color 0.15s",
-    whiteSpace: "nowrap",
   },
   navLinkActive: {
     color: "var(--accent-solid)",

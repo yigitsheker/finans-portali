@@ -55,8 +55,7 @@ export default function BrandLogo({ size = 38 }) {
                     color: "var(--text-primary)",
                 }}
             >
-                FİNANS
-                <span style={{ color: "var(--accent-solid, #10b981)", marginLeft: "0.35em" }}>
+                FİNANS<span style={{ color: "var(--accent-solid, #10b981)", marginLeft: "0.35em" }}>
                     PORTALI
                 </span>
             </span>

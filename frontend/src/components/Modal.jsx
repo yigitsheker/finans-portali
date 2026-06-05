@@ -35,6 +35,7 @@ export default function Modal({ open, title, children, onClose, footer, maxWidth
                 padding: 16
             }}
             onMouseDown={requestClose}
+            role="presentation"
         >
             <div
                 className="fp-modal-card"
@@ -51,6 +52,8 @@ export default function Modal({ open, title, children, onClose, footer, maxWidth
                     zIndex: 10000
                 }}
                 onMouseDown={(e) => e.stopPropagation()}
+                role="dialog"
+                aria-modal="true"
             >
                 {/* Header */}
                 <div style={{

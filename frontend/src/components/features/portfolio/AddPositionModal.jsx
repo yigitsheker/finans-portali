@@ -98,7 +98,9 @@ export function AddPositionModal({
             {showSuggestions && suggestions.length > 0 && (
               <div style={s.dropdown}>
                 {suggestions.map((instrument) => (
-                  <div key={instrument.symbol} style={s.dropdownItem} onMouseDown={() => onPickSuggestion(instrument.symbol)}>
+                  <div key={instrument.symbol} role="button" tabIndex={0} style={s.dropdownItem}
+                    onMouseDown={() => onPickSuggestion(instrument.symbol)}
+                    onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onPickSuggestion(instrument.symbol); } }}>
                     <span style={{ fontWeight: 600 }}>{instrument.symbol}</span>
                     <span style={{ color: "var(--text-muted)", fontSize: 11, marginLeft: 8 }}>{instrument.name}</span>
                   </div>

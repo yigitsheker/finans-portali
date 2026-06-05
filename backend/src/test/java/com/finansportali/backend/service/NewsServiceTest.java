@@ -41,7 +41,9 @@ class NewsServiceTest {
 
     @BeforeEach
     void setUp() {
-        service = new NewsService(repo, feedRepo, contentFetcher, translator, new SimpleMeterRegistry());
+        // self (constructor-injected @Lazy proxy in prod) is null here; the two
+        // *OrphanCleanup tests rely on that null NPE being swallowed.
+        service = new NewsService(repo, feedRepo, contentFetcher, translator, new SimpleMeterRegistry(), null);
     }
 
     private static NewsArticle article(Long id, String title, String content, String category) {

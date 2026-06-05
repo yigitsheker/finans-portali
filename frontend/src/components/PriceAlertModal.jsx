@@ -325,6 +325,8 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                             {searchResults.map((instrument) => (
                                                 <div
                                                     key={instrument.id}
+                                                    role="button"
+                                                    tabIndex={0}
                                                     style={s.dropdownItem}
                                                     {...clickable(() => handleSelectInstrument(instrument))}
                                                     onMouseEnter={(e) => {
