@@ -194,12 +194,20 @@ export function PortfolioCharts({
                   return (
                     <div
                       key={item.name}
+                      role="button"
+                      tabIndex={0}
                       style={{
                         ...s.allocLegendRow,
                         cursor: "pointer",
                         ...(isActive ? { background: "var(--bg-elev)", borderRadius: 6 } : {}),
                       }}
                       onClick={() => setActiveName(item.name)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          setActiveName(item.name);
+                        }
+                      }}
                     >
                       <span style={{ ...s.legendDot, background: color, opacity: item.isOther ? 0.45 : 1 }} />
                       <span style={{ ...s.allocLegendName, ...(isActive ? { fontWeight: 700 } : {}) }}>{item.name}</span>

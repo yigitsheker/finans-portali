@@ -25,6 +25,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.NavigableMap;
 import java.util.TreeMap;
+import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -130,8 +131,11 @@ public class EvdsBondYieldFetcher {
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     // Cached datagroup catalog (the 1.8 MB serieList parsed into bond defs).
-    private volatile List<BondDef> cachedDefs;
-    private volatile Instant cachedAt;
+    // Held in ONE AtomicReference (defs + timestamp swapped together) — a
+    // thread-safe type. `volatile` on a mutable List only publishes the
+    // reference, not safe element access, which SonarJava flags (S3077).
+    private record Catalog(List<BondDef> defs, Instant at) {}
+    private final AtomicReference<Catalog> catalogRef = new AtomicReference<>();
 
     public EvdsBondYieldFetcher() {
         this.webClient = WebClient.builder()
@@ -265,25 +269,24 @@ public class EvdsBondYieldFetcher {
 
     /** Returns the cached bond defs, re-enumerating from EVDS3 when stale. */
     private List<BondDef> loadCatalog() {
-        List<BondDef> cached = cachedDefs;
-        Instant at = cachedAt;
-        if (cached != null && at != null
-                && Duration.between(at, Instant.now()).compareTo(CATALOG_TTL) < 0) {
-            return cached;
+        Catalog cached = catalogRef.get();
+        if (cached != null
+                && Duration.between(cached.at(), Instant.now()).compareTo(CATALOG_TTL) < 0) {
+            return cached.defs();
         }
         synchronized (this) {
-            if (cachedDefs != null && cachedAt != null
-                    && Duration.between(cachedAt, Instant.now()).compareTo(CATALOG_TTL) < 0) {
-                return cachedDefs;
+            Catalog current = catalogRef.get();
+            if (current != null
+                    && Duration.between(current.at(), Instant.now()).compareTo(CATALOG_TTL) < 0) {
+                return current.defs();
             }
             List<BondDef> fresh = enumerateCatalog();
             if (!fresh.isEmpty()) {
-                cachedDefs = fresh;
-                cachedAt = Instant.now();
+                catalogRef.set(new Catalog(fresh, Instant.now()));
                 return fresh;
             }
             // On a transient failure keep serving the previous catalog if any.
-            return cachedDefs != null ? cachedDefs : List.of();
+            return current != null ? current.defs() : List.of();
         }
     }
 
