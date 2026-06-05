@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { useI18n } from "../../contexts/I18nContext";
 
 /**
@@ -10,13 +11,33 @@ import { useI18n } from "../../contexts/I18nContext";
  */
 export default function ScrollToTop() {
     const { t } = useI18n();
-    // Previous iterations hid this behind a scroll-threshold check that
-    // was failing on some layouts (the html/body height:100% rule moves
-    // the scroll context off window onto documentElement, and the
-    // listener never fired). After three attempts to make conditional
-    // visibility work the user explicitly asked for an unconditional
-    // button — so it's permanently visible now. Cheap (one fixed-
-    // position element) and dependable.
+    const [visible, setVisible] = useState(false);
+
+    // Show only after the page is scrolled down. Earlier attempts failed
+    // because on some layouts the scroll context is an inner container, not
+    // window — a plain window 'scroll' listener never fired. We listen in the
+    // CAPTURE phase (scroll doesn't bubble, but it IS captured) and read the
+    // scrolled element off the event target, so any scroll root is covered.
+    useEffect(() => {
+        const THRESHOLD = 250;
+        const onScroll = (e) => {
+            const tgt = e && e.target;
+            const top = Math.max(
+                window.scrollY || 0,
+                document.documentElement ? document.documentElement.scrollTop : 0,
+                document.body ? document.body.scrollTop : 0,
+                tgt && tgt.nodeType === 1 ? (tgt.scrollTop || 0) : 0,
+            );
+            setVisible(top > THRESHOLD);
+        };
+        onScroll();
+        window.addEventListener("scroll", onScroll, true);
+        window.addEventListener("resize", onScroll);
+        return () => {
+            window.removeEventListener("scroll", onScroll, true);
+            window.removeEventListener("resize", onScroll);
+        };
+    }, []);
 
     const handleClick = () => {
         // Try the well-known scroll roots first.
@@ -69,7 +90,7 @@ export default function ScrollToTop() {
             type="button"
             onClick={handleClick}
             aria-label={t("common.backToTop") || "Sayfa başına dön"}
-            className="fp-scrolltop fp-scrolltop--visible"
+            className={`fp-scrolltop${visible ? " fp-scrolltop--visible" : ""}`}
             style={style}
         >
             ↑
