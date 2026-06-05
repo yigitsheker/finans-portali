@@ -25,6 +25,7 @@ export function PositionsTable({
   openSell,
   onImport,
   importing,
+  onRowClick,
 }) {
   const { format: formatPrice } = usePriceDisplay();
   const { t } = useI18n();
@@ -128,7 +129,7 @@ export function PositionsTable({
                   const cur = position.currency;
 
                   return (
-                    <tr key={position.symbol} style={s.tr}>
+                    <tr key={position.symbol} style={{ ...s.tr, cursor: onRowClick ? "pointer" : "default" }} onClick={() => onRowClick?.(position.symbol)}>
                       <td style={s.td}><span style={s.symbolBadge}>{position.symbol}</span></td>
                       <td style={{ ...s.td, color: "var(--text-muted)" }}>{position.name ?? "-"}</td>
                       <td style={s.td}>{position.quantity.toLocaleString("tr-TR")}</td>
@@ -149,7 +150,7 @@ export function PositionsTable({
                           : "—"}
                       </td>
                       <td style={s.td}>
-                        <button style={s.sellBtn} onClick={() => openSell(sourcePosition)}>{t("portfolio.sell")}</button>
+                        <button style={s.sellBtn} onClick={(e) => { e.stopPropagation(); openSell(sourcePosition); }}>{t("portfolio.sell")}</button>
                       </td>
                     </tr>
                   );
@@ -171,7 +172,7 @@ export function PositionsTable({
                   const type = typeOf(position.symbol);
 
                   return (
-                    <tr key={position.symbol} style={s.tr}>
+                    <tr key={position.symbol} style={{ ...s.tr, cursor: onRowClick ? "pointer" : "default" }} onClick={() => onRowClick?.(position.symbol)}>
                       <td style={s.td}><span style={s.symbolBadge}>{position.symbol}</span></td>
                       <td style={{ ...s.td, color: "var(--text-muted)" }}>{market?.name ?? "-"}</td>
                       <td style={s.td}>{qty.toLocaleString("tr-TR")}</td>
@@ -192,7 +193,7 @@ export function PositionsTable({
                           : "—"}
                       </td>
                       <td style={s.td}>
-                        <button style={s.sellBtn} onClick={() => openSell(position)}>{t("portfolio.sell")}</button>
+                        <button style={s.sellBtn} onClick={(e) => { e.stopPropagation(); openSell(position); }}>{t("portfolio.sell")}</button>
                       </td>
                     </tr>
                   );
@@ -215,6 +216,7 @@ PositionsTable.propTypes = {
   openSell: PropTypes.func.isRequired,
   onImport: PropTypes.func,
   importing: PropTypes.bool,
+  onRowClick: PropTypes.func,
 };
 
 const impStyles = {

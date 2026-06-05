@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import Modal from "../components/Modal";
 import ImportPreviewModal from "../components/ImportPreviewModal";
+import InstrumentChartModal from "../components/InstrumentChartModal";
+import CompareInstrumentsModal from "../components/CompareInstrumentsModal";
 import { getLatestPrice, getMarketHistory, getMarketInstruments } from "../api/portfolioApi";
 import { compareInflation } from "../api/inflationApi";
 import { useI18n } from "../contexts/I18nContext";
@@ -51,6 +53,9 @@ export default function HistoricalComparison({ keycloak }) {
   const [showSugg, setShowSugg] = useState(false);
   const [importing, setImporting] = useState(false);
   const [histPreview, setHistPreview] = useState(null);
+  // Clicking a row opens its chart card (same modal as the Stocks page).
+  const [chartTarget, setChartTarget] = useState(null);
+  const [compareTarget, setCompareTarget] = useState(null);
   const fileRef = useRef(null);
 
   // Inline edit (lot + date) for an existing row.
@@ -327,6 +332,11 @@ export default function HistoricalComparison({ keycloak }) {
     setPositions(positions.filter(p => p.id !== id));
   }
 
+  function openChart(p) {
+    const inst = instruments.find((i) => i.symbol === p.symbol) || { symbol: p.symbol, name: p.name };
+    setChartTarget(inst);
+  }
+
   function onClearAll() {
     if (confirm(t("historical.confirmClearAll"))) {
       setPositions([]);
@@ -456,7 +466,7 @@ export default function HistoricalComparison({ keycloak }) {
                   const isPositive = change >= 0;
 
                   return (
-                    <tr key={p.id} style={s.tr}>
+                    <tr key={p.id} style={{ ...s.tr, cursor: "pointer" }} onClick={() => openChart(p)}>
                       <td style={s.td}>
                         <span style={s.symbolBadge}>{p.symbol}</span>
                       </td>
@@ -499,10 +509,10 @@ export default function HistoricalComparison({ keycloak }) {
                       </td>
                       <td style={s.td}>
                         <div style={{ display: "flex", gap: 6 }}>
-                          <button style={s.editBtn} onClick={() => openEdit(p)}>
+                          <button style={s.editBtn} onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
                             {t("common.edit")}
                           </button>
-                          <button style={s.deleteBtn} onClick={() => onDelete(p.id)}>
+                          <button style={s.deleteBtn} onClick={(e) => { e.stopPropagation(); onDelete(p.id); }}>
                             {t("historical.delete")}
                           </button>
                         </div>
@@ -664,6 +674,18 @@ export default function HistoricalComparison({ keycloak }) {
         importing={importing}
         onConfirm={runHistoricalImport}
         onClose={() => { if (!importing) setHistPreview(null); }}
+      />
+
+      {/* Chart card — opens when a row is clicked (same as Stocks). */}
+      <InstrumentChartModal
+        instrument={chartTarget}
+        onClose={() => setChartTarget(null)}
+        keycloak={keycloak}
+        onCompare={(inst) => { setChartTarget(null); setCompareTarget(inst); }}
+      />
+      <CompareInstrumentsModal
+        baseInstrument={compareTarget}
+        onClose={() => setCompareTarget(null)}
       />
     </div>
   );

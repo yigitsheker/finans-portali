@@ -12,12 +12,24 @@ import { useEffect, useMemo, useState } from "react";
 import { parsePortfolioExcel } from "../utils/excelImport";
 import { getMarketInstruments } from "../api/portfolioApi";
 import ImportPreviewModal from "../components/ImportPreviewModal";
+import InstrumentChartModal from "../components/InstrumentChartModal";
+import CompareInstrumentsModal from "../components/CompareInstrumentsModal";
 
 export default function Portfolio({ keycloak }) {
   const portfolio = usePortfolioPage(keycloak);
   const { t } = useI18n();
   const [previewRows, setPreviewRows] = useState(null);
   const [catalog, setCatalog] = useState([]);
+  // Clicking a position row opens its chart card (same modal as the Stocks page).
+  const [selectedInstrument, setSelectedInstrument] = useState(null);
+  const [compareTarget, setCompareTarget] = useState(null);
+
+  const openChart = (symbol) => {
+    const inst = portfolio.marketData?.find((m) => m.symbol === symbol)
+      || catalog.find((i) => i.symbol === symbol)
+      || { symbol };
+    setSelectedInstrument(inst);
+  };
 
   useEffect(() => { if (portfolio.instruments?.length) setCatalog(portfolio.instruments); }, [portfolio.instruments]);
   const validSymbols = useMemo(
@@ -115,6 +127,7 @@ export default function Portfolio({ keycloak }) {
         openSell={portfolio.openSellModal}
         onImport={handleImport}
         importing={portfolio.importing}
+        onRowClick={openChart}
       />
 
       {/* VİOP & bond/bill positions — shown separately (different economics
@@ -167,6 +180,18 @@ export default function Portfolio({ keycloak }) {
         importing={portfolio.importing}
         onConfirm={handleConfirmImport}
         onClose={() => { if (!portfolio.importing) setPreviewRows(null); }}
+      />
+
+      {/* Chart card — opens when a position row is clicked (same as Stocks). */}
+      <InstrumentChartModal
+        instrument={selectedInstrument}
+        onClose={() => setSelectedInstrument(null)}
+        keycloak={keycloak}
+        onCompare={(inst) => { setSelectedInstrument(null); setCompareTarget(inst); }}
+      />
+      <CompareInstrumentsModal
+        baseInstrument={compareTarget}
+        onClose={() => setCompareTarget(null)}
       />
     </div>
   );
