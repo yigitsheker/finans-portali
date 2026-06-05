@@ -606,8 +606,87 @@ input[type="submit"]:disabled,
     color: var(--danger);
 }
 
-input[aria-invalid="true"] {
-    border-color: rgba(239, 68, 68, 0.55);
+/* Invalid fields: Keycloak's base (PatternFly) theme paints a red error-icon
+   background-image that — combined with our `background` shorthand resetting
+   background-repeat to `repeat` — tiles into a solid red wash that hides the
+   typed text. Kill that image and keep only a clean red border (+ the
+   #input-error message below the field). */
+input[aria-invalid="true"],
+.pf-c-form-control[aria-invalid="true"],
+.pf-c-form-control.pf-m-error,
+input.pf-m-error,
+input.error {
+    background-image: none !important;
+    background-color: var(--bg-input) !important;
+    color: var(--text-soft) !important;
+    border: 1px solid rgba(239, 68, 68, 0.65) !important;
+    box-shadow: none !important;
+}
+input[aria-invalid="true"]:focus,
+.pf-c-form-control[aria-invalid="true"]:focus {
+    border-color: var(--danger) !important;
+    box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.18) !important;
+}
+
+/* ── Password show/hide toggle ───────────────────────────────────
+   Keycloak's passwordVisibility feature renders the field inside a PatternFly
+   input-group with a "control" button whose default is a white box — clashing
+   with our dark inputs. Recolour it and align it flush with the field. */
+.pf-c-input-group {
+    display: flex;
+    align-items: stretch;
+    gap: 6px;
+    width: 100%;
+}
+.pf-c-input-group > .pf-c-form-control,
+.pf-c-input-group > input {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.pf-c-button.pf-m-control,
+.pf-c-input-group > button {
+    flex: 0 0 auto;
+    width: 46px;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 10px;
+    border: 1px solid var(--border) !important;
+    background: var(--bg-input) !important;
+    background-color: var(--bg-input) !important;
+    color: var(--text-faint) !important;
+    cursor: pointer;
+    transition: border-color 0.15s, color 0.15s, background 0.15s;
+    box-shadow: none !important;
+    /* Neutralise PatternFly's control-variant custom props. */
+    --pf-c-button--m-control--BackgroundColor: var(--bg-input);
+    --pf-c-button--m-control--Color: var(--text-faint);
+    --pf-c-button--m-control--after--BorderColor: var(--border);
+    --pf-c-button--m-control--after--BorderWidth: 1px;
+}
+.pf-c-button.pf-m-control:hover,
+.pf-c-input-group > button:hover {
+    border-color: var(--accent) !important;
+    color: var(--accent) !important;
+    background: var(--bg-input) !important;
+}
+.pf-c-button.pf-m-control:focus {
+    outline: none;
+    border-color: var(--accent) !important;
+    box-shadow: 0 0 0 3px rgba(34, 197, 94, 0.15) !important;
+}
+/* The eye glyph (Font Awesome <i> or inline <svg>) follows the button colour. */
+.pf-c-button.pf-m-control i,
+.pf-c-button.pf-m-control svg {
+    color: currentColor;
+    fill: currentColor;
+}
+/* PatternFly draws this button's border via a ::after pseudo — hide it so only
+   our own border shows (otherwise a second, light border peeks through). */
+.pf-c-button.pf-m-control::after {
+    border: none !important;
+    box-shadow: none !important;
 }
 
 /* ──────────────────────────────────────────────────────────────
