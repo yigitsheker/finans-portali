@@ -20,9 +20,9 @@ strong { color: #0f172a; }
 code { font-family: Consolas, "Courier New", monospace; background: #eef2f7; padding: 1px 5px; border-radius: 4px; font-size: 9pt; color: #0f766e; }
 
 .cover {
-  height: 256mm; page-break-after: always;
+  min-height: 256mm; page-break-after: always;
   display: flex; flex-direction: column; justify-content: center;
-  margin: -16mm -15mm 0 -15mm; padding: 0 22mm;
+  margin: -16mm -15mm 0 -15mm; padding: 50mm 22mm 38mm;
   background: linear-gradient(140deg, #0b1f3a 0%, #155e75 55%, #0f766e 115%);
   color: #ffffff;
 }
@@ -32,7 +32,7 @@ code { font-family: Consolas, "Courier New", monospace; background: #eef2f7; pad
 .cover .rule { width: 70mm; height: 4px; background: #7dd3fc; border-radius: 2px; margin-bottom: 28px; }
 .cover .meta { font-size: 11pt; opacity: .92; }
 .cover .meta b { color: #e0f2fe; font-weight: 600; }
-.cover .foot { margin-top: auto; padding-top: 24px; font-size: 9.5pt; opacity: .8; }
+.cover .foot { margin-top: 30px; font-size: 9.5pt; opacity: .8; }
 
 section { page-break-before: always; }
 h2 { font-size: 16.5pt; margin: 4px 0 11px; padding-bottom: 6px; border-bottom: 3px solid #155e75; }
@@ -73,7 +73,6 @@ pre {
 <div class="cover">
   <div class="kick">Teknik Analiz Dokümanı</div>
   <h1>Finans Portalı</h1>
-  <div class="sub">Mimari, teknoloji yığını, veri akışları, güvenlik, gözlemlenebilirlik ve dağıtım — uçtan uca teknik dokümantasyon</div>
   <div class="rule"></div>
   <div class="meta">
     <b>Belge:</b> Teknik Analiz Dokümanı &nbsp;·&nbsp; <b>Sürüm:</b> 2.0<br>

@@ -21,9 +21,9 @@ a { color: #0f766e; text-decoration: none; }
 
 /* ── Cover ─────────────────────────────────────────────── */
 .cover {
-  height: 256mm; page-break-after: always;
+  min-height: 256mm; page-break-after: always;
   display: flex; flex-direction: column; justify-content: center;
-  margin: -16mm -15mm 0 -15mm; padding: 0 22mm;
+  margin: -16mm -15mm 0 -15mm; padding: 50mm 22mm 38mm;
   background: linear-gradient(140deg, #06302b 0%, #0f766e 55%, #10b981 115%);
   color: #ffffff;
 }
@@ -33,7 +33,7 @@ a { color: #0f766e; text-decoration: none; }
 .cover .rule { width: 70mm; height: 4px; background: #d1fae5; border-radius: 2px; margin-bottom: 30px; }
 .cover .meta { font-size: 11pt; opacity: .9; }
 .cover .meta b { color: #ecfdf5; font-weight: 600; }
-.cover .foot { margin-top: auto; padding-top: 26px; font-size: 9.5pt; opacity: .8; }
+.cover .foot { margin-top: 30px; font-size: 9.5pt; opacity: .8; }
 
 /* ── Sections ──────────────────────────────────────────── */
 section { page-break-before: always; }
@@ -86,7 +86,6 @@ table.k th { background: #134e4a; }
 <div class="cover">
   <div class="kick">İş &amp; Ürün Analizi</div>
   <h1>Finans Portalı</h1>
-  <div class="sub">Türkiye ve global piyasaları tek ekrandan takip eden, yapay zeka destekli kişisel yatırım ve analiz platformu</div>
   <div class="rule"></div>
   <div class="meta">
     <b>Belge:</b> Ürün ve İş Analizi Dokümanı &nbsp;·&nbsp; <b>Sürüm:</b> 2.0<br>
