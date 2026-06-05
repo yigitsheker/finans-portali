@@ -874,3 +874,14 @@ button[role="switch"]:focus-visible { outline: 2px solid var(--accent-solid); ou
   .transition-standard { transition-duration: 200ms; }
   .transition-complex  { transition-duration: 300ms; }
 }
+
+/* Settings page responsive grids — inline styles can't carry media queries, so
+   the column counts live here and the page applies these classes. */
+.settings-grid      { grid-template-columns: 1fr 1fr; }
+.settings-form-grid { grid-template-columns: 1fr 1fr; }
+@media (max-width: 860px) {
+  .settings-grid      { grid-template-columns: 1fr; }
+}
+@media (max-width: 560px) {
+  .settings-form-grid { grid-template-columns: 1fr; }
+}

@@ -3,6 +3,7 @@ import { applyTheme } from "../theme";
 import { useI18n } from "../contexts/I18nContext";
 import { getNotificationPrefs, putNotificationPrefs } from "../api/userPrefsApi";
 import { getSecurityStatus, disable2fa } from "../api/securityApi";
+import notify from "../utils/notify";
 
 const NOTIF_ITEMS = [
   { key: "transactions", labelKey: "settings.txNotif",         descKey: "settings.txNotifSub",         defaultOn: true },
@@ -46,6 +47,11 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
   const [saving,    setSaving]    = useState(false);
   const [saveStatus, setSaveStatus] = useState(null); // null | "ok" | "error"
   const [saveError, setSaveError]   = useState(null);
+
+  // Avatar — stored as a data URL in localStorage (per-browser; no backend
+  // avatar endpoint). Clicking the avatar opens a file picker.
+  const [avatarUrl, setAvatarUrl] = useState(() => { try { return localStorage.getItem("user-avatar") || ""; } catch { return ""; } });
+  const avatarInputRef = useRef(null);
 
   const [notifs, setNotifs] = useState(loadNotifPrefs);
   // Tracks whether we've already pulled the server-side copy. We don't
@@ -130,15 +136,39 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
   async function disable2FA() {
     if (!window.confirm(t("settings.mfaDisableConfirm"))) return;
     setTwoFaBusy(true);
+    notify(t("settings.mfaDisabling"), { variant: "loading" });
     try {
       await disable2fa(keycloak);
       setTotpEnabled(false);
+      notify(t("settings.mfaDisabledOk"), { variant: "success" });
     } catch (e) {
       console.error("2FA devre dışı bırakılamadı:", e?.message);
-      window.alert(t("settings.mfaDisableError"));
+      notify(t("settings.mfaDisableError"), { variant: "error" });
     } finally {
       setTwoFaBusy(false);
     }
+  }
+
+  function onPickAvatar(e) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+      notify(t("settings.avatarError"), { variant: "error" });
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => {
+      const url = String(reader.result || "");
+      setAvatarUrl(url);
+      try { localStorage.setItem("user-avatar", url); } catch { /* quota */ }
+      notify(t("settings.avatarUpdated"), { variant: "success" });
+    };
+    reader.readAsDataURL(file);
+  }
+  function clearAvatar() {
+    setAvatarUrl("");
+    try { localStorage.removeItem("user-avatar"); } catch { /* ignore */ }
   }
 
   async function handleSave() {
@@ -161,11 +191,13 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
       // Refresh the JWT so its embedded claims match the new profile values.
       try { await keycloak.updateToken(-1); } catch { /* token may already be fresh */ }
       setSaveStatus("ok");
+      notify(t("settings.saved"), { variant: "success" });
       setTimeout(() => setSaveStatus(null), 2500);
     } catch (e) {
       console.error("Profil kaydedilemedi:", e);
       setSaveStatus("error");
       setSaveError(e?.message ?? "Bilinmeyen hata");
+      notify(`${t("settings.error")}: ${e?.message ?? ""}`, { variant: "error" });
     } finally {
       setSaving(false);
     }
@@ -200,19 +232,27 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
 
   return (
     <div style={s.root}>
-      <div style={s.grid}>
+      <div className="settings-grid" style={s.grid}>
         {/* Profile */}
         <div style={s.card}>
           <div style={s.cardTitle}>{t("settings.profile")}</div>
           <div style={s.cardSub}>{t("settings.profileSub")}</div>
           <div style={s.avatarRow}>
-            <div style={s.avatar}>{initials}</div>
+            <button type="button" onClick={() => avatarInputRef.current?.click()} style={s.avatarBtn} title={t("settings.changeAvatar")} aria-label={t("settings.changeAvatar")}>
+              {avatarUrl
+                ? <img src={avatarUrl} alt="" style={s.avatarImg} />
+                : <span style={s.avatar}>{initials}</span>}
+            </button>
+            <input ref={avatarInputRef} type="file" accept="image/*" style={{ display: "none" }} onChange={onPickAvatar} />
             <div>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--text-primary)" }}>{t("settings.changeAvatar")}</div>
+              <button type="button" onClick={() => avatarInputRef.current?.click()} style={s.avatarChangeLink}>{t("settings.changeAvatar")}</button>
               <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 2 }}>{t("settings.avatarHint")}</div>
+              {avatarUrl && (
+                <button type="button" onClick={clearAvatar} style={s.avatarRemove}>{t("settings.avatarRemove")}</button>
+              )}
             </div>
           </div>
-          <div style={s.formGrid}>
+          <div className="settings-form-grid" style={s.formGrid}>
             <div style={s.field}>
               <label style={s.label}>{t("settings.firstName")}</label>
               <input value={firstName} onChange={(e) => setFirstName(e.target.value)} style={s.input} placeholder={t("settings.firstNamePh")} />
@@ -355,13 +395,17 @@ function Toggle({ on, onToggle }) {
 
 const s = {
   root: { display: "flex", flexDirection: "column", gap: 16 },
-  grid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, alignItems: "start" },
+  grid: { display: "grid", gap: 12, alignItems: "start" },
   card: { borderRadius: 10, border: "1px solid var(--border-card)", background: "var(--bg-card)", padding: "20px 22px" },
   cardTitle: { fontSize: 15, fontWeight: 600, color: "var(--text-primary)", marginBottom: 4 },
   cardSub: { fontSize: 12, color: "var(--text-muted)", marginBottom: 18 },
   avatarRow: { display: "flex", alignItems: "center", gap: 14, marginBottom: 20 },
-  avatar: { width: 52, height: 52, borderRadius: 10, background: "linear-gradient(135deg, #1d4ed8, #2563eb)", display: "grid", placeItems: "center", fontSize: 16, fontWeight: 700, color: "#fff", flexShrink: 0 },
-  formGrid: { display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12, marginBottom: 18 },
+  avatar: { width: 52, height: 52, borderRadius: 10, background: "linear-gradient(135deg, var(--accent-strong), var(--accent-solid))", display: "grid", placeItems: "center", fontSize: 16, fontWeight: 700, color: "#fff", flexShrink: 0 },
+  avatarBtn: { padding: 0, border: "none", background: "transparent", cursor: "pointer", borderRadius: 10, flexShrink: 0, lineHeight: 0 },
+  avatarImg: { width: 52, height: 52, borderRadius: 10, objectFit: "cover", display: "block" },
+  avatarChangeLink: { padding: 0, border: "none", background: "transparent", color: "var(--accent-solid)", cursor: "pointer", fontSize: 13, fontWeight: 600 },
+  avatarRemove: { display: "block", padding: 0, border: "none", background: "transparent", color: "var(--text-muted)", cursor: "pointer", fontSize: 11, marginTop: 4, textDecoration: "underline" },
+  formGrid: { display: "grid", gap: 12, marginBottom: 18 },
   field: { display: "flex", flexDirection: "column", gap: 6 },
   label: { fontSize: 12, color: "var(--text-muted)" },
   input: { padding: "9px 12px", borderRadius: 8, border: "1px solid var(--input-border)", background: "var(--input-bg)", color: "var(--text-primary)", outline: "none", fontSize: 13, width: "100%", boxSizing: "border-box" },

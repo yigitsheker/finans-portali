@@ -160,7 +160,7 @@ export function AddPositionModal({
               }}>
                 <span>📊 Alınacak miktar:</span>
                 <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>
-                  {effectiveQty > 0 ? effectiveQty.toLocaleString("tr-TR") + " adet" : "—"}
+                  {effectiveQty > 0 ? effectiveQty.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) + " adet" : "—"}
                 </span>
               </div>
               {amountLeftover > 0 && effectiveQty > 0 && (

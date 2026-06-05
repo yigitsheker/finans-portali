@@ -767,11 +767,13 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
         if (!rows || rows.length === 0) return null;
         const last = rows[rows.length - 1];
         if (!last?.label) return null;
-        const months = ["Ocak","Şubat","Mart","Nisan","Mayıs","Haziran","Temmuz","Ağustos","Eylül","Ekim","Kasım","Aralık"];
         const [y, m] = String(last.label).split("-");
         const mi = Number(m) - 1;
         if (!Number.isInteger(mi) || mi < 0 || mi > 11) return null;
-        return `${months[mi]} ${y}`;
+        // Localized month name (TR/EN) instead of a hardcoded Turkish array.
+        const locale = (() => { try { return localStorage.getItem("i18n-lang") === "en" ? "en-US" : "tr-TR"; } catch { return "tr-TR"; } })();
+        const monthName = new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(Number(y), mi, 1));
+        return `${monthName} ${y}`;
     }, [rawData]);
 
     const getYAxisLabel = () => {
