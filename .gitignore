@@ -5,7 +5,8 @@
 # Claude Code local settings (per-machine)
 .claude/
 
-# Kiro temporary files
+# Kiro (IDE workspace specs — local only)
+.kiro/
 .kiro_tmp/
 
 # Logs
