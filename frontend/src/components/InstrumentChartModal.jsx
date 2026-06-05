@@ -422,7 +422,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                             }}
                             onClick={() => setPeriod(p.value)}
                         >
-                            {p.label}
+                            {t(p.labelKey)}
                         </button>
                     ))}
                 </div>
