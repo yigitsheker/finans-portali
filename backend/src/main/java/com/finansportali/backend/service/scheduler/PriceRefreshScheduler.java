@@ -114,13 +114,24 @@ public class PriceRefreshScheduler {
         refreshAll();
     }
 
-    /** Admin endpoint'ten manuel tetikleme */
-    public void refreshAll() {
-        refreshDurationTimer.record(this::doRefreshAll);
+    /**
+     * Intraday güncelleme — gecikmeli OLMAYAN (delayed=false) enstrümanlar için
+     * 15 dakikada bir. Kripto / ABD hisseleri / endeksler gibi sık çekilebilen
+     * veriler near-live olur. BIST gibi delayed=true enstrümanlar buna DAHİL
+     * DEĞİLDİR; onlar yalnızca günlük 18:00 UTC işinde güncellenir.
+     */
+    @Scheduled(initialDelay = 90_000, fixedDelay = 15 * 60 * 1000L)
+    public void refreshIntraday() {
+        refreshDurationTimer.record(() -> doRefresh(i -> !i.isDelayed(), "intraday (gecikmeli olmayan)"));
     }
 
-    private void doRefreshAll() {
-        List<MarketInstrument> instruments = instrumentRepo.findAll();
+    /** Admin endpoint'ten manuel tetikleme — tüm enstrümanlar */
+    public void refreshAll() {
+        refreshDurationTimer.record(() -> doRefresh(i -> true, "tüm enstrümanlar"));
+    }
+
+    private void doRefresh(java.util.function.Predicate<MarketInstrument> filter, String label) {
+        List<MarketInstrument> instruments = instrumentRepo.findAll().stream().filter(filter).toList();
         int updated = 0;
         int skipped = 0;
         int failed  = 0;
@@ -169,8 +180,8 @@ public class PriceRefreshScheduler {
             alertCheckFailureCounter.increment();
         }
 
-        log.info("=== Güncelleme tamamlandı. Güncellenen: {}, Başarısız: {}, Atlanan: {} ===",
-                updated, failed, skipped);
+        log.info("=== [{}] Güncelleme tamamlandı. Güncellenen: {}, Başarısız: {}, Atlanan: {} ===",
+                label, updated, failed, skipped);
     }
 
     /**
