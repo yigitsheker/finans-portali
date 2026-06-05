@@ -198,6 +198,7 @@ export const dict = {
     funds: {
       lastUpdate: "Son Güncelleme",
       refresh: "Verileri Güncelle",
+      searchPlaceholder: "Fon adı veya kodu ile ara…",
       refreshing: "Güncelleniyor...",
       manualRefresh: "Manuel Güncelle",
       allTypes: "Tüm Fon Türleri",
@@ -1184,6 +1185,7 @@ export const dict = {
     funds: {
       lastUpdate: "Last Updated",
       refresh: "Refresh Data",
+      searchPlaceholder: "Search by fund name or code…",
       refreshing: "Refreshing...",
       manualRefresh: "Refresh Manually",
       allTypes: "All Fund Types",
