@@ -29,6 +29,8 @@ jobs:
   sonarcloud:
     name: SonarCloud scan
     runs-on: ubuntu-latest
+    # Hard cap so a stuck run can never burn an hour of Actions minutes again.
+    timeout-minutes: 25
     # Skip if the token isn't available (e.g. on a fork without the secret).
     if: ${{ github.repository == 'yigitsheker/finans-portali' }}
     steps:
@@ -36,8 +38,11 @@ jobs:
         with:
           # SonarCloud needs full git history for accurate "new code" blame
           # attribution. Shallow clones break the Quality Gate's "new code"
-          # delta calculation.
+          # delta calculation. `blob:none` keeps the full COMMIT history (so
+          # blame still works) while skipping file-blob downloads until needed —
+          # a much faster checkout on a repo with this much history + binaries.
           fetch-depth: 0
+          filter: blob:none
 
       - uses: actions/setup-java@v4
         with:
@@ -46,11 +51,14 @@ jobs:
           cache: maven
 
       # Produce the JaCoCo XML report Sonar expects under
-      # backend/target/site/jacoco/jacoco.xml. `verify` is the lifecycle phase
-      # JaCoCo's report goal is bound to.
+      # backend/target/site/jacoco/jacoco.xml. JaCoCo's report goal is bound to
+      # the `test` phase (see pom.xml), so `test` is enough — we skip the
+      # `package`/`verify` phases (Spring Boot fat-jar repackage etc.), which
+      # Sonar doesn't need. Tests run in 2 parallel forks (each an isolated JVM,
+      # so the H2/@SpringBootTest suites can't collide); JaCoCo appends per fork.
       - name: Backend test + JaCoCo coverage
         working-directory: backend
-        run: ./mvnw -B -ntp verify
+        run: ./mvnw -B -ntp -DforkCount=2 -DreuseForks=true test
 
       - name: SonarCloud scan
         uses: SonarSource/sonarqube-scan-action@v6
