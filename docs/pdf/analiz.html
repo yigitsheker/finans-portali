@@ -75,9 +75,27 @@ table.k th { background: #134e4a; }
 
 .tag { display: inline-block; background: #0f766e; color: #fff; font-size: 8.5pt; padding: 2px 9px; border-radius: 999px; margin: 0 4px 4px 0; }
 .toc ol { font-size: 11pt; line-height: 1.9; }
-.toc a { color: #1f2937; }
+.toc a { color: #1f2937; text-decoration: none; }
 .muted { color: #64748b; }
 .center { text-align: center; }
+
+/* ── Kutulu akış diyagramları (görsel stil) ───────────────── */
+.dg { margin: 14px 0 16px; page-break-inside: avoid; }
+.dg-box { border:1px solid #e2e8f0; border-radius:11px; padding:10px 14px; background:#fff; text-align:left; }
+.dg-box .t { font-weight:700; font-size:10.5pt; color:#0f172a; }
+.dg-box .s { font-size:8.8pt; color:#64748b; margin-top:3px; line-height:1.35; }
+.dg-row { display:flex; align-items:stretch; gap:0; }
+.dg-row > .dg-box { flex:1; }
+.dg-arrow { display:flex; align-items:center; justify-content:center; padding:0 9px; color:#10b981; font-size:16pt; font-weight:700; }
+.c-teal  { border-color:#99f6e4; background:#f0fdfa; } .c-teal .t{color:#0f766e;}
+.c-green { border-color:#bbf7d0; background:#f0fdf4; } .c-green .t{color:#15803d;}
+.c-amber { border-color:#fde68a; background:#fffbeb; } .c-amber .t{color:#b45309;}
+.c-cyan  { border-color:#a5f3fc; background:#ecfeff; } .c-cyan .t{color:#0e7490;}
+
+/* ── Ekran görüntüleri ───────────────────────────────────── */
+figure.shot { margin: 12px 0 16px; page-break-inside: avoid; }
+figure.shot img { width: 100%; border: 1px solid #cbd5e1; border-radius: 9px; display: block; }
+figure.shot figcaption { font-size: 9pt; color: #64748b; margin-top: 6px; text-align: center; }
 </style>
 </head>
 <body>
@@ -100,25 +118,25 @@ table.k th { background: #134e4a; }
   <h2><span class="n">·</span>İçindekiler</h2>
   <div class="toc">
     <ol>
-      <li>Yönetici Özeti</li>
-      <li>Çözülen Problem ve Vizyon</li>
-      <li>Hedef Kitle</li>
-      <li>Ürüne Genel Bakış</li>
-      <li>Modül Modül Yetenekler</li>
-      <li>Öne Çıkan Değerler ve Farklılaştırıcılar</li>
-      <li>Güvenlik ve Güven</li>
-      <li>Örnek Kullanım Senaryoları</li>
-      <li>Neden Finans Portalı?</li>
-      <li>Ürün Olgunluğu ve Mevcut Durum</li>
-      <li>Genişleme Fırsatları (Yol Haritası)</li>
-      <li>Kapsam Sınırları</li>
+      <li><a href="#s1">Yönetici Özeti</a></li>
+      <li><a href="#s2">Çözülen Problem ve Vizyon</a></li>
+      <li><a href="#s3">Hedef Kitle</a></li>
+      <li><a href="#s4">Ürüne Genel Bakış</a></li>
+      <li><a href="#s5">Modül Modül Yetenekler</a></li>
+      <li><a href="#s6">Öne Çıkan Değerler ve Farklılaştırıcılar</a></li>
+      <li><a href="#s7">Güvenlik ve Güven</a></li>
+      <li><a href="#s8">Örnek Kullanım Senaryoları</a></li>
+      <li><a href="#s9">Neden Finans Portalı?</a></li>
+      <li><a href="#s10">Ürün Olgunluğu ve Mevcut Durum</a></li>
+      <li><a href="#s11">Genişleme Fırsatları (Yol Haritası)</a></li>
+      <li><a href="#s12">Kapsam Sınırları</a></li>
     </ol>
   </div>
 </section>
 
 <!-- 1 -->
 <section>
-  <h2><span class="n">1</span>Yönetici Özeti</h2>
+  <h2 id="s1"><span class="n">1</span>Yönetici Özeti</h2>
   <p class="lead">Finans Portalı, bireysel yatırımcının dağınık biçimde takip etmek zorunda kaldığı tüm piyasaları, makro verileri ve kişisel portföyünü <strong>tek bir ekranda</strong> birleştiren modern bir web platformudur.</p>
   <p>Bugün bir yatırımcı; hisse senedini bir uygulamadan, kripto parayı bir başkasından, döviz ve altını ayrı sitelerden, fon getirilerini bir başka platformdan, enflasyon ve faiz verilerini ise resmi kurum sayfalarından takip etmek zorundadır. Finans Portalı bu parçalı deneyimi sonlandırır: <strong>hisse, kripto, döviz, emtia, yatırım fonu, tahvil/bono ve vadeli işlemleri</strong>; <strong>enflasyon, faiz ve döviz kuru</strong> gibi makro göstergeleri; <strong>finans haberlerini</strong> ve kullanıcının <strong>kişisel portföyünü</strong> tek bir arayüzde sunar.</p>
   <p>Platformun en güçlü yanı, veriyi yalnızca <em>göstermekle</em> kalmayıp <strong>anlamlandırmasıdır</strong>: yapay zeka destekli analiz, enflasyondan arındırılmış gerçek (reel) getiri hesabı ve risk/sinyal değerlendirmeleri sayesinde kullanıcı, "kazandım mı, gerçekten kazandım mı?" sorusuna net yanıt alır.</p>
@@ -132,7 +150,7 @@ table.k th { background: #134e4a; }
 
 <!-- 2 -->
 <section>
-  <h2><span class="n">2</span>Çözülen Problem ve Vizyon</h2>
+  <h2 id="s2"><span class="n">2</span>Çözülen Problem ve Vizyon</h2>
   <h3>Bugünün sorunu</h3>
   <ul>
     <li><strong>Parçalı deneyim:</strong> Farklı varlıklar farklı uygulamalarda; kullanıcı sürekli ekran ve sekme değiştirir.</li>
@@ -152,7 +170,7 @@ table.k th { background: #134e4a; }
 
 <!-- 3 -->
 <section>
-  <h2><span class="n">3</span>Hedef Kitle</h2>
+  <h2 id="s3"><span class="n">3</span>Hedef Kitle</h2>
   <p>Platform, tek bir kullanıcı tipine değil, finansla ilgilenen geniş bir kitleye hizmet eder.</p>
   <table>
     <tr><th>Profil</th><th>İhtiyaçları</th><th>Finans Portalı'nın sunduğu</th></tr>
@@ -166,8 +184,15 @@ table.k th { background: #134e4a; }
 
 <!-- 4 -->
 <section>
-  <h2><span class="n">4</span>Ürüne Genel Bakış</h2>
+  <h2 id="s4"><span class="n">4</span>Ürüne Genel Bakış</h2>
   <p>Finans Portalı, sade ve modern bir arayüzle aşağıdaki yetenekleri tek çatı altında toplar:</p>
+  <div class="dg"><div class="dg-row">
+    <div class="dg-box c-cyan"><div class="t">📡 Güvenilir Kaynaklar</div><div class="s">TCMB · Borsa · TEFAS · Yahoo · global haberler</div></div>
+    <div class="dg-arrow">→</div>
+    <div class="dg-box c-teal"><div class="t">⚙️ Finans Portalı</div><div class="s">Topla · Normalize et · Analiz et · Görselleştir</div></div>
+    <div class="dg-arrow">→</div>
+    <div class="dg-box c-green"><div class="t">🧑 Sen</div><div class="s">Tek ekranda bilinçli, hızlı ve güvenli karar</div></div>
+  </div></div>
   <div class="cards">
     <div class="card"><h4>Çok varlıklı izleme</h4><p>Hisse, kripto, döviz, emtia, yatırım fonu, tahvil/bono ve vadeli işlemler; aranabilir, sıralanabilir, filtrelenebilir tablolarla.</p></div>
     <div class="card"><h4>Makro veri takibi</h4><p>Enflasyon (Türkiye &amp; ABD), faiz/mevduat oranları ve döviz kurları; sade grafiklerle.</p></div>
@@ -183,20 +208,25 @@ table.k th { background: #134e4a; }
 
 <!-- 5 -->
 <section>
-  <h2><span class="n">5</span>Modül Modül Yetenekler</h2>
+  <h2 id="s5"><span class="n">5</span>Modül Modül Yetenekler</h2>
   <p class="lead">Her bölüm, kullanıcının somut bir ihtiyacını karşılayacak şekilde tasarlanmıştır.</p>
 
   <h3>5.1 Anasayfa — Piyasanın nabzı</h3>
   <p>Kullanıcı giriş yaptığı anda piyasanın genel görünümünü görür: günün en çok hareket eden varlıkları, BIST'in en aktif hisseleri (yükselenler/düşenler/hacim), güncel döviz şeridi ve son finans haberleri. Hızlı erişim kartlarıyla istediği bölüme tek tıkla geçer.</p>
+  <figure class="shot"><img src="screens/01-anasayfa.png" alt="Anasayfa"><figcaption>Anasayfa — günün hareketlileri, BIST 100, döviz şeridi ve son haberler tek ekranda.</figcaption></figure>
 
   <h3>5.2 Hisse, Kripto &amp; Emtia — Çok varlıklı tablolar</h3>
   <p>BIST ve ABD hisseleri, başlıca kripto paralar, altın/gümüş/petrol gibi emtialar; aranabilir ve sıralanabilir tablolarda sunulur. Her satırda küçük bir eğilim grafiği yer alır; bir satıra tıklamak detaylı fiyat grafiğini açar. Kullanıcı para birimini Orijinal, TL veya USD olarak görüntülemeyi seçebilir.</p>
+  <figure class="shot"><img src="screens/02-hisseler.png" alt="Hisse tablosu"><figcaption>Hisse / Kripto / Emtia — aranabilir, sıralanabilir tablo; her satırda eğilim grafiği.</figcaption></figure>
+  <figure class="shot"><img src="screens/03-grafik.png" alt="Enstrüman fiyat grafiği"><figcaption>Bir enstrümana tıklayınca açılan detaylı fiyat grafiği (alarm, karşılaştırma, listeye ekleme).</figcaption></figure>
 
   <h3>5.3 Yatırım Fonları — Performans kıyaslama</h3>
   <p>Yüzlerce Türk yatırım fonu; birim fiyatları, günlük/aylık/yıllık/3 yıllık/5 yıllık getirileri ve risk düzeyleriyle listelenir. Yatırımcı, fonları getiriye veya riske göre sıralayıp kolayca karşılaştırır.</p>
+  <figure class="shot"><img src="screens/04-fonlar.png" alt="Yatırım fonları"><figcaption>Yatırım Fonları — birim fiyat, çok dönemli getiri ve risk düzeyiyle kıyaslama.</figcaption></figure>
 
   <h3>5.4 Tahvil &amp; Bono — Sabit getirili araçlar</h3>
   <p>Devlet tahvili, hazine bonosu gibi borçlanma araçları; vade, kupon, fiyat ve getiri bilgileriyle sunulur. Banka mevduat faizleri ayrı bir kartta yer alır. Her enstrümanın <strong>getiri geçmişi grafiği</strong> ile zaman içindeki seyir izlenebilir.</p>
+  <figure class="shot"><img src="screens/05-tahvil.png" alt="Tahvil/Bono detayı"><figcaption>Tahvil &amp; Bono — vade, kupon, fiyat, getiri ve getiri geçmişi grafiği.</figcaption></figure>
 
   <h3>5.5 Döviz — Kurlar ve çevirici</h3>
   <p>Resmi döviz kurları (alış/satış/efektif) tablosu ve anlık bir <strong>kur çevirici</strong> ile günlük döviz ihtiyaçları tek ekranda karşılanır.</p>
@@ -206,6 +236,7 @@ table.k th { background: #134e4a; }
 
   <h3>5.7 Enflasyon &amp; Reel Getiri</h3>
   <p>Türkiye ve ABD enflasyonu; aylık ve yıllık grafiklerle, 5 yıllık birikimli bakışla sunulur. Platformun ayırt edici özelliği burada öne çıkar: yatırım getirileri <strong>enflasyondan arındırılarak</strong> hesaplanır; böylece kullanıcı paranın alım gücü açısından gerçekte kazanıp kazanmadığını görür.</p>
+  <figure class="shot"><img src="screens/06-enflasyon.png" alt="Enflasyon"><figcaption>Enflasyon — Türkiye &amp; ABD TÜFE; aylık/yıllık grafikler ve reel getiri bağlamı.</figcaption></figure>
 
   <h3>5.8 Haberler — Çok dilli akış</h3>
   <p>Çok sayıda güvenilir kaynaktan derlenen finans haberleri kategorilere ayrılır (ekonomi, hisse, döviz, kripto, emtia vb.). İngilizce haberler kullanıcının diline <strong>otomatik çevrilir</strong>; her haberin detay sayfası ve kaynak bağlantısı vardır.</p>
@@ -213,6 +244,7 @@ table.k th { background: #134e4a; }
   <h3>5.9 Analiz &amp; Yapay Zeka Danışman</h3>
   <p>İki bölümden oluşur. Solda <strong>çapraz varlık analiz tablosu</strong>: tüm varlıklar; günlük/haftalık/aylık/yıllık değişim, <strong>reel yıllık getiri</strong>, risk düzeyi ve kısa/uzun vadeli sinyallerle bir arada. "Enflasyonu yenenler" filtresiyle yalnızca gerçek getirisi pozitif olanlar listelenebilir.</p>
   <p>Sağda <strong>yapay zeka destekli sohbet danışmanı</strong>: kullanıcı doğal dille soru sorar ("5.000 TL'yi nasıl değerlendiririm?", "Altın bu ay nasıl?"). Danışman; güvenli/dengeli/riskli senaryolar veya güncel veriyle desteklenmiş yorumlar üretir.</p>
+  <figure class="shot"><img src="screens/07-analiz.png" alt="Analiz ve AI danışman"><figcaption>Analiz — solda çapraz varlık tablosu (reel getiri, risk, sinyal), sağda yapay zeka danışman.</figcaption></figure>
   <div class="callout warn">
     <h4>Sorumlu yapay zeka</h4>
     <p>Danışman asla "kesin kazanç" vaadi vermez, doğrudan "al/sat" emri kurmaz ve yalnızca finans/yatırım konularında yanıt verir. Her yanıtın sonunda <strong>"yatırım tavsiyesi değildir"</strong> uyarısı yer alır. Bu yaklaşım hem kullanıcıyı korur hem de yasal/etik açıdan güven oluşturur.</p>
@@ -220,9 +252,11 @@ table.k th { background: #134e4a; }
 
   <h3>5.10 Portföyüm</h3>
   <p>Kullanıcı kendi pozisyonlarını ekler; toplam değer, toplam kâr/zarar ve varlık dağılımını (interaktif halka grafik) görür. Alım/satım kaydı tutulur, ortalama maliyet otomatik güncellenir. Pozisyonlar <strong>Excel dosyasıyla toplu olarak içe aktarılabilir</strong>. Listedeki bir varlığa tıklayınca fiyat grafiği açılır.</p>
+  <figure class="shot"><img src="screens/08-portfoy.png" alt="Portföyüm"><figcaption>Portföyüm — toplam değer, kâr/zarar, varlık dağılımı (halka grafik) ve pozisyon tablosu.</figcaption></figure>
 
   <h3>5.11 Geçmiş Senaryo ("Geçmişten")</h3>
   <p>"X tarihinde Y almış olsaydım bugün ne olurdu?" sorusuna yanıt verir. Kullanıcı geçmiş bir alım girer; platform bugünkü değeri, kâr/zararı ve enflasyona göre <strong>reel getiriyi</strong> hesaplar. Eğitim ve karar destek için güçlü bir araçtır.</p>
+  <figure class="shot"><img src="screens/09-gecmisten.png" alt="Geçmişten Bugüne"><figcaption>Geçmişten — "X tarihinde alsaydım?" senaryosu; nominal ve enflasyona göre reel getiri.</figcaption></figure>
 
   <h3>5.12 Takip Listeleri, Alarmlar &amp; Ayarlar</h3>
   <p>Kullanıcı kişisel takip listeleri oluşturur; hedef fiyat alarmları kurar (uygulama içi + e-posta bildirimi). Ayarlardan profilini, bildirim tercihlerini, dilini, temasını ve para birimi gösterimini yönetir; profil fotoğrafı ekleyebilir.</p>
@@ -230,7 +264,7 @@ table.k th { background: #134e4a; }
 
 <!-- 6 -->
 <section>
-  <h2><span class="n">6</span>Öne Çıkan Değerler ve Farklılaştırıcılar</h2>
+  <h2 id="s6"><span class="n">6</span>Öne Çıkan Değerler ve Farklılaştırıcılar</h2>
   <div class="cards">
     <div class="card"><h4>① Tek ekran, tüm piyasalar</h4><p>8'den fazla varlık sınıfı + makro veri + haber + portföy; rakiplerin ayrı ayrı sunduğunu birleştirir.</p></div>
     <div class="card"><h4>② Reel getiri zekâsı</h4><p>Enflasyondan arındırılmış gerçek getiri — pazarda nadir bulunan, yatırımcıya doğruyu gösteren bir özellik.</p></div>
@@ -247,7 +281,7 @@ table.k th { background: #134e4a; }
 
 <!-- 7 -->
 <section>
-  <h2><span class="n">7</span>Güvenlik ve Güven</h2>
+  <h2 id="s7"><span class="n">7</span>Güvenlik ve Güven</h2>
   <p>Finansal bir üründe güven her şeyden önce gelir. Finans Portalı bunu hem teknik hem de deneyim düzeyinde önceliklendirir.</p>
   <ul>
     <li><strong>İki adımlı doğrulama (2FA):</strong> Her kullanıcı, telefonundaki doğrulama uygulamasıyla ikinci bir güvenlik katmanı kullanır. Şifre çalınsa bile hesap korunur.</li>
@@ -264,7 +298,7 @@ table.k th { background: #134e4a; }
 
 <!-- 8 -->
 <section>
-  <h2><span class="n">8</span>Örnek Kullanım Senaryoları</h2>
+  <h2 id="s8"><span class="n">8</span>Örnek Kullanım Senaryoları</h2>
 
   <h3>Senaryo A — Yeni başlayan Ayşe</h3>
   <p>Ayşe ilk kez yatırım yapacak. Terimleri bilmiyor. Anasayfada piyasayı görüyor, anlamadığı kavramların üzerine gelince kısa açıklamalar okuyor. Yapay zeka danışmana "10.000 TL'yi düşük riskle nasıl değerlendiririm?" diye soruyor ve güvenli/dengeli/riskli üç senaryo alıyor. Risk etiketleri sayesinde temkinli seçimler yapıyor.</p>
@@ -281,7 +315,7 @@ table.k th { background: #134e4a; }
 
 <!-- 9 -->
 <section>
-  <h2><span class="n">9</span>Neden Finans Portalı?</h2>
+  <h2 id="s9"><span class="n">9</span>Neden Finans Portalı?</h2>
   <table>
     <tr><th>Kullanıcının sorunu</th><th>Finans Portalı çözümü</th></tr>
     <tr><td>"Her varlık için ayrı uygulama kullanıyorum."</td><td>Tüm varlıklar ve makro veriler tek ekranda.</td></tr>
@@ -296,7 +330,7 @@ table.k th { background: #134e4a; }
 
 <!-- 10 -->
 <section>
-  <h2><span class="n">10</span>Ürün Olgunluğu ve Mevcut Durum</h2>
+  <h2 id="s10"><span class="n">10</span>Ürün Olgunluğu ve Mevcut Durum</h2>
   <p>Platform çalışır ve uçtan uca işleyen bir üründür. Aşağıdaki yetenekler tamamlanmış ve kullanılabilir durumdadır:</p>
   <ul>
     <li>Çok varlıklı izleme (hisse, kripto, döviz, emtia, fon, tahvil/bono, vadeli işlem)</li>
@@ -315,7 +349,7 @@ table.k th { background: #134e4a; }
 
 <!-- 11 -->
 <section>
-  <h2><span class="n">11</span>Genişleme Fırsatları (Yol Haritası)</h2>
+  <h2 id="s11"><span class="n">11</span>Genişleme Fırsatları (Yol Haritası)</h2>
   <p>Mevcut sağlam temel, aşağıdaki yönlerde büyümeye açıktır:</p>
   <div class="cards">
     <div class="card"><h4>Mobil uygulama</h4><p>Web deneyiminin yanına yerel mobil uygulama.</p></div>
@@ -329,7 +363,7 @@ table.k th { background: #134e4a; }
 
 <!-- 12 -->
 <section>
-  <h2><span class="n">12</span>Kapsam Sınırları</h2>
+  <h2 id="s12"><span class="n">12</span>Kapsam Sınırları</h2>
   <p>Ürün, odağını korumak için bazı alanları bilinçli olarak kapsam dışında tutar:</p>
   <ul>
     <li><strong>Otomatik alım/satım yok:</strong> Platform bir analiz ve takip aracıdır; emir iletmez (broker entegrasyonu yol haritasındadır).</li>
