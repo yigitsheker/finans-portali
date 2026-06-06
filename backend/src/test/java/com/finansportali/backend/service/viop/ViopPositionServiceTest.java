@@ -111,6 +111,23 @@ class ViopPositionServiceTest {
         lenient().when(calc.unrealizedPnl(any(), any(), any(), any(), any())).thenReturn(bd("0.00"));
     }
 
+    @Test
+    void close_deducts_commission_from_realized_when_configured() {
+        ReflectionTestUtils.setField(service, "commissionRate", new BigDecimal("0.001")); // 0.1%
+        stubValuationCalc();
+        when(calc.realizedPnl(any(), any(), any(), any(), any())).thenReturn(bd("10000.00"));
+        when(calc.positionSize(any(), any(), any())).thenReturn(bd("250000.00")); // notional for the fee
+        ViopPosition pos = openPosition(ViopDirection.LONG, "2", "12000");
+        when(contractRepo.findBySymbol(SYMBOL)).thenReturn(Optional.of(liveContract()));
+        when(positionRepo.findByUserIdAndContractSymbol(USER, SYMBOL)).thenReturn(Optional.of(pos));
+        when(positionRepo.save(any(ViopPosition.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        service.close(USER, SYMBOL, bd("2"), bd("12500"));
+
+        // gross 10000 − fee (250000 × 0.001 = 250) = 9750
+        assertThat(pos.getRealizedPnl()).isEqualByComparingTo("9750.00");
+    }
+
     // ────────────────────────────── open() ──────────────────────────────────
 
     @Test

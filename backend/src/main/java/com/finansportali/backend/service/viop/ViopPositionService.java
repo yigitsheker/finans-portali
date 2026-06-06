@@ -47,6 +47,11 @@ public class ViopPositionService {
     @Value("${app.viop.margin-rate:0.10}")
     private BigDecimal marginRate;
 
+    // Optional broker/exchange commission as a fraction of the closed notional,
+    // deducted from realized P&L on close/expiry. Default 0 → no fee (opt-in).
+    @Value("${app.viop.commission-rate:0}")
+    private BigDecimal commissionRate;
+
     public ViopPositionService(ViopPositionRepository positionRepo,
                                ViopTransactionRepository txnRepo,
                                ViopContractRepository contractRepo,
@@ -92,8 +97,9 @@ public class ViopPositionService {
         // 1) If an opposing open position exists, close it first (net logic).
         if (hasOpen && pos.getDirection() != requestedDirection) {
             BigDecimal closeQty = pos.getQuantity().min(remaining);
-            BigDecimal realized = calc.realizedPnl(pos.getDirection(), pos.getEntryPrice(), price,
-                    contractSize, closeQty);
+            BigDecimal realized = applyCommission(
+                    calc.realizedPnl(pos.getDirection(), pos.getEntryPrice(), price, contractSize, closeQty),
+                    price, contractSize, closeQty);
             boolean partial = closeQty.compareTo(pos.getQuantity()) < 0;
             ViopTransactionType closeType = partial ? ViopTransactionType.PARTIAL_CLOSE
                     : (pos.getDirection() == ViopDirection.LONG
@@ -179,7 +185,9 @@ public class ViopPositionService {
         BigDecimal price = resolvePrice(contract, priceOverride);
         BigDecimal contractSize = pos.getContractSize();
 
-        BigDecimal realized = calc.realizedPnl(pos.getDirection(), pos.getEntryPrice(), price, contractSize, qty);
+        BigDecimal realized = applyCommission(
+                calc.realizedPnl(pos.getDirection(), pos.getEntryPrice(), price, contractSize, qty),
+                price, contractSize, qty);
         BigDecimal newQty = pos.getQuantity().subtract(qty);
         boolean partial = newQty.signum() > 0;
         ViopTransactionType type = partial ? ViopTransactionType.PARTIAL_CLOSE
@@ -221,8 +229,9 @@ public class ViopPositionService {
                 log.warn("[VIOP-EXPIRY] {} (user {}) — no settlement price; settling at entry (P&L=0)",
                         pos.getContractSymbol(), pos.getUserId());
             }
-            BigDecimal realized = calc.realizedPnl(pos.getDirection(), pos.getEntryPrice(), price,
-                    pos.getContractSize(), pos.getQuantity());
+            BigDecimal realized = applyCommission(
+                    calc.realizedPnl(pos.getDirection(), pos.getEntryPrice(), price, pos.getContractSize(), pos.getQuantity()),
+                    price, pos.getContractSize(), pos.getQuantity());
             record(pos.getUserId(), pos.getContractSymbol(), ViopTransactionType.EXPIRE,
                     pos.getQuantity(), price, pos.getContractSize(), realized, now, "Vade sonu");
             pos.setRealizedPnl(pos.getRealizedPnl().add(realized));
@@ -289,6 +298,16 @@ public class ViopPositionService {
     }
 
     // ── Helpers ──────────────────────────────────────────────────────────────
+    /** Net realized P&L after the optional commission on the closed notional.
+     *  commissionRate defaults to 0, so this is a no-op unless configured. */
+    private BigDecimal applyCommission(BigDecimal grossRealized, BigDecimal price,
+                                       BigDecimal contractSize, BigDecimal qty) {
+        if (commissionRate == null || commissionRate.signum() <= 0) return grossRealized;
+        BigDecimal fee = calc.positionSize(price, contractSize, qty)
+                .multiply(commissionRate).setScale(2, RoundingMode.HALF_UP);
+        return grossRealized.subtract(fee).setScale(2, RoundingMode.HALF_UP);
+    }
+
     private void recomputeMargin(ViopPosition pos, BigDecimal contractSize) {
         BigDecimal posSize = calc.positionSize(pos.getEntryPrice(), contractSize, pos.getQuantity());
         pos.setMarginRate(marginRate);

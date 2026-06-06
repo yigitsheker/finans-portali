@@ -51,17 +51,17 @@ class ViopCalculationServiceCoverageTest {
     }
 
     // ---------------------------------------------------------------------
-    // currencyFor: USD arms (FX_USD / METAL_USD) vs the TRY default
+    // currencyFor: BIST VİOP is TRY-settled, so EVERY category → TRY
     // ---------------------------------------------------------------------
 
     @Test
-    void currency_fx_usd_is_usd() {
-        assertThat(ViopCalculationService.currencyFor(ViopContract.Category.FX_USD)).isEqualTo("USD");
+    void currency_fx_usd_is_try() {
+        assertThat(ViopCalculationService.currencyFor(ViopContract.Category.FX_USD)).isEqualTo("TRY");
     }
 
     @Test
-    void currency_metal_usd_is_usd() {
-        assertThat(ViopCalculationService.currencyFor(ViopContract.Category.METAL_USD)).isEqualTo("USD");
+    void currency_metal_usd_is_try() {
+        assertThat(ViopCalculationService.currencyFor(ViopContract.Category.METAL_USD)).isEqualTo("TRY");
     }
 
     @Test

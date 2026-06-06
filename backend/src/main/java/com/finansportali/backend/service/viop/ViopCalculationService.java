@@ -38,11 +38,15 @@ public class ViopCalculationService {
         };
     }
 
-    /** TRY for TRY-quoted contracts, USD for USD-quoted (FX_USD / METAL_USD). */
+    /**
+     * BIST VİOP contracts are all TRY-margined and TRY-settled — even USD/TL and
+     * USD-priced metal futures settle their (variation) margin in TRY. So every
+     * position's P&L, margin and size are in TRY, which keeps the portfolio
+     * summary single-currency. A category's USD pricing only affects the quoted
+     * price / contract size, not the settlement currency. (Param kept for API
+     * stability and a future genuinely-FX contract.)
+     */
     public static String currencyFor(ViopContract.Category category) {
-        if (category == ViopContract.Category.FX_USD || category == ViopContract.Category.METAL_USD) {
-            return "USD";
-        }
         return "TRY";
     }
 
