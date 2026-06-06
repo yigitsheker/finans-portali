@@ -4,6 +4,7 @@ import Layout from "./components/Layout";
 import Topbar from "./components/Topbar";
 import Ticker from "./components/Ticker";
 import Stocks from "./pages/Stocks";
+import Watchlists from "./pages/Watchlists";
 import Crypto from "./pages/Crypto";
 import Funds from "./pages/Funds";
 import Bonds from "./pages/Bonds";
@@ -301,6 +302,14 @@ export default function App({ keycloak }) {
                         element={
                             <RequireAuth keycloak={keycloak}>
                                 <HistoricalComparison keycloak={keycloak} />
+                            </RequireAuth>
+                        }
+                    />
+                    <Route
+                        path="/lists"
+                        element={
+                            <RequireAuth keycloak={keycloak}>
+                                <Watchlists keycloak={keycloak} />
                             </RequireAuth>
                         }
                     />

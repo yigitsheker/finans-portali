@@ -119,6 +119,12 @@ const SettingsIcon = () => (
     </svg>
 );
 
+const ListsIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M12 2L15.09 8.26L22 9.27L17 14.14L18.18 21.02L12 17.77L5.82 21.02L7 14.14L2 9.27L8.91 8.26L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
+    </svg>
+);
+
 const PUBLIC_NAV_ITEMS = [
     { id: "news", i18nKey: "nav.home", icon: <NewsIcon />, path: "/news" },
     { id: "stocks", i18nKey: "nav.stocksFull", icon: <StocksIcon />, path: "/stocks" },
@@ -135,6 +141,7 @@ const PRIVATE_NAV_ITEMS = [
     { id: "analysis", i18nKey: "nav.analysis", icon: <AnalysisIcon />, path: "/analysis", requiresAuth: true },
     { id: "portfolio", i18nKey: "nav.portfolioFull", icon: <PortfolioIcon />, path: "/portfolio", requiresAuth: true },
     { id: "historical", i18nKey: "nav.historicalFull", icon: <HistoricalIcon />, path: "/historical", requiresAuth: true },
+    { id: "lists", i18nKey: "nav.lists", icon: <ListsIcon />, path: "/lists", requiresAuth: true },
 ];
 
 const ADMIN_ITEMS = [

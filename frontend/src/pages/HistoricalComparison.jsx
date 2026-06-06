@@ -65,6 +65,13 @@ export default function HistoricalComparison({ keycloak }) {
   const [editSaving, setEditSaving] = useState(false);
   const [editError, setEditError] = useState(null);
 
+  // Optional buy-price/amount override for manual entry/edit. Empty → use the
+  // market price at the buy date. Filled → per-lot price OR total amount.
+  const [addPrice, setAddPrice] = useState("");
+  const [addPriceMode, setAddPriceMode] = useState("perLot"); // "perLot" | "total"
+  const [editPrice, setEditPrice] = useState("");
+  const [editPriceMode, setEditPriceMode] = useState("perLot");
+
   const validSymbols = useMemo(
     () => new Set(instruments.map((i) => String(i.symbol).toUpperCase())),
     [instruments],
@@ -125,7 +132,16 @@ export default function HistoricalComparison({ keycloak }) {
   // price, inflation-adjusted real return). Returns the row WITHOUT an id, or
   // null when there's no price history for that symbol/window. Shared by the
   // manual add modal and the Excel bulk-import.
-  async function buildHistoricalPosition(sym, dateISO, lots) {
+  // Resolve an optional buy-price override from the form: "perLot" uses the
+  // value as-is; "total" divides by the lot count. Returns null (→ use the
+  // historical market price) when the field is blank/invalid.
+  function overrideFrom(priceStr, mode, lots) {
+    const v = parseFloat(String(priceStr ?? "").replace(",", "."));
+    if (!(v > 0) || !(Number(lots) > 0)) return null;
+    return mode === "total" ? v / Number(lots) : v;
+  }
+
+  async function buildHistoricalPosition(sym, dateISO, lots, priceOverride) {
     const selectedDate = new Date(dateISO);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -135,25 +151,31 @@ export default function HistoricalComparison({ keycloak }) {
     // -100% row. Import counts it skipped; edit shows an error (keeps old row).
     if (!(currentPrice > 0)) return null;
 
-    const daysDiff = Math.floor((today.getTime() - selectedDate.getTime()) / (1000 * 60 * 60 * 24));
-    let period = "30D";
-    if (daysDiff > 365) period = "5Y";
-    else if (daysDiff > 180) period = "1Y";
-    else if (daysDiff > 90) period = "6M";
-    else if (daysDiff > 30) period = "3M";
+    let buyPrice;
+    if (priceOverride != null && priceOverride > 0) {
+      // User supplied the buy price directly (per-lot) → skip the history lookup,
+      // so even a symbol without price history can be tracked at a manual cost.
+      buyPrice = priceOverride;
+    } else {
+      const daysDiff = Math.floor((today.getTime() - selectedDate.getTime()) / (1000 * 60 * 60 * 24));
+      let period = "30D";
+      if (daysDiff > 365) period = "5Y";
+      else if (daysDiff > 180) period = "1Y";
+      else if (daysDiff > 90) period = "6M";
+      else if (daysDiff > 30) period = "3M";
 
-    const historyData = await getMarketHistory(sym, period);
-    if (!historyData || historyData.length === 0) return null;
+      const historyData = await getMarketHistory(sym, period);
+      if (!historyData || historyData.length === 0) return null;
 
-    const targetTime = selectedDate.getTime();
-    let closestPoint = historyData[0];
-    let minDiff = Math.abs(new Date(historyData[0].day).getTime() - targetTime);
-    for (const point of historyData) {
-      const diff = Math.abs(new Date(point.day).getTime() - targetTime);
-      if (diff < minDiff) { minDiff = diff; closestPoint = point; }
+      const targetTime = selectedDate.getTime();
+      let closestPoint = historyData[0];
+      let minDiff = Math.abs(new Date(historyData[0].day).getTime() - targetTime);
+      for (const point of historyData) {
+        const diff = Math.abs(new Date(point.day).getTime() - targetTime);
+        if (diff < minDiff) { minDiff = diff; closestPoint = point; }
+      }
+      buyPrice = closestPoint.close;
     }
-
-    const buyPrice = closestPoint.close;
     const instrument = instruments.find((i) => i.symbol === sym);
     const currency = getCurrency(sym);
 
@@ -209,7 +231,8 @@ export default function HistoricalComparison({ keycloak }) {
       setAddLoading(true);
       setAddError(null);
 
-      const pos = await buildHistoricalPosition(sym, addDate, addLots);
+      const override = overrideFrom(addPrice, addPriceMode, addLots);
+      const pos = await buildHistoricalPosition(sym, addDate, addLots, override);
       if (!pos) {
         setAddError(t("historical.errNoHistory"));
         return;
@@ -220,6 +243,7 @@ export default function HistoricalComparison({ keycloak }) {
       setAddSymbol("");
       setAddDate("");
       setAddLots(1);
+      setAddPrice("");
     } catch (e) {
       console.error("Error adding position:", e);
       setAddError(e?.message ?? t("historical.errPrice"));
@@ -301,6 +325,8 @@ export default function HistoricalComparison({ keycloak }) {
     setEditTarget(p);
     setEditLots(p.lots);
     setEditDate(p.buyDate);
+    setEditPrice(p.buyPrice != null ? String(p.buyPrice) : "");
+    setEditPriceMode("perLot");
     setEditError(null);
   }
 
@@ -317,7 +343,8 @@ export default function HistoricalComparison({ keycloak }) {
     try {
       setEditSaving(true);
       setEditError(null);
-      const pos = await buildHistoricalPosition(editTarget.symbol, editDate, Number(editLots));
+      const override = overrideFrom(editPrice, editPriceMode, Number(editLots));
+      const pos = await buildHistoricalPosition(editTarget.symbol, editDate, Number(editLots), override);
       if (!pos) { setEditError(t("historical.errNoHistory")); return; }
       setPositions((prev) => prev.map((x) => (x.id === editTarget.id ? { id: editTarget.id, ...pos } : x)));
       setEditTarget(null);
@@ -612,6 +639,30 @@ export default function HistoricalComparison({ keycloak }) {
             </div>
           </div>
 
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={s.label}>{t("historical.modalAmount")}</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="number" min="0" step="any"
+                value={addPrice}
+                onChange={(e) => setAddPrice(e.target.value)}
+                style={{ ...s.input, flex: 1 }}
+                placeholder={t("historical.amountPlaceholder")}
+              />
+              <div style={{ display: "flex", border: "1px solid var(--border-card)", borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
+                <button type="button" onClick={() => setAddPriceMode("perLot")}
+                  style={{ padding: "0 12px", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, background: addPriceMode === "perLot" ? "var(--accent-solid)" : "transparent", color: addPriceMode === "perLot" ? "#000" : "var(--text-muted)" }}>
+                  {t("historical.perLot")}
+                </button>
+                <button type="button" onClick={() => setAddPriceMode("total")}
+                  style={{ padding: "0 12px", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, background: addPriceMode === "total" ? "var(--accent-solid)" : "transparent", color: addPriceMode === "total" ? "#000" : "var(--text-muted)" }}>
+                  {t("historical.total")}
+                </button>
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("historical.amountHint")}</div>
+          </div>
+
           {addError && (
             <div style={{ color: "var(--danger-text)", fontSize: 13, padding: "8px 12px", background: "var(--danger-bg)", borderRadius: 6, border: "1px solid var(--danger-border)" }}>
               {addError}
@@ -667,6 +718,30 @@ export default function HistoricalComparison({ keycloak }) {
               />
             </div>
           </div>
+          <div style={{ display: "grid", gap: 6 }}>
+            <label style={s.label}>{t("historical.modalAmount")}</label>
+            <div style={{ display: "flex", gap: 8 }}>
+              <input
+                type="number" min="0" step="any"
+                value={editPrice}
+                onChange={(e) => setEditPrice(e.target.value)}
+                style={{ ...s.input, flex: 1 }}
+                placeholder={t("historical.amountPlaceholder")}
+              />
+              <div style={{ display: "flex", border: "1px solid var(--border-card)", borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
+                <button type="button" onClick={() => setEditPriceMode("perLot")}
+                  style={{ padding: "0 12px", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, background: editPriceMode === "perLot" ? "var(--accent-solid)" : "transparent", color: editPriceMode === "perLot" ? "#000" : "var(--text-muted)" }}>
+                  {t("historical.perLot")}
+                </button>
+                <button type="button" onClick={() => setEditPriceMode("total")}
+                  style={{ padding: "0 12px", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, background: editPriceMode === "total" ? "var(--accent-solid)" : "transparent", color: editPriceMode === "total" ? "#000" : "var(--text-muted)" }}>
+                  {t("historical.total")}
+                </button>
+              </div>
+            </div>
+            <div style={{ fontSize: 11, color: "var(--text-muted)" }}>{t("historical.amountHint")}</div>
+          </div>
+
           {editError && (
             <div style={{ color: "var(--danger-text)", fontSize: 13, padding: "8px 12px", background: "var(--danger-bg)", borderRadius: 6, border: "1px solid var(--danger-border)" }}>
               {editError}
