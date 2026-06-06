@@ -86,21 +86,26 @@ pre {
 .c-cyan   { border-color:#a5f3fc; background:#ecfeff; } .c-cyan .t{color:#0e7490;}
 .c-slate  { border-color:#e2e8f0; background:#f8fafc; } .c-slate .t{color:#334155;}
 .c-rose   { border-color:#fecdd3; background:#fff1f2; } .c-rose .t{color:#be123c;}
+/* Başlık bir sonraki içerikten kopmasın (PDF sayfa kayması) */
+h2, h3 { page-break-after: avoid; }
+/* Kutu ızgarası (dağıtım yığını, veri modeli) */
+.dgrid { display:flex; flex-wrap:wrap; gap:8px; margin:8px 0; }
+.dgrid > .dg-box { flex:1 1 30%; min-width:46mm; }
+.glabel { font-weight:700; font-size:9.5pt; color:#334155; margin:10px 0 5px; }
+.figlabel { font-size:8.8pt; color:#64748b; text-align:center; margin-top:7px; }
+.figlist { font-size:10.2pt; line-height:1.7; list-style:none; padding-left:0; }
+.figlist li { margin:2px 0; }
+.figlist a { color:#155e75; text-decoration:none; }
 </style>
 </head>
 <body>
 
 <!-- COVER -->
 <div class="cover">
-  <div class="kick">Teknik Analiz Dokümanı</div>
   <h1>Finans Portalı</h1>
   <div class="rule"></div>
-  <div class="meta">
-    <b>Belge:</b> Teknik Analiz Dokümanı &nbsp;·&nbsp; <b>Sürüm:</b> 2.0<br>
-    <b>Hedef okuyucu:</b> Yazılım mimarları, geliştiriciler ve teknik değerlendiriciler<br>
-    <b>Mimari:</b> React SPA · Spring Boot · PostgreSQL · Keycloak · Kafka · OpenTelemetry · Docker/Kubernetes
-  </div>
-  <div class="foot">İş ve kullanıcı değeri için ayrı "İş ve Ürün Analizi Dokümanı"na bakınız.</div>
+  <div class="sub">Teknik Analiz Dökümanı</div>
+  <div class="meta">Yiğit Şeker</div>
 </div>
 
 <!-- İÇİNDEKİLER -->
@@ -122,14 +127,34 @@ pre {
     <li><a href="#s13">Frontend Mimarisi</a></li>
     <li><a href="#s14">Bilinen Sınırlamalar</a></li>
     <li><a href="#s15">Geliştirici Onboarding</a></li>
-  </ol></div>
+  </ol>
+    <p style="margin-top:10px;"><a href="#figlist">Şekil Listesi</a></p>
+  </div>
+</section>
+
+<!-- ŞEKİL LİSTESİ -->
+<section id="figlist">
+  <h2><span class="n">·</span>Şekil Listesi</h2>
+  <ol class="figlist">
+    <li><a href="#sekil-1">Şekil 1 — Sistem mimarisi (katmanlar, gözlemlenebilirlik, dış kaynaklar)</a></li>
+    <li><a href="#sekil-2">Şekil 2 — Katman ve servis etkileşimi</a></li>
+    <li><a href="#sekil-3">Şekil 3 — Docker Compose dağıtım yığını</a></li>
+    <li><a href="#sekil-4">Şekil 4 — Kimlik doğrulama akışı (OIDC / PKCE + TOTP)</a></li>
+    <li><a href="#sekil-5">Şekil 5 — Log hattı (Log4j2 → Kafka → OpenSearch)</a></li>
+    <li><a href="#sekil-6">Şekil 6 — Metrik ve iz hatları</a></li>
+    <li><a href="#sekil-7">Şekil 7 — Piyasa fiyatı veri akışı</a></li>
+    <li><a href="#sekil-8">Şekil 8 — Enflasyon veri akışı</a></li>
+    <li><a href="#sekil-9">Şekil 9 — Haber ve otomatik çeviri akışı</a></li>
+    <li><a href="#sekil-10">Şekil 10 — Yapay zeka sohbet danışmanı akışı</a></li>
+    <li><a href="#sekil-11">Şekil 11 — Veri modeli (alan bazlı tablolar ve ilişkiler)</a></li>
+  </ol>
 </section>
 
 <!-- 1 -->
 <section>
   <h2 id="s1"><span class="n">1</span>Mimari Genel Bakış</h2>
   <p class="lead">Finans Portalı, <strong>3 katmanlı (SPA → REST API → veritabanı)</strong> bir uygulama olup yanında tam bir <strong>gözlemlenebilirlik (logs + metrics + traces)</strong> ve <strong>kimlik yönetimi</strong> yığını barındırır.</p>
-  <div class="dg">
+  <div class="dg" id="sekil-1">
     <div class="dg-wrap c-blue">
       <div class="dg-row">
         <div class="dg-box c-blue"><div class="t">🌐 Tarayıcı</div><div class="s">React SPA</div></div>
@@ -166,7 +191,24 @@ pre {
       <div class="dg-arrow">&nbsp;</div>
       <div class="dg-box c-cyan"><div class="t">🗄️ Dış Veri Kaynakları</div><div class="s">TCMB · TEFAS · Yahoo · FRED · İş Yatırım…</div></div>
     </div>
+    <div class="figlabel">Şekil 1 — Sistem mimarisi: katmanlar, gözlemlenebilirlik ve dış kaynaklar</div>
   </div>
+
+  <h3>1.1 Katman ve servis etkileşimi</h3>
+  <p>İstek katmanlar arasında tek yönde akar; servisler birbirini alt-servis, dış istemci veya repository üzerinden çağırır.</p>
+  <div class="dg" id="sekil-2">
+    <div class="dg-box c-blue"><div class="t">REST Controller'lar</div><div class="s">HTTP · doğrulama · JWT — 19 controller</div></div>
+    <div class="dg-down">↓ çağırır</div>
+    <div class="dg-box c-amber"><div class="t">Orkestrasyon Servisleri</div><div class="s">MarketService · PortfolioService · BondPositionService · ViopPositionService · NewsService · AiAnalysisService · InstrumentAnalysisService …</div></div>
+    <div class="dg-down">↓</div>
+    <div class="dg-row">
+      <div class="dg-box c-slate"><div class="t">Hesap / alt servisler</div><div class="s">*CalculationService · PortfolioCurrency/Performance · RiskProfile · TechnicalAnalysis</div></div>
+      <div class="dg-box c-violet"><div class="t">Dış istemciler (client/)</div><div class="s">Yahoo · EVDS · TEFAS · FRED · İşYatırım · LibreTranslate · LLM · KeycloakAdmin</div></div>
+      <div class="dg-box c-green"><div class="t">Repository (JPA)</div><div class="s">PostgreSQL erişimi</div></div>
+    </div>
+    <div class="figlabel">Şekil 2 — Katman ve servis etkileşimi (çapraz çağrı örneği: InstrumentAnalysisService → MarketService + ExchangeRateService + InvestmentFundService + InflationService)</div>
+  </div>
+
   <p>Katmanlar net biçimde ayrılmıştır: <strong>Controller</strong> (HTTP), <strong>Service</strong> (iş mantığı), <strong>Repository</strong> (veri erişimi), <strong>Entity/DTO</strong> (model). Dış kaynaklara erişim ayrı <code>client</code> paketinde izole edilmiştir. Tüm yazma uçları kimlik doğrulamalıdır; okuma uçlarının bir kısmı kamuya açıktır.</p>
 </section>
 
@@ -203,7 +245,7 @@ pre {
     <tr><td>Spring Security (OAuth2 RS)</td><td>6.x</td><td>JWT doğrulama (Resource Server)</td></tr>
     <tr><td>Spring Cache + Caffeine</td><td>—</td><td>In-memory önbellek</td></tr>
     <tr><td>Spring Kafka</td><td>3.x</td><td>Log tüketici (log-consumer)</td></tr>
-    <tr><td>Flyway</td><td>10.x</td><td>Şema göçü (V1–V26)</td></tr>
+    <tr><td>Flyway</td><td>10.x</td><td>Şema göçü (V1–V27)</td></tr>
     <tr><td>Log4j2 + JSON layout</td><td>2.24</td><td>Loglama + Kafka appender</td></tr>
     <tr><td>Micrometer + OTel köprüsü</td><td>1.x</td><td>Metrik + iz (trace)</td></tr>
     <tr><td>Apache POI</td><td>—</td><td>Excel okuma/yazma (sunucu tarafı)</td></tr>
@@ -235,34 +277,65 @@ pre {
   <h2 id="s3"><span class="n">3</span>Sistem Diyagramları</h2>
 
   <h3>3.1 Dağıtım yığını (Docker Compose)</h3>
-  <pre>postgres · keycloak (+ keycloak-bootstrap) · backend · frontend(nginx)
-kafka + zookeeper · log-consumer · opensearch + dashboards
-prometheus · grafana · jaeger · otel-collector
-libretranslate · playwright-service · mailpit · openldap (+ phpLdapAdmin)</pre>
+  <div class="dg" id="sekil-3">
+    <div class="glabel">Uygulama</div>
+    <div class="dgrid">
+      <div class="dg-box c-green"><div class="t">frontend</div><div class="s">nginx · React SPA :80</div></div>
+      <div class="dg-box c-amber"><div class="t">backend</div><div class="s">Spring Boot :8080</div></div>
+      <div class="dg-box c-blue"><div class="t">postgres</div><div class="s">PostgreSQL 15 :5432</div></div>
+      <div class="dg-box c-violet"><div class="t">keycloak (+ bootstrap)</div><div class="s">OIDC :8090</div></div>
+    </div>
+    <div class="glabel">Mesajlaşma &amp; Log</div>
+    <div class="dgrid">
+      <div class="dg-box c-slate"><div class="t">kafka + zookeeper</div></div>
+      <div class="dg-box c-slate"><div class="t">log-consumer</div></div>
+      <div class="dg-box c-cyan"><div class="t">opensearch + dashboards</div></div>
+    </div>
+    <div class="glabel">Gözlemlenebilirlik</div>
+    <div class="dgrid">
+      <div class="dg-box c-rose"><div class="t">prometheus</div></div>
+      <div class="dg-box c-amber"><div class="t">grafana</div></div>
+      <div class="dg-box c-cyan"><div class="t">jaeger</div></div>
+      <div class="dg-box c-slate"><div class="t">otel-collector</div></div>
+    </div>
+    <div class="glabel">Yardımcı servisler</div>
+    <div class="dgrid">
+      <div class="dg-box c-violet"><div class="t">libretranslate</div><div class="s">TR↔EN çeviri</div></div>
+      <div class="dg-box c-slate"><div class="t">playwright-service</div><div class="s">headless Chromium</div></div>
+      <div class="dg-box c-slate"><div class="t">mailpit</div><div class="s">dev SMTP</div></div>
+      <div class="dg-box c-blue"><div class="t">openldap + phpLDAPadmin</div></div>
+    </div>
+    <div class="figlabel">Şekil 3 — Docker Compose dağıtım yığını (19 servis)</div>
+  </div>
 
   <h3>3.2 Kimlik doğrulama akışı (OIDC / PKCE)</h3>
-  <pre>Tarayıcı            Frontend(nginx)        Keycloak              Backend
-  │  GET /             │                      │                     │
-  ├───────────────────►│ not-authed → 302     │                     │
-  │  /auth?code_chal…  ├─────────────────────►│                     │
-  │  Giriş + TOTP      ├─────────────────────►│                     │
-  │  302 ?code=…  ◄────┤                      │                     │
-  │  code → token ─────┼─────────────────────►│  access+refresh JWT │
-  │  Bearer <JWT> ─────┼──────────────────────┼────────────────────►│
-  │                    │                      │◄── JWK (cache) ─────┤
-  │  200 + veri   ◄────┼──────────────────────┼─────────────────────┤</pre>
+  <div class="dg" id="sekil-4">
+    <div class="dg-box c-blue"><div class="t">1 · Tarayıcı</div><div class="s">Korumalı sayfaya erişim — oturum yok</div></div>
+    <div class="dg-down">↓</div>
+    <div class="dg-box c-violet"><div class="t">2 · Keycloak'a yönlendirme</div><div class="s"><code>/auth?code_challenge</code> (PKCE)</div></div>
+    <div class="dg-down">↓</div>
+    <div class="dg-box c-green"><div class="t">3 · Giriş + TOTP (2FA)</div><div class="s">kullanıcı doğrulanır</div></div>
+    <div class="dg-down">↓</div>
+    <div class="dg-box c-violet"><div class="t">4 · code → token</div><div class="s">access + refresh JWT (RS256)</div></div>
+    <div class="dg-down">↓</div>
+    <div class="dg-box c-amber"><div class="t">5 · Bearer JWT → Backend</div><div class="s">Authorization header ile API çağrısı</div></div>
+    <div class="dg-down">↓</div>
+    <div class="dg-box c-slate"><div class="t">6 · JWK ile doğrulama</div><div class="s">imza + claim kontrolü → 200 + veri</div></div>
+    <div class="figlabel">Şekil 4 — Kimlik doğrulama akışı (OIDC / PKCE + TOTP)</div>
+  </div>
 
   <h3>3.3 Log hattı (Log4j2 → Kafka → OpenSearch)</h3>
-  <div class="dg"><div class="dg-row">
+  <div class="dg" id="sekil-5"><div class="dg-row">
     <div class="dg-box c-amber"><div class="t">Backend · Log4j2</div><div class="s">KafkaAppender (acks=0, async, JSON)</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-slate"><div class="t">Kafka</div><div class="s">topic "finans-logs"</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-slate"><div class="t">log-consumer</div><div class="s">@KafkaListener · manuel ack</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-cyan"><div class="t">OpenSearch</div><div class="s">finans-logs-YYYY-MM-DD</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-cyan"><div class="t">Dashboards</div><div class="s">Discover / Visualize</div></div>
-  </div></div>
+  </div>
+  <div class="figlabel">Şekil 5 — Log hattı (Log4j2 → Kafka → log-consumer → OpenSearch)</div></div>
 
   <h3>3.4 Metrik &amp; İz hatları</h3>
-  <div class="dg">
+  <div class="dg" id="sekil-6">
     <div class="dg-row">
       <div class="dg-box c-rose"><div class="t">Metrik · Micrometer</div><div class="s">/actuator/prometheus</div></div><div class="dg-arrow">→</div>
       <div class="dg-box c-slate"><div class="t">Prometheus</div><div class="s">15 sn scrape</div></div><div class="dg-arrow">→</div>
@@ -274,6 +347,7 @@ libretranslate · playwright-service · mailpit · openldap (+ phpLdapAdmin)</pr
       <div class="dg-box c-slate"><div class="t">OTel Collector</div><div class="s">OTLP</div></div><div class="dg-arrow">→</div>
       <div class="dg-box c-cyan"><div class="t">Jaeger UI</div><div class="s">trace görüntüleme</div></div>
     </div>
+    <div class="figlabel">Şekil 6 — Metrik ve iz hatları (Prometheus/Grafana · OTel/Jaeger)</div>
   </div>
 </section>
 
@@ -288,13 +362,14 @@ libretranslate · playwright-service · mailpit · openldap (+ phpLdapAdmin)</pr
     <li><strong>Günlük 18:00 UTC</strong> — tüm enstrümanlar (kapanış).</li>
     <li><strong>15 dakikada bir (intraday)</strong> — yalnızca gecikmesiz (<code>delayed=false</code>) enstrümanlar; BIST hisseleri gibi gecikmeli olanlar gün-sonu yenilenir.</li>
   </ul>
-  <div class="dg"><div class="dg-row">
+  <div class="dg" id="sekil-7"><div class="dg-row">
     <div class="dg-box c-cyan"><div class="t">Sağlayıcı API</div><div class="s">Yahoo (+ yedek)</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-slate"><div class="t">*PriceFetcher</div><div class="s">WebClient · 10sn</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-amber"><div class="t">PriceRefreshScheduler</div><div class="s">@Scheduled · upsert</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-blue"><div class="t">market_quotes + candles</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-green"><div class="t">GET /market/summary</div><div class="s">@Cacheable</div></div>
-  </div></div>
+  </div>
+  <div class="figlabel">Şekil 7 — Piyasa fiyatı veri akışı</div></div>
 
   <h3>4.2 Tahvil getiri verisi ve geçmiş (EVDS3, YTM)</h3>
   <p><code>EvdsBondYieldFetcher</code>, TCMB EVDS3'ten devlet tahvili fiyat + kupon serilerini çeker ve <strong>nakit akışlarını iskontolayarak vadeye kadar getiriyi (YTM)</strong> hesaplar (yarı yıllık kupon takvimi yeniden kurulur, birikmiş faiz ayrıştırılarak temiz fiyat bulunur, bisection ile yıllık oran çözülür).</p>
@@ -305,33 +380,41 @@ libretranslate · playwright-service · mailpit · openldap (+ phpLdapAdmin)</pr
   <p>Mevduat faizleri <code>TcmbDepositRateFetcher</code> ile ayrıca çekilir. Sağlayıcı soyutlaması <code>BondDataProvider</code> (TCMB birincil, Demo yedek) ile yapılır.</p>
 
   <h3>4.3 Enflasyon (TR + ABD)</h3>
-  <div class="dg"><div class="dg-row">
+  <div class="dg" id="sekil-8"><div class="dg-row">
     <div class="dg-box c-cyan"><div class="t">TCMB EVDS3 + FRED</div><div class="s">TÜFE · CPIAUCSL</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-slate"><div class="t">*InflationFetcher</div><div class="s">günlük 09:00 + açılışta</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-blue"><div class="t">inflation_data_points</div><div class="s">(period_date, country) upsert</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-green"><div class="t">GET /inflation?country=TR</div><div class="s">@Cacheable</div></div>
-  </div></div>
+  </div>
+  <div class="figlabel">Şekil 8 — Enflasyon veri akışı (TR TÜFE + ABD CPI)</div></div>
 
   <h3>4.4 Haberler ve otomatik çeviri</h3>
-  <div class="dg"><div class="dg-row">
+  <div class="dg" id="sekil-9"><div class="dg-row">
     <div class="dg-box c-cyan"><div class="t">RSS feed'ler (31)</div><div class="s">10 kategori</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-amber"><div class="t">NewsService</div><div class="s">@Scheduled · RSS parse</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-slate"><div class="t">NewsContentFetcher</div><div class="s">Jsoup → Playwright</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-violet"><div class="t">LibreTranslate</div><div class="s">TR↔EN cache</div></div><div class="dg-arrow">→</div>
     <div class="dg-box c-green"><div class="t">GET /news?lang=tr</div></div>
-  </div></div>
+  </div>
+  <div class="figlabel">Şekil 9 — Haber ve otomatik çeviri akışı</div></div>
 
   <h3>4.5 Analiz tablosu ve reel getiri</h3>
   <p><code>InstrumentAnalysisService</code>; piyasa özetini, döviz kurlarını, fonları ve enflasyonu birleştirir. Her satır için haftalık/aylık/yıllık değişim mum geçmişinden hesaplanır; <code>RiskProfileService</code> risk sınıfı, <code>TechnicalAnalysisService</code> kısa/uzun vade sinyali üretir. <strong>Reel getiri</strong> para-birimi duyarlıdır: TRY enstrümanlar TR TÜFE'sine, USD enstrümanlar ABD CPI'sine karşı <code>(1+nominal)/(1+enflasyon) − 1</code> ile hesaplanır.</p>
 
   <h3>4.6 Yapay zeka sohbet danışmanı</h3>
-  <pre>POST /api/v1/analysis/chat (JWT)  → AiAnalysisService.generateReply
-  ├─ Bütçe niyeti (regex "5000 TL")  → 3 senaryo (Güvenli/Dengeli/Riskli)
-  ├─ Sembol niyeti (regex ticker)    → DB'den güncel veri + sinyaller
-  ├─ LLM etkinse → finans-only sistem promptu + piyasa bağlamı
-  │                → LlmClient.complete() → /chat/completions
-  └─ Anahtar-kelime fallback / yardım yanıtı
-  → finalize(): "yatırım tavsiyesi değildir" + zaman damgası</pre>
+  <div class="dg" id="sekil-10">
+    <div class="dg-box c-amber"><div class="t">POST /api/v1/analysis/chat (JWT)</div><div class="s">AiAnalysisService.generateReply</div></div>
+    <div class="dg-down">↓ niyet ayrıştırma</div>
+    <div class="dg-row">
+      <div class="dg-box c-cyan"><div class="t">Bütçe niyeti</div><div class="s">"5000 TL" → 3 senaryo (Güvenli/Dengeli/Riskli)</div></div>
+      <div class="dg-box c-cyan"><div class="t">Sembol niyeti</div><div class="s">ticker → DB güncel veri + sinyaller</div></div>
+      <div class="dg-box c-violet"><div class="t">LLM (etkinse)</div><div class="s">finans-only prompt → LlmClient → /chat/completions</div></div>
+      <div class="dg-box c-slate"><div class="t">Fallback</div><div class="s">anahtar-kelime / yardım yanıtı</div></div>
+    </div>
+    <div class="dg-down">↓</div>
+    <div class="dg-box c-green"><div class="t">finalize()</div><div class="s">"yatırım tavsiyesi değildir" uyarısı + zaman damgası</div></div>
+    <div class="figlabel">Şekil 10 — Yapay zeka sohbet danışmanı akışı (niyet → yanıt → güvenli kapanış)</div>
+  </div>
   <div class="callout warn"><h4>Güvenlik kuralları</h4><p>LLM yalnızca finans kapsamında yanıt verir; garanti/komut vermez. Servis devre dışıyken kural tabanlı yanıtlar devreye girer (dayanıklılık).</p></div>
 
   <h3>4.7 VİOP &amp; Tahvil simülasyon işlemleri</h3>
@@ -350,13 +433,14 @@ libretranslate · playwright-service · mailpit · openldap (+ phpLdapAdmin)</pr
   <h3>5.2 İki adımlı doğrulama (2FA / TOTP)</h3>
   <p>HMAC-SHA1, 6 hane, 30 sn periyot. İlk girişte QR kod (Google/Microsoft Authenticator, Authy uyumlu). Realm düzeyinde <code>CONFIGURE_TOTP</code> varsayılan zorunlu eylem olarak ayarlanır (keycloak-bootstrap).</p>
   <h3>5.3 Yetkilendirme</h3>
-  <pre>/api/v1/admin/**           → hasRole("ADMIN")
-GET /api/v1/market/**       → permitAll (public read)
-GET /api/v1/news/**         → permitAll
-/api/v1/portfolio/**        → authenticated
-/api/v1/analysis/**         → authenticated  (AI sohbet dahil)
-/api/v1/alerts|notifications|users/me/**  → authenticated
-anyRequest()                → authenticated</pre>
+  <table>
+    <tr><th>Yol (path)</th><th>Kural</th></tr>
+    <tr><td><code>/api/v1/admin/**</code></td><td><code>hasRole("ADMIN")</code></td></tr>
+    <tr><td>GET <code>/market · /news · /funds · /exchange-rates · /bonds · /inflation · /deposit-rates · /viop · /technical-analysis</code></td><td><code>permitAll</code> (kamuya açık okuma)</td></tr>
+    <tr><td>POST <code>/api/v1/news/*/fetch-content</code></td><td><code>permitAll</code></td></tr>
+    <tr><td><code>/portfolio · /alerts · /notifications · /users/me · /analysis/**</code></td><td><code>authenticated</code> (AI sohbet dahil)</td></tr>
+    <tr><td><code>anyRequest()</code></td><td><code>authenticated</code></td></tr>
+  </table>
   <p>JWT'deki <code>realm_access.roles</code> claim'i özel bir <code>JwtAuthenticationConverter</code> ile Spring rollerine (<code>ROLE_user</code>, <code>ROLE_admin</code>) çevrilir.</p>
   <h3>5.4 CORS / CSRF / Loglama güvenliği</h3>
   <ul>
@@ -447,7 +531,41 @@ anyRequest()                → authenticated</pre>
 <!-- 10 -->
 <section>
   <h2 id="s10"><span class="n">10</span>Veri Modeli</h2>
-  <p><strong>26 Flyway göçü (V1–V26).</strong> Başlıca tablolar:</p>
+  <p><strong>27 Flyway göçü (V1–V27).</strong> Şema alan bazlı tablolardan oluşur; kullanıcıya ait tablolar <code>user_id</code> (Keycloak sub) ile, kota/pozisyon tabloları katalog tablolarına (<code>instrument_id</code> / <code>isin</code>) bağlanır.</p>
+  <div class="dg" id="sekil-11">
+    <div class="dgrid">
+      <div class="dg-wrap" style="flex:1 1 47%; background:#eff6ff; border-color:#bfdbfe;">
+        <div class="lbl" style="color:#1d4ed8;">📈 Piyasa (katalog)</div>
+        <div class="dg-box"><div class="t">market_instruments</div><div class="s">1—N → market_quotes · market_candles · historical_prices (instrument_id)</div></div>
+      </div>
+      <div class="dg-wrap" style="flex:1 1 47%; background:#f0fdf4; border-color:#bbf7d0;">
+        <div class="lbl" style="color:#15803d;">💼 Portföy &amp; İşlem (user_id)</div>
+        <div class="dg-box"><div class="t">portfolio_positions</div></div>
+        <div class="dg-box"><div class="t">bond_positions → bond_transactions</div></div>
+        <div class="dg-box"><div class="t">viop_positions → viop_transactions</div></div>
+      </div>
+      <div class="dg-wrap" style="flex:1 1 47%; background:#fffbeb; border-color:#fde68a;">
+        <div class="lbl" style="color:#b45309;">🏦 Tahvil / VİOP katalog</div>
+        <div class="dg-box"><div class="t">debt_instruments</div><div class="s">1—N → debt_instrument_quotes (getiri geçmişi)</div></div>
+        <div class="dg-box"><div class="t">viop_contracts</div></div>
+      </div>
+      <div class="dg-wrap" style="flex:1 1 47%; background:#ecfeff; border-color:#a5f3fc;">
+        <div class="lbl" style="color:#0e7490;">📊 Makro &amp; Fon</div>
+        <div class="dg-box"><div class="t">inflation_data_points · deposit_rate_points · exchange_rates · investment_funds</div></div>
+      </div>
+      <div class="dg-wrap" style="flex:1 1 47%; background:#f5f3ff; border-color:#ddd6fe;">
+        <div class="lbl" style="color:#6d28d9;">📰 Haber</div>
+        <div class="dg-box"><div class="t">news_feeds</div><div class="s">→ news_articles (kaynak dili + çeviri cache)</div></div>
+      </div>
+      <div class="dg-wrap" style="flex:1 1 47%; background:#fff1f2; border-color:#fecdd3;">
+        <div class="lbl" style="color:#be123c;">👤 Kullanıcı (user_id)</div>
+        <div class="dg-box"><div class="t">watchlists → watchlist_items</div></div>
+        <div class="dg-box"><div class="t">price_alerts · notifications · user_preferences</div></div>
+      </div>
+    </div>
+    <div class="figlabel">Şekil 11 — Veri modeli: alan bazlı tablolar ve ilişkiler (1—N: bir katalog satırı çok kota/işlem satırına)</div>
+  </div>
+  <p>Başlıca tablolar:</p>
   <table>
     <tr><th>Tablo</th><th>Açıklama</th></tr>
     <tr><td><code>market_instruments</code></td><td>Sembol kataloğu (sağlayıcı sembolü + görünen ad, gecikme bayrağı)</td></tr>
@@ -474,6 +592,28 @@ anyRequest()                → authenticated</pre>
 <section>
   <h2 id="s11"><span class="n">11</span>API Tasarımı</h2>
   <p><strong>19 controller</strong>, tümü <code>/api/v1/...</code> önekiyle: Admin, Analysis, Bond, BondTrade, DepositRate, ExchangeRate, Inflation, InvestmentFund, Market, News, Notification, Portfolio, PriceAlert, TechnicalAnalysis, UserPreferences, UserProfile, Viop, ViopTrade, Watchlist.</p>
+
+  <h3>11.1 Önemli uçlar</h3>
+  <table>
+    <tr><th>Yöntem &amp; Uç</th><th>Açıklama</th><th>Erişim</th></tr>
+    <tr><td><code>GET /market/summary</code></td><td>Çok varlıklı anlık özet (cache'li)</td><td>public</td></tr>
+    <tr><td><code>GET /market/history</code> · <code>/candles</code></td><td>Geçmiş seri / OHLC mum (<code>?symbol&amp;period</code>)</td><td>public</td></tr>
+    <tr><td><code>GET /portfolio/positions</code></td><td>Kullanıcı pozisyonları</td><td>auth</td></tr>
+    <tr><td><code>POST /portfolio/positions</code> · <code>/positions/sell</code></td><td>Al (maliyet ort.) / sat</td><td>auth</td></tr>
+    <tr><td><code>GET /portfolio/summary</code> · <code>/performance</code> · <code>/allocation</code></td><td>Özet, performans, dağılım</td><td>auth</td></tr>
+    <tr><td><code>GET /bonds</code> · <code>/bonds/{id}/history</code></td><td>Tahvil/bono listesi + getiri geçmişi</td><td>public</td></tr>
+    <tr><td><code>POST /portfolio/bonds/buy</code> · <code>/sell</code></td><td>Tahvil al/sat <em>(simülasyon)</em></td><td>auth</td></tr>
+    <tr><td><code>GET /viop?category</code></td><td>Vadeli işlem kontratları</td><td>public</td></tr>
+    <tr><td><code>POST /portfolio/viop/positions/open</code> · <code>/close</code></td><td>Long/short aç-kapat <em>(simülasyon)</em></td><td>auth</td></tr>
+    <tr><td><code>GET /inflation</code> · <code>/deposit-rates</code> · <code>/exchange-rates</code> · <code>/investment-funds</code></td><td>Makro & fon verileri</td><td>public</td></tr>
+    <tr><td><code>GET /news</code> · <code>POST /news/{id}/fetch-content</code></td><td>Haberler (<code>?category&amp;lang</code>) + tam içerik</td><td>public</td></tr>
+    <tr><td><code>GET /analysis/instruments</code> · <code>POST /analysis/chat</code></td><td>Çapraz-varlık analiz + AI danışman</td><td>auth</td></tr>
+    <tr><td><code>POST/GET/DELETE /alerts</code></td><td>Fiyat alarmı CRUD + test</td><td>auth</td></tr>
+    <tr><td><code>/watchlists</code> (CRUD + <code>/items</code>)</td><td>Takip listeleri</td><td>auth</td></tr>
+    <tr><td><code>GET /notifications</code> · <code>/unread-count</code> · <code>/mark-all-read</code></td><td>Bildirim merkezi</td><td>auth</td></tr>
+    <tr><td><code>PATCH /users/me</code> · <code>/users/me/notification-prefs</code></td><td>Profil + bildirim tercihleri</td><td>auth</td></tr>
+    <tr><td><code>/admin/**</code></td><td>RSS feed / piyasa-fon-haber sıfırla-yenile / Keycloak kullanıcı yönetimi</td><td>ADMIN</td></tr>
+  </table>
   <ul>
     <li><strong>OpenAPI/Swagger:</strong> SpringDoc 2.7 — <code>/swagger-ui/index.html</code>, <code>/v3/api-docs</code>.</li>
     <li><strong>Doğrulama:</strong> Bean Validation (<code>@NotNull</code>, <code>@DecimalMin</code> vb.); hatalar global handler'da standart formatta döner.</li>
@@ -542,13 +682,12 @@ anyRequest()                → authenticated</pre>
     <tr><td>Frontend</td><td><code>http://localhost</code></td></tr>
     <tr><td>Backend API / Swagger</td><td><code>http://localhost:8080/swagger-ui/</code></td></tr>
     <tr><td>Keycloak admin</td><td><code>http://localhost:8090/admin</code></td></tr>
-    <tr><td>Grafana</td><td><code>http://localhost:3001</code></td></tr>
+    <tr><td>Grafana</td><td><code>http://localhost:3100</code></td></tr>
     <tr><td>Jaeger</td><td><code>http://localhost:16686</code></td></tr>
     <tr><td>OpenSearch Dashboards</td><td><code>http://localhost:5601</code></td></tr>
     <tr><td>Mailpit</td><td><code>http://localhost:8025</code></td></tr>
   </table>
   <p class="small muted">Frontend dev: <code>cd frontend &amp;&amp; npm install &amp;&amp; npm run dev</code> · Backend dev: <code>cd backend &amp;&amp; ./mvnw spring-boot:run</code> · Test: <code>./mvnw test</code></p>
-  <p class="center muted" style="margin-top:22px;">— Belge sonu —</p>
 </section>
 
 </body>
