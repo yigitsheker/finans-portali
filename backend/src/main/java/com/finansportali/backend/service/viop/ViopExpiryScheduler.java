@@ -1,5 +1,6 @@
 package com.finansportali.backend.service.viop;
 
+import net.javacrumbs.shedlock.spring.annotation.SchedulerLock;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.scheduling.annotation.Scheduled;
@@ -22,6 +23,7 @@ public class ViopExpiryScheduler {
 
     /** Daily at 00:05 (configurable). */
     @Scheduled(cron = "${app.viop.expiry-cron:0 5 0 * * ?}")
+    @SchedulerLock(name = "viopExpiry", lockAtMostFor = "PT20M", lockAtLeastFor = "PT1M")
     public void run() {
         try {
             int n = positionService.expireDuePositions();
