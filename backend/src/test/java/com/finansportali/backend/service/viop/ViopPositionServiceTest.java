@@ -121,6 +121,7 @@ class ViopPositionServiceTest {
         when(contractRepo.findBySymbol(SYMBOL)).thenReturn(Optional.of(liveContract()));
         when(positionRepo.findByUserIdAndContractSymbol(USER, SYMBOL)).thenReturn(Optional.of(pos));
         when(positionRepo.save(any(ViopPosition.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(txnRepo.save(any(ViopTransaction.class))).thenAnswer(inv -> inv.getArgument(0));
 
         service.close(USER, SYMBOL, bd("2"), bd("12500"));
 
