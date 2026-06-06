@@ -252,6 +252,7 @@ const WatchlistManager = ({ keycloak }) => {
       {selectedWatchlist ? (
         filteredInstruments.length > 0 ? (
           <FinexStyleMarket
+            keycloak={keycloak}
             instruments={filteredInstruments}
             onAddToWatchlist={handleAddToWatchlist}
             onRemoveFromWatchlist={handleRemoveFromWatchlist}

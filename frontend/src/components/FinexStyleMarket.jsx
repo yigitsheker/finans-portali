@@ -741,7 +741,7 @@ export default function FinexStyleMarket({
                                                                     }}
                                                                     title={t("market.removeFromList")}
                                                                 >
-                                                                    ★
+                                                                    ✕
                                                                 </button>
                                                             ) : (
                                                                 <button
@@ -836,7 +836,7 @@ export default function FinexStyleMarket({
                                                             }}
                                                             title={t("market.removeFromList")}
                                                         >
-                                                            ★
+                                                            ✕
                                                         </button>
                                                     ) : (
                                                         <button
