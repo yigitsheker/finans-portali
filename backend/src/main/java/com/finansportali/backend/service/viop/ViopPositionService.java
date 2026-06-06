@@ -19,6 +19,7 @@ import java.math.RoundingMode;
 import java.time.Instant;
 import java.time.LocalDate;
 import java.time.YearMonth;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -32,6 +33,10 @@ import java.util.List;
 public class ViopPositionService {
 
     private static final Logger log = LoggerFactory.getLogger(ViopPositionService.class);
+
+    // BIST contracts trade in Istanbul time; using the server's default zone
+    // (UTC on GKE) would shift the "today" boundary for maturity/expiry by hours.
+    private static final ZoneId IST = ZoneId.of("Europe/Istanbul");
 
     private final ViopPositionRepository positionRepo;
     private final ViopTransactionRepository txnRepo;
@@ -62,7 +67,11 @@ public class ViopPositionService {
         ViopContract contract = contractRepo.findBySymbol(contractSymbol)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Kontrat bulunamadı"));
         LocalDate maturity = maturityDate(contract);
-        if (maturity != null && !maturity.isAfter(LocalDate.now())) {
+        if (maturity == null) {
+            // No maturity → the position could never be expired by the scheduler.
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Kontrat vadesi belirsiz; işlem yapılamaz");
+        }
+        if (!maturity.isAfter(LocalDate.now(IST))) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Vadesi geçmiş kontratta yeni pozisyon açılamaz");
         }
         if (qtyRequested == null || qtyRequested.signum() <= 0) {
@@ -197,14 +206,21 @@ public class ViopPositionService {
     // ── Expiry job ──────────────────────────────────────────────────────────
     @Transactional
     public int expireDuePositions() {
-        LocalDate today = LocalDate.now();
+        LocalDate today = LocalDate.now(IST);
         List<ViopPosition> due = positionRepo.findByStatusAndMaturityDateLessThanEqual(
                 ViopPositionStatus.OPEN, today);
         Instant now = Instant.now();
         for (ViopPosition pos : due) {
             ViopContract c = contractRepo.findBySymbol(pos.getContractSymbol()).orElse(null);
             BigDecimal price = resolvePriceOrNull(c);
-            if (price == null) price = pos.getEntryPrice();
+            if (price == null) {
+                // No settlement price available (the scrape typically stops once a
+                // contract is no longer active) → fall back to entry, i.e. flat P&L.
+                // Surface it instead of silently settling at break-even.
+                price = pos.getEntryPrice();
+                log.warn("[VIOP-EXPIRY] {} (user {}) — no settlement price; settling at entry (P&L=0)",
+                        pos.getContractSymbol(), pos.getUserId());
+            }
             BigDecimal realized = calc.realizedPnl(pos.getDirection(), pos.getEntryPrice(), price,
                     pos.getContractSize(), pos.getQuantity());
             record(pos.getUserId(), pos.getContractSymbol(), ViopTransactionType.EXPIRE,

@@ -128,6 +128,22 @@ class ViopPositionServiceTest {
     }
 
     @Test
+    void open_throws_badRequest_when_maturity_unknown() {
+        ViopContract c = liveContract();
+        c.setMaturityYear(null);
+        c.setMaturityMonth(null);
+        when(contractRepo.findBySymbol(SYMBOL)).thenReturn(Optional.of(c));
+
+        assertThatThrownBy(() -> service.open(USER, SYMBOL, ViopDirection.LONG, bd("1"), null))
+                .isInstanceOf(ResponseStatusException.class)
+                .satisfies(ex -> {
+                    ResponseStatusException rse = (ResponseStatusException) ex;
+                    assertThat(rse.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(rse.getReason()).isEqualTo("Kontrat vadesi belirsiz; işlem yapılamaz");
+                });
+    }
+
+    @Test
     void open_throws_badRequest_when_contract_matured() {
         ViopContract c = liveContract();
         YearMonth past = YearMonth.now().minusMonths(1);
