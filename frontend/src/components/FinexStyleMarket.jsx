@@ -120,7 +120,8 @@ export default function FinexStyleMarket({
     instruments: externalInstruments,
     onAddToWatchlist,
     onRemoveFromWatchlist,
-    watchlistSymbols = []
+    watchlistSymbols = [],
+    embedded = false
 }) {
     const { format: formatPrice, convert: convertPrice } = usePriceDisplay();
     const { t } = useI18n();
@@ -511,6 +512,9 @@ export default function FinexStyleMarket({
             {/* Header Section with Title and Index Cards */}
             <div style={s.headerSection}>
                 <div style={s.titleRow}>
+                    {/* Hide the page title/subtitle when embedded (e.g. inside the
+                        Watchlists page, which already has its own "Listelerim" heading). */}
+                    {!embedded && (
                     <div style={s.titleArea}>
                         <h1 style={s.pageTitle}>
                             {pageTitleText}
@@ -521,6 +525,7 @@ export default function FinexStyleMarket({
                         </h1>
                         <p style={s.pageSubtitle}>{pageSubtitleText}</p>
                     </div>
+                    )}
 
                     {/* User Controls */}
                     <div style={s.userControls}>
@@ -1042,6 +1047,7 @@ FinexStyleMarket.propTypes = {
     onAddToWatchlist: PropTypes.func,
     onRemoveFromWatchlist: PropTypes.func,
     watchlistSymbols: PropTypes.array,
+    embedded: PropTypes.bool,
 };
 
 const s = {
