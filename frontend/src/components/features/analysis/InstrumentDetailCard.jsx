@@ -2,6 +2,29 @@ import PropTypes from "prop-types";
 import { useI18n } from "../../../contexts/I18nContext";
 
 /**
+ * Map an analysis summary (value/changeDaily/category) onto the shape
+ * InstrumentChartModal expects ({ last, changePct, changeAbs, type, currency })
+ * so its price header renders instead of showing "$—". The daily absolute
+ * change is derived from the current value and the daily % (value − prevClose,
+ * where prevClose = value / (1 + pct/100)).
+ */
+function toChartInstrument(sum) {
+    const last = sum?.value != null ? Number(sum.value) : null;
+    const pct = sum?.changeDaily != null ? Number(sum.changeDaily) : null;
+    const changeAbs = last != null && pct != null ? last - last / (1 + pct / 100) : null;
+    // Spread the original summary so downstream modals (Compare, AddPosition —
+    // which reads `value`) keep their fields; add the market-shaped aliases the
+    // chart modal's header needs (last / changePct / changeAbs / type).
+    return {
+        ...sum,
+        type: sum?.category,
+        last,
+        changePct: pct,
+        changeAbs,
+    };
+}
+
+/**
  * Compact analysis-detail card shown when a row in InstrumentsTable is
  * clicked. Keeps everything in one column to fit the right-of-table layout;
  * the parent collapses it on mobile and swaps to a stacked layout below
@@ -87,7 +110,7 @@ export default function InstrumentDetailCard({ detail, loading, error, onShowCha
             {onShowChart && sum?.symbol && (
                 <button
                     type="button"
-                    onClick={() => onShowChart(sum)}
+                    onClick={() => onShowChart(toChartInstrument(sum))}
                     style={s.chartBtn}
                 >
                     {t("analysis.detailShowChart")}
