@@ -89,7 +89,10 @@ public class DebtInstrumentService {
             dto.setCleanPrice(latestQuote.getCleanPrice());
             dto.setDirtyPrice(latestQuote.getDirtyPrice());
             dto.setVolume(latestQuote.getVolume());
-            dto.setChangeRate(latestQuote.getChangeRate());
+            // EVDS quotes carry no changeRate; derive the day-over-day move in the
+            // yield (the headline metric + chart) from the last two daily quotes.
+            dto.setChangeRate(latestQuote.getChangeRate() != null
+                    ? latestQuote.getChangeRate() : dailyYieldChange(instrument));
             dto.setLastUpdatedAt(latestQuote.getCreatedAt());
             dto.setSource(latestQuote.getSource());
         }
@@ -187,6 +190,17 @@ public class DebtInstrumentService {
             summary.setNearestMaturity(nearestMaturity);
             summary.setFarthestMaturity(farthestMaturity);
         }
+    }
+
+    /** Day-over-day change in the bond's yield (percentage points), from the two
+     *  most recent daily quotes; null when there isn't a prior quote to compare. */
+    private BigDecimal dailyYieldChange(DebtInstrument instrument) {
+        List<DebtInstrumentQuote> last2 = quoteRepo.findTop2ByInstrument(instrument);
+        if (last2.size() < 2) return null;
+        BigDecimal cur = last2.get(0).getYieldRate();
+        BigDecimal prev = last2.get(1).getYieldRate();
+        if (cur == null || prev == null) return null;
+        return cur.subtract(prev).setScale(2, RoundingMode.HALF_UP);
     }
 
     private BondListItemDto mapToListItem(DebtInstrument instrument) {

@@ -242,7 +242,9 @@ public class EvdsBondYieldFetcher {
                     dto.setCurrency("TRY");
                     dto.setMaturityDate(bond.maturity());
                     dto.setCouponRate(coupon);
-                    dto.setCouponType("FIXED");
+                    // Don't label a bond "FIXED" when its coupon series was empty
+                    // (coupon defaulted to 0) — that's effectively a zero-coupon row.
+                    dto.setCouponType(coupon != null && coupon.signum() > 0 ? "FIXED" : "ZERO_COUPON");
                     dto.setQuoteDate(d);
                     dto.setPrice(r.cleanPrice());               // clean (market) price
                     dto.setCleanPrice(r.cleanPrice());

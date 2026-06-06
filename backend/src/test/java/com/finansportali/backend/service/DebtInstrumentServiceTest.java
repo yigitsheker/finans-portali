@@ -89,6 +89,42 @@ class DebtInstrumentServiceTest {
     }
 
     @Test
+    void getBondDetail_derives_daily_yield_change_when_quote_has_none() {
+        DebtInstrument b = bond(7L, "TRT", "Bond", DebtInstrumentType.GOVERNMENT_BOND, LocalDate.now().plusYears(2));
+        when(instrumentRepo.findById(7L)).thenReturn(Optional.of(b));
+        // latest quote carries no changeRate → derive it from the last two quotes
+        when(quoteRepo.findLatestByInstrument(b))
+                .thenReturn(Optional.of(q(new BigDecimal("62"), new BigDecimal("59.01"), null)));
+        when(quoteRepo.findTop2ByInstrument(b)).thenReturn(List.of(
+                q(new BigDecimal("62"), new BigDecimal("59.01"), null),    // newest
+                q(new BigDecimal("61.8"), new BigDecimal("58.85"), null))); // previous
+
+        // 59.01 − 58.85 = 0.16 percentage points
+        assertThat(service.getBondDetail(7L).getChangeRate()).isEqualByComparingTo("0.16");
+    }
+
+    @Test
+    void getBondDetail_change_is_null_when_only_one_quote() {
+        DebtInstrument b = bond(8L, "TRT2", "Bond", DebtInstrumentType.GOVERNMENT_BOND, LocalDate.now().plusYears(2));
+        when(instrumentRepo.findById(8L)).thenReturn(Optional.of(b));
+        when(quoteRepo.findLatestByInstrument(b))
+                .thenReturn(Optional.of(q(new BigDecimal("62"), new BigDecimal("59.01"), null)));
+        when(quoteRepo.findTop2ByInstrument(b))
+                .thenReturn(List.of(q(new BigDecimal("62"), new BigDecimal("59.01"), null)));
+        assertThat(service.getBondDetail(8L).getChangeRate()).isNull();
+    }
+
+    @Test
+    void getBondDetail_keeps_quote_change_rate_when_present() {
+        DebtInstrument b = bond(9L, "TRT3", "Bond", DebtInstrumentType.GOVERNMENT_BOND, LocalDate.now().plusYears(2));
+        when(instrumentRepo.findById(9L)).thenReturn(Optional.of(b));
+        // quote already has a changeRate → no derivation (findTop2 not called)
+        when(quoteRepo.findLatestByInstrument(b))
+                .thenReturn(Optional.of(q(new BigDecimal("62"), new BigDecimal("59.01"), new BigDecimal("1.25"))));
+        assertThat(service.getBondDetail(9L).getChangeRate()).isEqualByComparingTo("1.25");
+    }
+
+    @Test
     void getBondDetail_throws_when_not_found() {
         when(instrumentRepo.findById(99L)).thenReturn(Optional.empty());
         assertThatThrownBy(() -> service.getBondDetail(99L))

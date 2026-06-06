@@ -71,6 +71,37 @@ class BondPositionServiceTest {
 
     private static BigDecimal bd(String v) { return new BigDecimal(v); }
 
+    /** Build a ledger transaction (summary reads lifetime realized P&L / coupon
+     *  income from these, not from the position rows). */
+    private static BondTransaction txn(BondTransactionType type, BigDecimal realizedPnl, BigDecimal netCoupon) {
+        BondTransaction t = new BondTransaction();
+        t.setType(type);
+        t.setRealizedPnl(realizedPnl);
+        t.setNetCoupon(netCoupon);
+        return t;
+    }
+
+    @Test
+    void redeem_books_pull_to_par_realized_pnl_for_discount_position() {
+        BondPosition pos = activePosition(bd("100000"), bd("97000.00")); // bought below par
+        pos.setRealizedPnl(BigDecimal.ZERO);
+        pos.setCouponRate(BigDecimal.ZERO);   // zero-coupon → no coupons, only redemption
+        pos.setCouponFrequency(0);
+        pos.setMaturityDate(LocalDate.now()); // matures today
+        when(positionRepo.findByStatus(BondPositionStatus.ACTIVE)).thenReturn(List.of(pos));
+
+        int events = service.processCouponsAndMaturities();
+
+        assertThat(events).isEqualTo(1);
+        assertThat(pos.getStatus()).isEqualTo(BondPositionStatus.MATURED);
+        // par 100000 − cost 97000 = 3000 realized gain (pull-to-par)
+        assertThat(pos.getRealizedPnl()).isEqualByComparingTo("3000.00");
+        ArgumentCaptor<BondTransaction> cap = ArgumentCaptor.forClass(BondTransaction.class);
+        verify(txnRepo).save(cap.capture());
+        assertThat(cap.getValue().getType()).isEqualTo(BondTransactionType.BOND_REDEMPTION);
+        assertThat(cap.getValue().getRealizedPnl()).isEqualByComparingTo("3000.00");
+    }
+
     private DebtInstrument instrument(LocalDate maturity, BigDecimal couponRate) {
         DebtInstrument inst = new DebtInstrument(SYMBOL, "2Y Bond", DebtInstrumentType.GOVERNMENT_BOND);
         inst.setId(10L);
@@ -730,6 +761,9 @@ class BondPositionServiceTest {
         pos.setRealizedPnl(bd("100.00"));
         pos.setCouponIncome(bd("50.00"));
         when(positionRepo.findByUserIdOrderByCreatedAtDesc(USER)).thenReturn(List.of(pos));
+        when(txnRepo.findByUserIdOrderByExecutedAtDesc(USER)).thenReturn(List.of(
+                txn(BondTransactionType.BOND_SELL, bd("100.00"), null),
+                txn(BondTransactionType.BOND_COUPON_PAYMENT, null, bd("50.00"))));
         lenient().when(instrumentRepo.findByIsin(ISIN)).thenReturn(Optional.of(inst));
         lenient().when(instrumentRepo.findBySymbol(ISIN)).thenReturn(Optional.of(inst));
         stubLatestQuote(inst, bd("99.00"), bd("99.20"), LocalDate.now());
@@ -753,6 +787,9 @@ class BondPositionServiceTest {
         sold.setRealizedPnl(bd("250.00"));
         sold.setCouponIncome(bd("30.00"));
         when(positionRepo.findByUserIdOrderByCreatedAtDesc(USER)).thenReturn(List.of(sold));
+        when(txnRepo.findByUserIdOrderByExecutedAtDesc(USER)).thenReturn(List.of(
+                txn(BondTransactionType.BOND_SELL, bd("250.00"), null),
+                txn(BondTransactionType.BOND_COUPON_PAYMENT, null, bd("30.00"))));
         // sold positions still routed through toView → currentPrices lookups
         lenient().when(instrumentRepo.findByIsin(ISIN)).thenReturn(Optional.empty());
         lenient().when(instrumentRepo.findBySymbol(ISIN)).thenReturn(Optional.empty());

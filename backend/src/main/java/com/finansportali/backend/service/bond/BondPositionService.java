@@ -85,6 +85,12 @@ public class BondPositionService {
             pos.setAvgCostPrice(calc.weightedAvgPrice(newCost, newNominal));
         } else {
             if (pos == null) pos = new BondPosition();
+            // Reactivating a previously SOLD/MATURED row begins a NEW holding
+            // cycle: reset the closed cycle's realized P&L and coupon income so
+            // they don't carry into the new position. (Lifetime totals for the
+            // summary come from the transaction ledger, not the row.)
+            pos.setRealizedPnl(BigDecimal.ZERO);
+            pos.setCouponIncome(BigDecimal.ZERO);
             pos.setUserId(userId);
             pos.setIsin(inst.getIsin());
             pos.setSymbol(inst.getSymbol());
@@ -212,11 +218,18 @@ public class BondPositionService {
 
     private void redeem(BondPosition pos, LocalDate today) {
         BigDecimal redemption = pos.getRemainingNominal();
+        // Pull-to-par: principal is redeemed at par (100), so the difference vs the
+        // remaining cost basis is a realized gain/loss. Without this a discount
+        // bond / zero-coupon T-bill bought below par would show ZERO profit at
+        // maturity. Booked the same way sell() books proceeds − proportional cost.
+        BigDecimal gain = redemption.subtract(pos.getTotalCost()).setScale(2, RoundingMode.HALF_UP);
         BondTransaction t = newTxn(pos.getUserId(), pos.getIsin(),
                 BondTransactionType.BOND_REDEMPTION, redemption, Instant.now());
         t.setGrossAmount(redemption);
+        t.setRealizedPnl(gain);
         t.setNote("İtfa (anapara) " + today);
         txnRepo.save(t);
+        pos.setRealizedPnl(pos.getRealizedPnl().add(gain));
         pos.setRemainingNominal(BigDecimal.ZERO);
         pos.setTotalCost(BigDecimal.ZERO);
         pos.setStatus(BondPositionStatus.MATURED);
@@ -235,12 +248,9 @@ public class BondPositionService {
         List<BondPosition> all = positionRepo.findByUserIdOrderByCreatedAtDesc(userId);
         LocalDate today = LocalDate.now();
         BigDecimal totalNominal = BigDecimal.ZERO, marketValue = BigDecimal.ZERO,
-                expectedCoupons = BigDecimal.ZERO, realizedCoupon = BigDecimal.ZERO,
-                unrealized = BigDecimal.ZERO, realized = BigDecimal.ZERO;
+                expectedCoupons = BigDecimal.ZERO, unrealized = BigDecimal.ZERO;
         int count = 0, upcoming = 0;
         for (BondPosition pos : all) {
-            realized = realized.add(pos.getRealizedPnl());
-            realizedCoupon = realizedCoupon.add(pos.getCouponIncome());
             if (pos.getStatus() == BondPositionStatus.ACTIVE) {
                 count++;
                 totalNominal = totalNominal.add(pos.getRemainingNominal());
@@ -256,6 +266,19 @@ public class BondPositionService {
                         && !pos.getMaturityDate().isAfter(today.plusDays(30))) {
                     upcoming++;
                 }
+            }
+        }
+        // Lifetime realized P&L + coupon income from the transaction ledger, so
+        // they survive a position-row reset when an ISIN is re-bought (reactivation).
+        BigDecimal realized = BigDecimal.ZERO, realizedCoupon = BigDecimal.ZERO;
+        for (BondTransaction t : txnRepo.findByUserIdOrderByExecutedAtDesc(userId)) {
+            if (t.getRealizedPnl() != null
+                    && (t.getType() == BondTransactionType.BOND_SELL
+                        || t.getType() == BondTransactionType.BOND_REDEMPTION)) {
+                realized = realized.add(t.getRealizedPnl());
+            }
+            if (t.getNetCoupon() != null && t.getType() == BondTransactionType.BOND_COUPON_PAYMENT) {
+                realizedCoupon = realizedCoupon.add(t.getNetCoupon());
             }
         }
         return new BondPortfolioSummary(count,

@@ -22,6 +22,11 @@ public interface DebtInstrumentQuoteRepository extends JpaRepository<DebtInstrum
            "ORDER BY q.quoteDate DESC, q.createdAt DESC LIMIT 1")
     Optional<DebtInstrumentQuote> findLatestByInstrument(@Param("instrument") DebtInstrument instrument);
 
+    /** Latest two quotes (newest first) — used to derive day-over-day change. */
+    @Query("SELECT q FROM DebtInstrumentQuote q WHERE q.instrument = :instrument " +
+           "ORDER BY q.quoteDate DESC, q.createdAt DESC LIMIT 2")
+    List<DebtInstrumentQuote> findTop2ByInstrument(@Param("instrument") DebtInstrument instrument);
+
     @Query("SELECT q FROM DebtInstrumentQuote q WHERE q.instrument = :instrument " +
            "AND q.quoteDate BETWEEN :from AND :to ORDER BY q.quoteDate ASC")
     List<DebtInstrumentQuote> findHistoricalQuotes(
