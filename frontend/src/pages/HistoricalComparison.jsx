@@ -103,6 +103,32 @@ export default function HistoricalComparison({ keycloak }) {
     localStorage.setItem("historicalPositions", JSON.stringify(positions));
   }, [positions, loaded]);
 
+  // When a known symbol + a past buy date are chosen in the add modal, pre-fill
+  // "Alınan Tutar" with the market price at that date (per lot). The user can
+  // then edit it. Debounced + symbol-gated so typing doesn't fire per keystroke.
+  useEffect(() => {
+    if (!addOpen) return;
+    const sym = addSymbol.trim().toUpperCase();
+    if (!sym || !addDate || !validSymbols.has(sym)) return;
+    const sel = new Date(addDate);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (!(sel < today)) return;
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      try {
+        const p = await fetchBuyPriceAt(sym, addDate);
+        if (!cancelled && p != null && p > 0) {
+          setAddPrice(String(p));
+          setAddPriceMode("perLot");
+        }
+      } catch { /* leave the field as-is if the price can't be fetched */ }
+    }, 500);
+    return () => { cancelled = true; clearTimeout(handle); };
+    // fetchBuyPriceAt is a stable component function; deps intentionally limited.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [addOpen, addSymbol, addDate, validSymbols]);
+
   const suggestions = useMemo(() => {
     if (!addSymbol.trim()) return instruments.slice(0, 8);
     const q = addSymbol.trim().toUpperCase();
@@ -141,11 +167,32 @@ export default function HistoricalComparison({ keycloak }) {
     return mode === "total" ? v / Number(lots) : v;
   }
 
-  async function buildHistoricalPosition(sym, dateISO, lots, priceOverride) {
+  // Closing price for `sym` nearest to `dateISO`, picking the right history
+  // window from how far back the date is. Returns null when no history covers
+  // it. Shared by buildHistoricalPosition and the buy-price auto-fill effect.
+  async function fetchBuyPriceAt(sym, dateISO) {
     const selectedDate = new Date(dateISO);
     const today = new Date();
     today.setHours(0, 0, 0, 0);
+    const daysDiff = Math.floor((today.getTime() - selectedDate.getTime()) / (1000 * 60 * 60 * 24));
+    let period = "30D";
+    if (daysDiff > 365) period = "5Y";
+    else if (daysDiff > 180) period = "1Y";
+    else if (daysDiff > 90) period = "6M";
+    else if (daysDiff > 30) period = "3M";
+    const historyData = await getMarketHistory(sym, period);
+    if (!historyData || historyData.length === 0) return null;
+    const targetTime = selectedDate.getTime();
+    let closestPoint = historyData[0];
+    let minDiff = Math.abs(new Date(historyData[0].day).getTime() - targetTime);
+    for (const point of historyData) {
+      const diff = Math.abs(new Date(point.day).getTime() - targetTime);
+      if (diff < minDiff) { minDiff = diff; closestPoint = point; }
+    }
+    return closestPoint.close;
+  }
 
+  async function buildHistoricalPosition(sym, dateISO, lots, priceOverride) {
     const currentPrice = await getLatestPrice(sym, keycloak);
     // No live quote (endpoint returned 0) → bail rather than persist a bogus
     // -100% row. Import counts it skipped; edit shows an error (keeps old row).
@@ -157,24 +204,8 @@ export default function HistoricalComparison({ keycloak }) {
       // so even a symbol without price history can be tracked at a manual cost.
       buyPrice = priceOverride;
     } else {
-      const daysDiff = Math.floor((today.getTime() - selectedDate.getTime()) / (1000 * 60 * 60 * 24));
-      let period = "30D";
-      if (daysDiff > 365) period = "5Y";
-      else if (daysDiff > 180) period = "1Y";
-      else if (daysDiff > 90) period = "6M";
-      else if (daysDiff > 30) period = "3M";
-
-      const historyData = await getMarketHistory(sym, period);
-      if (!historyData || historyData.length === 0) return null;
-
-      const targetTime = selectedDate.getTime();
-      let closestPoint = historyData[0];
-      let minDiff = Math.abs(new Date(historyData[0].day).getTime() - targetTime);
-      for (const point of historyData) {
-        const diff = Math.abs(new Date(point.day).getTime() - targetTime);
-        if (diff < minDiff) { minDiff = diff; closestPoint = point; }
-      }
-      buyPrice = closestPoint.close;
+      buyPrice = await fetchBuyPriceAt(sym, dateISO);
+      if (buyPrice == null) return null;
     }
     const instrument = instruments.find((i) => i.symbol === sym);
     const currency = getCurrency(sym);
