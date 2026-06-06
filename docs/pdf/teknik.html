@@ -298,9 +298,9 @@ libretranslate · playwright-service · mailpit · openldap (+ phpLdapAdmin)</pr
 
   <h3>4.2 Tahvil getiri verisi ve geçmiş (EVDS3, YTM)</h3>
   <p><code>EvdsBondYieldFetcher</code>, TCMB EVDS3'ten devlet tahvili fiyat + kupon serilerini çeker ve <strong>nakit akışlarını iskontolayarak vadeye kadar getiriyi (YTM)</strong> hesaplar (yarı yıllık kupon takvimi yeniden kurulur, birikmiş faiz ayrıştırılarak temiz fiyat bulunur, bisection ile yıllık oran çözülür).</p>
-  <div class="callout ok">
-    <h4>Getiri geçmişi backfill'i (yenilik)</h4>
-    <p>Önceden yalnızca en güncel gün saklanıyordu; getiri grafiği düz görünüyordu. Artık EVDS3'ten <strong>yapılandırılabilir bir günlük pencere</strong> (<code>app.bonds.tcmb.history-days</code>, varsayılan 120 gün) çekilip <strong>her işlem günü için bir YTM</strong> hesaplanıp saklanır. Yenileme servisi kayıtları ISIN'e göre gruplar, enstrümanı bir kez upsert eder ve tarih-aralığı tek sorguyla ön-getirilerek (N+1 önlenir) günlük kotalar yazılır. Yenileme <strong>2 saatte bir + açılışta</strong> çalışır.</p>
+  <div class="callout">
+    <h4>Getiri geçmişi (YTM zaman serisi)</h4>
+    <p>EVDS3'ten <strong>yapılandırılabilir bir günlük pencere</strong> (<code>app.bonds.tcmb.history-days</code>, varsayılan 120 gün) çekilir ve <strong>her işlem günü için bir YTM</strong> hesaplanıp saklanır; böylece her enstrümanın getiri grafiği zaman içindeki seyri gösterir. Yenileme servisi kayıtları ISIN'e göre gruplar, enstrümanı bir kez upsert eder ve tarih aralığını tek sorguyla ön-getirir (N+1 önlenir), ardından günlük kotaları yazar. Yenileme <strong>2 saatte bir + açılışta</strong> çalışır.</p>
   </div>
   <p>Mevduat faizleri <code>TcmbDepositRateFetcher</code> ile ayrıca çekilir. Sağlayıcı soyutlaması <code>BondDataProvider</code> (TCMB birincil, Demo yedek) ile yapılır.</p>
 
@@ -378,8 +378,8 @@ anyRequest()                → authenticated</pre>
   <p><code>acks=0</code> (fire-and-forget), <code>linger.ms=1000</code> (batch), <code>max.block.ms=0</code> (broker yoksa anında düşür) — log yolu hiçbir zaman istek yolunu bloke etmez.</p>
   <h3>6.4 nginx dinamik upstream</h3>
   <div class="callout">
-    <h4>Dayanıklılık iyileştirmesi</h4>
-    <p>nginx, backend host'unu Docker DNS ile <strong>her istekte yeniden çözer</strong> (<code>resolver 127.0.0.11</code> + değişkenli <code>proxy_pass</code>). Böylece backend konteyneri yeniden başlatılıp IP değiştiğinde frontend'i yeniden başlatmaya gerek kalmadan ~30 sn içinde otomatik toparlanır (eskiden stale IP nedeniyle 502 oluşuyordu).</p>
+    <h4>Dinamik upstream çözümleme</h4>
+    <p>nginx, backend host'unu Docker DNS ile <strong>her istekte yeniden çözer</strong> (<code>resolver 127.0.0.11</code> + değişkenli <code>proxy_pass</code>). Böylece backend konteyneri yeniden başlatılıp IP değiştiğinde frontend'i yeniden başlatmaya gerek kalmadan ~30 sn içinde otomatik toparlanır; stale IP kaynaklı 502 hataları önlenir.</p>
   </div>
   <h3>6.5 Frontend</h3>
   <p>Hash'li statik varlıklar 1 yıl cache'lenir; <code>index.html</code> asla cache'lenmez (yeni deploy'da eski bundle'a takılma olmaz). Uzun listelerde sanal kaydırma (react-window) kullanılır.</p>
