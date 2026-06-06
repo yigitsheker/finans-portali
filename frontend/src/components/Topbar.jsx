@@ -35,6 +35,7 @@ const PRIVATE_NAV = [
   { to: "/analysis",   key: "nav.analysis" },
   { to: "/portfolio",  key: "nav.portfolio" },
   { to: "/historical", key: "nav.historical" },
+  { to: "/lists",      key: "nav.lists" },
   { to: "/settings",   key: "nav.settings" },
 ];
 
