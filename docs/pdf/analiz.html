@@ -96,21 +96,20 @@ table.k th { background: #134e4a; }
 figure.shot { margin: 12px 0 16px; page-break-inside: avoid; }
 figure.shot img { width: 100%; border: 1px solid #cbd5e1; border-radius: 9px; display: block; }
 figure.shot figcaption { font-size: 9pt; color: #64748b; margin-top: 6px; text-align: center; }
+.figlabel { font-size: 9pt; color: #64748b; text-align: center; margin-top: 7px; }
+.figlist { font-size: 10.5pt; line-height: 1.75; padding-left: 0; list-style: none; }
+.figlist li { margin: 2px 0; }
+.figlist a { color: #1f2937; text-decoration: none; }
 </style>
 </head>
 <body>
 
 <!-- ════════════════ COVER ════════════════ -->
 <div class="cover">
-  <div class="kick">İş &amp; Ürün Analizi</div>
   <h1>Finans Portalı</h1>
   <div class="rule"></div>
-  <div class="meta">
-    <b>Belge:</b> Ürün ve İş Analizi Dokümanı &nbsp;·&nbsp; <b>Sürüm:</b> 2.0<br>
-    <b>Hedef okuyucu:</b> İş ortakları, yatırımcılar ve karar vericiler<br>
-    <b>Kapsam:</b> Ürünün sunduğu değer, yetenekler ve kullanım senaryoları
-  </div>
-  <div class="foot">Bu belge ürünü iş ve kullanıcı değeri açısından anlatır; teknik mimari ayrı "Teknik Analiz Dokümanı"nda ele alınmıştır.</div>
+  <div class="sub">Proje Analiz Dökümanı</div>
+  <div class="meta">Yiğit Şeker</div>
 </div>
 
 <!-- ════════════════ İÇİNDEKİLER ════════════════ -->
@@ -131,7 +130,37 @@ figure.shot figcaption { font-size: 9pt; color: #64748b; margin-top: 6px; text-a
       <li><a href="#s11">Genişleme Fırsatları (Yol Haritası)</a></li>
       <li><a href="#s12">Kapsam Sınırları</a></li>
     </ol>
+    <p style="margin-top:10px;"><a href="#figlist">Şekil ve Görsel Listesi</a></p>
   </div>
+</section>
+
+
+<!-- ŞEKİL & GÖRSEL LİSTESİ -->
+<section id="figlist">
+  <h2><span class="n">·</span>Şekil ve Görsel Listesi</h2>
+  <h3>Şekiller</h3>
+  <ol class="figlist">
+    <li><a href="#sekil-1">Şekil 1 — Değer akışı: Güvenilir kaynaklar → Finans Portalı → Kullanıcı</a></li>
+  </ol>
+  <h3>Görseller</h3>
+  <ol class="figlist">
+    <li><a href="#gorsel-1">Görsel 1 — Anasayfa</a></li>
+    <li><a href="#gorsel-2">Görsel 2 — Hisse / Kripto / Emtia</a></li>
+    <li><a href="#gorsel-3">Görsel 3 — Hızlı fiyat grafiği (modal)</a></li>
+    <li><a href="#gorsel-4">Görsel 4 — Detaylı grafik</a></li>
+    <li><a href="#gorsel-5">Görsel 5 — Emtia</a></li>
+    <li><a href="#gorsel-6">Görsel 6 — Yatırım Fonları</a></li>
+    <li><a href="#gorsel-7">Görsel 7 — Tahvil &amp; Bono</a></li>
+    <li><a href="#gorsel-8">Görsel 8 — Döviz</a></li>
+    <li><a href="#gorsel-9">Görsel 9 — VİOP</a></li>
+    <li><a href="#gorsel-10">Görsel 10 — Enflasyon</a></li>
+    <li><a href="#gorsel-11">Görsel 11 — Haberler</a></li>
+    <li><a href="#gorsel-12">Görsel 12 — Analiz</a></li>
+    <li><a href="#gorsel-13">Görsel 13 — Portföyüm</a></li>
+    <li><a href="#gorsel-14">Görsel 14 — Geçmişten</a></li>
+    <li><a href="#gorsel-15">Görsel 15 — Listelerim</a></li>
+    <li><a href="#gorsel-16">Görsel 16 — Ayarlar</a></li>
+  </ol>
 </section>
 
 <!-- 1 -->
@@ -186,13 +215,14 @@ figure.shot figcaption { font-size: 9pt; color: #64748b; margin-top: 6px; text-a
 <section>
   <h2 id="s4"><span class="n">4</span>Ürüne Genel Bakış</h2>
   <p>Finans Portalı, sade ve modern bir arayüzle aşağıdaki yetenekleri tek çatı altında toplar:</p>
-  <div class="dg"><div class="dg-row">
+  <div class="dg" id="sekil-1"><div class="dg-row">
     <div class="dg-box c-cyan"><div class="t">📡 Güvenilir Kaynaklar</div><div class="s">TCMB · Borsa · TEFAS · Yahoo · global haberler</div></div>
     <div class="dg-arrow">→</div>
     <div class="dg-box c-teal"><div class="t">⚙️ Finans Portalı</div><div class="s">Topla · Normalize et · Analiz et · Görselleştir</div></div>
     <div class="dg-arrow">→</div>
     <div class="dg-box c-green"><div class="t">🧑 Sen</div><div class="s">Tek ekranda bilinçli, hızlı ve güvenli karar</div></div>
-  </div></div>
+  </div>
+  <div class="figlabel">Şekil 1 — Değer akışı: Güvenilir kaynaklar → Finans Portalı → Kullanıcı</div></div>
   <div class="cards">
     <div class="card"><h4>Çok varlıklı izleme</h4><p>Hisse, kripto, döviz, emtia, yatırım fonu, tahvil/bono ve vadeli işlemler; aranabilir, sıralanabilir, filtrelenebilir tablolarla.</p></div>
     <div class="card"><h4>Makro veri takibi</h4><p>Enflasyon (Türkiye &amp; ABD), faiz/mevduat oranları ve döviz kurları; sade grafiklerle.</p></div>
@@ -213,42 +243,43 @@ figure.shot figcaption { font-size: 9pt; color: #64748b; margin-top: 6px; text-a
 
   <h3>5.1 Anasayfa — Piyasanın nabzı</h3>
   <p>Kullanıcı giriş yaptığı anda piyasanın genel görünümünü görür: günün en çok hareket eden varlıkları, BIST'in en aktif hisseleri (yükselenler/düşenler/hacim), güncel döviz şeridi ve son finans haberleri. Hızlı erişim kartlarıyla istediği bölüme tek tıkla geçer.</p>
-  <figure class="shot"><img src="screens/01-anasayfa.png" alt="Anasayfa"><figcaption>Anasayfa — günün hareketlileri, BIST 100, döviz şeridi ve son haberler tek ekranda.</figcaption></figure>
+  <figure class="shot" id="gorsel-1"><img src="screens/01-anasayfa.png" alt="Anasayfa"><figcaption>Görsel 1. Anasayfa — günün hareketlileri, BIST 100, döviz şeridi ve son haberler tek ekranda.</figcaption></figure>
 
   <h3>5.2 Hisse, Kripto &amp; Emtia — Çok varlıklı tablolar</h3>
   <p>BIST ve ABD hisseleri, başlıca kripto paralar, altın/gümüş/petrol gibi emtialar; aranabilir ve sıralanabilir tablolarda sunulur. Her satırda küçük bir eğilim grafiği yer alır; bir satıra tıklamak detaylı fiyat grafiğini açar. Kullanıcı para birimini Orijinal, TL veya USD olarak görüntülemeyi seçebilir.</p>
-  <figure class="shot"><img src="screens/02-hisseler.png" alt="Hisse tablosu"><figcaption>Hisse / Kripto / Emtia — aranabilir, sıralanabilir tablo; her satırda eğilim grafiği.</figcaption></figure>
-  <figure class="shot"><img src="screens/03-grafik.png" alt="Enstrüman fiyat grafiği"><figcaption>Bir enstrümana tıklayınca açılan detaylı fiyat grafiği (alarm, karşılaştırma, listeye ekleme).</figcaption></figure>
-  <figure class="shot"><img src="screens/10-emtia.png" alt="Emtia"><figcaption>Emtia — altın, gümüş, petrol, doğalgaz ve bakır; eğilim grafikleriyle.</figcaption></figure>
+  <figure class="shot" id="gorsel-2"><img src="screens/02-hisseler.png" alt="Hisse tablosu"><figcaption>Görsel 2. Hisse / Kripto / Emtia — aranabilir, sıralanabilir tablo; her satırda eğilim grafiği.</figcaption></figure>
+  <figure class="shot" id="gorsel-3"><img src="screens/03-grafik.png" alt="Enstrüman fiyat grafiği"><figcaption>Görsel 3. Bir enstrümana tıklayınca açılan hızlı fiyat grafiği (alarm, karşılaştırma, listeye ekleme).</figcaption></figure>
+  <figure class="shot" id="gorsel-4"><img src="screens/16-detayli-grafik.png" alt="Detaylı grafik"><figcaption>Görsel 4. Detaylı grafik — mum (candlestick) + hareketli ortalama, hacim, MACD ve RSI göstergeleri; çizim araçları ve çoklu periyot.</figcaption></figure>
+  <figure class="shot" id="gorsel-5"><img src="screens/10-emtia.png" alt="Emtia"><figcaption>Görsel 5. Emtia — altın, gümüş, petrol, doğalgaz ve bakır; eğilim grafikleriyle.</figcaption></figure>
 
   <h3>5.3 Yatırım Fonları — Performans kıyaslama</h3>
   <p>Yüzlerce Türk yatırım fonu; birim fiyatları, günlük/aylık/yıllık/3 yıllık/5 yıllık getirileri ve risk düzeyleriyle listelenir. Yatırımcı, fonları getiriye veya riske göre sıralayıp kolayca karşılaştırır.</p>
-  <figure class="shot"><img src="screens/04-fonlar.png" alt="Yatırım fonları"><figcaption>Yatırım Fonları — birim fiyat, çok dönemli getiri ve risk düzeyiyle kıyaslama.</figcaption></figure>
+  <figure class="shot" id="gorsel-6"><img src="screens/04-fonlar.png" alt="Yatırım fonları"><figcaption>Görsel 6. Yatırım Fonları — birim fiyat, çok dönemli getiri ve risk düzeyiyle kıyaslama.</figcaption></figure>
 
   <h3>5.4 Tahvil &amp; Bono — Sabit getirili araçlar</h3>
   <p>Devlet tahvili, hazine bonosu gibi borçlanma araçları; vade, kupon, fiyat ve getiri bilgileriyle sunulur. Banka mevduat faizleri ayrı bir kartta yer alır. Her enstrümanın <strong>getiri geçmişi grafiği</strong> ile zaman içindeki seyir izlenebilir.</p>
-  <figure class="shot"><img src="screens/05-tahvil.png" alt="Tahvil/Bono detayı"><figcaption>Tahvil &amp; Bono — vade, kupon, fiyat, getiri ve getiri geçmişi grafiği.</figcaption></figure>
+  <figure class="shot" id="gorsel-7"><img src="screens/05-tahvil.png" alt="Tahvil/Bono detayı"><figcaption>Görsel 7. Tahvil &amp; Bono — vade, kupon, fiyat, getiri ve getiri geçmişi grafiği.</figcaption></figure>
 
   <h3>5.5 Döviz — Kurlar ve çevirici</h3>
   <p>Resmi döviz kurları (alış/satış/efektif) tablosu ve anlık bir <strong>kur çevirici</strong> ile günlük döviz ihtiyaçları tek ekranda karşılanır.</p>
-  <figure class="shot"><img src="screens/11-doviz.png" alt="Döviz Kurları"><figcaption>Döviz — TCMB kurları (alış/satış/efektif) + anlık kur çevirici.</figcaption></figure>
+  <figure class="shot" id="gorsel-8"><img src="screens/11-doviz.png" alt="Döviz Kurları"><figcaption>Görsel 8. Döviz — TCMB kurları (alış/satış/efektif) + anlık kur çevirici.</figcaption></figure>
 
   <h3>5.6 VİOP — Vadeli işlemler</h3>
   <p>Borsa İstanbul vadeli işlem kontratları; dayanak, vade, son fiyat ve hacim bilgileriyle filtrelenebilir tablolarda gösterilir.</p>
-  <figure class="shot"><img src="screens/12-viop.png" alt="VİOP"><figcaption>VİOP — vadeli işlem kontratları (endeks, pay, döviz, kıymetli maden); dayanak, vade, fiyat, hacim.</figcaption></figure>
+  <figure class="shot" id="gorsel-9"><img src="screens/12-viop.png" alt="VİOP"><figcaption>Görsel 9. VİOP — vadeli işlem kontratları (endeks, pay, döviz, kıymetli maden); dayanak, vade, fiyat, hacim.</figcaption></figure>
 
   <h3>5.7 Enflasyon &amp; Reel Getiri</h3>
   <p>Türkiye ve ABD enflasyonu; aylık ve yıllık grafiklerle, 5 yıllık birikimli bakışla sunulur. Platformun ayırt edici özelliği burada öne çıkar: yatırım getirileri <strong>enflasyondan arındırılarak</strong> hesaplanır; böylece kullanıcı paranın alım gücü açısından gerçekte kazanıp kazanmadığını görür.</p>
-  <figure class="shot"><img src="screens/06-enflasyon.png" alt="Enflasyon"><figcaption>Enflasyon — Türkiye &amp; ABD TÜFE; aylık/yıllık grafikler ve reel getiri bağlamı.</figcaption></figure>
+  <figure class="shot" id="gorsel-10"><img src="screens/06-enflasyon.png" alt="Enflasyon"><figcaption>Görsel 10. Enflasyon — Türkiye &amp; ABD TÜFE; aylık/yıllık grafikler ve reel getiri bağlamı.</figcaption></figure>
 
   <h3>5.8 Haberler — Çok dilli akış</h3>
   <p>Çok sayıda güvenilir kaynaktan derlenen finans haberleri kategorilere ayrılır (ekonomi, hisse, döviz, kripto, emtia vb.). İngilizce haberler kullanıcının diline <strong>otomatik çevrilir</strong>; her haberin detay sayfası ve kaynak bağlantısı vardır.</p>
-  <figure class="shot"><img src="screens/13-haberler.png" alt="Haberler"><figcaption>Haberler — kategorilere ayrılmış çok kaynaklı akış; İngilizce başlıklar otomatik Türkçeye çevrilir.</figcaption></figure>
+  <figure class="shot" id="gorsel-11"><img src="screens/13-haberler.png" alt="Haberler"><figcaption>Görsel 11. Haberler — kategorilere ayrılmış çok kaynaklı akış; İngilizce başlıklar otomatik Türkçeye çevrilir.</figcaption></figure>
 
   <h3>5.9 Analiz &amp; Yapay Zeka Danışman</h3>
   <p>İki bölümden oluşur. Solda <strong>çapraz varlık analiz tablosu</strong>: tüm varlıklar; günlük/haftalık/aylık/yıllık değişim, <strong>reel yıllık getiri</strong>, risk düzeyi ve kısa/uzun vadeli sinyallerle bir arada. "Enflasyonu yenenler" filtresiyle yalnızca gerçek getirisi pozitif olanlar listelenebilir.</p>
   <p>Sağda <strong>yapay zeka destekli sohbet danışmanı</strong>: kullanıcı doğal dille soru sorar ("5.000 TL'yi nasıl değerlendiririm?", "Altın bu ay nasıl?"). Danışman; güvenli/dengeli/riskli senaryolar veya güncel veriyle desteklenmiş yorumlar üretir.</p>
-  <figure class="shot"><img src="screens/07-analiz.png" alt="Analiz ve AI danışman"><figcaption>Analiz — solda çapraz varlık tablosu (reel getiri, risk, sinyal), sağda yapay zeka danışman.</figcaption></figure>
+  <figure class="shot" id="gorsel-12"><img src="screens/07-analiz.png" alt="Analiz ve AI danışman"><figcaption>Görsel 12. Analiz — solda çapraz varlık tablosu (reel getiri, risk, sinyal), sağda yapay zeka danışman.</figcaption></figure>
   <div class="callout warn">
     <h4>Sorumlu yapay zeka</h4>
     <p>Danışman asla "kesin kazanç" vaadi vermez, doğrudan "al/sat" emri kurmaz ve yalnızca finans/yatırım konularında yanıt verir. Her yanıtın sonunda <strong>"yatırım tavsiyesi değildir"</strong> uyarısı yer alır. Bu yaklaşım hem kullanıcıyı korur hem de yasal/etik açıdan güven oluşturur.</p>
@@ -256,16 +287,16 @@ figure.shot figcaption { font-size: 9pt; color: #64748b; margin-top: 6px; text-a
 
   <h3>5.10 Portföyüm</h3>
   <p>Kullanıcı kendi pozisyonlarını ekler; toplam değer, toplam kâr/zarar ve varlık dağılımını (interaktif halka grafik) görür. Alım/satım kaydı tutulur, ortalama maliyet otomatik güncellenir. Pozisyonlar <strong>Excel dosyasıyla toplu olarak içe aktarılabilir</strong>. Listedeki bir varlığa tıklayınca fiyat grafiği açılır.</p>
-  <figure class="shot"><img src="screens/08-portfoy.png" alt="Portföyüm"><figcaption>Portföyüm — toplam değer, kâr/zarar, varlık dağılımı (halka grafik) ve pozisyon tablosu.</figcaption></figure>
+  <figure class="shot" id="gorsel-13"><img src="screens/08-portfoy.png" alt="Portföyüm"><figcaption>Görsel 13. Portföyüm — toplam değer, kâr/zarar, varlık dağılımı (halka grafik) ve pozisyon tablosu.</figcaption></figure>
 
   <h3>5.11 Geçmiş Senaryo ("Geçmişten")</h3>
   <p>"X tarihinde Y almış olsaydım bugün ne olurdu?" sorusuna yanıt verir. Kullanıcı geçmiş bir alım girer; platform bugünkü değeri, kâr/zararı ve enflasyona göre <strong>reel getiriyi</strong> hesaplar. Eğitim ve karar destek için güçlü bir araçtır.</p>
-  <figure class="shot"><img src="screens/09-gecmisten.png" alt="Geçmişten Bugüne"><figcaption>Geçmişten — "X tarihinde alsaydım?" senaryosu; nominal ve enflasyona göre reel getiri.</figcaption></figure>
+  <figure class="shot" id="gorsel-14"><img src="screens/09-gecmisten.png" alt="Geçmişten Bugüne"><figcaption>Görsel 14. Geçmişten — "X tarihinde alsaydım?" senaryosu; nominal ve enflasyona göre reel getiri.</figcaption></figure>
 
   <h3>5.12 Takip Listeleri, Alarmlar &amp; Ayarlar</h3>
   <p>Kullanıcı kişisel takip listeleri oluşturur; hedef fiyat alarmları kurar (uygulama içi + e-posta bildirimi). Ayarlardan profilini, bildirim tercihlerini, dilini, temasını ve para birimi gösterimini yönetir; profil fotoğrafı ekleyebilir.</p>
-  <figure class="shot"><img src="screens/15-listelerim.png" alt="Listelerim"><figcaption>Listelerim — birden çok takip listesi; her satırda fiyat, değişim, eğilim grafiği, listeye ekle/çıkar ve Al.</figcaption></figure>
-  <figure class="shot"><img src="screens/14-ayarlar.png" alt="Ayarlar"><figcaption>Ayarlar — profil, tema (açık/koyu/sistem), güvenlik (2FA) ve bildirim tercihleri.</figcaption></figure>
+  <figure class="shot" id="gorsel-15"><img src="screens/15-listelerim.png" alt="Listelerim"><figcaption>Görsel 15. Listelerim — birden çok takip listesi; her satırda fiyat, değişim, eğilim grafiği, listeye ekle/çıkar ve Al.</figcaption></figure>
+  <figure class="shot" id="gorsel-16"><img src="screens/14-ayarlar.png" alt="Ayarlar"><figcaption>Görsel 16. Ayarlar — profil, tema (açık/koyu/sistem), güvenlik (2FA) ve bildirim tercihleri.</figcaption></figure>
 </section>
 
 <!-- 6 -->
