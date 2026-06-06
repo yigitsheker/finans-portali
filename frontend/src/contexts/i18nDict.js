@@ -228,7 +228,7 @@ export const dict = {
       refreshing: "Güncelleniyor...",
       noteLabel: "Bilgi:",
       noteBody:
-        'Tahviller TCMB EVDS3 "Gösterge Niteliğindeki Değerler" (bie_pydibs) veri grubundan otomatik olarak çekilir; vadesi gelmemiş tüm sabit kuponlu devlet tahvilleri listelenir. EVDS kirli fiyat (kupon ödeme periyodunda biriken faiz dahil) ve kupon oranı yayınlar, getiri yayınlamaz. Getiri (YTM); birikmiş faiz fiyattan ayrıştırılıp temiz fiyat bulunarak ve nakit akışları (yarı yıllık kuponlar + anapara) iskonto edilerek hesaplanır. Kupon ve fiyat değerleri otoritatif; YTM gösterge niteliğindedir.',
+        "Tahvil verileri TCMB'den otomatik çekilir; vadesi gelmemiş sabit kuponlu devlet tahvilleri listelenir. Kupon ve fiyat resmidir; getiri (YTM) gösterge niteliğinde, hesaplanmış bir değerdir.",
       typeGovBond: "Devlet Tahvili",
       typeTBill: "Hazine Bonosu",
       typeSukuk: "Kira Sertifikası",
@@ -1224,7 +1224,7 @@ export const dict = {
       refreshing: "Refreshing...",
       noteLabel: "Note:",
       noteBody:
-        'Bonds are enumerated automatically from the TCMB EVDS3 "Indicative Values" datagroup (bie_pydibs); every active fixed-coupon government bond is listed. EVDS publishes a dirty price (including accrued coupon interest) and the coupon rate, but no yield. Yield (YTM) is derived by stripping accrued interest to recover the clean price and discounting the cash flows (semi-annual coupons + principal). Coupon and price values are authoritative; YTM is indicative.',
+        "Bond data is pulled automatically from the TCMB; all active fixed-coupon government bonds are listed. Coupon and price are official; the yield (YTM) is an indicative, computed value.",
       typeGovBond: "Government Bond",
       typeTBill: "Treasury Bill",
       typeSukuk: "Sukuk",
