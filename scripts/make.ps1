@@ -17,6 +17,8 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+# Resolve compose file paths from the repo root regardless of the caller's CWD.
+Set-Location (Split-Path -Parent $PSScriptRoot)
 
 function Invoke-Compose {
     param([string[]]$ComposeArgs)

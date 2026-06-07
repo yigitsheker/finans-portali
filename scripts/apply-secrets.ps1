@@ -12,7 +12,7 @@
 
 $ErrorActionPreference = "Stop"
 $ns = "finans-portali"
-$envFile = Join-Path $PSScriptRoot ".secrets.local.env"
+$envFile = Join-Path (Split-Path -Parent $PSScriptRoot) ".secrets.local.env"
 
 if (-not (Test-Path $envFile)) {
     Write-Error ".secrets.local.env not found. Copy .secrets.local.env.example to it and fill the values first."

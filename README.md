@@ -135,11 +135,11 @@ Finans Portalı; piyasa verisini çeşitli kamuya açık kaynaklardan çekip nor
 ```bash
 git clone <repo-url> && cd finans-portali
 
-docker compose up -d          # veya:  make up   /   .\make.ps1 up   /   .\start-docker.ps1
+docker compose up -d          # veya:  make up   /   .\scripts\make.ps1 up   /   .\scripts\start-docker.ps1
 ```
-İlk açılış imaj derlemesi + Keycloak/LDAP/OpenSearch boot'u nedeniyle birkaç dakika sürebilir. `start-docker.ps1` `.env` yoksa `.env.example`'dan kopyalar, sağlık kontrolü yapıp URL'leri yazar.
+İlk açılış imaj derlemesi + Keycloak/LDAP/OpenSearch boot'u nedeniyle birkaç dakika sürebilir. `scripts\start-docker.ps1` `.env` yoksa `.env.example`'dan kopyalar, sağlık kontrolü yapıp URL'leri yazar.
 
-> ⚠️ `start.sh` / `start.bat` **eskidir** (kaldırılmış redis/logstash/filebeat servislerine ve yanlış portlara işaret eder). `docker compose up -d`, `make up`, `make.ps1` veya `start-docker.ps1` kullanın.
+> ⚠️ `start.sh` / `start.bat` **eskidir** (kaldırılmış redis/logstash/filebeat servislerine ve yanlış portlara işaret eder). `docker compose up -d`, `make up`, `scripts\make.ps1` veya `scripts\start-docker.ps1` kullanın.
 
 ### İlk Giriş
 Keycloak'a **insan kullanıcı seed edilmez** (yalnız servis hesabı vardır). Realm'de self-register açıktır:
@@ -178,7 +178,7 @@ Keycloak'a **insan kullanıcı seed edilmez** (yalnız servis hesabı vardır). 
 
 ### Hot-Reload (HMR) modu
 ```bash
-make dev          # veya:  .\make.ps1 dev
+make dev          # veya:  .\scripts\make.ps1 dev
 # docker compose -f docker-compose.yml -f docker-compose.dev.yml up -d --build
 # frontend Vite dev server'a geçer; http://localhost yine çalışır (host 80 -> Vite 5173)
 make dev-down
@@ -202,10 +202,10 @@ cd frontend && npm run build        # vite build -> dist/
 cd frontend && npm run lint         # eslint  (CI'da kapalı — bkz. Notlar)
 ```
 
-### Faydalı Make / make.ps1 hedefleri
+### Faydalı Make / scripts\make.ps1 hedefleri
 `up` · `down` · `restart` · `ps` · `logs` / `logs-backend` · `health` · `rebuild` / `rebuild-backend` / `rebuild-frontend` · `front` (hızlı frontend rebuild) · `dev` / `dev-down` · `backup` / `restore` (pg_dump/psql `finans_db`) · `shell-backend` / `shell-postgres` · `stats` · `clean` (down -v + prune) · `prod-up` / `prod-down` (docker-compose.prod.yml)
 
-> Windows'ta GNU make yoksa **`make.ps1`** kullanın (`docker compose` v2 sözdizimi). Makefile `docker-compose` (v1) çağırır.
+> Windows'ta GNU make yoksa **`scripts\make.ps1`** kullanın (`docker compose` v2 sözdizimi). Makefile `docker-compose` (v1) çağırır.
 
 ### Veritabanı Migration
 Flyway uygulama açılışında çalışır (`classpath:db/migration`, `baseline-on-migrate=true`). Yeni migration: `backend/src/main/resources/db/migration/V28__...sql`. _Not: JPA `ddl-auto=update` ile Flyway aynı anda açık (bilinen anti-pattern); şema otoritesi migration'lardır._
@@ -229,8 +229,9 @@ finans-portali/
 ├── grafana/ · prometheus.yml · otel-collector-config.yaml   # gözlemlenebilirlik config
 ├── monitoring/ · fluent-bit/   # ESKİ/alternatif log stack (aktif değil)
 ├── docker-compose.yml · .dev.yml · .prod.yml
-├── Makefile · make.ps1 · start-docker.ps1
-├── docs/                # ANALIZ_DOKUMANI, TEKNIK_ANALIZ_DOKUMANI, BONDS_MODULE, ...
+├── Makefile               # Windows eşdeğeri: scripts/make.ps1
+├── scripts/               # make.ps1 · start-docker.ps1 · apply-secrets.ps1 · keycloak-bootstrap.sh
+├── docs/pdf/              # Analiz & Teknik analiz dokümanları (PDF)
 └── sonar-project.properties
 ```
 
@@ -400,7 +401,7 @@ Spring Actuator (`health`, `info`, `metrics`, `prometheus`, `loggers`, `env`, `c
 - **Spring Security** — stateless OAuth2 resource server (JWT/RS256), CSRF/formLogin kapalı, CORS açık, `@EnableMethodSecurity`. `JwtRoleConverter` `roles`→`realm_access.roles`'ı `ROLE_*`'a map'ler. Kullanıcı = `jwt.getSubject()`.
 - **LDAP** — OpenLDAP (`dc=finance,dc=local`) Keycloak federasyonu (realm export'ta yok, `LDAP_SETUP.md` ile manuel).
 - **Loglama güvenliği** — `LoggingFilter` (correlation id, MDC), `LogSanitizer` (CRLF temizliği, S5145).
-- **Secrets** — compose `.env`'den okur; k8s'te `apply-secrets.ps1` → `postgres-secret`/`keycloak-secret`/`backend-secret`. `secret.example.yaml`'lar kustomization dışı (out-of-band uygulanır).
+- **Secrets** — compose `.env`'den okur; k8s'te `scripts\apply-secrets.ps1` → `postgres-secret`/`keycloak-secret`/`backend-secret`. `secret.example.yaml`'lar kustomization dışı (out-of-band uygulanır).
 - **SonarCloud** — `yigitsheker_finans-portali`; JaCoCo ~%89 instruction; haftalık (Pzt 06:00 UTC) + manuel; bazı kural-suppress'leri (`sonar-project.properties`).
 
 > ⚠️ **Dikkat (dev varsayılanları, üretime taşımayın):** Actuator **tamamen kimliksiz** (`env`/`configprops`/`beans`/`mappings` dahil — çözümlenmiş config sızdırabilir); OpenSearch/Dashboards **güvenlik eklentisi kapalı**; **uygulama/edge rate-limit yok** (yalnız Keycloak brute-force); LLM/EVDS/FRED/Gmail anahtarları default boş.
@@ -451,7 +452,7 @@ Lokal k8s: `k8s/deploy-local.ps1` (kind ile cluster + image load + dev overlay +
 ## ⚠️ Önemli Notlar (Gotchas)
 
 - **Tahvil/bono ve VİOP al-sat SİMÜLASYONDUR** — gerçek emir yok; sanal pozisyon. Veri kaynakları sınırlı olduğu için bazı basitleştirmeler var (kupon frekansı yarı-yıllık varsayılır, accrued faiz kullanıcı girişi, floating/TÜFE-endeksli tahviller hariç). VİOP tüm kontratlar TRY uzlaşımlı kabul edilir.
-- **`start.sh`/`start.bat` eski** — kaldırılmış servislere (redis/logstash/filebeat) ve yanlış portlara işaret eder. `docker compose up -d` / `make.ps1` / `start-docker.ps1` kullanın.
+- **`start.sh`/`start.bat` eski** — kaldırılmış servislere (redis/logstash/filebeat) ve yanlış portlara işaret eder. `docker compose up -d` / `scripts\make.ps1` / `scripts\start-docker.ps1` kullanın.
 - **Portlar:** Keycloak **8090** (8080/8081 değil), Grafana **3100** (3000 değil), frontend **80**, otel-collector OTLP'leri 4319/4320'ye remap.
 - **`nokafka` profili:** brokersız ortamda zorunlu (yoksa log gecikmesi). Compose/lokalde Kafka açık (log hattı çalışsın diye).
 - **Rate-limit yok** (uygulama/nginx). Tek koruma Keycloak brute-force.

@@ -1,5 +1,8 @@
 # Finans Portali Docker Quick Start Script
 
+# Resolve .env / compose paths from the repo root regardless of the caller's CWD.
+Set-Location (Split-Path -Parent $PSScriptRoot)
+
 Write-Host "==================================" -ForegroundColor Cyan
 Write-Host "Finans Portali Docker Setup" -ForegroundColor Cyan
 Write-Host "==================================" -ForegroundColor Cyan
@@ -102,7 +105,7 @@ Write-Host ""
 Write-Host "==================================" -ForegroundColor Cyan
 Write-Host "Next Steps:" -ForegroundColor Cyan
 Write-Host "==================================" -ForegroundColor Cyan
-Write-Host "1. Configure Keycloak (see DOCKER_SETUP.md)" -ForegroundColor White
+Write-Host "1. Configure Keycloak (see README.md)" -ForegroundColor White
 Write-Host "2. Create a test user in Keycloak" -ForegroundColor White
 Write-Host "3. Access the application at http://localhost" -ForegroundColor White
 Write-Host ""
@@ -112,5 +115,5 @@ Write-Host "  docker-compose ps               # Check status" -ForegroundColor G
 Write-Host "  docker-compose down             # Stop all" -ForegroundColor Gray
 Write-Host "  docker-compose restart backend  # Restart backend" -ForegroundColor Gray
 Write-Host ""
-Write-Host "For detailed documentation, see DOCKER_SETUP.md" -ForegroundColor Yellow
+Write-Host "For detailed documentation, see README.md" -ForegroundColor Yellow
 Write-Host ""
