@@ -43,12 +43,24 @@ def rect(s, x, y, w, h, color, rot=0, line=None):
     return shp
 
 
+def wedge(s, corner, w, h, color):
+    """corner: 'TL','TR','BL','BR' — o köşeye tam oturan dik üçgen (kama)."""
+    W, Hh = Inches(w), Inches(h)
+    left = 0 if corner[1] == "L" else SW - W
+    top  = 0 if corner[0] == "T" else SH - Hh
+    shp = s.shapes.add_shape(MSO_SHAPE.RIGHT_TRIANGLE, left, top, W, Hh)
+    shp.fill.solid(); shp.fill.fore_color.rgb = color
+    shp.line.fill.background(); shp.shadow.inherit = False
+    xfrm = shp._element.spPr.find(qn("a:xfrm"))
+    if corner[0] == "T": xfrm.set("flipV", "1")
+    if corner[1] == "R": xfrm.set("flipH", "1")
+    return shp
+
+
 def accents(s):
-    # köşe süsleri — slayt sınırının İÇİNDE kalır (taşma yok)
-    rect(s, Inches(11.85), Inches(0.45), Inches(1.4), Inches(0.5), NAVY, rot=35)
-    rect(s, Inches(12.15), Inches(0.30), Inches(1.1), Inches(0.4), BLUE, rot=35)
-    rect(s, Inches(11.85), Inches(6.55), Inches(1.4), Inches(0.5), NAVY, rot=35)
-    rect(s, Inches(12.15), Inches(6.78), Inches(1.1), Inches(0.4), BLUE, rot=35)
+    # köşeye tam oturan iki tonlu üçgen kamalar (taşma yok)
+    wedge(s, "TR", 1.85, 1.25, NAVY); wedge(s, "TR", 1.2, 0.8, BLUE)
+    wedge(s, "BR", 1.85, 1.25, NAVY); wedge(s, "BR", 1.2, 0.8, BLUE)
 
 
 def tb(s, x, y, w, h, anchor=MSO_ANCHOR.TOP):
@@ -79,9 +91,8 @@ def title(s, text, sub=None):
 s = slide()
 rect(s, 0, 0, SW, SH, WHITE)
 # büyük navy bant solda
-rect(s, Inches(-1.0), Inches(-1.0), Inches(3.0), Inches(9.5), NAVY, rot=12)
-rect(s, Inches(-1.2), Inches(-1.0), Inches(2.2), Inches(9.5), BLUE, rot=12)
-rect(s, Inches(11.7), Inches(5.9), Inches(3.2), Inches(2.6), NAVY, rot=30)
+wedge(s, "TL", 3.3, 2.3, NAVY); wedge(s, "TL", 2.15, 1.5, BLUE)
+wedge(s, "BR", 3.3, 2.3, NAVY); wedge(s, "BR", 2.15, 1.5, BLUE)
 tf = tb(s, Inches(2.4), Inches(2.2), Inches(9.6), Inches(2.8))
 para(tf, "Finans Portalı", size=58, color=NAVY, bold=True, font=HEAD, first=True, space=6)
 para(tf, "Çok-varlıklı finans portföy & piyasa takip platformu", size=20, color=MUTED, font=BODY, space=4)
