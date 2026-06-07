@@ -1,0 +1,29 @@
+# Satır sonu normalizasyonu — Linux konteynerlerinde çalışan scriptler DAİMA LF olmalı,
+# aksi halde Windows'tan klonlayan birinde Docker build/runtime kırılır
+# (CRLF shebang -> "#!/bin/sh\r" -> exit 127).
+
+# Linux'ta çalışan scriptler: her platformda LF ile checkout edilir
+*.sh    text eol=lf
+mvnw    text eol=lf
+*.bash  text eol=lf
+Dockerfile      text eol=lf
+*.Dockerfile    text eol=lf
+
+# Yalnızca Windows scriptleri: CRLF
+*.ps1   text eol=crlf
+*.bat   text eol=crlf
+*.cmd   text eol=crlf
+
+# İkili dosyalar — asla normalize etme (bozulur)
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.ico   binary
+*.pdf   binary
+*.pptx  binary
+*.xlsx  binary
+*.jar   binary
+*.woff  binary
+*.woff2 binary
+*.ndjson binary
