@@ -9,6 +9,7 @@ from pptx.oxml.ns import qn
 
 NAVY   = RGBColor(0x1E, 0x3A, 0x8A)
 BLUE   = RGBColor(0x1D, 0x4E, 0xD8)
+LIGHT  = RGBColor(0x60, 0xA5, 0xFA)
 LBLUE  = RGBColor(0xDB, 0xEA, 0xFE)
 INK    = RGBColor(0x1F, 0x29, 0x37)
 MUTED  = RGBColor(0x47, 0x55, 0x69)
@@ -282,7 +283,8 @@ para(tf, "▸  GKE'ye otomatik CD şu an maliyet nedeniyle manuel tetiklemeye al
 # ───────────────────────── 10 · KAPANIŞ ─────────────────────────
 s = slide()
 rect(s, 0, 0, SW, SH, NAVY)
-rect(s, Inches(-1.0), Inches(-1.0), Inches(3.0), Inches(9.5), BLUE, rot=12)
+wedge(s, "TL", 3.3, 2.3, BLUE); wedge(s, "TL", 2.15, 1.5, LIGHT)
+wedge(s, "BR", 3.3, 2.3, BLUE); wedge(s, "BR", 2.15, 1.5, LIGHT)
 tf = tb(s, Inches(2.4), Inches(2.6), Inches(9.6), Inches(2.6))
 para(tf, "Teşekkürler", size=46, color=WHITE, bold=True, font=HEAD, first=True, space=10)
 para(tf, "Finans Portalı — çok-varlıklı finans portföy & piyasa takip platformu",
