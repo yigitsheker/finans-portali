@@ -135,9 +135,13 @@ Finans Portalı; piyasa verisini çeşitli kamuya açık kaynaklardan çekip nor
 ```bash
 git clone <repo-url> && cd finans-portali
 
+cp .env.example .env          # GEREKLİ ilk adım   (Windows: Copy-Item .env.example .env)
+
 docker compose up -d          # veya:  make up   /   .\scripts\make.ps1 up   /   .\scripts\start-docker.ps1
 ```
-İlk açılış imaj derlemesi + Keycloak/LDAP/OpenSearch boot'u nedeniyle birkaç dakika sürebilir. `scripts\start-docker.ps1` `.env` yoksa `.env.example`'dan kopyalar, sağlık kontrolü yapıp URL'leri yazar.
+> **`.env` oluşturmak gereklidir.** Varsayılan değerlerle stack sorunsuz kalkar; `.env` olmadan compose "variable not set" uyarıları verir ve e-posta/Keycloak-admin özellikleri boş kalır. **Opsiyonel** anahtarları (`EVDS_API_KEY`, `APP_FRED_API_KEY`, `GMAIL_SMTP_*`, `APP_LLM_API_KEY`) doldurmak isteğe bağlıdır — boş bırakılırsa o özellikler kapalı, uygulama yine çalışır.
+
+İlk açılış imaj derlemesi + Keycloak/LDAP/OpenSearch boot'u nedeniyle birkaç dakika sürebilir. _Alternatif:_ `scripts\start-docker.ps1` `.env` yoksa `.env.example`'dan otomatik kopyalar, sağlık kontrolü yapıp URL'leri yazar.
 
 ### İlk Giriş
 Keycloak'a **insan kullanıcı seed edilmez** (yalnız servis hesabı vardır). Realm'de self-register açıktır:
