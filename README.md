@@ -1,5 +1,7 @@
 # 📈 Finans Portalı
 
+**🇹🇷 Türkçe** · [🇬🇧 English](README.en.md)
+
 > Türkiye odaklı, çok-varlıklı **finans portföy & piyasa takip platformu** — hisse, kripto, fon, tahvil/bono, döviz, emtia, VİOP vadeli işlemleri, enflasyon ve haberleri tek yerde toplar; portföy takibi, fiyat alarmları, teknik analiz ve AI sohbet sunar.
 >
 > ⚠️ **Tüm al-sat işlemleri (özellikle tahvil/bono ve VİOP) SİMÜLASYONDUR** — gerçek emir gönderilmez, yalnızca portföy takibi amaçlıdır. Yatırım tavsiyesi değildir.
