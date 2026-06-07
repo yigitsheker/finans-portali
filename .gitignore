@@ -9,6 +9,10 @@
 .kiro/
 .kiro_tmp/
 
+# Build output (Maven / Vite)
+target/
+dist/
+
 # Logs
 *.log
 logs/
