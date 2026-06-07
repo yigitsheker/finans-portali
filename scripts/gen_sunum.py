@@ -44,12 +44,11 @@ def rect(s, x, y, w, h, color, rot=0, line=None):
 
 
 def accents(s):
-    # sağ-üst geometrik köşe (başlık sol-üstte; çakışma olmaz)
-    rect(s, Inches(12.5), Inches(-0.8), Inches(2.1), Inches(1.5), NAVY, rot=35)
-    rect(s, Inches(12.9), Inches(-0.5), Inches(1.8), Inches(1.3), BLUE, rot=35)
-    # sağ-alt köşe
-    rect(s, Inches(12.2), Inches(6.6), Inches(2.6), Inches(2.0), NAVY, rot=35)
-    rect(s, Inches(12.6), Inches(7.0), Inches(2.4), Inches(1.8), BLUE, rot=35)
+    # köşe süsleri — slayt sınırının İÇİNDE kalır (taşma yok)
+    rect(s, Inches(11.85), Inches(0.45), Inches(1.4), Inches(0.5), NAVY, rot=35)
+    rect(s, Inches(12.15), Inches(0.30), Inches(1.1), Inches(0.4), BLUE, rot=35)
+    rect(s, Inches(11.85), Inches(6.55), Inches(1.4), Inches(0.5), NAVY, rot=35)
+    rect(s, Inches(12.15), Inches(6.78), Inches(1.1), Inches(0.4), BLUE, rot=35)
 
 
 def tb(s, x, y, w, h, anchor=MSO_ANCHOR.TOP):
@@ -148,7 +147,7 @@ for i, (h, d) in enumerate(feats):
     rect(s, cx, cy, Inches(0.09), ch, BLUE)
     ctf = tb(s, cx + Inches(0.28), cy + Inches(0.14), cw - Inches(0.5), ch - Inches(0.2))
     para(ctf, h, size=15, color=NAVY, bold=True, font=HEAD, first=True, space=3)
-    para(ctf, d, size=11.5, color=MUTED, font=BODY)
+    para(ctf, d, size=13, color=INK, font=BODY)
 
 
 # ───────────────────────── 5 · MİMARİ GENEL BAKIŞ ─────────────────────────
@@ -162,7 +161,7 @@ for i, (h, d, c) in enumerate(flow):
     rect(s, cx, fy, fw, fh, c, line=RGBColor(0xCB,0xD5,0xE1))
     t = tb(s, cx + Inches(0.18), fy + Inches(0.12), fw - Inches(0.3), fh - Inches(0.2))
     para(t, h, size=14, color=NAVY, bold=True, font=HEAD, first=True, space=2)
-    para(t, d, size=11, color=MUTED, font=BODY)
+    para(t, d, size=13, color=INK, font=BODY)
     if i < 3:
         a = tb(s, cx + fw, fy, Inches(0.42), fh, anchor=MSO_ANCHOR.MIDDLE)
         para(a, "→", size=20, color=BLUE, bold=True, first=True, align=PP_ALIGN.CENTER)
