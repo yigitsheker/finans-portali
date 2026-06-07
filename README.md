@@ -139,8 +139,6 @@ docker compose up -d          # veya:  make up   /   .\scripts\make.ps1 up   /  
 ```
 İlk açılış imaj derlemesi + Keycloak/LDAP/OpenSearch boot'u nedeniyle birkaç dakika sürebilir. `scripts\start-docker.ps1` `.env` yoksa `.env.example`'dan kopyalar, sağlık kontrolü yapıp URL'leri yazar.
 
-> ⚠️ `start.sh` / `start.bat` **eskidir** (kaldırılmış redis/logstash/filebeat servislerine ve yanlış portlara işaret eder). `docker compose up -d`, `make up`, `scripts\make.ps1` veya `scripts\start-docker.ps1` kullanın.
-
 ### İlk Giriş
 Keycloak'a **insan kullanıcı seed edilmez** (yalnız servis hesabı vardır). Realm'de self-register açıktır:
 1. http://localhost adresinden **Kayıt Ol** ile hesap oluştur, **veya** Keycloak admin konsolundan (http://localhost:8090, `admin/admin`) `finans` realm'inde kullanıcı oluştur.
@@ -168,7 +166,7 @@ Keycloak'a **insan kullanıcı seed edilmez** (yalnız servis hesabı vardır). 
 | OpenSearch REST | `localhost:9200` | — |
 | log-consumer | `localhost:8081` | — |
 
-> **Grafana 3100'dedir** (3000 değil — Windows/Hyper-V 2954-3053 aralığını rezerve ettiği için). **Keycloak 8090'dadır** (8080/8081 değil). LDAP seed kullanıcıları (`ldap/init.ldif`): `john.doe`/`jane.smith` `password123`, `test.user` `test123`, `admin.user` `admin123` (LDAP federasyonu manuel kurulduğunda — bkz. `LDAP_SETUP.md`).
+> **Grafana 3100'dedir** (3000 değil — Windows/Hyper-V 2954-3053 aralığını rezerve ettiği için). **Keycloak 8090'dadır** (8080/8081 değil). LDAP seed kullanıcıları (`ldap/init.ldif`): `john.doe`/`jane.smith` `password123`, `test.user` `test123`, `admin.user` `admin123` (LDAP federasyonu manuel kurulduğunda).
 >
 > 🔐 Bu kimlikler **yalnız geliştirme** içindir; üretimde değiştirin.
 
@@ -225,9 +223,8 @@ finans-portali/
 ├── keycloak/            # finans-realm.json (realm import)
 ├── keycloak-themes/     # finance-theme (özel login teması)
 ├── ldap/                # init.ldif (LDAP seed)
-├── k8s/                 # Kustomize base + overlays (dev/prod/gke) + GKE dokümanları
+├── k8s/                 # Kustomize base + overlays (dev/prod/gke)
 ├── grafana/ · prometheus.yml · otel-collector-config.yaml   # gözlemlenebilirlik config
-├── monitoring/ · fluent-bit/   # ESKİ/alternatif log stack (aktif değil)
 ├── docker-compose.yml · .dev.yml · .prod.yml
 ├── Makefile               # Windows eşdeğeri: scripts/make.ps1
 ├── scripts/               # make.ps1 · start-docker.ps1 · apply-secrets.ps1 · keycloak-bootstrap.sh
@@ -380,7 +377,6 @@ Backend (Log4j2 KafkaAppender, JSON)  ─▶  Kafka topic "finans-logs"  ─▶ 
 ```
 - JSON şema: `backend/src/main/resources/log4j2/kafka-log-event.json` (timestamp, level, logger, thread, message, service, env, host + MDC: requestId/userId/traceId/spanId/...).
 - `nokafka` Spring profili appender'ı kapatır (brokersız ortam için — yoksa her log satırı ~18sn gecikme ekler).
-- `monitoring/` (filebeat/logstash) ve `fluent-bit/` **eski/alternatif** stack'tir, aktif değildir.
 
 ### Metrikler
 Micrometer → `/actuator/prometheus` → Prometheus (15sn scrape, 15g/10GB) → **Grafana** (4 hazır dashboard: backend HTTP/JVM/Hikari/GC, business refresh, otel-collector, prometheus-health). Servisler iş metrikleri yayar (ör. `price_instruments_updated_total`, `news_refresh_duration_seconds`).
@@ -399,7 +395,7 @@ Spring Actuator (`health`, `info`, `metrics`, `prometheus`, `loggers`, `env`, `c
 - **TOTP 2FA zorunlu** — `CONFIGURE_TOTP` varsayılan required action (her kullanıcı ilk girişte kurar). `keycloak-bootstrap.sh` realm'i idempotent yapılandırır + LDAP'i WRITABLE'a çevirir.
 - **Özel login teması** — `keycloak-themes/finance-theme` (compose'da bind-mount; GKE'de imaja `kc.sh build` ile gömülü).
 - **Spring Security** — stateless OAuth2 resource server (JWT/RS256), CSRF/formLogin kapalı, CORS açık, `@EnableMethodSecurity`. `JwtRoleConverter` `roles`→`realm_access.roles`'ı `ROLE_*`'a map'ler. Kullanıcı = `jwt.getSubject()`.
-- **LDAP** — OpenLDAP (`dc=finance,dc=local`) Keycloak federasyonu (realm export'ta yok, `LDAP_SETUP.md` ile manuel).
+- **LDAP** — OpenLDAP (`dc=finance,dc=local`) Keycloak federasyonu (realm export'ta yok, manuel kurulur).
 - **Loglama güvenliği** — `LoggingFilter` (correlation id, MDC), `LogSanitizer` (CRLF temizliği, S5145).
 - **Secrets** — compose `.env`'den okur; k8s'te `scripts\apply-secrets.ps1` → `postgres-secret`/`keycloak-secret`/`backend-secret`. `secret.example.yaml`'lar kustomization dışı (out-of-band uygulanır).
 - **SonarCloud** — `yigitsheker_finans-portali`; JaCoCo ~%89 instruction; haftalık (Pzt 06:00 UTC) + manuel; bazı kural-suppress'leri (`sonar-project.properties`).
@@ -436,7 +432,7 @@ Spring Actuator (`health`, `info`, `metrics`, `prometheus`, `loggers`, `env`, `c
 
 ### GitHub Actions
 - **`ci.yml`** (PR + main push): backend `./mvnw verify` + JaCoCo, frontend `npm ci && build`, playwright-service `node --check`, `docker compose config`. _(Frontend ESLint bilinçli kapalı — TS→JS dönüşümünden ~160 kullanılmayan-import hatası.)_
-- **`cd.yml`** ("Deploy to GKE"): keyless **WIF**; imajları Artifact Registry'ye push, `kustomize edit set image`, `kubectl apply -k k8s/overlays/gke`, rollout doğrulama. ⏸️ **PAUSED** — yalnız `workflow_dispatch` (manuel); otomatik tetik kapalı (cluster maliyet için kapatıldı, bkz. `k8s/GKE_TEARDOWN_RESTART.md`).
+- **`cd.yml`** ("Deploy to GKE"): keyless **WIF**; imajları Artifact Registry'ye push, `kustomize edit set image`, `kubectl apply -k k8s/overlays/gke`, rollout doğrulama. ⏸️ **PAUSED** — yalnız `workflow_dispatch` (manuel); otomatik tetik kapalı (cluster maliyet için kapatıldı).
 - **`sonar.yml`**: CI'dan ayrı (tarama ~1 saat sürüyordu) — haftalık (Pzt 06:00 UTC) + manuel.
 
 ### Kubernetes / Kustomize
@@ -452,7 +448,6 @@ Lokal k8s: `k8s/deploy-local.ps1` (kind ile cluster + image load + dev overlay +
 ## ⚠️ Önemli Notlar (Gotchas)
 
 - **Tahvil/bono ve VİOP al-sat SİMÜLASYONDUR** — gerçek emir yok; sanal pozisyon. Veri kaynakları sınırlı olduğu için bazı basitleştirmeler var (kupon frekansı yarı-yıllık varsayılır, accrued faiz kullanıcı girişi, floating/TÜFE-endeksli tahviller hariç). VİOP tüm kontratlar TRY uzlaşımlı kabul edilir.
-- **`start.sh`/`start.bat` eski** — kaldırılmış servislere (redis/logstash/filebeat) ve yanlış portlara işaret eder. `docker compose up -d` / `scripts\make.ps1` / `scripts\start-docker.ps1` kullanın.
 - **Portlar:** Keycloak **8090** (8080/8081 değil), Grafana **3100** (3000 değil), frontend **80**, otel-collector OTLP'leri 4319/4320'ye remap.
 - **`nokafka` profili:** brokersız ortamda zorunlu (yoksa log gecikmesi). Compose/lokalde Kafka açık (log hattı çalışsın diye).
 - **Rate-limit yok** (uygulama/nginx). Tek koruma Keycloak brute-force.
