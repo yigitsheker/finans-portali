@@ -139,19 +139,19 @@ export default function HistoricalComparison({ keycloak }) {
   // the stored row knows what currency its buyPrice/currentPrice are in).
   // Returns "₺" or "$" — the historical schema kept these symbol literals.
   const getCurrency = (symbol) => {
-    if (!symbol) return "$";
+    if (!symbol) return "₺";
     const s = symbol.toUpperCase();
-    // FX pairs vs TRY (USDTRY, EURTRY, GBPTRY, ...) — quoted in TRY.
-    if (s.endsWith("TRY")) return "₺";
-    // BIST stocks: .IS suffix or 3-5 caps that match the known list.
-    if (s.endsWith(".IS")) return "₺";
-    if (/^[A-Z]{3,5}$/.test(s)) {
-      const turkishStocks = ["THYAO", "AKBNK", "GARAN", "ISCTR", "YKBNK", "SAHOL", "TUPRS", "ASELS", "KCHOL", "PETKM"];
-      if (turkishStocks.some(ts => s.startsWith(ts))) {
-        return "₺";
-      }
-    }
-    return "$";
+    // Most reliable: the catalog instrument type. BIST stocks and TEFAS funds
+    // are quoted in TRY; crypto in USD. (A hardcoded stock list missed most
+    // BIST symbols — e.g. BIMAS — and wrongly treated them as USD, applying a
+    // ~USDTRY x46 conversion to TRY prices.)
+    const inst = instruments.find((i) => String(i.symbol).toUpperCase() === s);
+    if (inst?.type === "BIST" || inst?.type === "FUND") return "₺";
+    if (inst?.type === "CRYPTO") return "$";
+    // Fallbacks by symbol shape when the catalog isn't loaded yet:
+    if (s.endsWith("TRY")) return "₺";   // TRY FX pairs (USDTRY, EURTRY, ...)
+    if (s.endsWith(".IS")) return "₺";   // BIST .IS suffix
+    return "$";                           // commodities / global default to USD
   };
 
   // Build one historical position row (price at buy date from history, current
@@ -409,7 +409,7 @@ export default function HistoricalComparison({ keycloak }) {
     let invested = 0;
     let current = 0;
     for (const p of positions) {
-      const native = p.currency === "₺" ? "TRY" : "USD";
+      const native = getCurrency(p.symbol) === "₺" ? "TRY" : "USD";
       invested += toEffective(p.buyPrice * p.lots, native);
       current += toEffective(p.currentPrice * p.lots, native);
     }
@@ -417,7 +417,7 @@ export default function HistoricalComparison({ keycloak }) {
     const changePct = invested > 0 ? (change / invested) * 100 : 0;
     return { invested, current, change, changePct };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [positions, effectiveCurrency, usdRate]);
+  }, [positions, effectiveCurrency, usdRate, instruments]);
 
   return (
     <div style={s.root}>
@@ -514,7 +514,7 @@ export default function HistoricalComparison({ keycloak }) {
               </thead>
               <tbody>
                 {positions.map((p) => {
-                  const native = p.currency === "₺" ? "TRY" : "USD";
+                  const native = getCurrency(p.symbol) === "₺" ? "TRY" : "USD";
                   const buyPx = toEffective(p.buyPrice, native);
                   const curPx = toEffective(p.currentPrice, native);
                   const invested = toEffective(p.buyPrice * p.lots, native);
