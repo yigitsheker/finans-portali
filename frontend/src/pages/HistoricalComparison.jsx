@@ -4,7 +4,7 @@ import Modal from "../components/Modal";
 import ImportPreviewModal from "../components/ImportPreviewModal";
 import InstrumentChartModal from "../components/InstrumentChartModal";
 import CompareInstrumentsModal from "../components/CompareInstrumentsModal";
-import { getLatestPrice, getMarketHistory, getMarketInstruments } from "../api/portfolioApi";
+import { getLatestPrice, getMarketHistory, getMarketSummary } from "../api/portfolioApi";
 import { compareInflation } from "../api/inflationApi";
 import { useI18n } from "../contexts/I18nContext";
 import { useCurrencyDisplay } from "../contexts/CurrencyDisplayContext";
@@ -78,7 +78,7 @@ export default function HistoricalComparison({ keycloak }) {
   );
 
   useEffect(() => {
-    getMarketInstruments().then(setInstruments).catch(() => {});
+    getMarketSummary().then(setInstruments).catch(() => {});
 
     // Load from localStorage
     const saved = localStorage.getItem("historicalPositions");
@@ -298,7 +298,7 @@ export default function HistoricalComparison({ keycloak }) {
     }
     // Ensure the catalog is loaded so the preview flags unknown symbols.
     if (!instruments.length) {
-      const fetched = await getMarketInstruments().catch(() => []);
+      const fetched = await getMarketSummary().catch(() => []);
       if (fetched.length) setInstruments(fetched);
     }
     setHistPreview(parsed.rows);
@@ -312,7 +312,7 @@ export default function HistoricalComparison({ keycloak }) {
       // Catalog loads async; fetch it now if needed so validation works.
       let catalog = instruments;
       if (!catalog.length) {
-        catalog = await getMarketInstruments().catch(() => []);
+        catalog = await getMarketSummary().catch(() => []);
         if (catalog.length) setInstruments(catalog);
       }
       const valid = new Set(catalog.map((i) => String(i.symbol).toUpperCase()));
