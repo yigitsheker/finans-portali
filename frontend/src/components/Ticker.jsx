@@ -189,9 +189,21 @@ export default function Ticker({ keycloak }) {
         return () => { cancelled = true; };
     }, [marketData, prefs, isAuth, keycloak]);
 
+    // Seamless loop için track'in en az 2 viewport eninde olması gerek; aksi halde
+    // az sembolde (2-3 hisse) dönüşte boşluk görünür. Az sembol → çok kopya.
+    // Toplam ~40 sembollük track + iki kez tekrar = stable scroll.
+    const items = useMemo(() => {
+        if (symbols.length === 0) return [];
+        const repetitions = Math.max(2, Math.ceil(40 / symbols.length));
+        const oneSet = [];
+        for (let i = 0; i < repetitions; i++) oneSet.push(...symbols);
+        return [...oneSet, ...oneSet]; // ikiye katla → translateX(-50%) seamless
+    }, [symbols]);
+
     // rAF kaydırma döngüsü. Track ikiye katlandığı için bir set genişliği kadar
     // kayınca başa sarılır (kesintisiz). Hız speedRef'ten canlı okunur; sembol
-    // sayısı (genişlik) değişince yeniden başlar.
+    // sayısı (genişlik) değişince yeniden başlar. (items'tan SONRA tanımlı olmalı
+    // — aksi halde [items.length] bağımlılığı TDZ ReferenceError'a yol açar.)
     useEffect(() => {
         if (items.length === 0) return undefined;
         let raf;
@@ -214,17 +226,6 @@ export default function Ticker({ keycloak }) {
         raf = requestAnimationFrame(tick);
         return () => cancelAnimationFrame(raf);
     }, [items.length]);
-
-    // Seamless loop için track'in en az 2 viewport eninde olması gerek; aksi halde
-    // az sembolde (2-3 hisse) dönüşte boşluk görünür. Az sembol → çok kopya.
-    // Toplam ~40 sembollük track + iki kez tekrar = stable scroll.
-    const items = useMemo(() => {
-        if (symbols.length === 0) return [];
-        const repetitions = Math.max(2, Math.ceil(40 / symbols.length));
-        const oneSet = [];
-        for (let i = 0; i < repetitions; i++) oneSet.push(...symbols);
-        return [...oneSet, ...oneSet]; // ikiye katla → translateX(-50%) seamless
-    }, [symbols]);
 
     // Custom symbol input parse
     const handleCustomSave = () => {
