@@ -448,15 +448,10 @@ button:hover .news-external-icon   { transform: translate(2px, -2px); }
 @keyframes ticker-scroll { 0% { transform: translateX(0); } 100% { transform: translateX(-50%); } }
 @keyframes ticker-pulse  { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.5; transform: scale(0.85); } }
 
-.ticker-track {
-  animation-name: ticker-scroll;
-  animation-timing-function: linear;
-  animation-iteration-count: infinite;
-}
-.ticker-bar:hover .ticker-track { animation-play-state: paused; }
+/* Ticker scroll is JS-driven (requestAnimationFrame) for reliable, live speed
+   control; hover-pause is handled in the Ticker component. */
 
 @media (prefers-reduced-motion: reduce) {
-  .ticker-track,
   .fade-in,
   .slide-in {
     animation: none !important;

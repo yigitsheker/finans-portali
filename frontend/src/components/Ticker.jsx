@@ -53,6 +53,14 @@ export default function Ticker({ keycloak }) {
     const [selectedInstrument, setSelectedInstrument] = useState(null);
     const [compareTarget, setCompareTarget] = useState(null);
     const settingsRef = useRef(null);
+    // rAF ile kaydırma: hız kontrolünü garanti eder. (CSS animation-duration değişimi
+    // koşan uzun animasyona güvenilir uygulanmıyor; ayrıca prefers-reduced-motion CSS
+    // animasyonunu tamamen kapatabiliyordu.) speedRef her karede canlı okunur → hız
+    // değişimi anında ve pürüzsüz uygulanır.
+    const trackRef = useRef(null);
+    const offsetRef = useRef(0);
+    const speedRef = useRef(1);
+    const pausedRef = useRef(false);
 
     const setPrefs = (updater) => {
         setPrefsState((prev) => {
@@ -181,6 +189,32 @@ export default function Ticker({ keycloak }) {
         return () => { cancelled = true; };
     }, [marketData, prefs, isAuth, keycloak]);
 
+    // rAF kaydırma döngüsü. Track ikiye katlandığı için bir set genişliği kadar
+    // kayınca başa sarılır (kesintisiz). Hız speedRef'ten canlı okunur; sembol
+    // sayısı (genişlik) değişince yeniden başlar.
+    useEffect(() => {
+        if (items.length === 0) return undefined;
+        let raf;
+        let last = null;
+        const BASE_PX_PER_SEC = 90; // 1× temel hız
+        const tick = (ts) => {
+            raf = requestAnimationFrame(tick);
+            if (last === null) { last = ts; return; }
+            const dt = Math.min(0.1, (ts - last) / 1000); // sekme değişiminde sıçramayı engelle
+            last = ts;
+            const el = trackRef.current;
+            if (!el || pausedRef.current) return;
+            const half = el.scrollWidth / 2; // bir set genişliği
+            if (half <= 0) return;
+            let off = offsetRef.current - BASE_PX_PER_SEC * (speedRef.current || 1) * dt;
+            if (-off >= half) off += half; // kesintisiz sarma
+            offsetRef.current = off;
+            el.style.transform = `translate3d(${off}px,0,0)`;
+        };
+        raf = requestAnimationFrame(tick);
+        return () => cancelAnimationFrame(raf);
+    }, [items.length]);
+
     // Seamless loop için track'in en az 2 viewport eninde olması gerek; aksi halde
     // az sembolde (2-3 hisse) dönüşte boşluk görünür. Az sembol → çok kopya.
     // Toplam ~40 sembollük track + iki kez tekrar = stable scroll.
@@ -204,13 +238,9 @@ export default function Ticker({ keycloak }) {
         setShowSettings(false);
     };
 
-    // Animasyon süresi: track ne kadar geniş olursa o kadar uzun süre. Görünür akış
-    // hızı sembol başına ~0.9s olacak şekilde (rahat okunur ama yavaş değil).
-    // -50% kaydırma sırasında items.length/2 sembol geçer.
-    // Speed multiplier: user-controlled (0.25× – 3×). Higher = faster = smaller duration.
-    const baseDuration = items.length > 0 ? Math.max(10, (items.length / 2) * 0.9) : 0;
+    // Hız çarpanı (0.25×–3×). rAF döngüsü her karede speedRef'ten canlı okur.
     const speed = Number(prefs.speed) || 1.0;
-    const duration = baseDuration > 0 ? baseDuration / speed : 0;
+    speedRef.current = speed;
 
     // Boş durumlar için kullanıcıyı yönlendiren mesaj. Settings butonu daima görünür
     // olduğundan kullanıcı buradan custom semboller ekleyip ticker'ı doldurabilir.
@@ -225,7 +255,12 @@ export default function Ticker({ keycloak }) {
     })();
 
     return (
-        <div style={st.bar} className="ticker-bar">
+        <div
+            style={st.bar}
+            className="ticker-bar"
+            onMouseEnter={() => { pausedRef.current = true; }}
+            onMouseLeave={() => { pausedRef.current = false; }}
+        >
             <div style={st.sourceLabel} title={sourceLabel || "Ticker"}>
                 <span style={st.dot} /> {sourceLabel || "Ticker"}
             </div>
@@ -235,15 +270,8 @@ export default function Ticker({ keycloak }) {
                     <div style={st.emptyText}>{emptyMessage}</div>
                 ) : (
                 <div
-                    // Remount on speed change so the CSS animation restarts with the new
-                    // duration immediately. Without this, changing animation-duration on a
-                    // long-running animation (e.g. BIST 100's ~180s base) doesn't visibly
-                    // take effect, so the speed control appeared to do nothing.
-                    key={`ticker-spd-${speed}`}
-                    style={{
-                        ...st.track,
-                        animationDuration: `${duration}s`,
-                    }}
+                    ref={trackRef}
+                    style={st.track}
                     className="ticker-track"
                 >
                     {items.map((item, i) => {
@@ -503,9 +531,6 @@ const st = {
         gap: 0,
         height: "100%",
         alignItems: "center",
-        animationName: "ticker-scroll",
-        animationTimingFunction: "linear",
-        animationIterationCount: "infinite",
         willChange: "transform",
     },
     item: {
