@@ -47,8 +47,59 @@ $KCADM update "realms/$REALM" \
   -s 'ssoSessionIdleTimeoutRememberMe=86400' \
   -s loginWithEmailAllowed=true \
   -s resetPasswordAllowed=true \
-  -s registrationAllowed=true
-log "  realm settings updated"
+  -s registrationAllowed=true \
+  -s 'passwordPolicy=length(8) and upperCase(1) and lowerCase(1) and digits(1) and notUsername(undefined)'
+log "  realm settings updated (incl. password policy)"
+
+# ── 1a) Registration validation (username + email) ─────────────────────────
+# Declarative user profile: enforce a sane username pattern and a valid email
+# (must contain '@') at sign-up. Non-fatal if the KC version differs.
+log "Applying user-profile validation (username pattern + valid email)..."
+cat > /tmp/finans-user-profile.json <<'JSON'
+{
+  "attributes": [
+    {
+      "name": "username",
+      "displayName": "${username}",
+      "validations": {
+        "length": { "min": 3, "max": 255 },
+        "username-prohibited-characters": {},
+        "up-username-not-idn-homograph": {},
+        "pattern": { "pattern": "^[a-zA-Z0-9._-]+$", "error-message": "Kullanıcı adı yalnızca harf, rakam ve . _ - içerebilir (en az 3 karakter)." }
+      },
+      "permissions": { "view": ["admin", "user"], "edit": ["admin", "user"] },
+      "multivalued": false
+    },
+    {
+      "name": "email",
+      "displayName": "${email}",
+      "validations": { "email": {}, "length": { "max": 255 } },
+      "required": { "roles": ["user"] },
+      "permissions": { "view": ["admin", "user"], "edit": ["admin", "user"] },
+      "multivalued": false
+    },
+    {
+      "name": "firstName",
+      "displayName": "${firstName}",
+      "validations": { "length": { "max": 255 }, "person-name-prohibited-characters": {} },
+      "permissions": { "view": ["admin", "user"], "edit": ["admin", "user"] },
+      "multivalued": false
+    },
+    {
+      "name": "lastName",
+      "displayName": "${lastName}",
+      "validations": { "length": { "max": 255 }, "person-name-prohibited-characters": {} },
+      "permissions": { "view": ["admin", "user"], "edit": ["admin", "user"] },
+      "multivalued": false
+    }
+  ]
+}
+JSON
+if $KCADM update "users/profile" -r "$REALM" -f /tmp/finans-user-profile.json >/dev/null 2>&1; then
+  log "  user-profile validation applied (username 3+ [a-zA-Z0-9._-], email required + valid)"
+else
+  log "  WARN — user-profile update failed (older Keycloak? check version)"
+fi
 
 # ── 1b) 2FA enforcement ───────────────────────────────────────────────────
 # Make CONFIGURE_TOTP a default required action: every NEW user gets it

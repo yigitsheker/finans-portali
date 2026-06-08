@@ -6,6 +6,7 @@
   "enabled": true,
   "sslRequired": "external",
   "registrationAllowed": true,
+  "passwordPolicy": "length(8) and upperCase(1) and lowerCase(1) and digits(1) and notUsername(undefined)",
   "loginWithEmailAllowed": true,
   "duplicateEmailsAllowed": false,
   "resetPasswordAllowed": true,
