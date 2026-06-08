@@ -235,6 +235,11 @@ export default function Ticker({ keycloak }) {
                     <div style={st.emptyText}>{emptyMessage}</div>
                 ) : (
                 <div
+                    // Remount on speed change so the CSS animation restarts with the new
+                    // duration immediately. Without this, changing animation-duration on a
+                    // long-running animation (e.g. BIST 100's ~180s base) doesn't visibly
+                    // take effect, so the speed control appeared to do nothing.
+                    key={`ticker-spd-${speed}`}
                     style={{
                         ...st.track,
                         animationDuration: `${duration}s`,
