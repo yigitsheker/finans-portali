@@ -535,6 +535,7 @@ export const dict = {
       botQuick5: "Uzun vadede hangi araçlar mantıklı?",
     },
     historical: {
+      noInflationData: "Bu döneme ait enflasyon verisi henüz yok",
       errSymbol: "Sembol zorunlu",
       errDate: "Tarih zorunlu",
       errQty: "Lot sayısı 1 veya daha büyük olmalı",
@@ -1531,6 +1532,7 @@ export const dict = {
       botQuick5: "Which instruments make sense long-term?",
     },
     historical: {
+      noInflationData: "No inflation data for this period yet",
       errSymbol: "Symbol is required",
       errDate: "Date is required",
       errQty: "Quantity must be 1 or greater",

@@ -192,4 +192,19 @@ class InflationServiceTest {
         assertThat(dto.get().realReturnPct())
                 .isEqualByComparingTo(new BigDecimal("25.0000"));
     }
+
+    @Test
+    void compare_returns_empty_when_no_cpi_newer_than_buy_date() {
+        // Buy date 2026-01-20 and "today" 2026-06-07 both resolve to the same latest
+        // available CPI month (Jan 2026) because no newer data exists. Inflation over the
+        // holding period is unknown -> must return empty (UI shows "-") instead of a
+        // misleading 0% that would make the real return equal the nominal return.
+        InflationDataPoint jan = point(LocalDate.of(2026, 1, 1), "100");
+        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 1, 20), "TR")).thenReturn(Optional.of(jan));
+        when(repo.findLatestOnOrBefore(LocalDate.of(2026, 6, 7), "TR")).thenReturn(Optional.of(jan));
+
+        assertThat(service.compare(LocalDate.of(2026, 1, 20),
+                LocalDate.of(2026, 6, 7), new BigDecimal("1.00")))
+                .isEmpty();
+    }
 }

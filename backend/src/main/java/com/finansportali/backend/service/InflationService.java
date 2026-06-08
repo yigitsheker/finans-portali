@@ -201,6 +201,14 @@ public class InflationService {
         BigDecimal cpiTo = toPoint.get().getCpiIndex();
         if (cpiFrom == null || cpiTo == null || cpiFrom.signum() <= 0) return Optional.empty();
 
+        // If there is no CPI data point newer than the buy date, both lookups resolve to
+        // the same (or an earlier) month. Inflation over the holding period is then unknown —
+        // report it as "no data" (empty) instead of a misleading 0% that would make the
+        // real return equal the nominal return.
+        if (!toPoint.get().getPeriodDate().isAfter(fromPoint.get().getPeriodDate())) {
+            return Optional.empty();
+        }
+
         BigDecimal cumulative = cpiTo.divide(cpiFrom, 8, RoundingMode.HALF_UP)
                 .subtract(BigDecimal.ONE)
                 .multiply(BigDecimal.valueOf(100))

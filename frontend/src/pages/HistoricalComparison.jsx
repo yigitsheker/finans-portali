@@ -551,12 +551,12 @@ export default function HistoricalComparison({ keycloak }) {
                       <td style={{ ...s.td, color: isPositive ? "var(--green)" : "var(--red)", fontWeight: 600 }}>
                         {isPositive ? "▲ +" : "▼ "}{Math.abs(changePct).toFixed(2)}%
                       </td>
-                      <td style={{ ...s.td, color: "var(--text-muted)", fontWeight: 500 }}>
+                      <td title={p.cumulativeInflationPct == null ? t("historical.noInflationData") : undefined} style={{ ...s.td, color: "var(--text-muted)", fontWeight: 500 }}>
                         {p.cumulativeInflationPct != null
                           ? "+" + Number(p.cumulativeInflationPct).toFixed(2) + "%"
                           : "—"}
                       </td>
-                      <td style={{
+                      <td title={p.realReturnPct == null ? t("historical.noInflationData") : undefined} style={{
                         ...s.td,
                         color: p.realReturnPct == null ? "var(--text-muted)" : (Number(p.realReturnPct) >= 0 ? "var(--green)" : "var(--red)"),
                         fontWeight: 700,
