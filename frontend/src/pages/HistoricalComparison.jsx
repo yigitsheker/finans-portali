@@ -439,7 +439,21 @@ export default function HistoricalComparison({ keycloak }) {
     let cancel = false;
     setPerfLoading(true);
     const symbols = [...new Set(positions.map((p) => p.symbol))];
-    getMarketHistoryBatch(symbols, perfPeriod)
+    // "ALL" → smallest backend range that covers the earliest buy date, so the
+    // chart spans buy-date → today (the per-position gating below trims the rest).
+    let batchPeriod = perfPeriod;
+    if (perfPeriod === "ALL") {
+      const earliestBuy = positions.reduce((min, p) => {
+        const d = p.buyDate ? String(p.buyDate).slice(0, 10) : null;
+        return d && (!min || d < min) ? d : min;
+      }, null);
+      if (!earliestBuy) batchPeriod = "1Y";
+      else {
+        const days = Math.floor((Date.now() - new Date(earliestBuy).getTime()) / 86400000);
+        batchPeriod = days <= 30 ? "30D" : days <= 90 ? "3M" : days <= 180 ? "6M" : days <= 365 ? "1Y" : "5Y";
+      }
+    }
+    getMarketHistoryBatch(symbols, batchPeriod)
       .then((batch) => {
         if (cancel) return;
         const perSym = {};
@@ -555,7 +569,7 @@ export default function HistoricalComparison({ keycloak }) {
           <div style={s.chartHeader}>
             <div style={s.chartTitle}>{t("historical.perfTitle")}</div>
             <div style={s.pnlToggle}>
-              {[{ p: "30D", l: "1M" }, { p: "3M", l: "3M" }, { p: "1Y", l: "1Y" }].map(({ p, l }) => (
+              {[{ p: "30D", l: "1M" }, { p: "3M", l: "3M" }, { p: "1Y", l: "1Y" }, { p: "ALL", l: "All" }].map(({ p, l }) => (
                 <button key={p} type="button"
                   style={{ ...s.pnlToggleBtn, ...(perfPeriod === p ? s.pnlToggleActive : {}) }}
                   onClick={() => setPerfPeriod(p)}>{l}</button>

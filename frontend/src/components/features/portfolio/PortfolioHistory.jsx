@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import PropTypes from "prop-types";
-import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { PortfolioAreaChart } from "../../common/PortfolioAreaChart";
 import { getPortfolioTransactions } from "../../../api/portfolioApi";
 import { useI18n } from "../../../contexts/I18nContext";
 
@@ -37,43 +37,32 @@ export default function PortfolioHistory({ keycloak, reloadSignal }) {
 
   if (loading) return null;
 
-  // Realized P&L per symbol = Σ SELL realizedPnl (a "closed position" result).
-  const bySymbol = new Map();
-  for (const tx of txns) {
-    if (tx.type === "SELL" && tx.realizedPnl != null) {
-      bySymbol.set(tx.symbol, (bySymbol.get(tx.symbol) || 0) + Number(tx.realizedPnl));
-    }
+  // Cumulative realized (closed-position) P&L over time, from SELL movements.
+  // A 0 baseline the day before the first sell guarantees >=2 points so even a
+  // single closed position draws a line (lightweight-charts, like the portfolio
+  // performance chart).
+  const sells = txns
+    .filter((tx) => tx.type === "SELL" && tx.realizedPnl != null)
+    .map((tx) => ({ day: String(tx.executedAt).slice(0, 10), pnl: Number(tx.realizedPnl) }))
+    .sort((a, b) => a.day.localeCompare(b.day));
+  const closedSeries = [];
+  if (sells.length > 0) {
+    const base = new Date(sells[0].day);
+    base.setDate(base.getDate() - 1);
+    closedSeries.push({ time: base.toISOString().slice(0, 10), value: 0 });
+    let cum = 0;
+    const byDay = new Map();
+    for (const sx of sells) { cum += sx.pnl; byDay.set(sx.day, Number(cum.toFixed(2))); }
+    for (const [day, value] of byDay) closedSeries.push({ time: day, value });
   }
-  const closed = [...bySymbol.entries()]
-    .map(([symbol, pnl]) => ({ symbol, pnl }))
-    .sort((a, b) => b.pnl - a.pnl);
-
-  const isDark = document.documentElement.getAttribute("data-theme") !== "light";
-  const tipBg = isDark ? "#1c2128" : "#ffffff";
-  const tipBorder = isDark ? "#30363d" : "#d0d7de";
-  const tipColor = isDark ? "#e6edf3" : "#1f2328";
 
   return (
     <div style={s.wrap}>
-      {closed.length > 0 && (
+      {closedSeries.length >= 2 && (
         <div style={s.card}>
           <div style={s.title}>{t("portfolio.closedPnlTitle")}</div>
           <div style={s.sub}>{t("portfolio.closedPnlSub")}</div>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={closed} margin={{ top: 18, right: 12, left: 0, bottom: 4 }}>
-              <XAxis dataKey="symbol" tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-              <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} tickFormatter={(v) => fmt(v)} width={72} />
-              <ReferenceLine y={0} stroke={tipBorder} />
-              <Tooltip
-                cursor={{ fill: "rgba(125,125,125,0.08)" }}
-                contentStyle={{ background: tipBg, border: `1px solid ${tipBorder}`, borderRadius: 6, color: tipColor, fontSize: 12 }}
-                formatter={(v) => [`${v >= 0 ? "+" : ""}₺${fmt(v)}`, t("portfolio.realizedPnl")]}
-              />
-              <Bar dataKey="pnl" radius={[3, 3, 0, 0]}>
-                {closed.map((d, i) => <Cell key={i} fill={d.pnl >= 0 ? GREEN : RED} />)}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          <PortfolioAreaChart data={closedSeries} height={240} />
         </div>
       )}
 
