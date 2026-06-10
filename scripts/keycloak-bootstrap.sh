@@ -238,30 +238,11 @@ JSON
     LDAP_COMPONENT_ID=$(find_ldap)
     log "  + LDAP federation created (id=$LDAP_COMPONENT_ID)"
 
-    add_attr_mapper() { # $1 name  $2 ldapAttr  $3 userAttr  $4 mandatory(true/false)
-      cat > /tmp/ldap-mapper.json <<JSON
-{
-  "name": "$1",
-  "providerId": "user-attribute-ldap-mapper",
-  "providerType": "org.keycloak.storage.ldap.mappers.LDAPStorageMapper",
-  "parentId": "$LDAP_COMPONENT_ID",
-  "config": {
-    "ldap.attribute": ["$2"],
-    "user.model.attribute": ["$3"],
-    "read.only": ["false"],
-    "always.read.value.from.ldap": ["false"],
-    "is.mandatory.in.ldap": ["$4"]
-  }
-}
-JSON
-      $KCADM create components -r "$REALM" -f /tmp/ldap-mapper.json >/dev/null 2>&1 \
-        && log "    + mapper: $1" || log "    ! mapper failed: $1"
-    }
-    add_attr_mapper "username"   "uid"       "username"  "true"
-    add_attr_mapper "email"      "mail"      "email"     "false"
-    add_attr_mapper "last name"  "sn"        "lastName"  "true"
-    add_attr_mapper "first name" "givenName" "firstName" "false"
-
+    # Keycloak's LDAPStorageProviderFactory auto-creates the standard attribute
+    # mappers on create (username←uid via usernameLDAPAttribute, email←mail,
+    # first name←givenName, last name←sn, creation/modify date). We must NOT
+    # re-create them or we get conflicting duplicate mappers. Only the group
+    # mapper below is not part of the defaults.
     # Group mapper: finance-users / finance-admins → Keycloak groups.
     cat > /tmp/ldap-grp.json <<JSON
 {
@@ -285,6 +266,16 @@ JSON
 JSON
     $KCADM create components -r "$REALM" -f /tmp/ldap-grp.json >/dev/null 2>&1 \
       && log "    + mapper: groups" || log "    ! mapper failed: groups"
+
+    # Keycloak's default "first name" mapper reads cn (the full name → "John Doe").
+    # Point it at givenName so firstName is just "John" (sn covers the surname).
+    FN_ID=$($KCADM get components -r "$REALM" -q "parent=$LDAP_COMPONENT_ID" \
+      --fields id,name --format csv --noquotes 2>/dev/null | tr -d '\r' \
+      | grep ',first name$' | head -1 | cut -d, -f1)
+    if [ -n "$FN_ID" ] && $KCADM update "components/$FN_ID" -r "$REALM" \
+        -s 'config."ldap.attribute"=["givenName"]' >/dev/null 2>&1; then
+      log "    ~ first name mapper -> givenName"
+    fi
 
     if $KCADM create "user-storage/$LDAP_COMPONENT_ID/sync?action=triggerFullSync" -r "$REALM" >/dev/null 2>&1; then
       log "  + LDAP full sync triggered (seed users imported: john.doe, jane.smith, admin.user, test.user)"
