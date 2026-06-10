@@ -79,7 +79,7 @@ public class BondPositionService {
         }
         // User enters only the clean price → derive accrued interest from the
         // coupon schedule (skip when an explicit dirty price overrides everything).
-        if (accrued == null && dirtyOverride == null) {
+        if (accrued == null && !hasOverride(dirtyOverride)) {
             accrued = computeAccrued(inst, today, couponFrequencyOverride);
         }
         BigDecimal dirty = dirtyPrice(cleanPrice, accrued, dirtyOverride);
@@ -150,7 +150,7 @@ public class BondPositionService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Satış nominali eldeki nominalden fazla olamaz");
         }
         // Auto-accrue from the position's coupon schedule when not supplied.
-        if (accrued == null && dirtyOverride == null) {
+        if (accrued == null && !hasOverride(dirtyOverride)) {
             accrued = computeAccrued(inst, LocalDate.now(), pos.getCouponFrequency());
         }
         BigDecimal sellDirty = dirtyPrice(cleanPrice, accrued, dirtyOverride);
@@ -320,7 +320,7 @@ public class BondPositionService {
                                        BigDecimal cleanPrice, BigDecimal accrued, BigDecimal dirtyOverride,
                                        Integer couponFrequencyOverride) {
         DebtInstrument inst = resolveInstrument(identifier); // validates existence
-        if (accrued == null && dirtyOverride == null) {
+        if (accrued == null && !hasOverride(dirtyOverride)) {
             accrued = computeAccrued(inst, LocalDate.now(), couponFrequencyOverride);
         }
         BigDecimal dirty = dirtyPrice(cleanPrice, accrued, dirtyOverride);
@@ -334,7 +334,7 @@ public class BondPositionService {
         DebtInstrument inst = resolveInstrument(identifier);
         BondPosition pos = positionRepo.findByUserIdAndIsin(userId, inst.getIsin())
                 .filter(p -> p.getStatus() == BondPositionStatus.ACTIVE).orElse(null);
-        if (accrued == null && dirtyOverride == null) {
+        if (accrued == null && !hasOverride(dirtyOverride)) {
             accrued = computeAccrued(inst, LocalDate.now(), pos != null ? pos.getCouponFrequency() : null);
         }
         BigDecimal dirty = dirtyPrice(cleanPrice, accrued, dirtyOverride);
@@ -359,7 +359,16 @@ public class BondPositionService {
 
     private int frequencyFor(DebtInstrument inst, Integer override) {
         if (inst.getCouponRate() == null || inst.getCouponRate().signum() <= 0) return 0;
-        if (override != null && override > 0) return override;  // user-selected (1=yıllık, 2=yarı-yıllık, 4=üç-aylık)
+        if (override != null && override > 0) {
+            // The coupon schedule steps by 12/freq months, while the coupon size is
+            // rate/freq — these agree only when freq divides 12. Reject anything else
+            // so a non-divisor (5,7,8,9,10,11) can't corrupt accrued/coupon math.
+            if (12 % override != 0) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Kupon sıklığı 12'nin böleni olmalı (1, 2, 3, 4, 6 veya 12)");
+            }
+            return override;  // user-selected (1=yıllık, 2=yarı-yıllık, 4=üç-aylık)
+        }
         return defaultCouponFrequency;
     }
 
@@ -405,8 +414,14 @@ public class BondPositionService {
         };
     }
 
+    /** A dirty-price override only counts when positive — used by both dirtyPrice()
+     *  and the auto-accrued guards so the two agree on what "override present" means. */
+    private static boolean hasOverride(BigDecimal dirtyOverride) {
+        return dirtyOverride != null && dirtyOverride.signum() > 0;
+    }
+
     private BigDecimal dirtyPrice(BigDecimal clean, BigDecimal accrued, BigDecimal dirtyOverride) {
-        if (dirtyOverride != null && dirtyOverride.signum() > 0) return dirtyOverride;
+        if (hasOverride(dirtyOverride)) return dirtyOverride;
         return calc.dirtyFrom(clean, accrued);
     }
 

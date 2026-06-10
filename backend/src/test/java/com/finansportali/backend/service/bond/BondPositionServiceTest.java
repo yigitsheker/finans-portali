@@ -324,6 +324,45 @@ class BondPositionServiceTest {
     }
 
     @Test
+    void buy_with_valid_coupon_frequency_override() {
+        DebtInstrument inst = instrument(LocalDate.now().plusYears(2), bd("10"));
+        when(instrumentRepo.findByIsin(ISIN)).thenReturn(Optional.of(inst));
+        when(positionRepo.findByUserIdAndIsin(USER, ISIN)).thenReturn(Optional.empty());
+        lenient().when(quoteRepo.findLatestByInstrument(any())).thenReturn(Optional.empty());
+        stubSaves();
+
+        BondTradeResult res = service.buy(USER, ISIN, bd("1000"), bd("99"), bd("1"), null, 4);
+        assertThat(res.position().couponFrequency()).isEqualTo(4);
+    }
+
+    @Test
+    void buy_rejects_coupon_frequency_that_does_not_divide_12() {
+        DebtInstrument inst = instrument(LocalDate.now().plusYears(2), bd("10"));
+        lenient().when(instrumentRepo.findByIsin(ISIN)).thenReturn(Optional.of(inst));
+        lenient().when(positionRepo.findByUserIdAndIsin(USER, ISIN)).thenReturn(Optional.empty());
+        stubSaves();
+        // freq 5 doesn't divide 12 → 12/5 stepping would disagree with rate/5 coupons
+        assertThatThrownBy(() -> service.buy(USER, ISIN, bd("1000"), bd("99"), bd("1"), null, 5))
+                .isInstanceOf(ResponseStatusException.class)
+                .hasMessageContaining("12");
+    }
+
+    @Test
+    void buy_auto_accrues_even_when_dirty_override_non_positive() {
+        // maturity 25 months out so "today" sits mid coupon period → accrued > 0
+        DebtInstrument inst = instrument(LocalDate.now().plusMonths(25), bd("10"));
+        when(instrumentRepo.findByIsin(ISIN)).thenReturn(Optional.of(inst));
+        when(positionRepo.findByUserIdAndIsin(USER, ISIN)).thenReturn(Optional.empty());
+        lenient().when(quoteRepo.findLatestByInstrument(any())).thenReturn(Optional.empty());
+        stubSaves();
+
+        // accrued null + non-positive (invalid) dirty override → override ignored AND
+        // accrued still auto-computed, so dirty > clean.
+        BondTradeResult res = service.buy(USER, ISIN, bd("1000"), bd("99"), null, BigDecimal.ZERO, null);
+        assertThat(res.transaction().dirtyPrice()).isGreaterThan(bd("99"));
+    }
+
+    @Test
     void buy_defaults_currency_to_TRY_when_instrument_currency_null() {
         DebtInstrument inst = instrument(LocalDate.now().plusYears(2), bd("10"));
         inst.setCurrency(null);
