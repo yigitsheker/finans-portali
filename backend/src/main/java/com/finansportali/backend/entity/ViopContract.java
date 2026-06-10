@@ -64,6 +64,16 @@ public class ViopContract {
     @Column(name = "volume_lots")
     private Long volumeLots;
 
+    // Per-contract initial / maintenance margin (teminat). Populated from a
+    // verified exchange source (Takasbank VİOP margin parameters) when available;
+    // when null the category-based margin rate is used instead. When set,
+    // requiredMargin uses initialMargin × qty — authoritative and time-varying.
+    @Column(name = "initial_margin", precision = 19, scale = 2)
+    private BigDecimal initialMargin;
+
+    @Column(name = "maintenance_margin", precision = 19, scale = 2)
+    private BigDecimal maintenanceMargin;
+
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt = OffsetDateTime.now();
 
@@ -81,6 +91,8 @@ public class ViopContract {
     public BigDecimal getChangeAbs() { return changeAbs; }
     public BigDecimal getVolumeTl() { return volumeTl; }
     public Long getVolumeLots() { return volumeLots; }
+    public BigDecimal getInitialMargin() { return initialMargin; }
+    public BigDecimal getMaintenanceMargin() { return maintenanceMargin; }
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
 
     public void setSymbol(String symbol) { this.symbol = symbol; }
@@ -94,5 +106,7 @@ public class ViopContract {
     public void setChangeAbs(BigDecimal changeAbs) { this.changeAbs = changeAbs; }
     public void setVolumeTl(BigDecimal volumeTl) { this.volumeTl = volumeTl; }
     public void setVolumeLots(Long volumeLots) { this.volumeLots = volumeLots; }
+    public void setInitialMargin(BigDecimal initialMargin) { this.initialMargin = initialMargin; }
+    public void setMaintenanceMargin(BigDecimal maintenanceMargin) { this.maintenanceMargin = maintenanceMargin; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

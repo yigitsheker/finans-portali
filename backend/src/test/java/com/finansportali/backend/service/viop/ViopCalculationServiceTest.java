@@ -73,4 +73,16 @@ class ViopCalculationServiceTest {
         assertThat(ViopCalculationService.contractSizeFor(ViopContract.Category.FX_TRY)).isEqualTo(1000);
         assertThat(ViopCalculationService.contractSizeFor(ViopContract.Category.METAL_USD)).isEqualTo(10);
     }
+
+    @Test
+    void margin_rate_varies_by_category() {
+        // Leverage = 1/rate, so per-category rates make leverage vary instead of
+        // a constant 10×: index 10×, stock ~6.67×, FX 20×, metal 10×.
+        assertThat(ViopCalculationService.marginRateFor(ViopContract.Category.INDEX)).isEqualByComparingTo("0.10");
+        assertThat(ViopCalculationService.marginRateFor(ViopContract.Category.STOCK)).isEqualByComparingTo("0.15");
+        assertThat(ViopCalculationService.marginRateFor(ViopContract.Category.FX_TRY)).isEqualByComparingTo("0.05");
+        assertThat(ViopCalculationService.marginRateFor(ViopContract.Category.FX_USD)).isEqualByComparingTo("0.05");
+        assertThat(ViopCalculationService.marginRateFor(ViopContract.Category.METAL_USD)).isEqualByComparingTo("0.10");
+        assertThat(ViopCalculationService.marginRateFor(null)).isEqualByComparingTo("0.10");
+    }
 }

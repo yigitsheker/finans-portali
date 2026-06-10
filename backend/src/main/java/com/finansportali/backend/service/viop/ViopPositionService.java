@@ -134,6 +134,10 @@ public class ViopPositionService {
             pos.setMaturityDate(maturity);
             pos.setCurrency(currency);
             pos.setContractSize(contractSize);
+            // Snapshot per-contract margins (from a verified exchange source) when
+            // present; null leaves requiredMargin on the category-based rate.
+            pos.setInitialMargin(contract.getInitialMargin());
+            pos.setMaintenanceMargin(contract.getMaintenanceMargin());
 
             boolean addingSameSide = pos.getStatus() == ViopPositionStatus.OPEN
                     && pos.getQuantity().signum() > 0 && pos.getDirection() == requestedDirection;
@@ -285,7 +289,8 @@ public class ViopPositionService {
         String currency = ViopCalculationService.currencyFor(contract.getCategory());
         BigDecimal q = (qty == null || qty.signum() <= 0) ? BigDecimal.ONE : qty;
         BigDecimal posSize = calc.positionSize(price, contractSize, q);
-        BigDecimal reqMargin = calc.requiredMargin(posSize, marginRate, null, q);
+        BigDecimal rate = ViopCalculationService.marginRateFor(contract.getCategory());
+        BigDecimal reqMargin = calc.requiredMargin(posSize, rate, contract.getInitialMargin(), q);
         BigDecimal lev = calc.leverage(posSize, reqMargin);
 
         ViopPosition existing = positionRepo.findByUserIdAndContractSymbol(userId, contractSymbol).orElse(null);
@@ -310,8 +315,22 @@ public class ViopPositionService {
 
     private void recomputeMargin(ViopPosition pos, BigDecimal contractSize) {
         BigDecimal posSize = calc.positionSize(pos.getEntryPrice(), contractSize, pos.getQuantity());
-        pos.setMarginRate(marginRate);
-        pos.setRequiredMargin(calc.requiredMargin(posSize, marginRate, pos.getInitialMargin(), pos.getQuantity()));
+        BigDecimal rate = effectiveMarginRate(pos);
+        pos.setMarginRate(rate);
+        pos.setRequiredMargin(calc.requiredMargin(posSize, rate, pos.getInitialMargin(), pos.getQuantity()));
+    }
+
+    /** Category-based margin rate; falls back to the configured global default
+     *  ({@code app.viop.margin-rate}) when the category can't be resolved. */
+    private BigDecimal effectiveMarginRate(ViopPosition pos) {
+        ViopContract.Category c = parseCategory(pos.getContractType());
+        return c != null ? ViopCalculationService.marginRateFor(c) : marginRate;
+    }
+
+    private ViopContract.Category parseCategory(String name) {
+        if (name == null) return null;
+        try { return ViopContract.Category.valueOf(name); }
+        catch (IllegalArgumentException e) { return null; }
     }
 
     private ViopTransaction record(String userId, String contractSymbol, ViopTransactionType type,

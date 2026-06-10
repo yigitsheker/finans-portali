@@ -39,6 +39,22 @@ public class ViopCalculationService {
     }
 
     /**
+     * Initial-margin rate (teminat oranı) by category. Replaces a single flat rate
+     * so leverage varies realistically per contract type instead of being a constant
+     * 1/rate for everything. Approximates BİST/Takasbank levels; the authoritative
+     * per-contract initial margin (when fetched) overrides this via requiredMargin().
+     */
+    public static BigDecimal marginRateFor(ViopContract.Category category) {
+        if (category == null) return new BigDecimal("0.10");
+        return switch (category) {
+            case INDEX -> new BigDecimal("0.10");                    // endeks vadeli
+            case STOCK -> new BigDecimal("0.15");                    // tek-pay (daha volatil)
+            case FX_TRY, FX_USD -> new BigDecimal("0.05");           // döviz vadeli
+            case METAL_TRY, METAL_USD, METAL -> new BigDecimal("0.10"); // kıymetli/endüstriyel maden
+        };
+    }
+
+    /**
      * BIST VİOP contracts are all TRY-margined and TRY-settled — even USD/TL and
      * USD-priced metal futures settle their (variation) margin in TRY. So every
      * position's P&L, margin and size are in TRY, which keeps the portfolio
