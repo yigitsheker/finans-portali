@@ -36,7 +36,7 @@ const PRIVATE_NAV = [
   { to: "/portfolio",  key: "nav.portfolio" },
   { to: "/historical", key: "nav.historical" },
   { to: "/lists",      key: "nav.lists" },
-  { to: "/settings",   key: "nav.settings", icon: "⚙️" }, // navbar'da yer açmak için simge
+  { to: "/settings",   key: "nav.settings" }, // masaüstü şeritte gizli; sağ araç kümesinde ⚙️ olarak
 ];
 
 const ADMIN_NAV = [
@@ -253,17 +253,15 @@ export default function Topbar({
             </Link>
           );
         })}
-        {isAuthenticated && PRIVATE_NAV.map((item) => {
+        {isAuthenticated && PRIVATE_NAV.filter((item) => item.to !== "/settings").map((item) => {
           const active = isActive(item.to);
           return (
             <Link
               key={item.to}
               to={item.to}
-              title={item.icon ? t(item.key) : undefined}
-              aria-label={item.icon ? t(item.key) : undefined}
               style={{ ...s.navLink, ...(active ? s.navLinkActive : {}) }}
             >
-              {item.icon ? <span aria-hidden="true" style={{ fontSize: 16 }}>{item.icon}</span> : t(item.key)}
+              {t(item.key)}
             </Link>
           );
         })}
@@ -302,6 +300,22 @@ export default function Topbar({
             </svg>
             <span style={s.alarmBtnLabel}>{t("topbar.priceAlert") || "Alarm"}</span>
           </button>
+        )}
+
+        {/* Ayarlar — nav şeridinden buraya, ikon araç kümesine taşındı (yer açmak için) */}
+        {isAuthenticated && (
+          <Link
+            to="/settings"
+            style={{ ...s.iconBtn, ...(isActive("/settings") ? { color: "var(--accent-solid)" } : {}) }}
+            title={t("nav.settings")}
+            aria-label={t("nav.settings")}
+          >
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                 strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="3"/>
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+            </svg>
+          </Link>
         )}
 
         <button
