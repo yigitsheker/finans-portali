@@ -45,6 +45,10 @@ public class PortfolioService {
         return positionService.list(userId);
     }
 
+    public List<com.finansportali.backend.dto.response.PortfolioTransactionView> transactions(String userId) {
+        return positionService.transactions(userId);
+    }
+
     public PortfolioSummary summary(String userId) {
         return calculationService.summary(userId);
     }

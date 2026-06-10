@@ -2,11 +2,14 @@ package com.finansportali.backend.service.portfolio;
 
 import com.finansportali.backend.entity.MarketInstrument;
 import com.finansportali.backend.entity.PortfolioPosition;
+import com.finansportali.backend.entity.PortfolioTransaction;
 import com.finansportali.backend.dto.request.SellPositionRequest;
 import com.finansportali.backend.dto.request.UpsertPositionRequest;
+import com.finansportali.backend.dto.response.PortfolioTransactionView;
 import com.finansportali.backend.repository.MarketInstrumentRepository;
 import com.finansportali.backend.repository.MarketQuoteRepository;
 import com.finansportali.backend.repository.PortfolioPositionRepository;
+import com.finansportali.backend.repository.PortfolioTransactionRepository;
 import com.finansportali.backend.service.MarketService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -14,6 +17,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.List;
 
@@ -30,15 +35,45 @@ public class PortfolioPositionService {
     private final MarketInstrumentRepository instrumentRepo;
     private final MarketQuoteRepository quoteRepo;
     private final MarketService marketService;
+    private final PortfolioTransactionRepository txRepo;
 
     public PortfolioPositionService(PortfolioPositionRepository positionRepo,
                                     MarketInstrumentRepository instrumentRepo,
                                     MarketQuoteRepository quoteRepo,
-                                    MarketService marketService) {
+                                    MarketService marketService,
+                                    PortfolioTransactionRepository txRepo) {
         this.positionRepo = positionRepo;
         this.instrumentRepo = instrumentRepo;
         this.quoteRepo = quoteRepo;
         this.marketService = marketService;
+        this.txRepo = txRepo;
+    }
+
+    /** Append a movement to the observable ledger. Never throws — a ledger
+     *  failure must not block the actual buy/sell. */
+    private void record(String userId, String symbol, String name, PortfolioTransaction.Type type,
+                        BigDecimal qty, BigDecimal price, BigDecimal realizedPnl) {
+        try {
+            PortfolioTransaction t = new PortfolioTransaction();
+            t.setUserId(userId);
+            t.setSymbol(symbol);
+            t.setName(name);
+            t.setType(type);
+            t.setQuantity(qty);
+            t.setPrice(price);
+            t.setAmount(price != null && qty != null ? qty.multiply(price).setScale(2, RoundingMode.HALF_UP) : null);
+            t.setRealizedPnl(realizedPnl == null ? null : realizedPnl.setScale(2, RoundingMode.HALF_UP));
+            t.setExecutedAt(Instant.now());
+            txRepo.save(t);
+        } catch (RuntimeException e) {
+            log.warn("Failed to record portfolio transaction {} {} for {}: {}", type, symbol, userId, e.getMessage());
+        }
+    }
+
+    /** Movement history (newest first) for the observability view + closed-P&L chart. */
+    public List<PortfolioTransactionView> transactions(String userId) {
+        return txRepo.findByUserIdOrderByExecutedAtDesc(userId).stream()
+                .map(PortfolioTransactionView::from).toList();
     }
 
     /**
@@ -58,7 +93,7 @@ public class PortfolioPositionService {
 
         marketService.seedIfEmpty();
 
-        instrumentRepo.findBySymbol(req.symbol())
+        MarketInstrument inst = instrumentRepo.findBySymbol(req.symbol())
                 .orElseThrow(() -> new IllegalArgumentException("Unknown symbol: " + req.symbol()));
 
         PortfolioPosition pos = positionRepo.findByUserIdAndSymbol(userId, req.symbol())
@@ -90,6 +125,10 @@ public class PortfolioPositionService {
         }
 
         positionRepo.save(pos);
+
+        // Ledger: record this buy movement so history + closed-P&L survive.
+        record(userId, req.symbol(), inst.getName(), PortfolioTransaction.Type.BUY,
+                req.quantity(), req.avgCost(), null);
 
         log.info("Portfolio operation completed - Action: UPSERT - Symbol: {} - NewQuantity: {} - AvgCost: {} - UserId: {}",
                 req.symbol(), pos.getQuantity(), pos.getAvgCost(), userId);
@@ -167,6 +206,14 @@ public class PortfolioPositionService {
             log.info("Portfolio operation completed - Action: SELL - Symbol: {} - Quantity: {} - Proceeds: {} - RemainingQuantity: {} - UserId: {}",
                     req.symbol(), req.quantity(), proceeds, remaining, userId);
         }
+
+        // Ledger: realized P&L = (sellPrice − avgCost) × soldQty. Survives even
+        // when the position is fully closed and its row deleted above.
+        BigDecimal realized = pos.getAvgCost() != null
+                ? currentPrice.subtract(pos.getAvgCost()).multiply(req.quantity())
+                : null;
+        record(userId, req.symbol(), inst != null ? inst.getName() : req.symbol(),
+                PortfolioTransaction.Type.SELL, req.quantity(), currentPrice, realized);
 
         return proceeds;
     }

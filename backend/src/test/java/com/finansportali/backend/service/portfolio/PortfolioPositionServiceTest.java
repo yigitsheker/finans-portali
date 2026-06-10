@@ -36,6 +36,7 @@ class PortfolioPositionServiceTest {
     @Mock private MarketInstrumentRepository instrumentRepo;
     @Mock private MarketQuoteRepository quoteRepo;
     @Mock private MarketService marketService;
+    @Mock private com.finansportali.backend.repository.PortfolioTransactionRepository txRepo;
     @InjectMocks private PortfolioPositionService service;
 
     private static MarketInstrument inst(String symbol) {

@@ -38,6 +38,12 @@ public class PortfolioController {
         return service.list(userId(jwt));
     }
 
+    /** Observable buy/sell movement history (newest first) for this user. */
+    @GetMapping("/transactions")
+    public List<com.finansportali.backend.dto.response.PortfolioTransactionView> transactions(@AuthenticationPrincipal Jwt jwt) {
+        return service.transactions(userId(jwt));
+    }
+
     /** Returns aggregate totals (cost, market value, P/L) for the portfolio. */
     @GetMapping("/summary")
     public PortfolioSummary summary(@AuthenticationPrincipal Jwt jwt) {
