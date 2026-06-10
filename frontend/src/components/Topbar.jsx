@@ -36,7 +36,7 @@ const PRIVATE_NAV = [
   { to: "/portfolio",  key: "nav.portfolio" },
   { to: "/historical", key: "nav.historical" },
   { to: "/lists",      key: "nav.lists" },
-  { to: "/settings",   key: "nav.settings" },
+  { to: "/settings",   key: "nav.settings", icon: "⚙️" }, // navbar'da yer açmak için simge
 ];
 
 const ADMIN_NAV = [
@@ -259,9 +259,11 @@ export default function Topbar({
             <Link
               key={item.to}
               to={item.to}
+              title={item.icon ? t(item.key) : undefined}
+              aria-label={item.icon ? t(item.key) : undefined}
               style={{ ...s.navLink, ...(active ? s.navLinkActive : {}) }}
             >
-              {t(item.key)}
+              {item.icon ? <span aria-hidden="true" style={{ fontSize: 16 }}>{item.icon}</span> : t(item.key)}
             </Link>
           );
         })}
