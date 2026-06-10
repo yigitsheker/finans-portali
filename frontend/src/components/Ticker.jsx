@@ -400,9 +400,9 @@ export default function Ticker({ keycloak }) {
                                             Henüz takip listen yok.{" "}
                                             <button
                                                 style={st.linkBtn}
-                                                onClick={() => { setShowSettings(false); navigate("/stocks"); }}
+                                                onClick={() => { setShowSettings(false); navigate("/lists"); }}
                                             >
-                                                Hisse Senetleri
+                                                Listelerim
                                             </button>{" "}
                                             sekmesinden oluşturabilirsin.
                                         </div>
