@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState, useMemo, useCallback, useRef } from "react";
 import PropTypes from "prop-types";
 import { getInflationHistory } from "../api/inflationApi";
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
@@ -12,6 +12,10 @@ export default function Inflation() {
   const [error, setError] = useState(null);
   const [view, setView] = useState("yearly"); // "yearly" | "monthly"
   const [country, setCountry] = useState("TR"); // "TR" | "US"
+  const [selYear, setSelYear] = useState(null);    // month-lookup: selected year
+  const [selMonth, setSelMonth] = useState(null);  // month-lookup: selected month "MM"
+  const [tableRange, setTableRange] = useState("24"); // "24" | "all"
+  const selectedRowRef = useRef(null);
 
   // Pulled out into a callable so the error-state retry button can call
   // exactly the same load path the initial mount does. Don't fold this
@@ -27,6 +31,23 @@ export default function Inflation() {
   }, [t, country]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Switching country gives a different available range → reset the lookup so
+  // the default-effect below re-picks the new latest period.
+  useEffect(() => { setSelYear(null); setSelMonth(null); }, [country]);
+
+  // Default the month-lookup to the latest available period once data lands.
+  useEffect(() => {
+    if (!rows.length) return;
+    const [y, m] = rows[rows.length - 1].periodDate.split("-");
+    setSelYear((prev) => prev ?? y);
+    setSelMonth((prev) => prev ?? m);
+  }, [rows]);
+
+  // When viewing the full history, scroll the selected month's row into view.
+  useEffect(() => {
+    if (tableRange === "all") selectedRowRef.current?.scrollIntoView({ block: "nearest" });
+  }, [selYear, selMonth, tableRange]);
 
   const stats = useMemo(() => {
     if (!rows.length) return null;
@@ -88,6 +109,13 @@ export default function Inflation() {
 
   // Last 24 months in chronological order for the monthly chart + the detail table.
   const last24 = rows.slice(-24);
+
+  // Month-lookup + table-range helpers — the full ~10y monthly history is available.
+  const byPeriod = new Map(rows.map((r) => [r.periodDate.slice(0, 7), r])); // "YYYY-MM" → row
+  const years = [...new Set(rows.map((r) => r.periodDate.slice(0, 4)))].sort().reverse();
+  const selKey = selYear && selMonth ? `${selYear}-${selMonth}` : null;     // "YYYY-MM"
+  const selectedRow = selKey ? byPeriod.get(selKey) : null;
+  const tableRows = tableRange === "all" ? rows : last24;
 
   // For the yearly chart: collapse the full monthly history into one bar per
   // calendar year. Each bar uses the latest month available in that year's
@@ -195,10 +223,46 @@ export default function Inflation() {
         />
       </div>
 
-      {/* Table — last 24 months */}
+      {/* Belirli bir ayın enflasyonu — yıl + ay seçici */}
       <div style={s.card}>
-        <div style={s.cardTitle}>{t("inflation.detailsTitle")}</div>
-        <div style={s.tableWrap} className="fp-table-scroll">
+        <div style={s.cardTitle}>{t("inflation.lookupTitle")}</div>
+        <div style={s.cardSub}>{t("inflation.lookupHint")}</div>
+        <div style={s.lookupRow}>
+          <select value={selYear ?? ""} onChange={(e) => setSelYear(e.target.value)} style={s.select} aria-label={t("inflation.colPeriod")}>
+            {years.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+          <select value={selMonth ?? ""} onChange={(e) => setSelMonth(e.target.value)} style={s.select} aria-label={t("inflation.monthLabel")}>
+            {MONTHS.map((mm) => <option key={mm} value={mm}>{monthName(mm)}</option>)}
+          </select>
+        </div>
+        {selectedRow ? (
+          <div style={s.lookupResult}>
+            <div style={s.lookupPeriod}>{formatPeriod(selectedRow.periodDate)}</div>
+            <div style={s.lookupMetrics}>
+              <LookupMetric label={t("inflation.colMonthly")} value={fmtPct(selectedRow.cpiMonthlyChange)} color={pctColor(selectedRow.cpiMonthlyChange)} />
+              <LookupMetric label={t("inflation.colYearly")} value={fmtPct(selectedRow.cpiYearlyChange)} color={pctColor(selectedRow.cpiYearlyChange)} />
+              <LookupMetric label={t("inflation.colCpi")} value={selectedRow.cpiIndex != null ? Number(selectedRow.cpiIndex).toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "—"} />
+            </div>
+          </div>
+        ) : (
+          <div style={s.lookupEmpty}>{t("inflation.noPeriodData")}</div>
+        )}
+      </div>
+
+      {/* Detay tablosu — aralık seçilebilir (son 24 ay / son 10 yıl), seçili ay vurgulanır */}
+      <div style={s.card}>
+        <div style={s.cardHeader}>
+          <div style={s.cardTitle}>{t("inflation.detailsTitle")}</div>
+          <div style={s.toggle}>
+            <button type="button" style={{ ...s.toggleBtn, ...(tableRange === "24" ? s.toggleBtnActive : {}) }} onClick={() => setTableRange("24")}>
+              {t("inflation.rangeLast24")}
+            </button>
+            <button type="button" style={{ ...s.toggleBtn, ...(tableRange === "all" ? s.toggleBtnActive : {}) }} onClick={() => setTableRange("all")}>
+              {t("inflation.rangeAll")}
+            </button>
+          </div>
+        </div>
+        <div style={{ ...s.tableWrap, ...(tableRange === "all" ? s.tableScroll : {}) }} className="fp-table-scroll">
           <table style={s.table}>
             <thead>
               <tr>
@@ -215,20 +279,23 @@ export default function Inflation() {
               </tr>
             </thead>
             <tbody>
-              {[...last24].reverse().map((r) => (
-                <tr key={r.periodDate} style={s.tr}>
-                  <td style={s.td}>{formatPeriod(r.periodDate)}</td>
-                  <td style={{ ...s.td, textAlign: "right" }}>
-                    {r.cpiIndex != null ? Number(r.cpiIndex).toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "—"}
-                  </td>
-                  <td style={{ ...s.td, textAlign: "right", color: pctColor(r.cpiMonthlyChange), fontWeight: 600 }}>
-                    {fmtPct(r.cpiMonthlyChange)}
-                  </td>
-                  <td style={{ ...s.td, textAlign: "right", color: pctColor(r.cpiYearlyChange), fontWeight: 600 }}>
-                    {fmtPct(r.cpiYearlyChange)}
-                  </td>
-                </tr>
-              ))}
+              {[...tableRows].reverse().map((r) => {
+                const isSel = r.periodDate.slice(0, 7) === selKey;
+                return (
+                  <tr key={r.periodDate} ref={isSel ? selectedRowRef : null} style={{ ...s.tr, ...(isSel ? s.trSelected : {}) }}>
+                    <td style={s.td}>{formatPeriod(r.periodDate)}</td>
+                    <td style={{ ...s.td, textAlign: "right" }}>
+                      {r.cpiIndex != null ? Number(r.cpiIndex).toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "—"}
+                    </td>
+                    <td style={{ ...s.td, textAlign: "right", color: pctColor(r.cpiMonthlyChange), fontWeight: 600 }}>
+                      {fmtPct(r.cpiMonthlyChange)}
+                    </td>
+                    <td style={{ ...s.td, textAlign: "right", color: pctColor(r.cpiYearlyChange), fontWeight: 600 }}>
+                      {fmtPct(r.cpiYearlyChange)}
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
@@ -328,6 +395,17 @@ SCard.propTypes = {
   color: PropTypes.string,
 };
 
+function LookupMetric({ label, value, color }) {
+  return (
+    <div style={s.lookupMetric}>
+      <div style={s.lookupMetricLabel}>{label}</div>
+      <div style={{ ...s.lookupMetricValue, color: color ?? "var(--text-primary)" }}>{value}</div>
+    </div>
+  );
+}
+
+LookupMetric.propTypes = { label: PropTypes.node, value: PropTypes.node, color: PropTypes.string };
+
 function fmtPct(v) {
   if (v == null) return "—";
   const n = Number(v);
@@ -338,6 +416,15 @@ function fmtPct(v) {
 function pctColor(v) {
   if (v == null) return "var(--text-muted)";
   return Number(v) >= 0 ? "var(--red, #ef4444)" : "var(--green, #10b981)";
+}
+
+const MONTHS = ["01", "02", "03", "04", "05", "06", "07", "08", "09", "10", "11", "12"];
+
+function monthName(mm) {
+  let lang = "tr";
+  try { if ((localStorage.getItem("i18n-lang") || "").toLowerCase() === "en") lang = "en"; } catch { /* ignore */ }
+  const locale = lang === "en" ? "en-US" : "tr-TR";
+  return new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(2000, Number(mm) - 1, 1));
 }
 
 function formatPeriod(isoDate) {
@@ -407,4 +494,15 @@ const s = {
   th: { textAlign: "left", padding: "8px 12px", fontSize: 11, fontWeight: 600, color: "var(--text-muted)", borderBottom: "1px solid var(--border)", textTransform: "uppercase" },
   tr: { borderBottom: "1px solid var(--border-soft)" },
   td: { padding: "9px 12px", fontSize: 13, color: "var(--text-primary)" },
+  tableScroll: { maxHeight: 480, overflowY: "auto" },
+  trSelected: { background: "var(--accent-soft, rgba(59,130,246,0.16))", outline: "1px solid var(--accent-solid, #3b82f6)" },
+  lookupRow: { display: "flex", gap: 10, marginTop: 12, flexWrap: "wrap" },
+  select: { padding: "9px 12px", borderRadius: 8, border: "1px solid var(--border-card)", background: "var(--input-bg, var(--bg-panel))", color: "var(--text-primary)", fontSize: 14, fontWeight: 600, cursor: "pointer", minWidth: 130 },
+  lookupResult: { marginTop: 14, padding: "14px 16px", borderRadius: 10, border: "1px solid var(--border-card)", background: "var(--bg-panel)" },
+  lookupPeriod: { fontSize: 13, fontWeight: 700, color: "var(--text-primary)", marginBottom: 10 },
+  lookupMetrics: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(120px, 1fr))", gap: 12 },
+  lookupMetric: { textAlign: "left" },
+  lookupMetricLabel: { fontSize: 11, color: "var(--text-muted)", marginBottom: 4 },
+  lookupMetricValue: { fontSize: 22, fontWeight: 700 },
+  lookupEmpty: { marginTop: 14, padding: "14px 16px", borderRadius: 10, border: "1px dashed var(--border-card)", color: "var(--text-muted)", fontSize: 13, textAlign: "center" },
 };
