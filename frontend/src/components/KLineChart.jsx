@@ -73,13 +73,20 @@ const mirrorView = (src, dst) => {
 
 const overlayKey = (sym) => `chart-overlays-${sym}`;
 
-function saveOverlays(chart, sym) {
-    if (!chart?.getOverlays) return;
+// klinecharts 9.8 has NO getOverlays() — only getOverlayById(id). So we persist
+// from the overlay IDs the parent already tracks (drawn + restored), resolving
+// each via getOverlayById. The old getOverlays() call silently saved nothing.
+function saveOverlays(chart, sym, ids) {
+    if (!chart?.getOverlayById) return;
     try {
-        const list = (chart.getOverlays() || []).map((o) => ({
-            name: o.name,
-            points: (o.points || []).map((p) => ({ timestamp: p.timestamp, value: p.value })),
-        })).filter((o) => o.points.length > 0);
+        const list = (ids || []).map((id) => {
+            const o = chart.getOverlayById(id);
+            if (!o) return null;
+            return {
+                name: o.name,
+                points: (o.points || []).map((p) => ({ timestamp: p.timestamp, value: p.value })),
+            };
+        }).filter((o) => o && o.points.length > 0);
         localStorage.setItem(overlayKey(sym), JSON.stringify(list));
     } catch { /* quota / api shape */ }
 }
@@ -363,7 +370,10 @@ export default function KLineChart({ symbol }) {
 
     // Explicit save: persist the current drawings of every chart (per symbol).
     const saveDrawings = () => {
-        allEntries().forEach(({ chart, symbol: sym }) => saveOverlays(chart, sym));
+        allEntries().forEach(({ chart, symbol: sym }) => {
+            const ids = historyRef.current.filter((h) => h.chart === chart).map((h) => h.id);
+            saveOverlays(chart, sym, ids);
+        });
         setJustSaved(true);
         clearTimeout(flashRef.current);
         flashRef.current = setTimeout(() => setJustSaved(false), 1500);
