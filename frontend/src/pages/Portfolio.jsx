@@ -24,6 +24,7 @@ export default function Portfolio({ keycloak }) {
   // Clicking a position row opens its chart card (same modal as the Stocks page).
   const [selectedInstrument, setSelectedInstrument] = useState(null);
   const [compareTarget, setCompareTarget] = useState(null);
+  const [tab, setTab] = useState("all"); // all | stocks | viop | bonds
 
   const openChart = (symbol) => {
     const inst = portfolio.marketData?.find((m) => m.symbol === symbol)
@@ -68,9 +69,33 @@ export default function Portfolio({ keycloak }) {
   const asOf = portfolio.summaryDetail?.asOf ?? null;
   const warnings = portfolio.summaryDetail?.warnings ?? [];
   const isFallbackPerf = portfolio.perfResponse?.source === "BUY_CURRENT_FALLBACK";
+  const showMain = tab === "all" || tab === "stocks"; // hisse/kripto/fon bölümü
+  const TABS = [
+    { id: "all", label: t("portfolio.tabAll") },
+    { id: "stocks", label: t("portfolio.tabStocks") },
+    { id: "viop", label: t("portfolio.tabViop") },
+    { id: "bonds", label: t("portfolio.tabBonds") },
+  ];
 
   return (
     <div style={s.root}>
+      <div style={styles.tabBar} role="tablist">
+        {TABS.map((tb) => (
+          <button
+            key={tb.id}
+            type="button"
+            role="tab"
+            aria-selected={tab === tb.id}
+            style={{ ...styles.tabBtn, ...(tab === tb.id ? styles.tabBtnActive : {}) }}
+            onClick={() => setTab(tb.id)}
+          >
+            {tb.label}
+          </button>
+        ))}
+      </div>
+
+      {showMain && (
+        <>
       <SummaryCards
         stats={portfolio.stats}
         loading={portfolio.loading}
@@ -133,11 +158,16 @@ export default function Portfolio({ keycloak }) {
 
       {/* VİOP & bond/bill positions — shown separately (different economics
           from qty×price holdings), each with its own metrics + simulation note. */}
-      <PortfolioDerivatives keycloak={keycloak} />
-
       {/* Alış/satış hareket geçmişi + kapalı pozisyon (gerçekleşen) K/Z grafiği.
           reloadSignal = items ref → her alış/satış sonrası yeniden çeker. */}
       <PortfolioHistory keycloak={keycloak} reloadSignal={portfolio.items} />
+        </>
+      )}
+
+      {/* Türev sekmeleri — All'da ikisi birlikte, VİOP/Tahvil sekmelerinde tek tek. */}
+      {tab === "all" && <PortfolioDerivatives keycloak={keycloak} />}
+      {tab === "viop" && <PortfolioDerivatives keycloak={keycloak} only="viop" />}
+      {tab === "bonds" && <PortfolioDerivatives keycloak={keycloak} only="bond" />}
 
       <AddPositionModal
         open={portfolio.addOpen}
@@ -203,6 +233,31 @@ export default function Portfolio({ keycloak }) {
 }
 
 const styles = {
+  tabBar: {
+    display: "flex",
+    gap: 4,
+    background: "var(--bg-panel)",
+    border: "1px solid var(--border-card)",
+    borderRadius: 10,
+    padding: 4,
+    flexWrap: "wrap",
+  },
+  tabBtn: {
+    flex: "1 1 auto",
+    minWidth: 90,
+    padding: "9px 14px",
+    border: "none",
+    background: "transparent",
+    color: "var(--text-muted)",
+    fontSize: 13,
+    fontWeight: 600,
+    cursor: "pointer",
+    borderRadius: 7,
+  },
+  tabBtnActive: {
+    background: "var(--accent-solid, #3b82f6)",
+    color: "#fff",
+  },
   warnBanner: {
     padding: "10px 14px",
     background: "rgba(245, 158, 11, 0.10)",

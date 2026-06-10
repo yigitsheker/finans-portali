@@ -21,7 +21,7 @@ const pnlColor = (v) => (v == null || Number(v) === 0 ? "var(--text-muted)" : Nu
  * summary metrics + the mandatory simulation disclaimer. Sections render only
  * when the user actually has positions, to keep the page uncluttered.
  */
-export default function PortfolioDerivatives({ keycloak }) {
+export default function PortfolioDerivatives({ keycloak, only }) {
     const { t } = useI18n();
     const [viop, setViop] = useState([]);
     const [viopSum, setViopSum] = useState(null);
@@ -39,43 +39,45 @@ export default function PortfolioDerivatives({ keycloak }) {
 
     const hasViop = viop.some((p) => p.status === "OPEN" && Number(p.quantity) > 0);
     const hasBonds = bonds.some((p) => p.status === "ACTIVE" && Number(p.remainingNominal) > 0);
+
+    const viopSection = hasViop ? (
+        <section style={s.section}>
+            <h3 style={s.title}>{t("viopTrade.myPositions")}</h3>
+            {viopSum && (
+                <div style={s.metrics}>
+                    <Metric label={t("viopTrade.colPositionSize")} value={fmt(viopSum.totalOpenPositionSize)} />
+                    <Metric label={t("viopTrade.requiredMargin")} value={fmt(viopSum.totalRequiredMargin)} />
+                    <Metric label={t("viopTrade.colUnrealized")} value={fmt(viopSum.totalUnrealizedPnl)} color={pnlColor(viopSum.totalUnrealizedPnl)} />
+                    <Metric label={t("portfolioDeriv.realizedPnl")} value={fmt(viopSum.totalRealizedPnl)} color={pnlColor(viopSum.totalRealizedPnl)} />
+                </div>
+            )}
+            <SimulationDisclaimer risk="viop" style={{ marginBottom: 12 }} />
+            <ViopPositionsTable positions={viop} keycloak={keycloak} onChanged={reload} />
+        </section>
+    ) : null;
+
+    const bondSection = hasBonds ? (
+        <section style={s.section}>
+            <h3 style={s.title}>{t("bondTrade.myPositions")}</h3>
+            {bondSum && (
+                <div style={s.metrics}>
+                    <Metric label={t("portfolioDeriv.totalNominal")} value={fmt(bondSum.totalNominal)} />
+                    <Metric label={t("portfolioDeriv.marketValue")} value={fmt(bondSum.currentMarketValue)} />
+                    <Metric label={t("bondTrade.colUnrealized")} value={fmt(bondSum.totalUnrealizedPnl)} color={pnlColor(bondSum.totalUnrealizedPnl)} />
+                    <Metric label={t("bondTrade.colCouponIncome")} value={fmt(bondSum.realizedCouponIncome)} color={Number(bondSum.realizedCouponIncome) > 0 ? "var(--green)" : "var(--text-muted)"} />
+                </div>
+            )}
+            <SimulationDisclaimer risk="bond" style={{ marginBottom: 12 }} />
+            <BondPositionsTable positions={bonds} keycloak={keycloak} onChanged={reload} />
+        </section>
+    ) : null;
+
+    // Tab-scoped rendering: a single section (with an empty state) when `only` is
+    // set, or both sections (current behaviour) for the combined "All" view.
+    if (only === "viop") return viopSection || <div style={s.empty}>{t("portfolioDeriv.noViop")}</div>;
+    if (only === "bond") return bondSection || <div style={s.empty}>{t("portfolioDeriv.noBonds")}</div>;
     if (!hasViop && !hasBonds) return null;
-
-    return (
-        <div style={s.wrap}>
-            {hasViop && (
-                <section style={s.section}>
-                    <h3 style={s.title}>{t("viopTrade.myPositions")}</h3>
-                    {viopSum && (
-                        <div style={s.metrics}>
-                            <Metric label={t("viopTrade.colPositionSize")} value={fmt(viopSum.totalOpenPositionSize)} />
-                            <Metric label={t("viopTrade.requiredMargin")} value={fmt(viopSum.totalRequiredMargin)} />
-                            <Metric label={t("viopTrade.colUnrealized")} value={fmt(viopSum.totalUnrealizedPnl)} color={pnlColor(viopSum.totalUnrealizedPnl)} />
-                            <Metric label={t("portfolioDeriv.realizedPnl")} value={fmt(viopSum.totalRealizedPnl)} color={pnlColor(viopSum.totalRealizedPnl)} />
-                        </div>
-                    )}
-                    <SimulationDisclaimer risk="viop" style={{ marginBottom: 12 }} />
-                    <ViopPositionsTable positions={viop} keycloak={keycloak} onChanged={reload} />
-                </section>
-            )}
-
-            {hasBonds && (
-                <section style={s.section}>
-                    <h3 style={s.title}>{t("bondTrade.myPositions")}</h3>
-                    {bondSum && (
-                        <div style={s.metrics}>
-                            <Metric label={t("portfolioDeriv.totalNominal")} value={fmt(bondSum.totalNominal)} />
-                            <Metric label={t("portfolioDeriv.marketValue")} value={fmt(bondSum.currentMarketValue)} />
-                            <Metric label={t("bondTrade.colUnrealized")} value={fmt(bondSum.totalUnrealizedPnl)} color={pnlColor(bondSum.totalUnrealizedPnl)} />
-                            <Metric label={t("bondTrade.colCouponIncome")} value={fmt(bondSum.realizedCouponIncome)} color={Number(bondSum.realizedCouponIncome) > 0 ? "var(--green)" : "var(--text-muted)"} />
-                        </div>
-                    )}
-                    <SimulationDisclaimer risk="bond" style={{ marginBottom: 12 }} />
-                    <BondPositionsTable positions={bonds} keycloak={keycloak} onChanged={reload} />
-                </section>
-            )}
-        </div>
-    );
+    return <div style={s.wrap}>{viopSection}{bondSection}</div>;
 }
 
 function Metric({ label, value, color }) {
@@ -88,10 +90,11 @@ function Metric({ label, value, color }) {
 }
 Metric.propTypes = { label: PropTypes.string, value: PropTypes.string, color: PropTypes.string };
 
-PortfolioDerivatives.propTypes = { keycloak: PropTypes.object };
+PortfolioDerivatives.propTypes = { keycloak: PropTypes.object, only: PropTypes.oneOf(["viop", "bond"]) };
 
 const s = {
     wrap: { display: "flex", flexDirection: "column", gap: 24, marginTop: 8 },
+    empty: { padding: "40px 20px", textAlign: "center", color: "var(--text-muted)", fontSize: 14, border: "1px dashed var(--border-card)", borderRadius: 10, background: "var(--bg-card)" },
     section: { display: "flex", flexDirection: "column", gap: 10 },
     title: { fontSize: 18, fontWeight: 700, color: "var(--text-primary)", margin: 0 },
     metrics: { display: "flex", flexWrap: "wrap", gap: 16 },
