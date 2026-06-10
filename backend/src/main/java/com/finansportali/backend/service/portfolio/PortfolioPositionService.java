@@ -71,9 +71,39 @@ public class PortfolioPositionService {
     }
 
     /** Movement history (newest first) for the observability view + closed-P&L chart. */
+    @Transactional
     public List<PortfolioTransactionView> transactions(String userId) {
+        backfillFromPositionsIfEmpty(userId);
         return txRepo.findByUserIdOrderByExecutedAtDesc(userId).stream()
                 .map(PortfolioTransactionView::from).toList();
+    }
+
+    /**
+     * One-time lazy migration: the ledger was introduced after positions already
+     * existed, so a user with holdings but an empty ledger would see no history.
+     * Seed a BUY movement per current position (from its avgCost + purchaseDate)
+     * so the history isn't empty on first view. Runs once — after the first
+     * real buy/sell the ledger is non-empty and this never fires again.
+     */
+    private void backfillFromPositionsIfEmpty(String userId) {
+        if (!txRepo.findByUserIdOrderByExecutedAtDesc(userId).isEmpty()) return;
+        for (PortfolioPosition pos : positionRepo.findByUserId(userId)) {
+            if (pos.getQuantity() == null || pos.getQuantity().signum() <= 0) continue;
+            String name = instrumentRepo.findBySymbol(pos.getSymbol())
+                    .map(MarketInstrument::getName).orElse(pos.getSymbol());
+            PortfolioTransaction t = new PortfolioTransaction();
+            t.setUserId(userId);
+            t.setSymbol(pos.getSymbol());
+            t.setName(name);
+            t.setType(PortfolioTransaction.Type.BUY);
+            t.setQuantity(pos.getQuantity());
+            t.setPrice(pos.getAvgCost());
+            t.setAmount(pos.getAvgCost() != null
+                    ? pos.getQuantity().multiply(pos.getAvgCost()).setScale(2, RoundingMode.HALF_UP) : null);
+            t.setExecutedAt(pos.getPurchaseDate() != null
+                    ? pos.getPurchaseDate().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : Instant.now());
+            txRepo.save(t);
+        }
     }
 
     /**
