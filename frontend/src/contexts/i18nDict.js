@@ -571,6 +571,9 @@ export const dict = {
       totalInvest: "Toplam Yatırım",
       currentValue: "Güncel Değer",
       pnl: "Kar/Zarar",
+      pnlChartTitle: "Kar/Zarar Grafiği",
+      pnlByAmount: "Tutar",
+      pnlByPct: "Yüzde",
       empty: "Henüz pozisyon yok",
       emptySub:
         "Geçmiş bir tarihte aldığınız hisseleri ekleyerek o tarihten bugüne kar/zarar hesaplayın",
@@ -1580,6 +1583,9 @@ export const dict = {
       totalInvest: "Total Invested",
       currentValue: "Current Value",
       pnl: "P/L",
+      pnlChartTitle: "Profit / Loss Chart",
+      pnlByAmount: "Amount",
+      pnlByPct: "Percent",
       empty: "No positions yet",
       emptySub:
         "Add a stock you bought in the past and compute the gain since that date",

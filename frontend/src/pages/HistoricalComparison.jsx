@@ -55,6 +55,7 @@ export default function HistoricalComparison({ keycloak }) {
   const [histPreview, setHistPreview] = useState(null);
   // Clicking a row opens its chart card (same modal as the Stocks page).
   const [chartTarget, setChartTarget] = useState(null);
+  const [pnlMode, setPnlMode] = useState("amount"); // "amount" | "pct" — P/L chart axis
   const [compareTarget, setCompareTarget] = useState(null);
   const fileRef = useRef(null);
 
@@ -427,6 +428,17 @@ export default function HistoricalComparison({ keycloak }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [positions, effectiveCurrency, usdRate, instruments]);
 
+  // Per-position P/L in the active display currency — drives the kar/zarar chart.
+  const pnlData = useMemo(() => positions.map((p) => {
+    const native = nativeOf(p);
+    const invested = toEffective(p.buyPrice * p.lots, native);
+    const current = toEffective(p.currentPrice * p.lots, native);
+    const pnl = current - invested;
+    const pnlPct = invested > 0 ? (pnl / invested) * 100 : 0;
+    return { symbol: p.symbol, name: p.name, pnl, pnlPct };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [positions, effectiveCurrency, usdRate, instruments]);
+
   return (
     <div style={s.root}>
       {/* Header */}
@@ -494,6 +506,24 @@ export default function HistoricalComparison({ keycloak }) {
             sub={(totals.change >= 0 ? "+" : "") + totals.changePct.toFixed(2) + "%"}
             valueColor={totals.change >= 0 ? "var(--green)" : "var(--red)"}
           />
+        </div>
+      )}
+
+      {/* Kar/Zarar grafiği */}
+      {positions.length > 0 && (
+        <div style={s.card}>
+          <div style={s.chartHeader}>
+            <div style={s.chartTitle}>{t("historical.pnlChartTitle")}</div>
+            <div style={s.pnlToggle}>
+              <button type="button" style={{ ...s.pnlToggleBtn, ...(pnlMode === "amount" ? s.pnlToggleActive : {}) }} onClick={() => setPnlMode("amount")}>
+                {effectiveSym} {t("historical.pnlByAmount")}
+              </button>
+              <button type="button" style={{ ...s.pnlToggleBtn, ...(pnlMode === "pct" ? s.pnlToggleActive : {}) }} onClick={() => setPnlMode("pct")}>
+                % {t("historical.pnlByPct")}
+              </button>
+            </div>
+          </div>
+          <PnlChart data={pnlData} mode={pnlMode} sym={effectiveSym} fmt={fmt} onBar={openChart} />
         </div>
       )}
 
@@ -835,6 +865,49 @@ SCard.propTypes = {
   valueColor: PropTypes.string,
 };
 
+// Diverging horizontal P/L bars — one row per position. Profit grows right
+// (green), loss grows left (red), from a centered zero line. Click → chart.
+function PnlChart({ data, mode, sym, fmt, onBar }) {
+  const valueOf = (d) => (mode === "pct" ? d.pnlPct : d.pnl);
+  const maxAbs = Math.max(1, ...data.map((d) => Math.abs(valueOf(d))));
+  const label = (d) => {
+    const v = valueOf(d);
+    if (mode === "pct") return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
+    return `${v >= 0 ? "+" : "-"}${sym}${fmt(Math.abs(v))}`;
+  };
+  return (
+    <div style={s.pnlWrap}>
+      {data.map((d) => {
+        const v = valueOf(d);
+        const pos = v >= 0;
+        const w = (Math.abs(v) / maxAbs) * 50; // % of full track (half = zero → edge)
+        const color = pos ? "var(--green, #16a34a)" : "var(--red, #dc2626)";
+        return (
+          <div key={d.symbol} style={s.pnlRow} onClick={() => onBar?.(d)} title={`${d.symbol} • ${label(d)}`}>
+            <span style={s.pnlSym}>{d.symbol}</span>
+            <div style={s.pnlTrack}>
+              <div style={s.pnlZero} />
+              <div style={{
+                position: "absolute", top: 4, bottom: 4, borderRadius: 3, background: color, minWidth: 2,
+                ...(pos ? { left: "50%", width: `${w}%` } : { right: "50%", width: `${w}%` }),
+              }} />
+            </div>
+            <span style={{ ...s.pnlVal, color }}>{label(d)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+PnlChart.propTypes = {
+  data: PropTypes.array.isRequired,
+  mode: PropTypes.string.isRequired,
+  sym: PropTypes.string.isRequired,
+  fmt: PropTypes.func.isRequired,
+  onBar: PropTypes.func,
+};
+
 const s = {
   root: { display: "flex", flexDirection: "column", gap: 16 },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" },
@@ -846,6 +919,17 @@ const s = {
   summaryValue: { fontSize: 22, fontWeight: 700 },
   summarySub: { fontSize: 11, color: "var(--text-muted)", marginTop: 4 },
   card: { borderRadius: 10, border: "1px solid var(--border-card)", background: "var(--bg-card)", padding: "16px 18px" },
+  chartHeader: { display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14, flexWrap: "wrap", gap: 8 },
+  chartTitle: { fontSize: 15, fontWeight: 700, color: "var(--text-primary)" },
+  pnlToggle: { display: "flex", background: "var(--bg-panel)", borderRadius: 6, padding: 2, gap: 2 },
+  pnlToggleBtn: { padding: "5px 12px", border: "none", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 600, cursor: "pointer", borderRadius: 4 },
+  pnlToggleActive: { background: "var(--accent-solid, #3b82f6)", color: "#fff" },
+  pnlWrap: { display: "flex", flexDirection: "column", gap: 8 },
+  pnlRow: { display: "grid", gridTemplateColumns: "84px 1fr 140px", alignItems: "center", gap: 10, cursor: "pointer" },
+  pnlSym: { fontSize: 13, fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
+  pnlTrack: { position: "relative", height: 26, background: "var(--bg-panel)", borderRadius: 4 },
+  pnlZero: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "var(--border-card)" },
+  pnlVal: { fontSize: 13, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" },
   empty: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 20px", textAlign: "center" },
   tableWrap: { overflowX: "auto" },
   table: { width: "100%", borderCollapse: "collapse" },
