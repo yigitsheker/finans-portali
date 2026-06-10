@@ -21,6 +21,8 @@ export default function BondBuyModal({ open, bond, keycloak, onClose, onDone }) 
     const [nominal, setNominal] = useState("100000");
     const [cleanPrice, setCleanPrice] = useState("");
     const [accrued, setAccrued] = useState("0");
+    const [autoAccrued, setAutoAccrued] = useState(true);
+    const [couponFreq, setCouponFreq] = useState(""); // "" → instrument default
     const [preview, setPreview] = useState(null);
     const [submitting, setSubmitting] = useState(false);
     const [error, setError] = useState(null);
@@ -32,6 +34,8 @@ export default function BondBuyModal({ open, bond, keycloak, onClose, onDone }) 
             setNominal("100000");
             setCleanPrice(bond.latestPrice != null ? String(bond.latestPrice) : "");
             setAccrued("0");
+            setAutoAccrued(true);
+            setCouponFreq("");
             setPreview(null);
             setError(null);
         }
@@ -42,13 +46,16 @@ export default function BondBuyModal({ open, bond, keycloak, onClose, onDone }) 
         const n = Number(nominal), c = Number(cleanPrice);
         if (!Number.isFinite(n) || n <= 0 || !Number.isFinite(c) || c <= 0) { setPreview(null); return; }
         let cancelled = false;
+        const body = { identifier, nominal: n, cleanPrice: c };
+        if (!autoAccrued) body.accruedInterest = Number(accrued) || 0;
+        if (couponFreq) body.couponFrequency = Number(couponFreq);
         const id = setTimeout(() => {
-            previewBondBuy(keycloak, { identifier, nominal: n, cleanPrice: c, accruedInterest: Number(accrued) || 0 })
+            previewBondBuy(keycloak, body)
                 .then((p) => { if (!cancelled) setPreview(p); })
                 .catch(() => { if (!cancelled) setPreview(null); });
         }, 250);
         return () => { cancelled = true; clearTimeout(id); };
-    }, [open, identifier, nominal, cleanPrice, accrued, keycloak]);
+    }, [open, identifier, nominal, cleanPrice, accrued, autoAccrued, couponFreq, keycloak]);
 
     if (!bond) return null;
 
@@ -57,7 +64,10 @@ export default function BondBuyModal({ open, bond, keycloak, onClose, onDone }) 
         if (!Number.isFinite(n) || n <= 0 || !Number.isFinite(c) || c <= 0) { setError(t("bondTrade.invalidInput")); return; }
         setSubmitting(true); setError(null);
         try {
-            await buyBond(keycloak, { identifier, nominal: n, cleanPrice: c, accruedInterest: Number(accrued) || 0 });
+            const body = { identifier, nominal: n, cleanPrice: c };
+            if (!autoAccrued) body.accruedInterest = Number(accrued) || 0;
+            if (couponFreq) body.couponFrequency = Number(couponFreq);
+            await buyBond(keycloak, body);
             onDone?.();
             onClose();
         } catch (e) {
@@ -82,13 +92,30 @@ export default function BondBuyModal({ open, bond, keycloak, onClose, onDone }) 
                         <input type="number" min="0" step="0.01" value={cleanPrice} onChange={(e) => setCleanPrice(e.target.value)} style={s.input} />
                     </div>
                     <div style={{ flex: 1 }}>
-                        <label style={s.label}>{t("bondTrade.accrued")}</label>
-                        <input type="number" min="0" step="0.01" value={accrued} onChange={(e) => setAccrued(e.target.value)} style={s.input} />
+                        <label style={s.label}>{t("bondTrade.couponFrequency")}</label>
+                        <select value={couponFreq} onChange={(e) => setCouponFreq(e.target.value)} style={s.input}>
+                            <option value="">{t("bondTrade.freqAuto")}</option>
+                            <option value="1">{t("bondTrade.freqAnnual")}</option>
+                            <option value="2">{t("bondTrade.freqSemi")}</option>
+                            <option value="4">{t("bondTrade.freqQuarterly")}</option>
+                        </select>
                     </div>
                 </div>
 
+                <label style={s.check}>
+                    <input type="checkbox" checked={autoAccrued} onChange={(e) => setAutoAccrued(e.target.checked)} />
+                    {t("bondTrade.autoAccrued")}
+                </label>
+                {!autoAccrued && (
+                    <div>
+                        <label style={s.label}>{t("bondTrade.accrued")}</label>
+                        <input type="number" min="0" step="0.01" value={accrued} onChange={(e) => setAccrued(e.target.value)} style={s.input} />
+                    </div>
+                )}
+
                 {preview && (
                     <div style={s.preview}>
+                        <Row k={t("bondTrade.accrued")} v={fmt(preview.accruedInterest, 4)} />
                         <Row k={t("bondTrade.dirtyPrice")} v={fmt(preview.dirtyPrice, 4)} />
                         <Row k={t("bondTrade.totalCost")} v={`${fmt(preview.totalAmount)} ${bond.currency || "TRY"}`} strong />
                     </div>
@@ -126,6 +153,7 @@ const s = {
     meta: { fontSize: 13, color: "var(--text-muted)" },
     two: { display: "flex", gap: 12 },
     label: { fontSize: 12, fontWeight: 600, color: "var(--text-muted)" },
+    check: { display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "var(--text-primary)", cursor: "pointer" },
     input: {
         width: "100%", boxSizing: "border-box", padding: "10px 12px", borderRadius: 8,
         border: "1px solid var(--border-card)", background: "var(--input-bg)",

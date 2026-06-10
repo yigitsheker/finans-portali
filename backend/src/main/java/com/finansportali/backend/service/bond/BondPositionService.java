@@ -58,9 +58,17 @@ public class BondPositionService {
     }
 
     // ── Buy ───────────────────────────────────────────────────────────────────
+    /** Backward-compatible overload — no coupon-frequency override. */
     @Transactional
     public BondTradeResult buy(String userId, String identifier, BigDecimal nominal,
                                BigDecimal cleanPrice, BigDecimal accrued, BigDecimal dirtyOverride) {
+        return buy(userId, identifier, nominal, cleanPrice, accrued, dirtyOverride, null);
+    }
+
+    @Transactional
+    public BondTradeResult buy(String userId, String identifier, BigDecimal nominal,
+                               BigDecimal cleanPrice, BigDecimal accrued, BigDecimal dirtyOverride,
+                               Integer couponFrequencyOverride) {
         DebtInstrument inst = resolveInstrument(identifier);
         LocalDate today = LocalDate.now();
         if (inst.getMaturityDate() != null && !inst.getMaturityDate().isAfter(today)) {
@@ -68,6 +76,11 @@ public class BondPositionService {
         }
         if (nominal == null || nominal.signum() <= 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nominal tutar sıfırdan büyük olmalı");
+        }
+        // User enters only the clean price → derive accrued interest from the
+        // coupon schedule (skip when an explicit dirty price overrides everything).
+        if (accrued == null && dirtyOverride == null) {
+            accrued = computeAccrued(inst, today, couponFrequencyOverride);
         }
         BigDecimal dirty = dirtyPrice(cleanPrice, accrued, dirtyOverride);
         if (dirty == null || dirty.signum() <= 0) {
@@ -102,7 +115,7 @@ public class BondPositionService {
             pos.setTotalCost(cost);
             pos.setAvgCostPrice(calc.weightedAvgPrice(cost, nominal));
             pos.setCouponRate(inst.getCouponRate());
-            pos.setCouponFrequency(frequencyFor(inst));
+            pos.setCouponFrequency(frequencyFor(inst, couponFrequencyOverride));
             pos.setMaturityDate(inst.getMaturityDate());
             pos.setPurchaseDate(today);
             pos.setLastCouponDate(today); // only coupons after purchase are paid
@@ -135,6 +148,10 @@ public class BondPositionService {
         }
         if (nominal.compareTo(pos.getRemainingNominal()) > 0) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Satış nominali eldeki nominalden fazla olamaz");
+        }
+        // Auto-accrue from the position's coupon schedule when not supplied.
+        if (accrued == null && dirtyOverride == null) {
+            accrued = computeAccrued(inst, LocalDate.now(), pos.getCouponFrequency());
         }
         BigDecimal sellDirty = dirtyPrice(cleanPrice, accrued, dirtyOverride);
         if (sellDirty == null || sellDirty.signum() <= 0) {
@@ -199,7 +216,10 @@ public class BondPositionService {
             if (since != null && !d.isAfter(since)) continue;   // already paid / before purchase
             if (d.isAfter(today)) break;                         // future
             BigDecimal gross = calc.couponPayment(pos.getRemainingNominal(), pos.getCouponRate(), pos.getCouponFrequency());
-            BigDecimal tax = gross.multiply(couponTaxRate).setScale(2, RoundingMode.HALF_UP);
+            long holdingDays = pos.getPurchaseDate() != null
+                    ? ChronoUnit.DAYS.between(pos.getPurchaseDate(), d) : 0L;
+            BigDecimal tax = gross.multiply(couponTaxRateFor(pos.getType(), holdingDays))
+                    .setScale(2, RoundingMode.HALF_UP);
             BigDecimal net = gross.subtract(tax);
             BondTransaction t = newTxn(pos.getUserId(), pos.getIsin(),
                     BondTransactionType.BOND_COUPON_PAYMENT, pos.getRemainingNominal(), Instant.now());
@@ -293,7 +313,16 @@ public class BondPositionService {
 
     public BondTradePreview previewBuy(String identifier, BigDecimal nominal,
                                        BigDecimal cleanPrice, BigDecimal accrued, BigDecimal dirtyOverride) {
-        resolveInstrument(identifier); // validates existence
+        return previewBuy(identifier, nominal, cleanPrice, accrued, dirtyOverride, null);
+    }
+
+    public BondTradePreview previewBuy(String identifier, BigDecimal nominal,
+                                       BigDecimal cleanPrice, BigDecimal accrued, BigDecimal dirtyOverride,
+                                       Integer couponFrequencyOverride) {
+        DebtInstrument inst = resolveInstrument(identifier); // validates existence
+        if (accrued == null && dirtyOverride == null) {
+            accrued = computeAccrued(inst, LocalDate.now(), couponFrequencyOverride);
+        }
         BigDecimal dirty = dirtyPrice(cleanPrice, accrued, dirtyOverride);
         BigDecimal n = nominal == null ? BigDecimal.ZERO : nominal;
         BigDecimal cost = calc.amountAtPrice(n, dirty);
@@ -305,6 +334,9 @@ public class BondPositionService {
         DebtInstrument inst = resolveInstrument(identifier);
         BondPosition pos = positionRepo.findByUserIdAndIsin(userId, inst.getIsin())
                 .filter(p -> p.getStatus() == BondPositionStatus.ACTIVE).orElse(null);
+        if (accrued == null && dirtyOverride == null) {
+            accrued = computeAccrued(inst, LocalDate.now(), pos != null ? pos.getCouponFrequency() : null);
+        }
         BigDecimal dirty = dirtyPrice(cleanPrice, accrued, dirtyOverride);
         BigDecimal n = nominal == null ? BigDecimal.ZERO : nominal;
         BigDecimal proceeds = calc.amountAtPrice(n, dirty);
@@ -325,9 +357,52 @@ public class BondPositionService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Enstrüman bulunamadı"));
     }
 
-    private int frequencyFor(DebtInstrument inst) {
+    private int frequencyFor(DebtInstrument inst, Integer override) {
         if (inst.getCouponRate() == null || inst.getCouponRate().signum() <= 0) return 0;
+        if (override != null && override > 0) return override;  // user-selected (1=yıllık, 2=yarı-yıllık, 4=üç-aylık)
         return defaultCouponFrequency;
+    }
+
+    /**
+     * Accrued interest per 100 nominal at {@code settlement}, derived from the
+     * coupon schedule (maturity stepped back by 12/frequency months to the period
+     * holding the settlement date). Returns 0 for zero-coupon bills or when no
+     * usable schedule exists.
+     */
+    private BigDecimal computeAccrued(DebtInstrument inst, LocalDate settlement, Integer freqOverride) {
+        if (inst.getCouponRate() == null || inst.getCouponRate().signum() <= 0
+                || inst.getMaturityDate() == null) {
+            return BigDecimal.ZERO;
+        }
+        int freq = frequencyFor(inst, freqOverride);
+        if (freq <= 0) return BigDecimal.ZERO;
+        int monthsPer = 12 / freq;
+        if (monthsPer <= 0) return BigDecimal.ZERO;
+        LocalDate next = inst.getMaturityDate();
+        while (next.minusMonths(monthsPer).isAfter(settlement)) {
+            next = next.minusMonths(monthsPer);
+        }
+        LocalDate prev = next.minusMonths(monthsPer);
+        return calc.accruedInterest(inst.getCouponRate(), freq, prev, next, settlement);
+    }
+
+    /**
+     * Coupon withholding tax (stopaj) rate. Resident individuals pay 0% on
+     * government / treasury / lease-certificate / eurobond coupons; corporate-bond
+     * withholding decreases with holding period (illustrative brackets — adjust to
+     * the current regulation). A positive {@code app.bonds.coupon-tax-rate}
+     * overrides everything with a flat rate.
+     */
+    private BigDecimal couponTaxRateFor(DebtInstrumentType type, long holdingDays) {
+        if (couponTaxRate != null && couponTaxRate.signum() > 0) return couponTaxRate;
+        if (type == null) return BigDecimal.ZERO;
+        return switch (type) {
+            case GOVERNMENT_BOND, TREASURY_BILL, LEASE_CERTIFICATE, EUROBOND -> BigDecimal.ZERO;
+            case CORPORATE_BOND -> holdingDays < 365 ? new BigDecimal("0.10")
+                    : holdingDays < 1095 ? new BigDecimal("0.07")
+                    : new BigDecimal("0.03");
+            default -> BigDecimal.ZERO;
+        };
     }
 
     private BigDecimal dirtyPrice(BigDecimal clean, BigDecimal accrued, BigDecimal dirtyOverride) {

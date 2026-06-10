@@ -34,7 +34,7 @@ public class BondTradeController {
     public ResponseEntity<BondTradeResult> buy(@AuthenticationPrincipal Jwt jwt,
                                                @Valid @RequestBody BuyBondRequest req) {
         return ResponseEntity.ok(service.buy(userId(jwt), req.identifier(), req.nominal(),
-                req.cleanPrice(), req.accruedInterest(), req.dirtyPrice()));
+                req.cleanPrice(), req.accruedInterest(), req.dirtyPrice(), req.couponFrequency()));
     }
 
     @PostMapping("/sell")
@@ -63,7 +63,7 @@ public class BondTradeController {
     public ResponseEntity<BondTradePreview> previewBuy(@AuthenticationPrincipal Jwt jwt,
                                                        @Valid @RequestBody BuyBondRequest req) {
         return ResponseEntity.ok(service.previewBuy(req.identifier(), req.nominal(),
-                req.cleanPrice(), req.accruedInterest(), req.dirtyPrice()));
+                req.cleanPrice(), req.accruedInterest(), req.dirtyPrice(), req.couponFrequency()));
     }
 
     @PostMapping("/preview/sell")

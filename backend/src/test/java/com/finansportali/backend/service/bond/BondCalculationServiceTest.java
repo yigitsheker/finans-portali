@@ -3,6 +3,7 @@ package com.finansportali.backend.service.bond;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
@@ -62,5 +63,25 @@ class BondCalculationServiceTest {
     void zero_frequency_yields_no_coupon() {
         assertThat(calc.couponPayment(bd("100000"), bd("20"), 0))
                 .isEqualByComparingTo("0");
+    }
+
+    @Test
+    void accrued_interest_act_act_within_period() {
+        // %20 annual, semiannual → 10 coupon per 100 per period.
+        // Period 2025-01-01 → 2025-07-01 (181 days), settle 2025-04-01 (90 days):
+        // accrued/100 = 10 × 90/181 = 4,972376
+        BigDecimal accrued = calc.accruedInterest(bd("20"), 2,
+                LocalDate.of(2025, 1, 1), LocalDate.of(2025, 7, 1), LocalDate.of(2025, 4, 1));
+        assertThat(accrued).isEqualByComparingTo("4.972376");
+    }
+
+    @Test
+    void accrued_interest_zero_for_zero_coupon_or_missing_dates() {
+        LocalDate d = LocalDate.of(2025, 1, 1);
+        assertThat(calc.accruedInterest(BigDecimal.ZERO, 2, d, d.plusMonths(6), d.plusMonths(3)))
+                .isEqualByComparingTo("0");
+        assertThat(calc.accruedInterest(bd("20"), 2, null, null, d)).isEqualByComparingTo("0");
+        // settlement on the period start → no time elapsed → 0
+        assertThat(calc.accruedInterest(bd("20"), 2, d, d.plusMonths(6), d)).isEqualByComparingTo("0");
     }
 }
