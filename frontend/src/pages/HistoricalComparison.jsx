@@ -154,6 +154,14 @@ export default function HistoricalComparison({ keycloak }) {
     return "$";                           // commodities / global default to USD
   };
 
+  // Native currency for converting a STORED row's prices. Once the catalog is
+  // loaded, prefer getCurrency (this also corrects rows saved before the
+  // type-based fix). BEFORE it loads, fall back to the currency stored at
+  // add-time — otherwise a BIST (₺) row would briefly resolve to "$" and flash
+  // a ×USDTRY-inflated current value until the catalog arrives.
+  const nativeOf = (p) =>
+    ((instruments.length ? getCurrency(p.symbol) : (p.currency || "₺")) === "₺" ? "TRY" : "USD");
+
   // Build one historical position row (price at buy date from history, current
   // price, inflation-adjusted real return). Returns the row WITHOUT an id, or
   // null when there's no price history for that symbol/window. Shared by the
@@ -409,7 +417,7 @@ export default function HistoricalComparison({ keycloak }) {
     let invested = 0;
     let current = 0;
     for (const p of positions) {
-      const native = getCurrency(p.symbol) === "₺" ? "TRY" : "USD";
+      const native = nativeOf(p);
       invested += toEffective(p.buyPrice * p.lots, native);
       current += toEffective(p.currentPrice * p.lots, native);
     }
@@ -514,7 +522,7 @@ export default function HistoricalComparison({ keycloak }) {
               </thead>
               <tbody>
                 {positions.map((p) => {
-                  const native = getCurrency(p.symbol) === "₺" ? "TRY" : "USD";
+                  const native = nativeOf(p);
                   const buyPx = toEffective(p.buyPrice, native);
                   const curPx = toEffective(p.currentPrice, native);
                   const invested = toEffective(p.buyPrice * p.lots, native);
