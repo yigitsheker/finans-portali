@@ -18,11 +18,14 @@ const fmtDate = (iso) => {
  * Realized P&L per symbol survives even after a position is fully sold, because
  * it comes from the backend transaction ledger, not the live position rows.
  */
-export default function PortfolioHistory({ keycloak }) {
+export default function PortfolioHistory({ keycloak, reloadSignal }) {
   const { t } = useI18n();
   const [txns, setTxns] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Re-fetch whenever the portfolio mutates (buy/sell/import) — `reloadSignal`
+  // changes reference on every refresh — so a fresh sell shows up immediately
+  // instead of only after a full page reload.
   useEffect(() => {
     let cancel = false;
     getPortfolioTransactions(keycloak)
@@ -30,7 +33,7 @@ export default function PortfolioHistory({ keycloak }) {
       .catch(() => { if (!cancel) setTxns([]); })
       .finally(() => { if (!cancel) setLoading(false); });
     return () => { cancel = true; };
-  }, [keycloak]);
+  }, [keycloak, reloadSignal]);
 
   if (loading) return null;
 
@@ -120,7 +123,7 @@ export default function PortfolioHistory({ keycloak }) {
   );
 }
 
-PortfolioHistory.propTypes = { keycloak: PropTypes.object.isRequired };
+PortfolioHistory.propTypes = { keycloak: PropTypes.object.isRequired, reloadSignal: PropTypes.any };
 
 const s = {
   wrap: { display: "flex", flexDirection: "column", gap: 16 },

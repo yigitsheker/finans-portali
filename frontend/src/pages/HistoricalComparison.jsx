@@ -56,7 +56,7 @@ export default function HistoricalComparison({ keycloak }) {
   const [histPreview, setHistPreview] = useState(null);
   // Clicking a row opens its chart card (same modal as the Stocks page).
   const [chartTarget, setChartTarget] = useState(null);
-  const [perfPeriod, setPerfPeriod] = useState("1Y"); // historical performance area-chart range
+  const [perfPeriod, setPerfPeriod] = useState("30D"); // historical performance area-chart range
   const [perfSeries, setPerfSeries] = useState([]);
   const [perfLoading, setPerfLoading] = useState(false);
   const [compareTarget, setCompareTarget] = useState(null);
@@ -555,10 +555,10 @@ export default function HistoricalComparison({ keycloak }) {
           <div style={s.chartHeader}>
             <div style={s.chartTitle}>{t("historical.perfTitle")}</div>
             <div style={s.pnlToggle}>
-              {["3M", "1Y", "5Y"].map((per) => (
-                <button key={per} type="button"
-                  style={{ ...s.pnlToggleBtn, ...(perfPeriod === per ? s.pnlToggleActive : {}) }}
-                  onClick={() => setPerfPeriod(per)}>{per}</button>
+              {[{ p: "30D", l: "1M" }, { p: "3M", l: "3M" }, { p: "1Y", l: "1Y" }].map(({ p, l }) => (
+                <button key={p} type="button"
+                  style={{ ...s.pnlToggleBtn, ...(perfPeriod === p ? s.pnlToggleActive : {}) }}
+                  onClick={() => setPerfPeriod(p)}>{l}</button>
               ))}
             </div>
           </div>

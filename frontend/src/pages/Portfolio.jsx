@@ -135,8 +135,9 @@ export default function Portfolio({ keycloak }) {
           from qty×price holdings), each with its own metrics + simulation note. */}
       <PortfolioDerivatives keycloak={keycloak} />
 
-      {/* Alış/satış hareket geçmişi + kapalı pozisyon (gerçekleşen) K/Z grafiği */}
-      <PortfolioHistory keycloak={keycloak} />
+      {/* Alış/satış hareket geçmişi + kapalı pozisyon (gerçekleşen) K/Z grafiği.
+          reloadSignal = items ref → her alış/satış sonrası yeniden çeker. */}
+      <PortfolioHistory keycloak={keycloak} reloadSignal={portfolio.items} />
 
       <AddPositionModal
         open={portfolio.addOpen}
