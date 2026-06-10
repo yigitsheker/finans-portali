@@ -32,7 +32,7 @@ export default function PortfolioHistory({ keycloak }) {
     return () => { cancel = true; };
   }, [keycloak]);
 
-  if (loading || txns.length === 0) return null;
+  if (loading) return null;
 
   // Realized P&L per symbol = Σ SELL realizedPnl (a "closed position" result).
   const bySymbol = new Map();
@@ -76,6 +76,9 @@ export default function PortfolioHistory({ keycloak }) {
 
       <div style={s.card}>
         <div style={s.title}>{t("portfolio.historyTitle")}</div>
+        {txns.length === 0 ? (
+          <div style={s.empty}>{t("portfolio.noMovements")}</div>
+        ) : (
         <div style={s.tableWrap} className="fp-table-scroll">
           <table style={s.table}>
             <thead>
@@ -111,6 +114,7 @@ export default function PortfolioHistory({ keycloak }) {
             </tbody>
           </table>
         </div>
+        )}
       </div>
     </div>
   );
@@ -128,4 +132,5 @@ const s = {
   th: { textAlign: "left", padding: "8px 12px", fontSize: 11, fontWeight: 600, color: "var(--text-muted)", borderBottom: "1px solid var(--border)", textTransform: "uppercase", whiteSpace: "nowrap" },
   tr: { borderBottom: "1px solid var(--border-soft)" },
   td: { padding: "9px 12px", fontSize: 13, color: "var(--text-primary)", whiteSpace: "nowrap" },
+  empty: { padding: "18px 4px", fontSize: 13, color: "var(--text-muted)", textAlign: "center" },
 };

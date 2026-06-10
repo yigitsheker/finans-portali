@@ -574,6 +574,8 @@ export const dict = {
       pnlChartTitle: "Kar/Zarar Grafiği",
       pnlByAmount: "Tutar",
       pnlByPct: "Yüzde",
+      perfTitle: "Geçmişten Performans",
+      perfEmpty: "Grafik için yeterli fiyat geçmişi yok",
       empty: "Henüz pozisyon yok",
       emptySub:
         "Geçmiş bir tarihte aldığınız hisseleri ekleyerek o tarihten bugüne kar/zarar hesaplayın",
@@ -824,6 +826,7 @@ export const dict = {
       sell: "Sat",
       buy: "Al",
       historyTitle: "İşlem Geçmişi (Alış / Satış)",
+      noMovements: "Henüz alış/satış hareketi kaydedilmedi. Yeni işlemler burada görünecek.",
       closedPnlTitle: "Kapalı Pozisyon Kar/Zarar",
       closedPnlSub: "Sattığınız pozisyonlardan gerçekleşen kâr/zarar (sembol bazında)",
       realizedPnl: "Gerçekleşen K/Z",
@@ -1595,6 +1598,8 @@ export const dict = {
       pnlChartTitle: "Profit / Loss Chart",
       pnlByAmount: "Amount",
       pnlByPct: "Percent",
+      perfTitle: "Historical Performance",
+      perfEmpty: "Not enough price history for the chart",
       empty: "No positions yet",
       emptySub:
         "Add a stock you bought in the past and compute the gain since that date",
@@ -1845,6 +1850,7 @@ export const dict = {
       sell: "Sell",
       buy: "Buy",
       historyTitle: "Transaction History (Buy / Sell)",
+      noMovements: "No buy/sell movements recorded yet. New transactions will appear here.",
       closedPnlTitle: "Closed Position Profit/Loss",
       closedPnlSub: "Realized profit/loss from positions you've sold (per symbol)",
       realizedPnl: "Realized P/L",

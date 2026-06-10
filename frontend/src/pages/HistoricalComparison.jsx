@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
-import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
+import { PortfolioAreaChart } from "../components/common/PortfolioAreaChart";
 import Modal from "../components/Modal";
 import ImportPreviewModal from "../components/ImportPreviewModal";
 import InstrumentChartModal from "../components/InstrumentChartModal";
 import CompareInstrumentsModal from "../components/CompareInstrumentsModal";
-import { getLatestPrice, getMarketHistory, getMarketSummary } from "../api/portfolioApi";
+import { getLatestPrice, getMarketHistory, getMarketSummary, getMarketHistoryBatch } from "../api/portfolioApi";
 import { compareInflation } from "../api/inflationApi";
 import { useI18n } from "../contexts/I18nContext";
 import { useCurrencyDisplay } from "../contexts/CurrencyDisplayContext";
@@ -56,7 +56,9 @@ export default function HistoricalComparison({ keycloak }) {
   const [histPreview, setHistPreview] = useState(null);
   // Clicking a row opens its chart card (same modal as the Stocks page).
   const [chartTarget, setChartTarget] = useState(null);
-  const [pnlMode, setPnlMode] = useState("amount"); // "amount" | "pct" — P/L chart axis
+  const [perfPeriod, setPerfPeriod] = useState("1Y"); // historical performance area-chart range
+  const [perfSeries, setPerfSeries] = useState([]);
+  const [perfLoading, setPerfLoading] = useState(false);
   const [compareTarget, setCompareTarget] = useState(null);
   const fileRef = useRef(null);
 
@@ -429,16 +431,53 @@ export default function HistoricalComparison({ keycloak }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [positions, effectiveCurrency, usdRate, instruments]);
 
-  // Per-position P/L in the active display currency — drives the kar/zarar chart.
-  const pnlData = useMemo(() => positions.map((p) => {
-    const native = nativeOf(p);
-    const invested = toEffective(p.buyPrice * p.lots, native);
-    const current = toEffective(p.currentPrice * p.lots, native);
-    const pnl = current - invested;
-    const pnlPct = invested > 0 ? (pnl / invested) * 100 : 0;
-    return { symbol: p.symbol, name: p.name, pnl, pnlPct };
+  // Historical performance: total value of the held positions over time, built
+  // client-side from each symbol's price history (carry-forward + buy-date
+  // gating) and converted to the active display currency. Feeds the area chart.
+  useEffect(() => {
+    if (!positions.length) { setPerfSeries([]); return undefined; }
+    let cancel = false;
+    setPerfLoading(true);
+    const symbols = [...new Set(positions.map((p) => p.symbol))];
+    getMarketHistoryBatch(symbols, perfPeriod)
+      .then((batch) => {
+        if (cancel) return;
+        const perSym = {};
+        const allDays = new Set();
+        for (const sym of symbols) {
+          const hist = (batch[sym] || [])
+            .filter((h) => h && Number(h.close) > 0)
+            .map((h) => ({ day: String(h.day).slice(0, 10), close: Number(h.close) }))
+            .sort((a, b) => a.day.localeCompare(b.day));
+          perSym[sym] = hist;
+          hist.forEach((h) => allDays.add(h.day));
+        }
+        const days = [...allDays].sort();
+        const series = [];
+        for (const day of days) {
+          let total = 0;
+          let any = false;
+          for (const p of positions) {
+            const bd = p.buyDate ? String(p.buyDate).slice(0, 10) : null;
+            if (bd && day < bd) continue;                 // not yet held on this day
+            const hist = perSym[p.symbol] || [];
+            let close = null;
+            for (let i = hist.length - 1; i >= 0; i--) {
+              if (hist[i].day <= day) { close = hist[i].close; break; }  // carry-forward
+            }
+            if (close == null) continue;
+            total += toEffective(close * Number(p.lots || 0), nativeOf(p));
+            any = true;
+          }
+          if (any) series.push({ time: day, value: Number(total.toFixed(2)) });
+        }
+        setPerfSeries(series);
+      })
+      .catch(() => { if (!cancel) setPerfSeries([]); })
+      .finally(() => { if (!cancel) setPerfLoading(false); });
+    return () => { cancel = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }), [positions, effectiveCurrency, usdRate, instruments]);
+  }, [positions, perfPeriod, effectiveCurrency, usdRate, instruments]);
 
   return (
     <div style={s.root}>
@@ -510,21 +549,26 @@ export default function HistoricalComparison({ keycloak }) {
         </div>
       )}
 
-      {/* Kar/Zarar grafiği */}
+      {/* Geçmişten performans — değer/zaman alan grafiği (lightweight-charts) */}
       {positions.length > 0 && (
         <div style={s.card}>
           <div style={s.chartHeader}>
-            <div style={s.chartTitle}>{t("historical.pnlChartTitle")}</div>
+            <div style={s.chartTitle}>{t("historical.perfTitle")}</div>
             <div style={s.pnlToggle}>
-              <button type="button" style={{ ...s.pnlToggleBtn, ...(pnlMode === "amount" ? s.pnlToggleActive : {}) }} onClick={() => setPnlMode("amount")}>
-                {effectiveSym} {t("historical.pnlByAmount")}
-              </button>
-              <button type="button" style={{ ...s.pnlToggleBtn, ...(pnlMode === "pct" ? s.pnlToggleActive : {}) }} onClick={() => setPnlMode("pct")}>
-                % {t("historical.pnlByPct")}
-              </button>
+              {["3M", "1Y", "5Y"].map((per) => (
+                <button key={per} type="button"
+                  style={{ ...s.pnlToggleBtn, ...(perfPeriod === per ? s.pnlToggleActive : {}) }}
+                  onClick={() => setPerfPeriod(per)}>{per}</button>
+              ))}
             </div>
           </div>
-          <PnlChart data={pnlData} mode={pnlMode} sym={effectiveSym} fmt={fmt} onBar={openChart} />
+          {perfLoading ? (
+            <div style={s.perfMsg}>{t("common.loadingDots")}</div>
+          ) : perfSeries.length >= 2 ? (
+            <PortfolioAreaChart data={perfSeries} height={240} />
+          ) : (
+            <div style={s.perfMsg}>{t("historical.perfEmpty")}</div>
+          )}
         </div>
       )}
 
@@ -866,47 +910,6 @@ SCard.propTypes = {
   valueColor: PropTypes.string,
 };
 
-// Per-position P/L as a recharts bar chart (same look as the Portfolio page):
-// green for profit, red for loss, zero baseline, click → that symbol's chart.
-function PnlChart({ data, mode, sym, fmt, onBar }) {
-  const isDark = document.documentElement.getAttribute("data-theme") !== "light";
-  const tipBg = isDark ? "#1c2128" : "#ffffff";
-  const tipBorder = isDark ? "#30363d" : "#d0d7de";
-  const tipColor = isDark ? "#e6edf3" : "#1f2328";
-  const chartData = data.map((d) => ({
-    symbol: d.symbol, name: d.name,
-    value: mode === "pct" ? d.pnlPct : d.pnl,
-  }));
-  const fmtVal = (v) => (mode === "pct"
-    ? `${v >= 0 ? "+" : ""}${Number(v).toFixed(2)}%`
-    : `${v >= 0 ? "+" : "-"}${sym}${fmt(Math.abs(v))}`);
-  return (
-    <ResponsiveContainer width="100%" height={260}>
-      <BarChart data={chartData} margin={{ top: 20, right: 12, left: 0, bottom: 4 }}>
-        <XAxis dataKey="symbol" tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
-        <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={72}
-               tickFormatter={(v) => (mode === "pct" ? `${v}%` : fmt(v))} />
-        <ReferenceLine y={0} stroke={tipBorder} />
-        <Tooltip cursor={{ fill: "rgba(125,125,125,0.08)" }}
-                 contentStyle={{ background: tipBg, border: `1px solid ${tipBorder}`, borderRadius: 6, color: tipColor, fontSize: 12 }}
-                 formatter={(v) => [fmtVal(v), mode === "pct" ? "%" : sym]} />
-        <Bar dataKey="value" radius={[3, 3, 0, 0]} cursor="pointer"
-             onClick={(d) => onBar?.(d?.payload)}>
-          {chartData.map((d, i) => <Cell key={i} fill={d.value >= 0 ? "#16a34a" : "#dc2626"} />)}
-        </Bar>
-      </BarChart>
-    </ResponsiveContainer>
-  );
-}
-
-PnlChart.propTypes = {
-  data: PropTypes.array.isRequired,
-  mode: PropTypes.string.isRequired,
-  sym: PropTypes.string.isRequired,
-  fmt: PropTypes.func.isRequired,
-  onBar: PropTypes.func,
-};
-
 const s = {
   root: { display: "flex", flexDirection: "column", gap: 16 },
   header: { display: "flex", justifyContent: "space-between", alignItems: "flex-start" },
@@ -923,12 +926,7 @@ const s = {
   pnlToggle: { display: "flex", background: "var(--bg-panel)", borderRadius: 6, padding: 2, gap: 2 },
   pnlToggleBtn: { padding: "5px 12px", border: "none", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 600, cursor: "pointer", borderRadius: 4 },
   pnlToggleActive: { background: "var(--accent-solid, #3b82f6)", color: "#fff" },
-  pnlWrap: { display: "flex", flexDirection: "column", gap: 8 },
-  pnlRow: { display: "grid", gridTemplateColumns: "84px 1fr 140px", alignItems: "center", gap: 10, cursor: "pointer" },
-  pnlSym: { fontSize: 13, fontWeight: 700, color: "var(--text-primary)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" },
-  pnlTrack: { position: "relative", height: 26, background: "var(--bg-panel)", borderRadius: 4 },
-  pnlZero: { position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "var(--border-card)" },
-  pnlVal: { fontSize: 13, fontWeight: 700, textAlign: "right", whiteSpace: "nowrap" },
+  perfMsg: { height: 240, display: "grid", placeItems: "center", color: "var(--text-muted)", fontSize: 13 },
   empty: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 20px", textAlign: "center" },
   tableWrap: { overflowX: "auto" },
   table: { width: "100%", borderCollapse: "collapse" },
