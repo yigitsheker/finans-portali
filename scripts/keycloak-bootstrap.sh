@@ -185,19 +185,120 @@ for ROLE in view-users manage-users query-users view-clients query-clients; do
   fi
 done
 
-# ── 3.5) LDAP user federation must be WRITABLE so users can edit their own
-# profile (Settings page → "Save"). The default editMode for an imported
-# LDAP federation is READ_ONLY, which makes Keycloak reject any attribute
-# update with "error-user-attribute-read-only".
+# ── 3.5) LDAP user federation (OpenLDAP) ───────────────────────────────────
+# Connect OpenLDAP (dc=finance,dc=local) OUT-OF-THE-BOX. The committed realm
+# export has no federation, so create the component + standard attribute mappers
+# (uid→username, mail→email, sn→lastName, givenName→firstName) + a group mapper,
+# set editMode WRITABLE, and import the seed users. Idempotent: re-running finds
+# the existing component and only re-patches editMode.
+find_ldap() {
+  $KCADM get components -r "$REALM" \
+    -q "type=org.keycloak.storage.UserStorageProvider" \
+    --fields id,providerId --format csv --noquotes 2>/dev/null \
+    | tr -d '\r' | grep ',ldap$' | head -1 | cut -d, -f1
+}
+LDAP_COMPONENT_ID=$(find_ldap)
+
+if [ -z "$LDAP_COMPONENT_ID" ]; then
+  log "No LDAP federation found — creating it (OpenLDAP dc=finance,dc=local)..."
+  REALM_ID=$($KCADM get "realms/$REALM" --fields id --format csv --noquotes 2>/dev/null | tr -d '\r ' | head -1)
+  cat > /tmp/ldap-fed.json <<JSON
+{
+  "name": "openldap",
+  "providerId": "ldap",
+  "providerType": "org.keycloak.storage.UserStorageProvider",
+  "parentId": "$REALM_ID",
+  "config": {
+    "enabled": ["true"],
+    "priority": ["0"],
+    "vendor": ["other"],
+    "connectionUrl": ["ldap://openldap:389"],
+    "usersDn": ["ou=users,dc=finance,dc=local"],
+    "authType": ["simple"],
+    "bindDn": ["cn=admin,dc=finance,dc=local"],
+    "bindCredential": ["admin_password"],
+    "usernameLDAPAttribute": ["uid"],
+    "rdnLDAPAttribute": ["uid"],
+    "uuidLDAPAttribute": ["entryUUID"],
+    "userObjectClasses": ["inetOrgPerson, organizationalPerson, person"],
+    "searchScope": ["1"],
+    "editMode": ["WRITABLE"],
+    "importEnabled": ["true"],
+    "syncRegistrations": ["false"],
+    "pagination": ["true"],
+    "trustEmail": ["true"],
+    "batchSizeForSync": ["1000"],
+    "fullSyncPeriod": ["-1"],
+    "changedSyncPeriod": ["-1"],
+    "cachePolicy": ["DEFAULT"]
+  }
+}
+JSON
+  if $KCADM create components -r "$REALM" -f /tmp/ldap-fed.json >/dev/null 2>&1; then
+    LDAP_COMPONENT_ID=$(find_ldap)
+    log "  + LDAP federation created (id=$LDAP_COMPONENT_ID)"
+
+    add_attr_mapper() { # $1 name  $2 ldapAttr  $3 userAttr  $4 mandatory(true/false)
+      cat > /tmp/ldap-mapper.json <<JSON
+{
+  "name": "$1",
+  "providerId": "user-attribute-ldap-mapper",
+  "providerType": "org.keycloak.storage.ldap.mappers.LDAPStorageMapper",
+  "parentId": "$LDAP_COMPONENT_ID",
+  "config": {
+    "ldap.attribute": ["$2"],
+    "user.model.attribute": ["$3"],
+    "read.only": ["false"],
+    "always.read.value.from.ldap": ["false"],
+    "is.mandatory.in.ldap": ["$4"]
+  }
+}
+JSON
+      $KCADM create components -r "$REALM" -f /tmp/ldap-mapper.json >/dev/null 2>&1 \
+        && log "    + mapper: $1" || log "    ! mapper failed: $1"
+    }
+    add_attr_mapper "username"   "uid"       "username"  "true"
+    add_attr_mapper "email"      "mail"      "email"     "false"
+    add_attr_mapper "last name"  "sn"        "lastName"  "true"
+    add_attr_mapper "first name" "givenName" "firstName" "false"
+
+    # Group mapper: finance-users / finance-admins → Keycloak groups.
+    cat > /tmp/ldap-grp.json <<JSON
+{
+  "name": "groups",
+  "providerId": "group-ldap-mapper",
+  "providerType": "org.keycloak.storage.ldap.mappers.LDAPStorageMapper",
+  "parentId": "$LDAP_COMPONENT_ID",
+  "config": {
+    "groups.dn": ["ou=groups,dc=finance,dc=local"],
+    "group.name.ldap.attribute": ["cn"],
+    "group.object.classes": ["groupOfNames"],
+    "membership.ldap.attribute": ["member"],
+    "membership.attribute.type": ["DN"],
+    "membership.user.ldap.attribute": ["uid"],
+    "mode": ["READ_ONLY"],
+    "user.roles.retrieve.strategy": ["LOAD_GROUPS_BY_MEMBER_ATTRIBUTE"],
+    "preserve.group.inheritance": ["true"],
+    "drop.non.existing.groups.during.sync": ["false"]
+  }
+}
+JSON
+    $KCADM create components -r "$REALM" -f /tmp/ldap-grp.json >/dev/null 2>&1 \
+      && log "    + mapper: groups" || log "    ! mapper failed: groups"
+
+    if $KCADM create "user-storage/$LDAP_COMPONENT_ID/sync?action=triggerFullSync" -r "$REALM" >/dev/null 2>&1; then
+      log "  + LDAP full sync triggered (seed users imported: john.doe, jane.smith, admin.user, test.user)"
+    else
+      log "  ! LDAP sync failed (users will import lazily on first login)"
+    fi
+  else
+    log "  ! LDAP federation create failed (is OpenLDAP reachable at ldap://openldap:389?)"
+  fi
+fi
+
+# Ensure editMode WRITABLE so users can edit their own profile (Settings → Save).
+# READ_ONLY makes Keycloak reject attribute updates ("error-user-attribute-read-only").
 log "Ensuring LDAP federation editMode = WRITABLE..."
-
-# Get all UserStorageProvider components, find the one whose providerId is "ldap".
-# CSV format: "id","name","providerId" — use grep+cut (no awk available in image).
-LDAP_COMPONENT_ID=$($KCADM get components -r "$REALM" \
-  -q "type=org.keycloak.storage.UserStorageProvider" \
-  --fields id,providerId --format csv --noquotes 2>/dev/null \
-  | tr -d '\r' | grep ',ldap$' | head -1 | cut -d, -f1)
-
 if [ -n "$LDAP_COMPONENT_ID" ]; then
   CUR_MODE=$($KCADM get "components/$LDAP_COMPONENT_ID" -r "$REALM" 2>/dev/null \
     | grep -o '"editMode"[^]]*\]' | grep -o '"[A-Z_]*"' | head -1 | tr -d '"')
