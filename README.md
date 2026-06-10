@@ -94,7 +94,7 @@ Ancak Finans Portalı yalnızca **veri gösteren** bir platform değildir; veriy
 - 🧮 **Çok-varlıklı piyasa takibi** — BIST & ABD hisseleri, kripto, döviz, emtia, fon, tahvil/bono, VİOP; aranabilir/sıralanabilir tablolar, mini eğilim grafikleri.
 - 📊 **Profesyonel grafikler** — candlestick, hareketli ortalamalar, hacim, MACD, RSI, çizim araçları, çoklu zaman periyodu.
 - 📉 **Enflasyon & reel getiri** — Türkiye TÜFE + ABD CPI; yatırımların enflasyondan arındırılmış gerçek getirisi.
-- 💼 **Portföy yönetimi** — ortalama maliyet, kâr/zarar, varlık dağılımı, performans, alım/satım geçmişi, Excel ile toplu içe aktarma.
+- 💼 **Portföy yönetimi** — sekmeli görünüm (Tümü / Hisse / VİOP / Tahvil), ortalama maliyet, kâr/zarar, varlık dağılımı, performans, **alış-satış işlem geçmişi**, **kapalı pozisyon (gerçekleşen) K/Z grafiği**, Excel ile toplu içe aktarma.
 - 🕰️ **Geçmiş senaryo** — "X tarihinde Y almış olsaydım bugün ne olurdu?" (nominal + reel).
 - 🤖 **Yapay zeka danışman** — finans odaklı sohbet; kesin kazanç vaadi vermez, doğrudan al/sat emri üretmez, her yanıtta uyarı içerir.
 - 🔔 **Takip listeleri & alarmlar** — hedef fiyat alarmı, uygulama içi + e-posta bildirimi.
@@ -176,7 +176,7 @@ Kendi pozisyonlarını ekleme · toplam portföy değeri · toplam kâr/zarar ·
 <details>
 <summary><b>12. Geçmişten / Geçmiş Senaryo</b></summary>
 
-"X tarihinde Y almış olsaydım bugün ne olurdu?" · bugünkü değer · kâr/zarar · enflasyona göre reel getiri.
+"X tarihinde Y almış olsaydım bugün ne olurdu?" · bugünkü değer · kâr/zarar · enflasyona göre reel getiri · pozisyonların **zaman içindeki değer grafiği** (1A / 3A / 1Y / All) · Excel ile toplu içe aktarma.
 </details>
 
 <details>
