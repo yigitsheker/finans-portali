@@ -330,6 +330,16 @@ else
   log "  ! No LDAP user-federation component found (skipping)"
 fi
 
+# ── 3.6) Map LDAP groups → realm roles (RBAC) ──────────────────────────────
+# finance-admins → ADMIN, finance-users → USER, so federated users get the
+# right authorization out-of-the-box. Idempotent + non-fatal (groups only exist
+# after an LDAP sync has imported them).
+log "Mapping LDAP groups to realm roles..."
+$KCADM add-roles -r "$REALM" --gname finance-admins --rolename ADMIN >/dev/null 2>&1 \
+  && log "  + finance-admins -> ADMIN" || log "  = finance-admins -> ADMIN (group missing or already mapped)"
+$KCADM add-roles -r "$REALM" --gname finance-users --rolename USER >/dev/null 2>&1 \
+  && log "  + finance-users -> USER" || log "  = finance-users -> USER (group missing or already mapped)"
+
 # ── 4) Verification (via service-account credentials) ──────────────────────
 log "Verifying service-account can call admin REST..."
 SA_CONFIG=/tmp/sa-kcadm.json
