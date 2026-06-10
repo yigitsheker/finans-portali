@@ -2,6 +2,7 @@ import { AddPositionModal } from "../components/features/portfolio/AddPositionMo
 import { PortfolioCharts } from "../components/features/portfolio/PortfolioCharts";
 import { PositionsTable } from "../components/features/portfolio/PositionsTable";
 import PortfolioDerivatives from "../components/features/portfolio/PortfolioDerivatives";
+import PortfolioHistory from "../components/features/portfolio/PortfolioHistory";
 import { SellPositionModal } from "../components/features/portfolio/SellPositionModal";
 import { SummaryCards } from "../components/features/portfolio/SummaryCards";
 import { portfolioStyles as s } from "../components/features/portfolio/portfolioStyles";
@@ -133,6 +134,9 @@ export default function Portfolio({ keycloak }) {
       {/* VİOP & bond/bill positions — shown separately (different economics
           from qty×price holdings), each with its own metrics + simulation note. */}
       <PortfolioDerivatives keycloak={keycloak} />
+
+      {/* Alış/satış hareket geçmişi + kapalı pozisyon (gerçekleşen) K/Z grafiği */}
+      <PortfolioHistory keycloak={keycloak} />
 
       <AddPositionModal
         open={portfolio.addOpen}

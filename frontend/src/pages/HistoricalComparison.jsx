@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import PropTypes from "prop-types";
+import { BarChart, Bar, Cell, XAxis, YAxis, Tooltip, ResponsiveContainer, ReferenceLine } from "recharts";
 import Modal from "../components/Modal";
 import ImportPreviewModal from "../components/ImportPreviewModal";
 import InstrumentChartModal from "../components/InstrumentChartModal";
@@ -865,38 +866,36 @@ SCard.propTypes = {
   valueColor: PropTypes.string,
 };
 
-// Diverging horizontal P/L bars — one row per position. Profit grows right
-// (green), loss grows left (red), from a centered zero line. Click → chart.
+// Per-position P/L as a recharts bar chart (same look as the Portfolio page):
+// green for profit, red for loss, zero baseline, click → that symbol's chart.
 function PnlChart({ data, mode, sym, fmt, onBar }) {
-  const valueOf = (d) => (mode === "pct" ? d.pnlPct : d.pnl);
-  const maxAbs = Math.max(1, ...data.map((d) => Math.abs(valueOf(d))));
-  const label = (d) => {
-    const v = valueOf(d);
-    if (mode === "pct") return `${v >= 0 ? "+" : ""}${v.toFixed(2)}%`;
-    return `${v >= 0 ? "+" : "-"}${sym}${fmt(Math.abs(v))}`;
-  };
+  const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+  const tipBg = isDark ? "#1c2128" : "#ffffff";
+  const tipBorder = isDark ? "#30363d" : "#d0d7de";
+  const tipColor = isDark ? "#e6edf3" : "#1f2328";
+  const chartData = data.map((d) => ({
+    symbol: d.symbol, name: d.name,
+    value: mode === "pct" ? d.pnlPct : d.pnl,
+  }));
+  const fmtVal = (v) => (mode === "pct"
+    ? `${v >= 0 ? "+" : ""}${Number(v).toFixed(2)}%`
+    : `${v >= 0 ? "+" : "-"}${sym}${fmt(Math.abs(v))}`);
   return (
-    <div style={s.pnlWrap}>
-      {data.map((d) => {
-        const v = valueOf(d);
-        const pos = v >= 0;
-        const w = (Math.abs(v) / maxAbs) * 50; // % of full track (half = zero → edge)
-        const color = pos ? "var(--green, #16a34a)" : "var(--red, #dc2626)";
-        return (
-          <div key={d.symbol} style={s.pnlRow} onClick={() => onBar?.(d)} title={`${d.symbol} • ${label(d)}`}>
-            <span style={s.pnlSym}>{d.symbol}</span>
-            <div style={s.pnlTrack}>
-              <div style={s.pnlZero} />
-              <div style={{
-                position: "absolute", top: 4, bottom: 4, borderRadius: 3, background: color, minWidth: 2,
-                ...(pos ? { left: "50%", width: `${w}%` } : { right: "50%", width: `${w}%` }),
-              }} />
-            </div>
-            <span style={{ ...s.pnlVal, color }}>{label(d)}</span>
-          </div>
-        );
-      })}
-    </div>
+    <ResponsiveContainer width="100%" height={260}>
+      <BarChart data={chartData} margin={{ top: 20, right: 12, left: 0, bottom: 4 }}>
+        <XAxis dataKey="symbol" tick={{ fill: "var(--text-muted)", fontSize: 11 }} />
+        <YAxis tick={{ fill: "var(--text-muted)", fontSize: 11 }} width={72}
+               tickFormatter={(v) => (mode === "pct" ? `${v}%` : fmt(v))} />
+        <ReferenceLine y={0} stroke={tipBorder} />
+        <Tooltip cursor={{ fill: "rgba(125,125,125,0.08)" }}
+                 contentStyle={{ background: tipBg, border: `1px solid ${tipBorder}`, borderRadius: 6, color: tipColor, fontSize: 12 }}
+                 formatter={(v) => [fmtVal(v), mode === "pct" ? "%" : sym]} />
+        <Bar dataKey="value" radius={[3, 3, 0, 0]} cursor="pointer"
+             onClick={(d) => onBar?.(d?.payload)}>
+          {chartData.map((d, i) => <Cell key={i} fill={d.value >= 0 ? "#16a34a" : "#dc2626"} />)}
+        </Bar>
+      </BarChart>
+    </ResponsiveContainer>
   );
 }
 

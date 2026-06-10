@@ -30,6 +30,13 @@ export async function upsertPosition(keycloak, body) {
     await axios.post(`${API_BASE}/api/v1/portfolio/positions`, body, { headers });
 }
 
+/** Observable buy/sell movement history (newest first). */
+export async function getPortfolioTransactions(keycloak) {
+    const headers = await authHeader(keycloak);
+    const res = await axios.get(`${API_BASE}/api/v1/portfolio/transactions`, { headers });
+    return res.data;
+}
+
 export async function deletePosition(keycloak, symbol) {
     const headers = await authHeader(keycloak);
     await axios.delete(`${API_BASE}/api/v1/portfolio/positions/${encodeURIComponent(symbol)}`, { headers });
