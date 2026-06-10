@@ -97,12 +97,22 @@ public class InvestmentFundService {
                 Optional<InvestmentFund> existingFund = repository.findByFundCode(freshFund.getFundCode());
                 
                 if (existingFund.isPresent()) {
-                    // Mevcut fonu güncelle
+                    // Mevcut fonu güncelle.
                     InvestmentFund fund = existingFund.get();
-                    fund.setUnitPrice(freshFund.getUnitPrice());
-                    fund.setTotalValue(freshFund.getTotalValue());
-                    fund.setPriceDate(freshFund.getPriceDate());
-                    fund.setDailyReturn(freshFund.getDailyReturn());
+                    // Birim fiyat + günlük getiri ayrı bir per-fon TEFAS çağrısından
+                    // gelir; o çağrı bu tazelemede başarısız olduysa fresh değer 0/null
+                    // gelir. Eski (bilinen) değeri 0 ile EZME — aksi halde geçici bir
+                    // TEFAS hatası önceden doğru olan fiyatı siler ("—" görünür).
+                    if (freshFund.getUnitPrice() != null && freshFund.getUnitPrice().signum() > 0) {
+                        fund.setUnitPrice(freshFund.getUnitPrice());
+                        fund.setPriceDate(freshFund.getPriceDate());
+                    }
+                    if (freshFund.getTotalValue() != null && freshFund.getTotalValue().signum() > 0) {
+                        fund.setTotalValue(freshFund.getTotalValue());
+                    }
+                    if (freshFund.getDailyReturn() != null) {
+                        fund.setDailyReturn(freshFund.getDailyReturn());
+                    }
                     fund.setWeeklyReturn(freshFund.getWeeklyReturn());
                     fund.setMonthlyReturn(freshFund.getMonthlyReturn());
                     fund.setThreeMonthReturn(freshFund.getThreeMonthReturn());
