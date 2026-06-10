@@ -170,7 +170,7 @@ _Örnek sorular:_ "5.000 TL'yi nasıl değerlendirebilirim?" · "Altın bu ay na
 <details>
 <summary><b>11. Portföyüm</b></summary>
 
-Kendi pozisyonlarını ekleme · toplam portföy değeri · toplam kâr/zarar · varlık dağılımı grafiği · ortalama maliyet hesabı · alım/satım geçmişi · Excel ile toplu içe aktarma.
+Kendi pozisyonlarını ekleme · toplam portföy değeri · toplam kâr/zarar · varlık dağılımı grafiği · ortalama maliyet hesabı · Excel ile toplu içe aktarma. **Sekmeli görünüm** (Tümü / Hisse-Kripto-Fon / VİOP / Tahvil-Bono), **alış-satış işlem geçmişi** ve **kapalı pozisyon (gerçekleşen) kâr/zarar grafiği**.
 </details>
 
 <details>
@@ -384,8 +384,10 @@ Yapay zeka danışman, kullanıcıya finansal **karar desteği** sunar — ancak
 
 ## 🗺️ Yol Haritası
 
-- [ ] Gerçek borsa/Takasbank **teminat parametreleri** ile VİOP kaldıracını dinamikleştirme
-- [ ] Tahvil **stopaj** oranlarının güncel mevzuata göre otomatik güncellenmesi
+- [x] VİOP teminat/kaldıracı **kategori bazlı** (endeks/pay/döviz/maden) + kontrat-bazlı margin altyapısı
+- [ ] Gerçek borsa/Takasbank **teminat parametreleri** beslemesi (kontrat-bazlı margin'i canlı veriyle doldurmak)
+- [x] Tahvil kupon **stopajı** (tip + elde-tutma süresi) ve **otomatik birikmiş faiz** (ACT/ACT)
+- [ ] Stopaj oranlarının **güncel mevzuata göre otomatik** güncellenmesi
 - [ ] Daha zengin **portföy analitiği** (getiri katkısı, çeşitlendirme skoru)
 - [ ] **Mobil** deneyimin derinleştirilmesi (PWA)
 - [ ] Yapay zeka danışmana **araç-çağırma** (canlı veri ile gerekçelendirme)
