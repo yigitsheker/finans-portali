@@ -50,8 +50,11 @@ Hisse · Kripto · Döviz · Emtia · Yatırım Fonu · Tahvil/Bono · VİOP · 
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/markets.png" alt="Piyasalar — Hisse Senetleri" width="440">
-  <img src="docs/screenshots/inflation.png" alt="Enflasyon & Reel Getiri" width="440">
+  <img src="docs/screenshots/markets.png" alt="Piyasalar — Hisse Senetleri" width="900">
+</p>
+
+<p align="center">
+  <img src="docs/screenshots/inflation.png" alt="Enflasyon & Reel Getiri" width="900">
 </p>
 
 <p align="center">
