@@ -228,13 +228,36 @@ export default function Inflation() {
         <div style={s.cardTitle}>{t("inflation.lookupTitle")}</div>
         <div style={s.cardSub}>{t("inflation.lookupHint")}</div>
         <div style={s.lookupRow}>
-          <select value={selYear ?? ""} onChange={(e) => setSelYear(e.target.value)} style={s.select} aria-label={t("inflation.colPeriod")}>
+          <select
+            value={selYear ?? ""}
+            onChange={(e) => {
+              const y = e.target.value;
+              setSelYear(y);
+              // Keep the month valid for the new year — snap to its latest
+              // available month if the current one has no data that year.
+              if (!byPeriod.has(`${y}-${selMonth}`)) {
+                const avail = MONTHS.filter((mm) => byPeriod.has(`${y}-${mm}`));
+                if (avail.length) setSelMonth(avail[avail.length - 1]);
+              }
+            }}
+            style={s.select}
+            aria-label={t("inflation.colPeriod")}
+          >
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
           <select value={selMonth ?? ""} onChange={(e) => setSelMonth(e.target.value)} style={s.select} aria-label={t("inflation.monthLabel")}>
-            {MONTHS.map((mm) => <option key={mm} value={mm}>{monthName(mm)}</option>)}
+            {MONTHS.map((mm) => (
+              <option key={mm} value={mm} disabled={selYear ? !byPeriod.has(`${selYear}-${mm}`) : false}>
+                {monthName(mm)}
+              </option>
+            ))}
           </select>
         </div>
+        {stats?.latestPeriod && (
+          <div style={s.lookupLatest}>
+            {t("inflation.latestPublished")}: <b>{formatPeriod(stats.latestPeriod)}</b>
+          </div>
+        )}
         {selectedRow ? (
           <div style={s.lookupResult}>
             <div style={s.lookupPeriod}>{formatPeriod(selectedRow.periodDate)}</div>
@@ -505,4 +528,5 @@ const s = {
   lookupMetricLabel: { fontSize: 11, color: "var(--text-muted)", marginBottom: 4 },
   lookupMetricValue: { fontSize: 22, fontWeight: 700 },
   lookupEmpty: { marginTop: 14, padding: "14px 16px", borderRadius: 10, border: "1px dashed var(--border-card)", color: "var(--text-muted)", fontSize: 13, textAlign: "center" },
+  lookupLatest: { marginTop: 8, fontSize: 12, color: "var(--text-muted)" },
 };
