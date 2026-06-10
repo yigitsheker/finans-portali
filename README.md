@@ -50,16 +50,13 @@ Hisse · Kripto · Döviz · Emtia · Yatırım Fonu · Tahvil/Bono · VİOP · 
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/portfolio.png" alt="Portföy Panosu" width="440">
-  <img src="docs/screenshots/analysis.png" alt="Analiz & Yapay Zeka Danışman" width="440">
+  <img src="docs/screenshots/markets.png" alt="Piyasalar — Hisse Senetleri" width="440">
+  <img src="docs/screenshots/inflation.png" alt="Enflasyon & Reel Getiri" width="440">
 </p>
 
 <p align="center">
-  <img src="docs/screenshots/inflation.png" alt="Enflasyon & Reel Getiri" width="440">
-  <img src="docs/screenshots/markets.png" alt="Piyasalar & Detaylı Grafik" width="440">
+  <img src="docs/screenshots/funds.png" alt="Yatırım Fonları" width="900">
 </p>
-
-> 📷 Görseller `docs/screenshots/` klasörüne eklenir. (Yer tutucular; kendi ekran görüntülerinizle değiştirin.)
 
 ---
 
