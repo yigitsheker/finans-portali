@@ -355,7 +355,14 @@ const WatchlistManager = ({ keycloak }) => {
               );
             })}
           </div>
-          <div style={{ maxHeight: '50vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+          <div style={{
+            maxHeight: '50vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6,
+            // Promote to its own compositor layer so scrolling stays smooth inside
+            // the modal's backdrop-filter subtree (which otherwise forces slow
+            // main-thread scrolling), and isolate paint to this container.
+            transform: 'translateZ(0)', willChange: 'transform', contain: 'content',
+            overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch',
+          }}>
             {addCandidates.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>{t("watchlist.noResults")}</div>
             ) : (
@@ -367,6 +374,7 @@ const WatchlistManager = ({ keycloak }) => {
                     style={{
                       display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
                       borderRadius: 8, border: '1px solid var(--border-soft)', background: 'var(--input-bg)',
+                      contain: 'layout paint',
                     }}
                   >
                     <span style={{ fontWeight: 700, color: 'var(--text-primary)', minWidth: 90 }}>{inst.symbol}</span>
