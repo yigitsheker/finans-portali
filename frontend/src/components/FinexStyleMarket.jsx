@@ -515,6 +515,14 @@ export default function FinexStyleMarket({
         return t("market.searchStocks");
     })();
 
+    // The actions column must be a FIXED width (not `auto`) so the header grid
+    // and each row grid resolve identical track widths. With `auto`, the header's
+    // "İŞLEMLER" label and a row's buttons size that track differently, and the
+    // 2fr symbol column absorbs the difference — visibly shifting every column.
+    // Watchlist mode renders two buttons (remove + buy), so it needs more room.
+    const hasWatchlistActions = !!(onAddToWatchlist && onRemoveFromWatchlist);
+    const gridCols = `minmax(0, 2fr) 100px 100px 80px 110px ${hasWatchlistActions ? "130px" : "90px"}`;
+
     return (
         <div style={s.root}>
             {/* Header Section with Title and Index Cards */}
@@ -661,7 +669,7 @@ export default function FinexStyleMarket({
             <div style={s.mainLayout}>
                 <div style={s.tableContainer} className="fp-card-table">
                     {/* Table Header */}
-                    <div style={s.tableHeader}>
+                    <div style={{ ...s.tableHeader, gridTemplateColumns: gridCols }}>
                         <div
                             style={{ ...s.colHisse, ...s.sortableHeader, ...(sortField === "symbol" ? s.sortableHeaderActive : {}) }}
                             {...clickable(() => toggleSort("symbol"))}
@@ -705,7 +713,7 @@ export default function FinexStyleMarket({
                                         return (
                                             <div
                                                 key={item.symbol}
-                                                style={s.tableRow}
+                                                style={{ ...s.tableRow, gridTemplateColumns: gridCols }}
                                                 {...clickable(() => setSelected(item))}
                                             >
                                                 <div style={s.colHisse}>
@@ -803,7 +811,7 @@ export default function FinexStyleMarket({
                                 return (
                                     <div
                                         key={item.symbol}
-                                        style={s.tableRow}
+                                        style={{ ...s.tableRow, gridTemplateColumns: gridCols }}
                                         {...clickable(() => setSelected(item))}
                                     >
                                         <div style={s.colHisse}>
