@@ -228,16 +228,28 @@ export function usePortfolioPage(keycloak) {
     return getFallbackAllocation(items, prices, instruments, allocView, usdRate);
   }, [summaryDetail, items, prices, instruments, marketData, allocView]);
 
+  // Crypto can be held in fractional lots (e.g. 0.1 BTC); every other asset is
+  // whole lots only. Derived from the typed symbol's catalog type.
+  const addIsCrypto = useMemo(() => {
+    const sym = String(addSymbol || "").trim().toUpperCase();
+    return instruments.some(
+      (i) => String(i.symbol).toUpperCase() === sym && i.type === "CRYPTO"
+    );
+  }, [addSymbol, instruments]);
+
   // In "amount" mode, the effective lot count is derived from the budget;
   // in "quantity" mode it's whatever the user typed. The save handler reads
-  // this value (not addQty) so the two paths stay consistent.
+  // this value (not addQty) so the two paths stay consistent. Non-crypto is
+  // floored to whole lots; crypto keeps fractional units (backend NUMERIC(19,6)).
   const addEffectiveQty = useMemo(() => {
     if (addInputMode === "amount") {
       if (!addAmount || !addPrice || addAmount <= 0 || addPrice <= 0) return 0;
-      return Math.floor(Number(addAmount) / Number(addPrice));
+      const units = Number(addAmount) / Number(addPrice);
+      return addIsCrypto ? Number(units.toFixed(6)) : Math.floor(units);
     }
-    return Number(addQty) || 0;
-  }, [addInputMode, addAmount, addPrice, addQty]);
+    const raw = Number(addQty) || 0;
+    return addIsCrypto ? raw : Math.floor(raw);
+  }, [addInputMode, addAmount, addPrice, addQty, addIsCrypto]);
 
   const addTotal = useMemo(() => {
     const qty = addEffectiveQty;
@@ -399,6 +411,7 @@ export function usePortfolioPage(keycloak) {
     addInputMode,
     addAmount,
     addEffectiveQty,
+    addIsCrypto,
     addAmountLeftover,
     showSugg,
     suggestions,

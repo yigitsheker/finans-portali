@@ -26,6 +26,8 @@ export function AddPositionModal({
   amountLeftover = 0,
   setInputMode = () => {},
   setAmount = () => {},
+  // Crypto allows fractional lots (e.g. 0.1 BTC); everything else is whole lots.
+  isCrypto = false,
 }) {
   // Stable per-instance IDs so <label htmlFor> can target each <input>
   // (Sonar S6819 — accessibility: every form control needs a programmatic
@@ -123,7 +125,7 @@ export function AddPositionModal({
           <>
             <div style={{ display: "grid", gap: 6 }}>
               <label htmlFor={ids.quantity} style={s.label}>Adet</label>
-              <input id={ids.quantity} type="number" value={quantity} min={1} onChange={(event) => setQuantity(Number(event.target.value))} style={s.input} />
+              <input id={ids.quantity} type="number" value={quantity} min={isCrypto ? 0 : 1} step={isCrypto ? "any" : "1"} onChange={(event) => setQuantity(Number(event.target.value))} style={s.input} />
             </div>
             <div style={{ display: "grid", gap: 6 }}>
               <label htmlFor={ids.currentPriceQty} style={s.label}>Guncel Fiyat</label>

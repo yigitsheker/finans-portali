@@ -192,6 +192,7 @@ export default function Portfolio({ keycloak }) {
         amountLeftover={portfolio.addAmountLeftover}
         setInputMode={portfolio.setAddInputMode}
         setAmount={portfolio.setAddAmount}
+        isCrypto={portfolio.addIsCrypto}
       />
 
       <SellPositionModal

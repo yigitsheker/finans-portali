@@ -418,11 +418,19 @@ export default function FinexStyleMarket({
     // In amount mode the buyer enters a budget (e.g. ₺5000); we floor-divide by
     // the live price to get whole lots, leaving small change ("artık para")
     // unused. This avoids fractional shares that the backend doesn't accept.
+    // Crypto can be bought in fractional lots (e.g. 0.1 BTC); every other asset
+    // is whole lots only. Amount-mode floors to whole lots for non-crypto, but
+    // keeps fractional units for crypto (backend quantity is NUMERIC(19,6)).
     const effectiveQty = useMemo(() => {
-        if (addMode !== "amount") return Math.max(0, Number(addQty) || 0);
+        const isCrypto = addTarget?.type === "CRYPTO";
+        if (addMode !== "amount") {
+            const raw = Math.max(0, Number(addQty) || 0);
+            return isCrypto ? raw : Math.floor(raw);
+        }
         const price = addTarget?.last;
         if (!price || price <= 0) return 0;
-        return Math.floor((Number(addAmount) || 0) / price);
+        const units = (Number(addAmount) || 0) / price;
+        return isCrypto ? Number(units.toFixed(6)) : Math.floor(units);
     }, [addMode, addAmount, addQty, addTarget]);
 
     const amountLeftover = useMemo(() => {
@@ -973,7 +981,8 @@ export default function FinexStyleMarket({
                                     <input
                                         type="number"
                                         value={addQty}
-                                        min={1}
+                                        min={addTarget?.type === "CRYPTO" ? 0 : 1}
+                                        step={addTarget?.type === "CRYPTO" ? "any" : "1"}
                                         onChange={(e) => setAddQty(Number(e.target.value))}
                                         style={s.input}
                                         autoFocus
