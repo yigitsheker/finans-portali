@@ -18,6 +18,40 @@ const WatchlistManager = ({ keycloak }) => {
   const [renameWatchlistName, setRenameWatchlistName] = useState('');
   // Pending delete target — drives a styled confirm modal instead of window.confirm.
   const [deleteTarget, setDeleteTarget] = useState(null);
+  // Add-instrument modal: search any instrument (all asset types) and add it to
+  // the selected list directly from this page.
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [addSearch, setAddSearch] = useState('');
+  const [addType, setAddType] = useState('ALL');
+
+  // Map an instrument type to a localized badge/chip label. STOCK+BIST share the
+  // "stocks" label so the user sees one category, not two.
+  const typeLabel = (type) => {
+    switch (type) {
+      case 'STOCK':
+      case 'BIST': return t('nav.stocks');
+      case 'CRYPTO': return t('nav.crypto');
+      case 'FUND': return t('nav.funds');
+      case 'BOND': return t('nav.bonds');
+      case 'FX': return t('nav.fx');
+      case 'COMMODITY': return t('nav.commodities');
+      case 'VIOP': return t('nav.viop');
+      case 'INDEX': return t('watchlist.typeIndex');
+      default: return type;
+    }
+  };
+
+  // Category chips for the add modal. Each maps to one or more raw types.
+  const typeGroups = [
+    { key: 'STOCK', types: ['STOCK', 'BIST'], label: t('nav.stocks') },
+    { key: 'CRYPTO', types: ['CRYPTO'], label: t('nav.crypto') },
+    { key: 'FUND', types: ['FUND'], label: t('nav.funds') },
+    { key: 'BOND', types: ['BOND'], label: t('nav.bonds') },
+    { key: 'FX', types: ['FX'], label: t('nav.fx') },
+    { key: 'COMMODITY', types: ['COMMODITY'], label: t('nav.commodities') },
+    { key: 'VIOP', types: ['VIOP'], label: t('nav.viop') },
+    { key: 'INDEX', types: ['INDEX'], label: t('watchlist.typeIndex') },
+  ];
 
   useEffect(() => {
     loadWatchlists();
@@ -130,6 +164,33 @@ const WatchlistManager = ({ keycloak }) => {
     ? instruments.filter(inst => selectedWatchlist.symbols.includes(inst.symbol))
     : [];
 
+  const openAddModal = () => {
+    if (!selectedWatchlist) {
+      notify(t("watchlist.selectFirst"), { variant: "warning" });
+      return;
+    }
+    setAddSearch('');
+    setAddType('ALL');
+    setShowAddModal(true);
+  };
+
+  // Instruments offered in the add modal — every asset type, filtered by the
+  // active category chip and the search query (symbol or name).
+  const addCandidates = instruments.filter(inst => {
+    if (addType !== 'ALL') {
+      const grp = typeGroups.find(g => g.key === addType);
+      if (grp && !grp.types.includes(inst.type)) return false;
+    }
+    const q = addSearch.trim().toLowerCase();
+    if (q) {
+      const sym = String(inst.symbol || '').toLowerCase();
+      const name = String(inst.name || '').toLowerCase();
+      if (!sym.includes(q) && !name.includes(q)) return false;
+    }
+    return true;
+  });
+  const addedSymbols = new Set(selectedWatchlist?.symbols ?? []);
+
   if (loading) {
     return <div style={{ padding: '20px', textAlign: 'center', color: 'var(--text-muted)' }}>{t("common.loading")}</div>;
   }
@@ -185,6 +246,18 @@ const WatchlistManager = ({ keycloak }) => {
         >
           {t("watchlist.newList")}
         </button>
+
+        {selectedWatchlist && (
+          <button
+            onClick={openAddModal}
+            style={{
+              padding: '10px 20px', border: 'none', borderRadius: '8px',
+              background: 'var(--accent-solid)', color: '#fff', cursor: 'pointer', fontWeight: 'bold', transition: 'all 0.2s'
+            }}
+          >
+            + {t("watchlist.addInstrument")}
+          </button>
+        )}
       </div>
 
       {/* Create Watchlist Modal */}
@@ -248,6 +321,76 @@ const WatchlistManager = ({ keycloak }) => {
         <p style={{ margin: 0, color: 'var(--text-primary)', fontSize: 14 }}>{t("watchlist.deleteConfirm")}</p>
       </Modal>
 
+      {/* Add-instrument Modal — search across ALL asset types */}
+      <Modal
+        open={showAddModal}
+        title={`${t("watchlist.addModalTitle")}${selectedWatchlist ? ` · ${selectedWatchlist.name}` : ''}`}
+        onClose={() => setShowAddModal(false)}
+      >
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <input
+            type="text"
+            value={addSearch}
+            onChange={(e) => setAddSearch(e.target.value)}
+            placeholder={t("watchlist.searchPh")}
+            style={dialogInput}
+            autoFocus
+          />
+          <div style={{ display: 'flex', gap: 6, flexWrap: 'wrap' }}>
+            {[{ key: 'ALL', label: t("watchlist.typeAll") }, ...typeGroups].map(g => {
+              const active = addType === g.key;
+              return (
+                <button
+                  key={g.key}
+                  onClick={() => setAddType(g.key)}
+                  style={{
+                    padding: '5px 12px', borderRadius: 999, fontSize: 12, fontWeight: 600, cursor: 'pointer',
+                    border: active ? '1px solid var(--accent-solid)' : '1px solid var(--border)',
+                    background: active ? 'var(--accent)' : 'var(--bg-card)',
+                    color: active ? 'var(--accent-solid)' : 'var(--text-muted)',
+                  }}
+                >
+                  {g.label}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ maxHeight: '50vh', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {addCandidates.length === 0 ? (
+              <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>{t("watchlist.noResults")}</div>
+            ) : (
+              addCandidates.map(inst => {
+                const isAdded = addedSymbols.has(inst.symbol);
+                return (
+                  <div
+                    key={inst.symbol}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: 10, padding: '8px 10px',
+                      borderRadius: 8, border: '1px solid var(--border-soft)', background: 'var(--input-bg)',
+                    }}
+                  >
+                    <span style={{ fontWeight: 700, color: 'var(--text-primary)', minWidth: 90 }}>{inst.symbol}</span>
+                    <span style={{ flex: 1, color: 'var(--text-muted)', fontSize: 13, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{inst.name ?? '-'}</span>
+                    <span style={{ fontSize: 11, fontWeight: 600, color: 'var(--text-muted)', border: '1px solid var(--border)', borderRadius: 6, padding: '2px 8px' }}>{typeLabel(inst.type)}</span>
+                    <button
+                      onClick={() => isAdded ? handleRemoveFromWatchlist(inst.symbol) : handleAddToWatchlist(inst.symbol)}
+                      style={{
+                        padding: '6px 14px', borderRadius: 8, fontSize: 13, fontWeight: 600, cursor: 'pointer', minWidth: 92,
+                        border: isAdded ? '1px solid var(--accent-solid)' : 'none',
+                        background: isAdded ? 'transparent' : 'var(--accent-solid)',
+                        color: isAdded ? 'var(--accent-solid)' : '#fff',
+                      }}
+                    >
+                      {isAdded ? `✓ ${t("watchlist.added")}` : `+ ${t("watchlist.add")}`}
+                    </button>
+                  </div>
+                );
+              })
+            )}
+          </div>
+        </div>
+      </Modal>
+
       {/* Watchlist Content */}
       {selectedWatchlist ? (
         filteredInstruments.length > 0 ? (
@@ -262,7 +405,16 @@ const WatchlistManager = ({ keycloak }) => {
         ) : (
           <div style={{ padding: '40px', textAlign: 'center', background: 'var(--bg-card)', borderRadius: '12px', border: '2px dashed var(--border)' }}>
             <p style={{ fontSize: '18px', color: 'var(--text-muted)', marginBottom: '10px' }}>{t("watchlist.emptyListTitle")}</p>
-            <p style={{ fontSize: '14px', color: 'var(--text-muted)' }}>{t("watchlist.emptyListSub")}</p>
+            <p style={{ fontSize: '14px', color: 'var(--text-muted)', marginBottom: '18px' }}>{t("watchlist.emptyListSub")}</p>
+            <button
+              onClick={openAddModal}
+              style={{
+                padding: '10px 24px', border: 'none', borderRadius: '8px',
+                background: 'var(--accent-solid)', color: '#fff', cursor: 'pointer', fontWeight: 'bold'
+              }}
+            >
+              + {t("watchlist.addInstrument")}
+            </button>
           </div>
         )
       ) : (
