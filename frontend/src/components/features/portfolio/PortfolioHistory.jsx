@@ -54,6 +54,13 @@ export default function PortfolioHistory({ keycloak, reloadSignal }) {
     const byDay = new Map();
     for (const sx of sells) { cum += sx.pnl; byDay.set(sx.day, Number(cum.toFixed(2))); }
     for (const [day, value] of byDay) closedSeries.push({ time: day, value });
+    // Carry the last realized P&L forward to today as a flat line — on days with
+    // no sales the cumulative value doesn't change, so the chart stays level
+    // instead of stopping at the last sell date.
+    const now = new Date();
+    const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+    const lastSellDay = sells[sells.length - 1].day;
+    if (today > lastSellDay) closedSeries.push({ time: today, value: Number(cum.toFixed(2)) });
   }
 
   return (
