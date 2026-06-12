@@ -8,6 +8,8 @@ const GREEN = "#16a34a";
 const RED = "#dc2626";
 
 const fmt = (n) => Number(n || 0).toLocaleString("tr-TR", { maximumFractionDigits: 2 });
+// Quantities can be fractional for crypto (e.g. 0.0001 BTC) — show up to 6 dp.
+const fmtQty = (n) => Number(n || 0).toLocaleString("tr-TR", { maximumFractionDigits: 6 });
 const fmtDate = (iso) => {
   try { return new Date(iso).toLocaleString("tr-TR", { dateStyle: "short", timeStyle: "short" }); }
   catch { return String(iso ?? ""); }
@@ -101,7 +103,7 @@ export default function PortfolioHistory({ keycloak, reloadSignal }) {
                       {t(buy ? "portfolio.buy" : "portfolio.sell")}
                     </td>
                     <td style={{ ...s.td, fontWeight: 600 }}>{tx.symbol}</td>
-                    <td style={{ ...s.td, textAlign: "right" }}>{fmt(tx.quantity)}</td>
+                    <td style={{ ...s.td, textAlign: "right" }}>{fmtQty(tx.quantity)}</td>
                     <td style={{ ...s.td, textAlign: "right" }}>{tx.price != null ? "₺" + fmt(tx.price) : "—"}</td>
                     <td style={{ ...s.td, textAlign: "right" }}>{tx.amount != null ? "₺" + fmt(tx.amount) : "—"}</td>
                     <td style={{ ...s.td, textAlign: "right", fontWeight: 600, color: tx.realizedPnl == null ? "var(--text-muted)" : (tx.realizedPnl >= 0 ? GREEN : RED) }}>

@@ -132,7 +132,7 @@ export function PositionsTable({
                     <tr key={position.symbol} style={{ ...s.tr, cursor: onRowClick ? "pointer" : "default" }} onClick={() => onRowClick?.(position.symbol)}>
                       <td style={s.td}><span style={s.symbolBadge}>{position.symbol}</span></td>
                       <td style={{ ...s.td, color: "var(--text-muted)" }}>{position.name ?? "-"}</td>
-                      <td style={s.td}>{position.quantity.toLocaleString("tr-TR")}</td>
+                      <td style={s.td}>{Number(position.quantity).toLocaleString("tr-TR", { maximumFractionDigits: 6 })}</td>
                       <td style={{ ...s.td, color: "var(--text-muted)", fontSize: 12 }}>{purchaseDate}</td>
                       <td style={s.td}>{formatPrice(position.buyPrice, null, { currency: cur })}</td>
                       <td style={s.td}>{formatPrice(position.currentPrice, null, { currency: cur })}</td>
@@ -175,7 +175,7 @@ export function PositionsTable({
                     <tr key={position.symbol} style={{ ...s.tr, cursor: onRowClick ? "pointer" : "default" }} onClick={() => onRowClick?.(position.symbol)}>
                       <td style={s.td}><span style={s.symbolBadge}>{position.symbol}</span></td>
                       <td style={{ ...s.td, color: "var(--text-muted)" }}>{market?.name ?? "-"}</td>
-                      <td style={s.td}>{qty.toLocaleString("tr-TR")}</td>
+                      <td style={s.td}>{qty.toLocaleString("tr-TR", { maximumFractionDigits: 6 })}</td>
                       <td style={{ ...s.td, color: "var(--text-muted)", fontSize: 12 }}>{purchaseDate}</td>
                       <td style={s.td}>{formatPrice(cost, type, { symbol: position.symbol })}</td>
                       <td style={s.td}>{formatPrice(current, type, { symbol: position.symbol })}</td>

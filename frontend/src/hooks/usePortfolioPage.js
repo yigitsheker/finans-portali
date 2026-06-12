@@ -267,6 +267,13 @@ export function usePortfolioPage(keycloak) {
   const sellCurrentPrice = sellTarget ? (prices[sellTarget.symbol] ?? Number(sellTarget.avgCost ?? 0)) : 0;
   const sellProceeds = sellCurrentPrice * Number(sellQty);
 
+  // Crypto positions can be sold in fractional lots (e.g. 0.0001 BTC).
+  const sellIsCrypto = sellTarget
+    ? instruments.some(
+        (i) => String(i.symbol).toUpperCase() === String(sellTarget.symbol).toUpperCase() && i.type === "CRYPTO"
+      )
+    : false;
+
   const openAddModal = useCallback(() => {
     setAddSymbol("");
     setAddQty(1);
@@ -286,7 +293,10 @@ export function usePortfolioPage(keycloak) {
 
   const openSellModal = useCallback((position) => {
     setSellTarget(position);
-    setSellQty(1);
+    // Default to 1 lot, but never more than the holding — so a fractional crypto
+    // position (e.g. 0.0001 BTC) starts at a valid, sellable quantity instead of
+    // tripping the "insufficient quantity" guard.
+    setSellQty(Math.min(1, Number(position?.quantity) || 0));
     setErr(null);
     setSellOpen(true);
   }, []);
@@ -426,6 +436,7 @@ export function usePortfolioPage(keycloak) {
     sellSaving,
     sellCurrentPrice,
     sellProceeds,
+    sellIsCrypto,
     setSellQty,
     stats,
     perfData,

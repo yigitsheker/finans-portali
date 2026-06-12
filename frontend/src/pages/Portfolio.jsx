@@ -206,6 +206,7 @@ export default function Portfolio({ keycloak }) {
         setQuantity={portfolio.setSellQty}
         onSell={portfolio.onSell}
         onClose={portfolio.closeSellModal}
+        isCrypto={portfolio.sellIsCrypto}
       />
 
       <ImportPreviewModal

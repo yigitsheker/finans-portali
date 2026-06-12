@@ -15,8 +15,11 @@ export function SellPositionModal({
   setQuantity,
   onSell,
   onClose,
+  // Crypto positions can be sold in fractional lots (e.g. 0.0001 BTC).
+  isCrypto = false,
 }) {
   const quantityId = `${useId()}-sell-qty`;
+  const fmtQty = (v) => Number(v || 0).toLocaleString("tr-TR", { maximumFractionDigits: 6 });
   const { format: formatPrice } = usePriceDisplay();
   // Price values are in the position's native currency (TRY for BIST, USD for AAPL...).
   // Use symbol-based inference because PortfolioPosition doesn't carry an explicit type.
@@ -39,7 +42,7 @@ export function SellPositionModal({
       {target && (
         <div style={{ display: "grid", gap: 12 }}>
           <div style={s.infoBox}>
-            <InfoRow label="Mevcut Adet" value={String(target.quantity)} />
+            <InfoRow label="Mevcut Adet" value={fmtQty(target.quantity)} />
             <InfoRow label="Alis Fiyati" value={fmt(target.avgCost)} />
             <InfoRow label="Guncel Fiyat" value={fmt(currentPrice)} />
           </div>
@@ -50,7 +53,8 @@ export function SellPositionModal({
                 id={quantityId}
                 type="number"
                 value={quantity}
-                min={1}
+                min={isCrypto ? 0 : 1}
+                step={isCrypto ? "any" : "1"}
                 max={Number(target.quantity)}
                 onChange={(event) => setQuantity(Number(event.target.value))}
                 style={{ ...s.input, flex: 1 }}
