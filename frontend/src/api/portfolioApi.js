@@ -366,3 +366,33 @@ export async function getTechnicalAnalysis(
     });
     return res.data;
 }
+
+/** HISTORICAL POSITIONS */
+
+export async function getHistoricalPositions(keycloak) {
+    const headers = await authHeader(keycloak);
+    const res = await axios.get(`${API_BASE}/api/historical-positions`, { headers });
+    return res.data?.data || [];
+}
+
+export async function addHistoricalPosition(keycloak, position) {
+    const headers = await authHeader(keycloak);
+    const res = await axios.post(`${API_BASE}/api/historical-positions`, position, { headers });
+    return res.data?.data;
+}
+
+export async function updateHistoricalPosition(keycloak, id, position) {
+    const headers = await authHeader(keycloak);
+    const res = await axios.put(`${API_BASE}/api/historical-positions/${id}`, position, { headers });
+    return res.data?.data;
+}
+
+export async function deleteHistoricalPosition(keycloak, id) {
+    const headers = await authHeader(keycloak);
+    await axios.delete(`${API_BASE}/api/historical-positions/${id}`, { headers });
+}
+
+export async function deleteAllHistoricalPositions(keycloak) {
+    const headers = await authHeader(keycloak);
+    await axios.delete(`${API_BASE}/api/historical-positions`, { headers });
+}

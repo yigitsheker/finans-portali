@@ -5,7 +5,17 @@ import Modal from "../components/Modal";
 import ImportPreviewModal from "../components/ImportPreviewModal";
 import InstrumentChartModal from "../components/InstrumentChartModal";
 import CompareInstrumentsModal from "../components/CompareInstrumentsModal";
-import { getLatestPrice, getMarketHistory, getMarketSummary, getMarketHistoryBatch } from "../api/portfolioApi";
+import { 
+  getLatestPrice, 
+  getMarketHistory, 
+  getMarketSummary, 
+  getMarketHistoryBatch,
+  getHistoricalPositions,
+  addHistoricalPosition,
+  updateHistoricalPosition,
+  deleteHistoricalPosition,
+  deleteAllHistoricalPositions
+} from "../api/portfolioApi";
 import { compareInflation } from "../api/inflationApi";
 import { useI18n } from "../contexts/I18nContext";
 import { useCurrencyDisplay } from "../contexts/CurrencyDisplayContext";
@@ -37,10 +47,6 @@ export default function HistoricalComparison({ keycloak }) {
     return usdRate > 0 ? n / usdRate : 0;                          // TRY → USD
   }
   const [positions, setPositions] = useState([]);
-  // True once we've finished reading the localStorage seed. Stops the save
-  // effect from firing on the very first render and overwriting persisted
-  // data with the initial empty state — without it React would sometimes
-  // setItem("[]") before the load effect's setPositions resolved.
   const [loaded, setLoaded] = useState(false);
   const [instruments, setInstruments] = useState([]);
 
@@ -83,29 +89,28 @@ export default function HistoricalComparison({ keycloak }) {
 
   useEffect(() => {
     getMarketSummary().then(setInstruments).catch(() => {});
-
-    // Load from localStorage
-    const saved = localStorage.getItem("historicalPositions");
-    if (saved) {
-      try {
-        setPositions(JSON.parse(saved));
-      } catch (e) {
-        console.error("Failed to load historical positions:", e);
-      }
+    
+    // Load positions from backend
+    if (keycloak.authenticated) {
+      getHistoricalPositions(keycloak)
+        .then(data => {
+          setPositions(data);
+          setLoaded(true);
+        })
+        .catch(err => {
+          console.error("Failed to load historical positions:", err);
+          setLoaded(true);
+        });
+    } else {
+      setLoaded(true);
     }
-    setLoaded(true);
-  }, []);
+  }, [keycloak]);
 
-  // Save to localStorage whenever positions change. We gate on `loaded`
-  // so the first mount doesn't immediately setItem("[]") and clobber the
-  // persisted data before the load effect's setPositions has a chance to
-  // resolve. Once loaded flips true the effect runs on every change —
-  // including deletes that empty the list, which is what the earlier
-  // `length > 0` guard was silently dropping.
-  useEffect(() => {
-    if (!loaded) return;
-    localStorage.setItem("historicalPositions", JSON.stringify(positions));
-  }, [positions, loaded]);
+  // Remove localStorage save effect - data now lives in backend
+  // useEffect(() => {
+  //   if (!loaded) return;
+  //   localStorage.setItem("historicalPositions", JSON.stringify(positions));
+  // }, [positions, loaded]);
 
   // When a known symbol + a past buy date are chosen in the add modal, pre-fill
   // "Alınan Tutar" with the market price at that date (per lot). The user can
@@ -281,7 +286,9 @@ export default function HistoricalComparison({ keycloak }) {
         return;
       }
 
-      setPositions([...positions, { id: Date.now().toString(), ...pos }]);
+      // Save to backend instead of localStorage
+      const savedPos = await addHistoricalPosition(keycloak, pos);
+      setPositions([...positions, savedPos]);
       setAddOpen(false);
       setAddSymbol("");
       setAddDate("");
@@ -332,9 +339,6 @@ export default function HistoricalComparison({ keycloak }) {
       // shift that new Date("yyyy-MM-dd") introduces near midnight.
       const now = new Date();
       const todayISO = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      const rid = () => (typeof crypto !== "undefined" && crypto.randomUUID
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.round(Math.random() * 1e9)}`);
 
       const added = [];
       let skipped = 0;
@@ -344,8 +348,13 @@ export default function HistoricalComparison({ keycloak }) {
         if (!sym || !valid.has(sym) || !(Number(row.lot) > 0) || !dateOk) { skipped++; continue; }
         try {
           const pos = await buildHistoricalPosition(sym, row.date, Number(row.lot));
-          if (pos) added.push({ id: rid(), ...pos });
-          else skipped++;
+          if (pos) {
+            // Save each position to backend
+            const saved = await addHistoricalPosition(keycloak, pos);
+            added.push(saved);
+          } else {
+            skipped++;
+          }
         } catch {
           skipped++;
         }
@@ -389,7 +398,10 @@ export default function HistoricalComparison({ keycloak }) {
       const override = overrideFrom(editPrice, editPriceMode, Number(editLots));
       const pos = await buildHistoricalPosition(editTarget.symbol, editDate, Number(editLots), override);
       if (!pos) { setEditError(t("historical.errNoHistory")); return; }
-      setPositions((prev) => prev.map((x) => (x.id === editTarget.id ? { id: editTarget.id, ...pos } : x)));
+      
+      // Update in backend
+      const updated = await updateHistoricalPosition(keycloak, editTarget.id, pos);
+      setPositions((prev) => prev.map((x) => (x.id === editTarget.id ? updated : x)));
       setEditTarget(null);
     } catch (e) {
       setEditError(e?.message ?? t("historical.errPrice"));
@@ -398,8 +410,14 @@ export default function HistoricalComparison({ keycloak }) {
     }
   }
 
-  function onDelete(id) {
-    setPositions(positions.filter(p => p.id !== id));
+  async function onDelete(id) {
+    try {
+      await deleteHistoricalPosition(keycloak, id);
+      setPositions(positions.filter(p => p.id !== id));
+    } catch (e) {
+      console.error("Failed to delete position:", e);
+      notify(t("common.errorOccurred"), { variant: "error" });
+    }
   }
 
   function openChart(p) {
@@ -407,10 +425,15 @@ export default function HistoricalComparison({ keycloak }) {
     setChartTarget(inst);
   }
 
-  function onClearAll() {
+  async function onClearAll() {
     if (confirm(t("historical.confirmClearAll"))) {
-      setPositions([]);
-      localStorage.removeItem("historicalPositions");
+      try {
+        await deleteAllHistoricalPositions(keycloak);
+        setPositions([]);
+      } catch (e) {
+        console.error("Failed to clear all positions:", e);
+        notify(t("common.errorOccurred"), { variant: "error" });
+      }
     }
   }
 

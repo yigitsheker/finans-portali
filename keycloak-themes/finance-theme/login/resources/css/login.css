@@ -511,6 +511,42 @@ input[type="submit"]:disabled,
     transform: none;
 }
 
+/* ── Secondary/Cancel button ────────────────────────────────── */
+.btn-default,
+.btn-secondary,
+button[name="cancel"] {
+    width: 100%;
+    padding: 13px;
+    border-radius: 10px;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-soft);
+    font-size: 14.5px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.15s, border-color 0.2s, background 0.2s;
+    letter-spacing: 0.2px;
+    font-family: inherit;
+    box-shadow: none;
+    margin-top: 12px;
+}
+
+.btn-default:hover,
+.btn-secondary:hover,
+button[name="cancel"]:hover {
+    transform: translateY(-1px);
+    border-color: var(--accent);
+    background: rgba(34, 197, 94, 0.05);
+}
+
+/* Button group spacing for submit + cancel buttons */
+#kc-form-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 6px;
+}
+
 /* ── Card footer (register link) ─────────────────────────────── */
 .finance-card-footer {
     margin-top: 22px;
