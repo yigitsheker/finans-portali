@@ -9,7 +9,10 @@ x-logging: &default-logging
 services:
   # OpenLDAP Directory Server
   openldap:
-    image: osixia/openldap:1.5.0
+    build:
+      context: ./ldap
+      dockerfile: Dockerfile
+    image: finans-portali-openldap:latest
     container_name: finans-openldap
     logging: *default-logging
     restart: unless-stopped
@@ -36,12 +39,6 @@ services:
     volumes:
       - ldap_data:/var/lib/ldap
       - ldap_config:/etc/ldap/slapd.d
-      # Seed the directory tree (ou=users, ou=groups + dev users/groups) on first
-      # boot. osixia/openldap ldapadd's every .ldif under this custom bootstrap dir
-      # when the data volume is fresh. Without this, ou=users never exists and the
-      # Keycloak LDAP federation's /users query fails with "No Such Object" (err 32),
-      # which makes keycloak-bootstrap exit 1 and blocks backend/frontend startup.
-      - ./ldap/init.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/init.ldif
     networks:
       - finans-network
     healthcheck:
