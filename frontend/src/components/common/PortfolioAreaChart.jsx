@@ -22,13 +22,15 @@ function toDate(time) {
   return new Date(Number.NaN);
 }
 
-export function PortfolioAreaChart({ data, isIntraday = false, height = 200 }) {
+export function PortfolioAreaChart({ data, isIntraday = false, height = 200, positive = null }) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
 
-  // Determine chart color based on first vs last value
-  const isPositive = data.length < 2 || data[data.length - 1].value >= data[0].value;
+  // Determine chart color: prefer the caller-supplied P/L sign (based on real
+  // buy price vs current price), since the first/last series values reflect
+  // historical market closes which may differ from the user's actual cost basis.
+  const isPositive = positive !== null ? positive : (data.length < 2 || data[data.length - 1].value >= data[0].value);
   const lineColor   = isPositive ? "#22c55e" : "#ef4444";
   const topColor    = isPositive ? "rgba(34,197,94,0.28)" : "rgba(239,68,68,0.28)";
   const bottomColor = isPositive ? "rgba(34,197,94,0.02)" : "rgba(239,68,68,0.02)";
@@ -152,15 +154,17 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200 }) {
     });
 
     // Update colors based on trend
-    const positive = normalized.length < 2 || normalized[normalized.length - 1].value >= normalized[0].value;
-    const lc   = positive ? "#22c55e" : "#ef4444";
-    const tc   = positive ? "rgba(34,197,94,0.28)" : "rgba(239,68,68,0.28)";
-    const bc   = positive ? "rgba(34,197,94,0.02)" : "rgba(239,68,68,0.02)";
+    const trendPositive = positive !== null
+      ? positive
+      : (normalized.length < 2 || normalized[normalized.length - 1].value >= normalized[0].value);
+    const lc   = trendPositive ? "#22c55e" : "#ef4444";
+    const tc   = trendPositive ? "rgba(34,197,94,0.28)" : "rgba(239,68,68,0.28)";
+    const bc   = trendPositive ? "rgba(34,197,94,0.02)" : "rgba(239,68,68,0.02)";
 
     seriesRef.current.applyOptions({ lineColor: lc, topColor: tc, bottomColor: bc });
     seriesRef.current.setData(normalized);
     chartRef.current.timeScale().fitContent();
-  }, [data]);
+  }, [data, positive]);
 
   return (
     <div

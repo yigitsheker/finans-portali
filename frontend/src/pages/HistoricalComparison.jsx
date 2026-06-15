@@ -663,7 +663,11 @@ export default function HistoricalComparison({ keycloak }) {
           {perfLoading ? (
             <div style={s.perfMsg}>{t("common.loadingDots")}</div>
           ) : perfSeries.length >= 2 ? (
-            <PortfolioAreaChart data={perfSeries} height={240} />
+            <PortfolioAreaChart
+              data={perfSeries}
+              height={240}
+              positive={focusPosition ? focusPosition.currentPrice >= focusPosition.buyPrice : totals.change >= 0}
+            />
           ) : (
             <div style={s.perfMsg}>{t("historical.perfEmpty")}</div>
           )}
