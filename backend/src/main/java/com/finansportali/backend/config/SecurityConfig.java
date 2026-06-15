@@ -54,6 +54,9 @@ public class SecurityConfig {
                         // Portfolio requires authentication (any authenticated user)
                         .requestMatchers("/api/v1/portfolio/**").authenticated()
 
+                        // Watchlists require authentication (any authenticated user)
+                        .requestMatchers("/api/v1/watchlists/**").authenticated()
+
                         // Price alerts require authentication
                         .requestMatchers("/api/v1/alerts/**").authenticated()
 

@@ -37,7 +37,7 @@ public class HistoricalPositionService {
                 request.buyDate(),
                 request.buyPrice(),
                 request.lots(),
-                request.currency()
+                toIsoCurrency(request.currency())
         );
         HistoricalPosition saved = repository.save(position);
         return toResponse(saved);
@@ -57,7 +57,7 @@ public class HistoricalPositionService {
         position.setBuyDate(request.buyDate());
         position.setBuyPrice(request.buyPrice());
         position.setLots(request.lots());
-        position.setCurrency(request.currency());
+        position.setCurrency(toIsoCurrency(request.currency()));
 
         HistoricalPosition updated = repository.save(position);
         return toResponse(updated);
@@ -85,7 +85,38 @@ public class HistoricalPositionService {
                 position.getBuyDate(),
                 position.getBuyPrice(),
                 position.getLots(),
-                position.getCurrency()
+                toSymbolCurrency(position.getCurrency())
         );
+    }
+
+    /**
+     * The frontend sends the native currency as a symbol literal ("₺"/"$"),
+     * but the historical_positions.currency column is constrained to ISO codes
+     * ('TRY'/'USD') by chk_currency. Normalize symbol → ISO on write so the
+     * insert satisfies the constraint. Already-ISO and unknown values pass
+     * through unchanged (an unrecognized currency still fails the check, which
+     * is the correct, loud behavior).
+     */
+    private String toIsoCurrency(String currency) {
+        if (currency == null) return null;
+        return switch (currency.trim()) {
+            case "₺" -> "TRY";
+            case "$" -> "USD";
+            default -> currency.trim();
+        };
+    }
+
+    /**
+     * Inverse of {@link #toIsoCurrency}: map the stored ISO code back to the
+     * symbol literal the frontend expects (its {@code nativeOf} fallback
+     * compares against "₺"). Unknown values pass through unchanged.
+     */
+    private String toSymbolCurrency(String currency) {
+        if (currency == null) return null;
+        return switch (currency.trim()) {
+            case "TRY" -> "₺";
+            case "USD" -> "$";
+            default -> currency.trim();
+        };
     }
 }

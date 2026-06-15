@@ -89,13 +89,17 @@ export default function HistoricalComparison({ keycloak }) {
 
   useEffect(() => {
     getMarketSummary().then(setInstruments).catch(() => {});
-    
+
     // Load positions from backend
     if (keycloak.authenticated) {
       getHistoricalPositions(keycloak)
         .then(data => {
           setPositions(data);
           setLoaded(true);
+          // The backend only persists buy-time data (no live price). Fetch
+          // each position's current price + inflation-adjusted return so the
+          // table shows real current/PnL figures instead of 0/-100%.
+          Promise.all(data.map(enrichWithLiveData)).then(setPositions);
         })
         .catch(err => {
           console.error("Failed to load historical positions:", err);
@@ -104,6 +108,7 @@ export default function HistoricalComparison({ keycloak }) {
     } else {
       setLoaded(true);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [keycloak]);
 
   // Remove localStorage save effect - data now lives in backend
@@ -251,6 +256,34 @@ export default function HistoricalComparison({ keycloak }) {
     };
   }
 
+  // A position loaded from the backend has only the buy-time fields (no live
+  // price, no inflation comparison — those aren't persisted). Fetch the
+  // current price and recompute the inflation-adjusted return, mirroring
+  // buildHistoricalPosition. Returns the position unchanged if no live quote
+  // is available.
+  async function enrichWithLiveData(p) {
+    try {
+      const currentPrice = await getLatestPrice(p.symbol, keycloak);
+      if (!(currentPrice > 0)) return p;
+      const nominalPct = p.buyPrice > 0 ? ((currentPrice - p.buyPrice) / p.buyPrice) * 100 : 0;
+      const todayISO = new Date().toISOString().split("T")[0];
+      let inflationData = null;
+      try {
+        inflationData = await compareInflation(p.buyDate, todayISO, nominalPct);
+      } catch (e) {
+        console.debug("Inflation compare unavailable:", e?.message);
+      }
+      return {
+        ...p,
+        currentPrice,
+        cumulativeInflationPct: inflationData?.cumulativeInflationPct ?? null,
+        realReturnPct: inflationData?.realReturnPct ?? null,
+      };
+    } catch {
+      return p;
+    }
+  }
+
   async function onAdd() {
     const sym = addSymbol.trim().toUpperCase();
     if (!sym) {
@@ -286,9 +319,11 @@ export default function HistoricalComparison({ keycloak }) {
         return;
       }
 
-      // Save to backend instead of localStorage
+      // Save to backend instead of localStorage. The response only carries
+      // the persisted buy-time fields, so keep the locally computed
+      // currentPrice/inflation figures from `pos` and just adopt the new id.
       const savedPos = await addHistoricalPosition(keycloak, pos);
-      setPositions([...positions, savedPos]);
+      setPositions([...positions, { ...pos, id: savedPos.id }]);
       setAddOpen(false);
       setAddSymbol("");
       setAddDate("");
@@ -349,9 +384,10 @@ export default function HistoricalComparison({ keycloak }) {
         try {
           const pos = await buildHistoricalPosition(sym, row.date, Number(row.lot));
           if (pos) {
-            // Save each position to backend
+            // Save each position to backend; keep the locally computed
+            // currentPrice/inflation figures (not persisted) and adopt the new id.
             const saved = await addHistoricalPosition(keycloak, pos);
-            added.push(saved);
+            added.push({ ...pos, id: saved.id });
           } else {
             skipped++;
           }
@@ -399,9 +435,10 @@ export default function HistoricalComparison({ keycloak }) {
       const pos = await buildHistoricalPosition(editTarget.symbol, editDate, Number(editLots), override);
       if (!pos) { setEditError(t("historical.errNoHistory")); return; }
       
-      // Update in backend
+      // Update in backend; keep the locally computed currentPrice/inflation
+      // figures (not persisted) and adopt the (unchanged) id.
       const updated = await updateHistoricalPosition(keycloak, editTarget.id, pos);
-      setPositions((prev) => prev.map((x) => (x.id === editTarget.id ? updated : x)));
+      setPositions((prev) => prev.map((x) => (x.id === editTarget.id ? { ...pos, id: updated.id } : x)));
       setEditTarget(null);
     } catch (e) {
       setEditError(e?.message ?? t("historical.errPrice"));

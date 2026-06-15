@@ -119,6 +119,47 @@ else
   log "  WARN — CONFIGURE_TOTP update failed (older Keycloak? check version)"
 fi
 
+# ── 1c) Ensure 'basic' default client scope on app clients ─────────────────
+# Keycloak 25+ moved the `sub` (subject) and `auth_time` claims OUT of the
+# core token builder and INTO the built-in `basic` client scope. Realm
+# exports made on older Keycloak (pre-25) don't list `basic` in any client's
+# defaultClientScopes, so after import on KC 26 the access tokens issued to
+# those clients carry NO `sub` claim. The backend reads the user id from
+# jwt.getSubject(); a missing sub => null userId => every write that persists
+# user_id (portfolio positions, watchlists, alerts, …) fails the NOT NULL
+# constraint with a 500, while reads silently return empty (findByUserId(null)).
+# This step assigns the realm's built-in `basic` scope as a default scope on
+# the app clients. Idempotent: skips if already assigned. Fixes the running
+# realm without a Keycloak volume reset.
+log "Ensuring 'basic' default client scope (sub claim) on app clients..."
+BASIC_SCOPE_ID=$($KCADM get client-scopes -r "$REALM" \
+  --fields id,name --format csv --noquotes 2>/dev/null \
+  | tr -d '\r' | grep ',basic$' | head -1 | cut -d, -f1)
+
+if [ -z "$BASIC_SCOPE_ID" ]; then
+  log "  WARN — 'basic' client scope not found (older Keycloak? sub may already be built-in)"
+else
+  for CID in finans-frontend "$BACKEND_CLIENT_ID"; do
+    CID_UUID=$($KCADM get clients -r "$REALM" \
+      -q "clientId=$CID" --fields id --format csv --noquotes 2>/dev/null \
+      | tr -d '\r' | grep -v '^$' | head -n 1 || true)
+    if [ -z "$CID_UUID" ]; then
+      log "  = $CID not found — skipping basic-scope assignment"
+      continue
+    fi
+    HAS_BASIC=$($KCADM get "clients/$CID_UUID/default-client-scopes" -r "$REALM" \
+      --fields name --format csv --noquotes 2>/dev/null \
+      | tr -d '\r"' | grep -xc 'basic' || true)
+    if [ "$HAS_BASIC" != "0" ]; then
+      log "  = $CID already has 'basic' default scope (sub claim present)"
+    elif $KCADM update "clients/$CID_UUID/default-client-scopes/$BASIC_SCOPE_ID" -r "$REALM" >/dev/null 2>&1; then
+      log "  + $CID: assigned 'basic' default scope (sub claim restored)"
+    else
+      log "  ! $CID: failed to assign 'basic' default scope"
+    fi
+  done
+fi
+
 # ── 2) Backend admin client ────────────────────────────────────────────────
 log "Ensuring client '$BACKEND_CLIENT_ID' exists in realm '$REALM'..."
 CLIENT_UUID=$($KCADM get clients -r "$REALM" \
