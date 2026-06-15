@@ -29,9 +29,9 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200 }) {
 
   // Determine chart color based on first vs last value
   const isPositive = data.length < 2 || data[data.length - 1].value >= data[0].value;
-  const lineColor   = isPositive ? "#3b82f6" : "#ef4444";
-  const topColor    = isPositive ? "rgba(59,130,246,0.28)" : "rgba(239,68,68,0.28)";
-  const bottomColor = isPositive ? "rgba(59,130,246,0.02)" : "rgba(239,68,68,0.02)";
+  const lineColor   = isPositive ? "#22c55e" : "#ef4444";
+  const topColor    = isPositive ? "rgba(34,197,94,0.28)" : "rgba(239,68,68,0.28)";
+  const bottomColor = isPositive ? "rgba(34,197,94,0.02)" : "rgba(239,68,68,0.02)";
 
   // Create chart once
   useEffect(() => {
@@ -153,9 +153,9 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200 }) {
 
     // Update colors based on trend
     const positive = normalized.length < 2 || normalized[normalized.length - 1].value >= normalized[0].value;
-    const lc   = positive ? "#3b82f6" : "#ef4444";
-    const tc   = positive ? "rgba(59,130,246,0.28)" : "rgba(239,68,68,0.28)";
-    const bc   = positive ? "rgba(59,130,246,0.02)" : "rgba(239,68,68,0.02)";
+    const lc   = positive ? "#22c55e" : "#ef4444";
+    const tc   = positive ? "rgba(34,197,94,0.28)" : "rgba(239,68,68,0.28)";
+    const bc   = positive ? "rgba(34,197,94,0.02)" : "rgba(239,68,68,0.02)";
 
     seriesRef.current.applyOptions({ lineColor: lc, topColor: tc, bottomColor: bc });
     seriesRef.current.setData(normalized);

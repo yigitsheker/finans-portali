@@ -521,7 +521,7 @@ export default function HistoricalComparison({ keycloak }) {
       if (!earliestBuy) batchPeriod = "1Y";
       else {
         const days = Math.floor((Date.now() - new Date(earliestBuy).getTime()) / 86400000);
-        batchPeriod = days <= 30 ? "30D" : days <= 90 ? "3M" : days <= 180 ? "6M" : days <= 365 ? "1Y" : "5Y";
+        batchPeriod = days <= 30 ? "30D" : days <= 90 ? "3M" : days <= 180 ? "6M" : days <= 365 ? "1Y" : days <= 730 ? "2Y" : days <= 1825 ? "5Y" : "ALL";
       }
     }
     getMarketHistoryBatch(symbols, batchPeriod)

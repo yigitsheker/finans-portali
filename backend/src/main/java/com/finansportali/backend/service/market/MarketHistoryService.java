@@ -97,7 +97,12 @@ public class MarketHistoryService {
             case "1D", "1G" -> 2;
             case "5D", "5G" -> 5;
             case "30D", "1A" -> 30;
+            case "3M" -> 90;
+            case "6M" -> 180;
             case "1Y" -> 365;
+            case "2Y" -> 730;
+            case "5Y" -> 1825;
+            case "ALL" -> 3650;
             default -> 30;
         };
         LocalDate end = LocalDate.now();
@@ -222,7 +227,12 @@ public class MarketHistoryService {
             case "1D", "1G" -> new YahooRangeConfig("1d", "5m");   // Intraday 5-minute
             case "5D", "5G" -> new YahooRangeConfig("5d", "1h");   // 5 days, hourly
             case "30D", "1A" -> new YahooRangeConfig("1mo", "1d"); // 1 month, daily
+            case "3M" -> new YahooRangeConfig("3mo", "1d");        // 3 months, daily
+            case "6M" -> new YahooRangeConfig("6mo", "1d");        // 6 months, daily
             case "1Y" -> new YahooRangeConfig("1y", "1d");         // 1 year, daily
+            case "2Y" -> new YahooRangeConfig("2y", "1d");         // 2 years, daily
+            case "5Y" -> new YahooRangeConfig("5y", "1wk");        // 5 years, weekly
+            case "ALL" -> new YahooRangeConfig("max", "1wk");      // Full history, weekly
             default -> new YahooRangeConfig("1mo", "1d");          // Default to 1 month
         };
     }
@@ -289,7 +299,12 @@ public class MarketHistoryService {
             case "1D", "1G" -> 2;
             case "5D", "5G" -> 5;
             case "30D", "1A" -> 30;
+            case "3M" -> 90;
+            case "6M" -> 180;
             case "1Y" -> 365;
+            case "2Y" -> 730;
+            case "5Y" -> 1825;
+            case "ALL" -> 3650;
             default -> 30;
         };
 
