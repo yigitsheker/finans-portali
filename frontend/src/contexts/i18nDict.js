@@ -577,6 +577,9 @@ export const dict = {
       pnlByAmount: "Tutar",
       pnlByPct: "Yüzde",
       perfTitle: "Geçmişten Performans",
+      perfFocusTitle: "{symbol} performansı ({date} → bugün)",
+      perfShowAll: "Tüm pozisyonlar",
+      perfFocusBtn: "Performans grafiğinde göster",
       perfEmpty: "Grafik için yeterli fiyat geçmişi yok",
       empty: "Henüz pozisyon yok",
       emptySub:
@@ -1615,6 +1618,9 @@ export const dict = {
       pnlByAmount: "Amount",
       pnlByPct: "Percent",
       perfTitle: "Historical Performance",
+      perfFocusTitle: "{symbol} performance ({date} → today)",
+      perfShowAll: "All positions",
+      perfFocusBtn: "Show in performance chart",
       perfEmpty: "Not enough price history for the chart",
       empty: "No positions yet",
       emptySub:

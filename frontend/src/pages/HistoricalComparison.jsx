@@ -66,7 +66,11 @@ export default function HistoricalComparison({ keycloak }) {
   const [perfSeries, setPerfSeries] = useState([]);
   const [perfLoading, setPerfLoading] = useState(false);
   const [compareTarget, setCompareTarget] = useState(null);
+  // When set, the "Geçmişten Performans" chart shows only this position's
+  // value from its buy date to today instead of the combined portfolio.
+  const [focusPosition, setFocusPosition] = useState(null);
   const fileRef = useRef(null);
+  const perfCardRef = useRef(null);
 
   // Inline edit (lot + date) for an existing row.
   const [editTarget, setEditTarget] = useState(null);
@@ -451,6 +455,7 @@ export default function HistoricalComparison({ keycloak }) {
     try {
       await deleteHistoricalPosition(keycloak, id);
       setPositions(positions.filter(p => p.id !== id));
+      setFocusPosition((cur) => (cur?.id === id ? null : cur));
     } catch (e) {
       console.error("Failed to delete position:", e);
       notify(t("common.errorOccurred"), { variant: "error" });
@@ -467,6 +472,7 @@ export default function HistoricalComparison({ keycloak }) {
       try {
         await deleteAllHistoricalPositions(keycloak);
         setPositions([]);
+        setFocusPosition(null);
       } catch (e) {
         console.error("Failed to clear all positions:", e);
         notify(t("common.errorOccurred"), { variant: "error" });
@@ -494,16 +500,21 @@ export default function HistoricalComparison({ keycloak }) {
   // Historical performance: total value of the held positions over time, built
   // client-side from each symbol's price history (carry-forward + buy-date
   // gating) and converted to the active display currency. Feeds the area chart.
+  // When `focusPosition` is set (per-row "chart" button), only that position
+  // is plotted and the range always spans its buy date → today, regardless of
+  // the 1M/3M/1Y/All toggle.
   useEffect(() => {
-    if (!positions.length) { setPerfSeries([]); return undefined; }
+    const activePositions = focusPosition ? [focusPosition] : positions;
+    if (!activePositions.length) { setPerfSeries([]); return undefined; }
     let cancel = false;
     setPerfLoading(true);
-    const symbols = [...new Set(positions.map((p) => p.symbol))];
-    // "ALL" → smallest backend range that covers the earliest buy date, so the
-    // chart spans buy-date → today (the per-position gating below trims the rest).
+    const symbols = [...new Set(activePositions.map((p) => p.symbol))];
+    // "ALL" (or a focused position) → smallest backend range that covers the
+    // earliest buy date, so the chart spans buy-date → today (the
+    // per-position gating below trims the rest).
     let batchPeriod = perfPeriod;
-    if (perfPeriod === "ALL") {
-      const earliestBuy = positions.reduce((min, p) => {
+    if (perfPeriod === "ALL" || focusPosition) {
+      const earliestBuy = activePositions.reduce((min, p) => {
         const d = p.buyDate ? String(p.buyDate).slice(0, 10) : null;
         return d && (!min || d < min) ? d : min;
       }, null);
@@ -531,7 +542,7 @@ export default function HistoricalComparison({ keycloak }) {
         for (const day of days) {
           let total = 0;
           let any = false;
-          for (const p of positions) {
+          for (const p of activePositions) {
             const bd = p.buyDate ? String(p.buyDate).slice(0, 10) : null;
             if (bd && day < bd) continue;                 // not yet held on this day
             const hist = perSym[p.symbol] || [];
@@ -551,7 +562,7 @@ export default function HistoricalComparison({ keycloak }) {
       .finally(() => { if (!cancel) setPerfLoading(false); });
     return () => { cancel = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [positions, perfPeriod, effectiveCurrency, usdRate, instruments]);
+  }, [positions, perfPeriod, effectiveCurrency, usdRate, instruments, focusPosition]);
 
   return (
     <div style={s.root}>
@@ -625,16 +636,29 @@ export default function HistoricalComparison({ keycloak }) {
 
       {/* Geçmişten performans — değer/zaman alan grafiği (lightweight-charts) */}
       {positions.length > 0 && (
-        <div style={s.card}>
+        <div style={s.card} ref={perfCardRef}>
           <div style={s.chartHeader}>
-            <div style={s.chartTitle}>{t("historical.perfTitle")}</div>
-            <div style={s.pnlToggle}>
-              {[{ p: "30D", l: "1M" }, { p: "3M", l: "3M" }, { p: "1Y", l: "1Y" }, { p: "ALL", l: "All" }].map(({ p, l }) => (
-                <button key={p} type="button"
-                  style={{ ...s.pnlToggleBtn, ...(perfPeriod === p ? s.pnlToggleActive : {}) }}
-                  onClick={() => setPerfPeriod(p)}>{l}</button>
-              ))}
+            <div style={s.chartTitle}>
+              {focusPosition
+                ? t("historical.perfFocusTitle", {
+                    symbol: focusPosition.symbol,
+                    date: new Date(focusPosition.buyDate).toLocaleDateString("tr-TR"),
+                  })
+                : t("historical.perfTitle")}
             </div>
+            {focusPosition ? (
+              <button type="button" style={s.pnlToggleBtn} onClick={() => setFocusPosition(null)}>
+                {t("historical.perfShowAll")}
+              </button>
+            ) : (
+              <div style={s.pnlToggle}>
+                {[{ p: "30D", l: "1M" }, { p: "3M", l: "3M" }, { p: "1Y", l: "1Y" }, { p: "ALL", l: "All" }].map(({ p, l }) => (
+                  <button key={p} type="button"
+                    style={{ ...s.pnlToggleBtn, ...(perfPeriod === p ? s.pnlToggleActive : {}) }}
+                    onClick={() => setPerfPeriod(p)}>{l}</button>
+                ))}
+              </div>
+            )}
           </div>
           {perfLoading ? (
             <div style={s.perfMsg}>{t("common.loadingDots")}</div>
@@ -724,6 +748,17 @@ export default function HistoricalComparison({ keycloak }) {
                       </td>
                       <td style={s.td}>
                         <div style={{ display: "flex", gap: 6 }}>
+                          <button
+                            style={{ ...s.editBtn, ...(focusPosition?.id === p.id ? s.chartBtnActive : {}) }}
+                            title={t("historical.perfFocusBtn")}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setFocusPosition(p);
+                              perfCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+                            }}
+                          >
+                            📈
+                          </button>
                           <button style={s.editBtn} onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
                             {t("common.edit")}
                           </button>
@@ -1013,6 +1048,7 @@ const s = {
   sampleLink: { fontSize: 12, color: "var(--text-muted)", textDecoration: "underline", whiteSpace: "nowrap" },
   clearBtn: { padding: "8px 16px", borderRadius: 8, border: "1px solid var(--danger-border)", background: "var(--danger-bg)", color: "var(--danger-text)", cursor: "pointer", fontWeight: 600, fontSize: 13 },
   editBtn: { padding: "6px 12px", borderRadius: 6, border: "1px solid var(--accent-border)", background: "transparent", color: "var(--accent-solid)", cursor: "pointer", fontSize: 12, fontWeight: 600 },
+  chartBtnActive: { background: "var(--accent-solid, #3b82f6)", color: "#fff", borderColor: "var(--accent-solid, #3b82f6)" },
   deleteBtn: { padding: "6px 12px", borderRadius: 6, border: "1px solid var(--danger-border)", background: "var(--danger-bg)", color: "var(--danger-text)", cursor: "pointer", fontSize: 12, fontWeight: 500 },
   ghostBtn: { padding: "8px 16px", borderRadius: 8, border: "1px solid var(--border-card)", background: "transparent", color: "var(--text-primary)", cursor: "pointer" },
   primaryBtn: { padding: "8px 16px", borderRadius: 8, border: "none", background: "var(--accent-solid)", color: "#fff", cursor: "pointer", fontWeight: 600 },
