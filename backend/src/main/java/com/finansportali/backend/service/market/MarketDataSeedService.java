@@ -50,6 +50,12 @@ public class MarketDataSeedService {
         // FX — Yahoo: "USDTRY=X", "EURTRY=X"
         var usdtry = upsert("USDTRY", "USD/TRY",              InstrumentType.FX,        "USDTRY=X",    false);
         var eurtry = upsert("EURTRY", "EUR/TRY",              InstrumentType.FX,        "EURTRY=X",    false);
+        var gbptry = upsert("GBPTRY", "GBP/TRY",              InstrumentType.FX,        "GBPTRY=X",    false);
+        var chftry = upsert("CHFTRY", "CHF/TRY",              InstrumentType.FX,        "CHFTRY=X",    false);
+        var jpytry = upsert("JPYTRY", "JPY/TRY",              InstrumentType.FX,        "JPYTRY=X",    false);
+        var audtry = upsert("AUDTRY", "AUD/TRY",              InstrumentType.FX,        "AUDTRY=X",    false);
+        var cadtry = upsert("CADTRY", "CAD/TRY",              InstrumentType.FX,        "CADTRY=X",    false);
+        var aedtry = upsert("AEDTRY", "AED/TRY",              InstrumentType.FX,        "AEDTRY=X",    false);
         // Emtia — Yahoo: futures tickers (GC/SI/CL/NG/HG/PL =F)
         var xauusd = upsert("XAUUSD", "Altın (XAU/USD)",      InstrumentType.COMMODITY, "GC=F",        false);
         var xagusd = upsert("XAGUSD", "Gümüş (XAG/USD)",      InstrumentType.COMMODITY, "SI=F",        false);
@@ -210,12 +216,23 @@ public class MarketDataSeedService {
         var akbtek = upsert("AKBTEK", "Akbank Teknoloji Sektör Fonu", InstrumentType.FUND, "AKBTEK", true);
         var garpar = upsert("GARPAR", "Garanti Para Piyasası Fonu",   InstrumentType.FUND, "GARPAR", true);
         var yapkre = upsert("YAPKRE", "Yapı Kredi Kira Sertifikası Fonu", InstrumentType.FUND, "YAPKRE", true);
+        var istek  = upsert("ISTEK",  "İş Portföy Teknoloji Hisse Senedi Fonu", InstrumentType.FUND, "ISTEK", true);
+        var akhis  = upsert("AKHIS",  "Akbank Hisse Senedi Fonu",      InstrumentType.FUND, "AKHIS", true);
+        var vakeur = upsert("VAKEUR", "VakıfBank Avrupa Hisse Senedi Fonu", InstrumentType.FUND, "VAKEUR", true);
+        var zrtbor = upsert("ZRTBOR", "Ziraat Portföy Borçlanma Araçları Fonu", InstrumentType.FUND, "ZRTBOR", true);
+        var halalt = upsert("HALALT", "Halk Portföy Altın Fonu",       InstrumentType.FUND, "HALALT", true);
 
 
         // Fallback quote'lar — test edilmiş gerçek değerlere yakın (Yahoo refresh gelene kadar)
         // Her enstrüman için ayrı kontrol yap
         seedQuoteIfMissing(usdtry, "44.75",    "0.05",   "0.11",  now);
         seedQuoteIfMissing(eurtry, "52.70",    "0.11",   "0.21",  now);
+        seedQuoteIfMissing(gbptry, "62.18",    "0.14",   "0.23",  now);
+        seedQuoteIfMissing(chftry, "58.37",    "0.09",   "0.15",  now);
+        seedQuoteIfMissing(jpytry, "0.289",    "0.001",  "0.35",  now);
+        seedQuoteIfMissing(audtry, "32.78",    "-0.06",  "-0.18", now);
+        seedQuoteIfMissing(cadtry, "33.10",    "0.04",   "0.12",  now);
+        seedQuoteIfMissing(aedtry, "12.60",    "0.01",   "0.08",  now);
         seedQuoteIfMissing(xauusd, "4561.00",  "-5.00",  "-0.10", now);
         seedQuoteIfMissing(xagusd, "77.50",    "0.20",   "0.26",  now);
         seedQuoteIfMissing(wti,    "101.00",   "-0.80",  "-0.79", now);
@@ -371,10 +388,18 @@ public class MarketDataSeedService {
         seedQuoteIfMissing(akbtek, "0.342",    "0.003",  "0.89",  now);
         seedQuoteIfMissing(garpar, "0.156",    "0.000",  "0.00",  now);
         seedQuoteIfMissing(yapkre, "0.189",    "0.001",  "0.53",  now);
+        seedQuoteIfMissing(istek,  "0.412",    "0.004",  "0.98",  now);
+        seedQuoteIfMissing(akhis,  "0.327",    "0.002",  "0.61",  now);
+        seedQuoteIfMissing(vakeur, "0.271",    "-0.001", "-0.37", now);
+        seedQuoteIfMissing(zrtbor, "0.135",    "0.000",  "0.07",  now);
+        seedQuoteIfMissing(halalt, "0.205",    "0.001",  "0.49",  now);
 
         // Fallback candle'lar — gerçek değerlere yakın başlangıç noktaları
         // Her enstrüman için ayrı kontrol yap
         seedCandlesIfMissing(usdtry, "44.00");   seedCandlesIfMissing(eurtry, "52.00");
+        seedCandlesIfMissing(gbptry, "61.50");   seedCandlesIfMissing(chftry, "58.00");
+        seedCandlesIfMissing(jpytry, "0.286");   seedCandlesIfMissing(audtry, "32.60");
+        seedCandlesIfMissing(cadtry, "32.90");   seedCandlesIfMissing(aedtry, "12.55");
         seedCandlesIfMissing(xauusd, "4500.00"); seedCandlesIfMissing(xagusd, "76.00");
         seedCandlesIfMissing(wti,    "100.00");  seedCandlesIfMissing(ngas,   "2.85");
         seedCandlesIfMissing(xcuusd, "6.20");    seedCandlesIfMissing(xptusd, "1950.00");
@@ -460,6 +485,9 @@ public class MarketDataSeedService {
         seedCandlesIfMissing(ykbhis, "0.280");    seedCandlesIfMissing(isbalt, "0.195");
         seedCandlesIfMissing(akbtek, "0.335");    seedCandlesIfMissing(garpar, "0.156");
         seedCandlesIfMissing(yapkre, "0.186");
+        seedCandlesIfMissing(istek,  "0.405");    seedCandlesIfMissing(akhis,  "0.322");
+        seedCandlesIfMissing(vakeur, "0.273");    seedCandlesIfMissing(zrtbor, "0.135");
+        seedCandlesIfMissing(halalt, "0.203");
     }
 
     private MarketInstrument upsert(String symbol, String name, InstrumentType type,
