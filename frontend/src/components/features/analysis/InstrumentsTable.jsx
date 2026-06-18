@@ -42,6 +42,19 @@ const SIGNAL_COLORS = {
     NEUTRAL: "#94a3b8",
 };
 
+// Composite-signal confidence rendered as filled/empty dots next to the
+// verdict, so "weak Buy" reads differently from "strong Buy" at a glance.
+const CONF_DOTS = {
+    HIGH: "●●●",
+    MEDIUM: "●●○",
+    LOW: "●○○",
+};
+const CONF_LABEL_KEYS = {
+    HIGH: "analysis.confHigh",
+    MEDIUM: "analysis.confMedium",
+    LOW: "analysis.confLow",
+};
+
 // Localised labels are looked up via t() at render time (see below). The
 // SIGNAL_COLORS map above stays language-agnostic — colours mean the same
 // thing in either locale.
@@ -353,11 +366,23 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
                                         <span style={{ ...s.badge, color: SIGNAL_COLORS[r.shortTermSignal] || "#6b7280" }}>
                                             {SIGNAL_LABELS[r.shortTermSignal] || "—"}
                                         </span>
+                                        {r.shortTermConfidence && r.shortTermSignal !== "NEUTRAL" && (
+                                            <span style={{ ...s.confDots, color: SIGNAL_COLORS[r.shortTermSignal] || "#6b7280" }}
+                                                  title={t(CONF_LABEL_KEYS[r.shortTermConfidence])}>
+                                                {CONF_DOTS[r.shortTermConfidence]}
+                                            </span>
+                                        )}
                                     </td>
                                     <td style={s.td}>
                                         <span style={{ ...s.badge, color: SIGNAL_COLORS[r.longTermSignal] || "#6b7280" }}>
                                             {SIGNAL_LABELS[r.longTermSignal] || "—"}
                                         </span>
+                                        {r.longTermConfidence && r.longTermSignal !== "NEUTRAL" && (
+                                            <span style={{ ...s.confDots, color: SIGNAL_COLORS[r.longTermSignal] || "#6b7280" }}
+                                                  title={t(CONF_LABEL_KEYS[r.longTermConfidence])}>
+                                                {CONF_DOTS[r.longTermConfidence]}
+                                            </span>
+                                        )}
                                     </td>
                                 </tr>
                             ))}
@@ -377,6 +402,10 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
                         setPage(1);
                     }}
                 />
+            )}
+
+            {!loading && !error && (
+                <div style={s.disclaimer}>{t("analysis.signalDisclaimer")}</div>
             )}
         </div>
     );
@@ -495,5 +524,18 @@ const s = {
         fontSize: 11,
         textTransform: "uppercase",
         letterSpacing: 0.3,
+    },
+    confDots: {
+        marginLeft: 6,
+        fontSize: 9,
+        letterSpacing: 1,
+        opacity: 0.7,
+        verticalAlign: "1px",
+    },
+    disclaimer: {
+        marginTop: 10,
+        fontSize: 11,
+        color: "var(--text-muted)",
+        lineHeight: 1.5,
     },
 };

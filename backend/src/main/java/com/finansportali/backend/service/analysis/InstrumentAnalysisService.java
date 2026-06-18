@@ -232,8 +232,18 @@ public class InstrumentAnalysisService {
         dto.setChangeMonthly(monthly);
         dto.setChangeYearly(yearly);
         dto.setRiskLevel(riskProfile.classify(category, yearly));
-        dto.setShortTermSignal(ta.shortTermSignal(weekly, monthly));
-        dto.setLongTermSignal(ta.longTermSignal(monthly, yearly));
+
+        // Composite signal from the daily close series (trend + momentum +
+        // RSI + MACD). One extra candle query per instrument; loaded only
+        // when we have a backing instrument row, otherwise the engine falls
+        // back to momentum-only on the change percentages above.
+        List<BigDecimal> closes = inst.isPresent() ? loadCloses(inst.get(), 400) : List.of();
+        TechnicalAnalysisService.SignalResult st = ta.shortTermComposite(closes, weekly, monthly);
+        TechnicalAnalysisService.SignalResult lt = ta.longTermComposite(closes, monthly, yearly);
+        dto.setShortTermSignal(st.signal());
+        dto.setShortTermConfidence(st.confidence());
+        dto.setLongTermSignal(lt.signal());
+        dto.setLongTermConfidence(lt.confidence());
         dto.setUpdatedAt(item.asOf());
         return dto;
     }
@@ -258,6 +268,26 @@ public class InstrumentAnalysisService {
                     .setScale(2, RoundingMode.HALF_UP);
         } catch (RuntimeException e) {
             return null;
+        }
+    }
+
+    /**
+     * Loads the daily close series (chronological ascending) for an instrument
+     * over the last {@code days} calendar days, for indicator computation.
+     * Returns an empty list on any failure so the signal engine degrades to
+     * its momentum-only path rather than throwing.
+     */
+    private List<BigDecimal> loadCloses(MarketInstrument inst, int days) {
+        try {
+            List<MarketCandle> candles = candleRepo
+                    .findByInstrumentAndDayBetweenOrderByDayAsc(inst, LocalDate.now().minusDays(days), LocalDate.now());
+            List<BigDecimal> out = new ArrayList<>(candles.size());
+            for (MarketCandle c : candles) {
+                if (c.getClose() != null) out.add(c.getClose());
+            }
+            return out;
+        } catch (RuntimeException e) {
+            return List.of();
         }
     }
 
@@ -349,8 +379,14 @@ public class InstrumentAnalysisService {
         dto.setChangeMonthly(f.getMonthlyReturn());
         dto.setChangeYearly(f.getYearlyReturn());
         dto.setRiskLevel(fundRisk(f));
-        dto.setShortTermSignal(ta.shortTermSignal(f.getWeeklyReturn(), f.getMonthlyReturn()));
-        dto.setLongTermSignal(ta.longTermSignal(f.getMonthlyReturn(), f.getYearlyReturn()));
+        // Funds carry TEFAS returns but no candle history wired here, so the
+        // composite engine scores them on momentum alone (returns null series).
+        TechnicalAnalysisService.SignalResult fst = ta.shortTermComposite(List.of(), f.getWeeklyReturn(), f.getMonthlyReturn());
+        TechnicalAnalysisService.SignalResult flt = ta.longTermComposite(List.of(), f.getMonthlyReturn(), f.getYearlyReturn());
+        dto.setShortTermSignal(fst.signal());
+        dto.setShortTermConfidence(fst.confidence());
+        dto.setLongTermSignal(flt.signal());
+        dto.setLongTermConfidence(flt.confidence());
         if (f.getPriceDate() != null) {
             dto.setUpdatedAt(f.getPriceDate().atStartOfDay(ZoneOffset.UTC).toInstant());
         }

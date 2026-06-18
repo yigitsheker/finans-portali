@@ -150,4 +150,60 @@ class TechnicalAnalysisServiceTest {
         assertThat(ta.volatility(new BigDecimal("2"), new BigDecimal("10"))).isEqualTo("LOW");
         assertThat(ta.volatility(null, null)).isEqualTo("LOW");
     }
+
+    // ── composite signal engine ─────────────────────────────────────────
+
+    private static List<BigDecimal> ramp(int n, double start, double step) {
+        List<BigDecimal> out = new java.util.ArrayList<>(n);
+        for (int i = 0; i < n; i++) out.add(BigDecimal.valueOf(start + i * step));
+        return out;
+    }
+
+    @Test
+    void shortTermComposite_NEUTRAL_with_no_data() {
+        TechnicalAnalysisService.SignalResult r = ta.shortTermComposite(List.of(), null, null);
+        assertThat(r.signal()).isEqualTo(TechnicalAnalysisService.NEUTRAL);
+        assertThat(r.confidence()).isNull();
+    }
+
+    @Test
+    void shortTermComposite_momentumOnly_BUY_on_strong_weekly() {
+        // No price series → momentum-only path on weekly/monthly.
+        TechnicalAnalysisService.SignalResult r =
+                ta.shortTermComposite(List.of(), new BigDecimal("10"), new BigDecimal("6"));
+        assertThat(r.signal()).isEqualTo(TechnicalAnalysisService.BUY);
+        assertThat(r.confidence()).isEqualTo(TechnicalAnalysisService.CONF_HIGH);
+    }
+
+    @Test
+    void shortTermComposite_BUY_on_rising_series() {
+        // Steadily rising 60-day series → price above MAs, positive momentum.
+        TechnicalAnalysisService.SignalResult r =
+                ta.shortTermComposite(ramp(60, 100, 1), new BigDecimal("4"), new BigDecimal("12"));
+        assertThat(r.signal()).isEqualTo(TechnicalAnalysisService.BUY);
+        assertThat(r.confidence()).isIn(
+                TechnicalAnalysisService.CONF_MEDIUM, TechnicalAnalysisService.CONF_HIGH);
+    }
+
+    @Test
+    void longTermComposite_momentumOnly_SELL_on_steep_yearly_decline() {
+        TechnicalAnalysisService.SignalResult r =
+                ta.longTermComposite(List.of(), new BigDecimal("-5"), new BigDecimal("-50"));
+        assertThat(r.signal()).isEqualTo(TechnicalAnalysisService.SELL);
+        assertThat(r.confidence()).isEqualTo(TechnicalAnalysisService.CONF_HIGH);
+    }
+
+    @Test
+    void longTermComposite_SELL_on_falling_series() {
+        TechnicalAnalysisService.SignalResult r =
+                ta.longTermComposite(ramp(220, 300, -1), new BigDecimal("-6"), new BigDecimal("-40"));
+        assertThat(r.signal()).isEqualTo(TechnicalAnalysisService.SELL);
+    }
+
+    @Test
+    void rsiLast_saturates_to_100_on_pure_uptrend() {
+        double[] x = new double[20];
+        for (int i = 0; i < x.length; i++) x[i] = 100 + i;
+        assertThat(TechnicalAnalysisService.rsiLast(x, 14)).isEqualTo(100.0);
+    }
 }

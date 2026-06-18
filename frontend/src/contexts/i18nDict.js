@@ -513,6 +513,10 @@ export const dict = {
       signalHold: "Tut",
       signalSell: "Sat",
       signalNeutral: "Nötr",
+      confLow: "Düşük güven",
+      confMedium: "Orta güven",
+      confHigh: "Yüksek güven",
+      signalDisclaimer: "Sinyaller otomatik teknik göstergelerden (trend, momentum, RSI, MACD) üretilir; yatırım tavsiyesi değildir.",
       // Trend / volatility — surfaced as raw enums by the backend
       // (UP / DOWN / SIDEWAYS, LOW / MEDIUM / HIGH); localised here so
       // the detail card reads naturally in either locale.
@@ -1555,6 +1559,10 @@ export const dict = {
       signalHold: "Hold",
       signalSell: "Sell",
       signalNeutral: "Neutral",
+      confLow: "Low confidence",
+      confMedium: "Medium confidence",
+      confHigh: "High confidence",
+      signalDisclaimer: "Signals are generated automatically from technical indicators (trend, momentum, RSI, MACD); not investment advice.",
       // Trend / volatility — backend emits UP / DOWN / SIDEWAYS and
       // LOW / MEDIUM / HIGH. Mapped to plain words so the card stays
       // readable when the user flips locale.

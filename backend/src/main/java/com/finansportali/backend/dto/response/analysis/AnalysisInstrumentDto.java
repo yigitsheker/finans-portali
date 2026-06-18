@@ -32,6 +32,10 @@ public class AnalysisInstrumentDto {
     private String riskLevel;    // "LOW" | "MEDIUM" | "HIGH"
     private String shortTermSignal; // "BUY" | "HOLD" | "SELL" | "NEUTRAL"
     private String longTermSignal;
+    // How strongly the composite factors agreed on the signal: "LOW" |
+    // "MEDIUM" | "HIGH". Null for NEUTRAL rows (no data to score).
+    private String shortTermConfidence;
+    private String longTermConfidence;
     private Instant updatedAt;
 
     public AnalysisInstrumentDto() {
@@ -66,6 +70,10 @@ public class AnalysisInstrumentDto {
     public void setShortTermSignal(String shortTermSignal) { this.shortTermSignal = shortTermSignal; }
     public String getLongTermSignal() { return longTermSignal; }
     public void setLongTermSignal(String longTermSignal) { this.longTermSignal = longTermSignal; }
+    public String getShortTermConfidence() { return shortTermConfidence; }
+    public void setShortTermConfidence(String shortTermConfidence) { this.shortTermConfidence = shortTermConfidence; }
+    public String getLongTermConfidence() { return longTermConfidence; }
+    public void setLongTermConfidence(String longTermConfidence) { this.longTermConfidence = longTermConfidence; }
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 }
