@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { getLatestDepositRates } from "../api/depositRateApi";
 import { useI18n } from "../contexts/I18nContext";
+import { IconLandmark } from "./common/icons";
 
 const MATURITY_COLS = [
   { key: "rate1m",       labelKey: "depositRates.col1m" },
@@ -49,7 +50,7 @@ export default function DepositRatesCard() {
     <div style={s.card}>
       <div style={s.header}>
         <div>
-          <div style={s.title}>{t("depositRates.title")}</div>
+          <div style={{ ...s.title, display: "flex", alignItems: "center", gap: 8 }}><IconLandmark size={18} />{t("depositRates.title")}</div>
           <div style={s.subtitle}>
             {t("depositRates.subtitle")}
             {periodLabel && <span style={s.periodBadge}>{periodLabel}</span>}

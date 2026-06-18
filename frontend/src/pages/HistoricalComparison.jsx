@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { IconTrendingUp } from "../components/common/icons";
+import { IconTrendingUp, IconBarChart } from "../components/common/icons";
 import PropTypes from "prop-types";
 import { PortfolioAreaChart } from "../components/common/PortfolioAreaChart";
 import Modal from "../components/Modal";
@@ -570,7 +570,7 @@ export default function HistoricalComparison({ keycloak }) {
       {/* Header */}
       <div style={s.header}>
         <div>
-          <div style={s.title}>{t("historical.title")}</div>
+          <div style={{ ...s.title, display: "flex", alignItems: "center", gap: 8 }}><IconBarChart size={22} />{t("historical.title")}</div>
           <div style={s.subtitle}>{t("historical.subtitle")}</div>
         </div>
         <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
@@ -758,7 +758,10 @@ export default function HistoricalComparison({ keycloak }) {
                             title={t("historical.perfFocusBtn")}
                             onClick={(e) => {
                               e.stopPropagation();
-                              setFocusPosition(p);
+                              // Toggle: clicking the already-focused position's
+                              // button clears focus → chart falls back to the
+                              // combined view of all positions.
+                              setFocusPosition((cur) => (cur?.id === p.id ? null : p));
                               perfCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                             }}
                           >

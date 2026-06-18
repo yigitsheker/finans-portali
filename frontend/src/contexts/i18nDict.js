@@ -557,7 +557,7 @@ export const dict = {
       errPast: "Tarih bugünden eski olmalı",
       errNoHistory: "Bu sembol için geçmiş veri bulunamadı",
       errPrice: "Fiyat alınamadı",
-      title: "📊 Geçmişten Bugüne Değişim",
+      title: "Geçmişten Bugüne Değişim",
       subtitle:
         "Geçmiş alımlarınızı takip edin ve toplam kar/zarar hesaplayın",
       clearAll: "Tümünü Temizle",
@@ -921,7 +921,7 @@ export const dict = {
       typeIndex: "Endeks",
     },
     depositRates: {
-      title: "🏦 Mevduat Faiz Oranları",
+      title: "Mevduat Faiz Oranları",
       subtitle: "Bankalar ortalama mevduat faizi (TCMB EVDS3)",
       empty: "Henüz veri yok — TCMB EVDS3 cookie'leri yenilenmeli.",
       loadError: "Yüklenemedi",
@@ -1599,7 +1599,7 @@ export const dict = {
       errPast: "Date must be in the past",
       errNoHistory: "No historical data found for this symbol",
       errPrice: "Could not fetch price",
-      title: "📊 Historical Performance",
+      title: "Historical Performance",
       subtitle: "Track past purchases and compute total profit/loss",
       clearAll: "Clear All",
       importBtn: "Import Excel",
@@ -1962,7 +1962,7 @@ export const dict = {
       typeIndex: "Index",
     },
     depositRates: {
-      title: "🏦 Deposit Interest Rates",
+      title: "Deposit Interest Rates",
       subtitle: "Average bank deposit rates (TCMB EVDS3)",
       empty: "No data yet — TCMB EVDS3 cookies need to be refreshed.",
       loadError: "Failed to load",
