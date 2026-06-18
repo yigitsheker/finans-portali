@@ -150,8 +150,8 @@ export const portfolioStyles = {
     transition: "all 0.2s",
   },
   allocViewBtnActive: {
-    border: "1px solid var(--accent)",
-    background: "rgba(59, 130, 246, 0.15)",
-    color: "var(--accent)",
+    border: "1px solid var(--accent-solid)",
+    background: "var(--accent)",
+    color: "var(--accent-solid)",
   },
 };
