@@ -32,7 +32,7 @@ const RISK_COLORS = {
 // layout never reflows when the user sorts (rows reorder / the sort arrow
 // toggles). The table also carries a minWidth = sum so it scrolls
 // horizontally on narrow viewports instead of squashing.
-const COL_WIDTHS = [90, 230, 95, 115, 85, 90, 85, 85, 105, 78, 72, 72];
+const COL_WIDTHS = [72, 156, 90, 90, 76, 76, 76, 76, 82, 70, 82, 82];
 const TABLE_MIN_WIDTH = COL_WIDTHS.reduce((a, b) => a + b, 0);
 
 const SIGNAL_COLORS = {
@@ -473,7 +473,7 @@ const s = {
         tableLayout: "fixed",
     },
     th: {
-        padding: "10px 12px",
+        padding: "10px 8px",
         textAlign: "left",
         fontWeight: 600,
         color: "var(--text-muted)",
@@ -497,14 +497,14 @@ const s = {
     },
     trActive: { background: "var(--accent-hover-bg)" },
     td: {
-        padding: "10px 12px",
+        padding: "10px 8px",
         color: "var(--text-primary)",
         whiteSpace: "nowrap",
         overflow: "hidden",
         textOverflow: "ellipsis",
     },
     tdBold: {
-        padding: "10px 12px",
+        padding: "10px 8px",
         color: "var(--text-primary)",
         fontWeight: 700,
         whiteSpace: "nowrap",
@@ -512,7 +512,7 @@ const s = {
         textOverflow: "ellipsis",
     },
     tdMuted: {
-        padding: "10px 12px",
+        padding: "10px 8px",
         color: "var(--text-muted)",
         fontSize: 11,
         whiteSpace: "nowrap",

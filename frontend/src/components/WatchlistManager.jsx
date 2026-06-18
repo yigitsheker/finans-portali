@@ -205,7 +205,10 @@ const WatchlistManager = ({ keycloak }) => {
             <button
               onClick={() => setSelectedWatchlist(watchlist)}
               style={{
-                padding: '10px 40px 10px 20px',
+                // Reserve room on the right ONLY when selected, since that's
+                // when the rename/delete icon overlay appears. Otherwise the
+                // icons overlapped the name+count text ("göt (1✎🗑").
+                padding: selectedWatchlist?.id === watchlist.id ? '10px 66px 10px 18px' : '10px 18px',
                 border: selectedWatchlist?.id === watchlist.id ? '2px solid var(--accent-solid)' : '1px solid var(--border)',
                 borderRadius: '8px',
                 background: selectedWatchlist?.id === watchlist.id ? 'var(--accent)' : 'var(--bg-card)',
