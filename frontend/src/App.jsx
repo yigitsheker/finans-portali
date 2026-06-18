@@ -1,26 +1,31 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, lazy, Suspense } from "react";
 import { IconLock } from "./components/common/icons";
 import { Routes, Route, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import Topbar from "./components/Topbar";
 import Ticker from "./components/Ticker";
-import Stocks from "./pages/Stocks";
-import Watchlists from "./pages/Watchlists";
-import Crypto from "./pages/Crypto";
-import Funds from "./pages/Funds";
-import Bonds from "./pages/Bonds";
-import Portfolio from "./pages/Portfolio";
-import HistoricalComparison from "./pages/HistoricalComparison";
-import Settings from "./pages/Settings";
-import MarketData from "./pages/MarketData";
-import Home from "./pages/Home";
-import News from "./pages/News";
-import NewsDetail from "./pages/NewsDetail";
-import Admin from "./pages/Admin";
-import Inflation from "./pages/Inflation";
-import Commodities from "./pages/Commodities";
-import Viop from "./pages/Viop";
-import Analysis from "./pages/Analysis";
+// Pages are code-split so the initial bundle no longer ships every page (and
+// every chart library) at once — each route's JS is fetched on first visit.
+// This collapses the ~1.6 MB single bundle into a small shell + per-route
+// chunks, and the heavy chart libs (recharts/lightweight-charts/klinecharts)
+// only download when a page that uses them is actually opened.
+const Stocks = lazy(() => import("./pages/Stocks"));
+const Watchlists = lazy(() => import("./pages/Watchlists"));
+const Crypto = lazy(() => import("./pages/Crypto"));
+const Funds = lazy(() => import("./pages/Funds"));
+const Bonds = lazy(() => import("./pages/Bonds"));
+const Portfolio = lazy(() => import("./pages/Portfolio"));
+const HistoricalComparison = lazy(() => import("./pages/HistoricalComparison"));
+const Settings = lazy(() => import("./pages/Settings"));
+const MarketData = lazy(() => import("./pages/MarketData"));
+const Home = lazy(() => import("./pages/Home"));
+const News = lazy(() => import("./pages/News"));
+const NewsDetail = lazy(() => import("./pages/NewsDetail"));
+const Admin = lazy(() => import("./pages/Admin"));
+const Inflation = lazy(() => import("./pages/Inflation"));
+const Commodities = lazy(() => import("./pages/Commodities"));
+const Viop = lazy(() => import("./pages/Viop"));
+const Analysis = lazy(() => import("./pages/Analysis"));
 import ScrollToTop from "./components/common/ScrollToTop";
 import PriceAlertModal from "./components/PriceAlertModal";
 import { applyTheme, getStoredTheme } from "./theme";
@@ -67,6 +72,14 @@ function RequireAuth({ keycloak, children }) {
     }
     return <>{children}</>;
 }
+
+// Centered fallback shown while a lazily-loaded route chunk downloads.
+const routeFallbackStyle = {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: "50vh",
+};
 
 export default function App({ keycloak }) {
     const location = useLocation();
@@ -214,6 +227,7 @@ export default function App({ keycloak }) {
                     ) : undefined
                 }
             >
+                <Suspense fallback={<div style={routeFallbackStyle}><div className="fp-route-spinner" /></div>}>
                 <Routes>
                     <Route path="/" element={<Home keycloak={keycloak} />} />
                     <Route path="/news" element={<News keycloak={keycloak} />} />
@@ -335,6 +349,7 @@ export default function App({ keycloak }) {
                         }
                     />
                 </Routes>
+                </Suspense>
 
                 {/* Global Price Alert Modal */}
                 {showAlertModal && (

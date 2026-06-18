@@ -4,6 +4,23 @@ import react from '@vitejs/plugin-react-swc'
 // https://vite.dev/config/
 export default defineConfig({
   plugins: [react()],
+  build: {
+    rollupOptions: {
+      output: {
+        // Split the heavy charting libraries into their own chunks so they
+        // (a) only download on pages that use them and (b) stay cached across
+        // app deploys instead of being bundled into a single churning blob.
+        manualChunks(id) {
+          if (!id.includes("node_modules")) return undefined;
+          if (id.includes("klinecharts")) return "vendor-klinecharts";
+          if (id.includes("lightweight-charts")) return "vendor-lwcharts";
+          if (id.includes("recharts") || id.includes("d3-") || id.includes("victory")) return "vendor-recharts";
+          if (id.includes("react-router") || id.includes("react-dom") || id.includes("/react/")) return "vendor-react";
+          return undefined;
+        },
+      },
+    },
+  },
   server: {
     host: '0.0.0.0',
     port: 5173,

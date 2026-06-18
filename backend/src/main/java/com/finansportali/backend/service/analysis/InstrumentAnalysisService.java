@@ -204,16 +204,23 @@ public class InstrumentAnalysisService {
         BigDecimal weekly = null;
         BigDecimal monthly = null;
         BigDecimal yearly = null;
+        List<BigDecimal> closes = List.of();
 
-        // Pull weekly/monthly/yearly changes from candle history when we have
-        // a backing instrument row. Missing values stay null — the table
-        // shows "—".
+        // Single candle fetch (~400 days) powers BOTH the weekly/monthly/yearly
+        // change columns and the technical-indicator series below — previously
+        // this was four separate queries per instrument (3 change windows + the
+        // indicator series), which made the cross-asset grid slow to build.
         Optional<MarketInstrument> inst = instrumentRepo.findBySymbol(item.symbol());
-        if (inst.isPresent() && item.last() != null) {
-            BigDecimal last = item.last();
-            weekly = changeOverDays(inst.get(), last, 7);
-            monthly = changeOverDays(inst.get(), last, 30);
-            yearly = changeOverDays(inst.get(), last, 365);
+        if (inst.isPresent()) {
+            List<MarketCandle> candles = candleRepo.findByInstrumentAndDayBetweenOrderByDayAsc(
+                    inst.get(), LocalDate.now().minusDays(400), LocalDate.now());
+            closes = closesOf(candles);
+            if (item.last() != null) {
+                BigDecimal last = item.last();
+                weekly = changeFromCandles(candles, last, 7);
+                monthly = changeFromCandles(candles, last, 30);
+                yearly = changeFromCandles(candles, last, 365);
+            }
         }
 
         AnalysisInstrumentDto dto = new AnalysisInstrumentDto();
@@ -233,11 +240,9 @@ public class InstrumentAnalysisService {
         dto.setChangeYearly(yearly);
         dto.setRiskLevel(riskProfile.classify(category, yearly));
 
-        // Composite signal from the daily close series (trend + momentum +
-        // RSI + MACD). One extra candle query per instrument; loaded only
-        // when we have a backing instrument row, otherwise the engine falls
-        // back to momentum-only on the change percentages above.
-        List<BigDecimal> closes = inst.isPresent() ? loadCloses(inst.get(), 400) : List.of();
+        // Composite signal from the daily close series loaded above (trend +
+        // momentum + RSI + MACD); falls back to momentum-only on the change
+        // percentages when no series is available.
         TechnicalAnalysisService.SignalResult st = ta.shortTermComposite(closes, weekly, monthly);
         TechnicalAnalysisService.SignalResult lt = ta.longTermComposite(closes, monthly, yearly);
         dto.setShortTermSignal(st.signal());
@@ -248,47 +253,37 @@ public class InstrumentAnalysisService {
         return dto;
     }
 
-    private BigDecimal changeOverDays(MarketInstrument inst, BigDecimal latest, int daysBack) {
-        try {
-            LocalDate target = LocalDate.now().minusDays(daysBack);
-            // Search forward FROM target up to +14 days. The price refresh
-            // scheduler only stores ~365 days of history (Yahoo "1y"), so
-            // for the yearly window the search must look forward — the
-            // earlier `[target-7, target]` window fell entirely OUTSIDE the
-            // stored range, which is why every Yıllık cell showed "—". The
-            // 14-day buffer absorbs weekends, holidays and partial gaps.
-            List<MarketCandle> candles = candleRepo
-                    .findByInstrumentAndDayBetweenOrderByDayAsc(inst, target, target.plusDays(14));
-            if (candles.isEmpty()) return null;
-            BigDecimal base = candles.get(0).getClose();
+    /** Chronological-ascending close list from an already-loaded candle list. */
+    private List<BigDecimal> closesOf(List<MarketCandle> candles) {
+        List<BigDecimal> out = new ArrayList<>(candles.size());
+        for (MarketCandle c : candles) {
+            if (c.getClose() != null) out.add(c.getClose());
+        }
+        return out;
+    }
+
+    /**
+     * Percentage change of {@code latest} versus the close ~{@code daysBack}
+     * days ago, read from an already-loaded ascending candle list (no extra
+     * query). Searches forward from the target date up to +14 days to absorb
+     * weekends/holidays/gaps; returns null if no candle lands in that window.
+     */
+    private BigDecimal changeFromCandles(List<MarketCandle> candles, BigDecimal latest, int daysBack) {
+        if (candles.isEmpty() || latest == null) return null;
+        LocalDate target = LocalDate.now().minusDays(daysBack);
+        LocalDate limit = target.plusDays(14);
+        for (MarketCandle c : candles) {       // ascending by day
+            LocalDate day = c.getDay();
+            if (day == null || day.isBefore(target)) continue;
+            if (day.isAfter(limit)) return null;   // gap larger than the buffer
+            BigDecimal base = c.getClose();
             if (base == null || base.signum() == 0) return null;
             return latest.subtract(base)
                     .divide(base, 6, RoundingMode.HALF_UP)
                     .multiply(BigDecimal.valueOf(100))
                     .setScale(2, RoundingMode.HALF_UP);
-        } catch (RuntimeException e) {
-            return null;
         }
-    }
-
-    /**
-     * Loads the daily close series (chronological ascending) for an instrument
-     * over the last {@code days} calendar days, for indicator computation.
-     * Returns an empty list on any failure so the signal engine degrades to
-     * its momentum-only path rather than throwing.
-     */
-    private List<BigDecimal> loadCloses(MarketInstrument inst, int days) {
-        try {
-            List<MarketCandle> candles = candleRepo
-                    .findByInstrumentAndDayBetweenOrderByDayAsc(inst, LocalDate.now().minusDays(days), LocalDate.now());
-            List<BigDecimal> out = new ArrayList<>(candles.size());
-            for (MarketCandle c : candles) {
-                if (c.getClose() != null) out.add(c.getClose());
-            }
-            return out;
-        } catch (RuntimeException e) {
-            return List.of();
-        }
+        return null;
     }
 
     private String mapMarketCategory(String type) {
