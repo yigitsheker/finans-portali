@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { IconEdit, IconTrash, IconCheck } from './common/icons';
 import { watchlistApi } from '../api/watchlistApi';
 import { getMarketSummary } from '../api/portfolioApi';
 import { useI18n } from '../contexts/I18nContext';
@@ -223,14 +224,14 @@ const WatchlistManager = ({ keycloak }) => {
                   style={{ padding: '2px 6px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '14px', opacity: 0.7 }}
                   title={t("watchlist.rename")}
                 >
-                  ✏️
+                  <IconEdit size={14} />
                 </button>
                 <button
                   onClick={(e) => { e.stopPropagation(); setDeleteTarget(watchlist); }}
                   style={{ padding: '2px 6px', border: 'none', background: 'transparent', cursor: 'pointer', fontSize: '14px', color: 'var(--red)', opacity: 0.7 }}
                   title={t("watchlist.delete")}
                 >
-                  🗑️
+                  <IconTrash size={14} />
                 </button>
               </div>
             )}
@@ -389,7 +390,7 @@ const WatchlistManager = ({ keycloak }) => {
                         color: isAdded ? 'var(--accent-solid)' : '#fff',
                       }}
                     >
-                      {isAdded ? `✓ ${t("watchlist.added")}` : `+ ${t("watchlist.add")}`}
+                      {isAdded ? <><IconCheck size={12} style={{ verticalAlign: "-2px", marginRight: 4 }} />{t("watchlist.added")}</> : `+ ${t("watchlist.add")}`}
                     </button>
                   </div>
                 );

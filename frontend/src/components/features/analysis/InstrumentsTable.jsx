@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { IconZap } from "../../common/icons";
 import PropTypes from "prop-types";
 import Pagination from "../../common/Pagination";
 import { clickable } from "../../../utils/clickable";
@@ -214,7 +215,7 @@ export default function InstrumentsTable({ items, loading, error, onRowClick, se
                             marginLeft: "auto",
                         }}
                     >
-                        ⚡ {t("analysis.filterBeatsInflation")}
+                        <IconZap size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />{t("analysis.filterBeatsInflation")}
                     </button>
                 </div>
             )}

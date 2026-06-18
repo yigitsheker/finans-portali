@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { IconAlertTriangle, IconSun, IconMoon, IconSearch, IconX, IconStar } from "./common/icons";
 import PropTypes from "prop-types";
 import {
     getMarketSummary,
@@ -487,7 +488,7 @@ export default function FinexStyleMarket({
     if (err) {
         return (
             <div style={s.error}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+                <div style={{ marginBottom: 16 }}><IconAlertTriangle size={48} /></div>
                 <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{t("common.error")}</div>
                 <div style={{ color: "var(--text-muted)", fontSize: 13 }}>{err}</div>
             </div>
@@ -563,7 +564,7 @@ export default function FinexStyleMarket({
                                 onClick={onThemeToggle}
                                 title={theme === "dark" ? t("topbar.themeLight") : t("topbar.themeDark")}
                             >
-                                {theme === "dark" ? "☀️" : "🌙"}
+                                {theme === "dark" ? <IconSun size={16} /> : <IconMoon size={16} />}
                             </button>
                         )}
                         {onLogout && (
@@ -655,7 +656,7 @@ export default function FinexStyleMarket({
             {/* Search and Filter */}
             <div style={s.controls}>
                 <div style={s.searchBox}>
-                    <span style={{ fontSize: 14, color: "var(--text-muted)" }}>🔍</span>
+                    <span style={{ display: "inline-flex", color: "var(--text-muted)" }}><IconSearch size={14} /></span>
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}
@@ -762,7 +763,7 @@ export default function FinexStyleMarket({
                                                                     }}
                                                                     title={t("market.removeFromList")}
                                                                 >
-                                                                    ✕
+                                                                    <IconX size={14} />
                                                                 </button>
                                                             ) : (
                                                                 <button
@@ -773,7 +774,7 @@ export default function FinexStyleMarket({
                                                                     }}
                                                                     title={t("market.addToList")}
                                                                 >
-                                                                    ☆
+                                                                    <IconStar size={14} />
                                                                 </button>
                                                             )}
                                                             <button
@@ -857,7 +858,7 @@ export default function FinexStyleMarket({
                                                             }}
                                                             title={t("market.removeFromList")}
                                                         >
-                                                            ✕
+                                                            <IconX size={14} />
                                                         </button>
                                                     ) : (
                                                         <button
@@ -868,7 +869,7 @@ export default function FinexStyleMarket({
                                                             }}
                                                             title={t("market.addToList")}
                                                         >
-                                                            ☆
+                                                            <IconStar size={14} />
                                                         </button>
                                                     )}
                                                     <button

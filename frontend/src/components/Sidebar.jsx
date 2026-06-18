@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { IconCrown } from "./common/icons";
 import PropTypes from "prop-types";
 import { createPortal } from "react-dom";
 import { useNavigate, useLocation } from "react-router-dom";
@@ -344,7 +345,7 @@ export default function Sidebar({ keycloak }) {
                     <div className="fp-sidebar-text" style={s.userInfo}>
                         <div style={s.userName}>{username}</div>
                         {email && <div style={s.userEmail}>{email}</div>}
-                        {userIsAdmin && <div style={s.userBadge}>👑 Admin</div>}
+                        {userIsAdmin && <div style={s.userBadge}><IconCrown size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />Admin</div>}
                     </div>
                 </div>
             ) : (

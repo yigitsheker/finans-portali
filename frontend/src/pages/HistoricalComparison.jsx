@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { IconTrendingUp } from "../components/common/icons";
 import PropTypes from "prop-types";
 import { PortfolioAreaChart } from "../components/common/PortfolioAreaChart";
 import Modal from "../components/Modal";
@@ -678,7 +679,7 @@ export default function HistoricalComparison({ keycloak }) {
       <div style={s.card}>
         {positions.length === 0 ? (
           <div style={s.empty}>
-            <div style={{ fontSize: 48, marginBottom: 12 }}>📈</div>
+            <div style={{ marginBottom: 12 }}><IconTrendingUp size={48} /></div>
             <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>{t("historical.empty")}</div>
             <div style={{ fontSize: 13, color: "var(--text-muted)", marginBottom: 16 }}>
               {t("historical.emptySub")}
@@ -761,7 +762,7 @@ export default function HistoricalComparison({ keycloak }) {
                               perfCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
                             }}
                           >
-                            📈
+                            <IconTrendingUp size={16} />
                           </button>
                           <button style={s.editBtn} onClick={(e) => { e.stopPropagation(); openEdit(p); }}>
                             {t("common.edit")}

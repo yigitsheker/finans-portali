@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { IconExchange } from "./common/icons";
 import { useI18n } from "../contexts/I18nContext";
 
 /**
@@ -85,7 +86,7 @@ export default function CurrencyConverter({ rates }) {
     <div style={s.card}>
       <div style={s.header}>
         <div>
-          <div style={s.title}>💱 {t("fx.title")}</div>
+          <div style={s.title}><IconExchange size={16} style={{ verticalAlign: "-3px", marginRight: 6 }} />{t("fx.title")}</div>
           <div style={s.sub}>{t("fx.subtitle")}</div>
         </div>
       </div>

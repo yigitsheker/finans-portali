@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { IconRefresh } from "../components/common/icons";
 import PropTypes from "prop-types";
 import {
     getBonds,
@@ -179,7 +180,7 @@ export default function Bonds({ keycloak, onAdded }) {
                         onClick={handleRefresh}
                         disabled={refreshing}
                     >
-                        {refreshing ? t("bonds.refreshing") : `🔄 ${t("bonds.refresh")}`}
+                        {refreshing ? t("bonds.refreshing") : <><IconRefresh size={13} style={{ verticalAlign: "-2px", marginRight: 6 }} />{t("bonds.refresh")}</>}
                     </button>
                 )}
             </div>

@@ -1,4 +1,5 @@
 import { AddPositionModal } from "../components/features/portfolio/AddPositionModal";
+import { IconAlertTriangle } from "../components/common/icons";
 import { PortfolioCharts } from "../components/features/portfolio/PortfolioCharts";
 import { PositionsTable } from "../components/features/portfolio/PositionsTable";
 import PortfolioDerivatives from "../components/features/portfolio/PortfolioDerivatives";
@@ -111,7 +112,7 @@ export default function Portfolio({ keycloak }) {
           (e.g. a position whose instrument was deleted from the catalog). */}
       {warnings.length > 0 && (
         <div style={styles.warnBanner} role="alert">
-          <strong style={{ marginRight: 6 }}>⚠️ Bazı pozisyonlar gösterilmiyor:</strong>
+          <strong style={{ marginRight: 6 }}><IconAlertTriangle size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />Bazı pozisyonlar gösterilmiyor:</strong>
           <ul style={styles.warnList}>
             {warnings.map((w, i) => (<li key={i}>{w}</li>))}
           </ul>

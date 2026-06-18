@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { IconAlertTriangle, IconExchange } from "../components/common/icons";
 import PropTypes from "prop-types";
 import { getExchangeRates } from '../api/portfolioApi';
 import CurrencyConverter from '../components/CurrencyConverter';
@@ -102,7 +103,7 @@ const MarketData = ({ keycloak, onAdded }) => {
     if (error) {
         return (
             <div style={s.error}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+                <div style={{ marginBottom: 16 }}><IconAlertTriangle size={48} /></div>
                 <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{t("common.error")}</div>
                 <div style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>{error}</div>
                 <button style={s.retryBtn} onClick={loadData}>
@@ -164,7 +165,7 @@ const MarketData = ({ keycloak, onAdded }) => {
                 <div style={s.tableBody}>
                     {sortedRates.length === 0 ? (
                         <div style={s.emptyState}>
-                            <div style={{ fontSize: 48, marginBottom: 12 }}>💱</div>
+                            <div style={{ marginBottom: 12 }}><IconExchange size={48} /></div>
                             <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
                                 {t("fx.empty")}
                             </div>

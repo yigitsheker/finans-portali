@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { PortfolioAreaChart } from "../../common/PortfolioAreaChart";
 import { ALLOC_COLORS, portfolioStyles as s } from "./portfolioStyles";
+import { IconBarChart, IconTag, IconGlobe } from "../../common/icons";
 
 // Slices smaller than this fraction of the total roll up into a single
 // "Diğer" bucket. With raw data, a 1% holding next to a 99% holding is
@@ -78,23 +79,25 @@ export function PortfolioCharts({
             ))}
           </div>
         </div>
-        {perfLoading ? (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-muted)", fontSize: 13 }}>
-            Performans verileri yükleniyor...
-          </div>
-        ) : perfData.length >= 2 ? (
-          <PortfolioAreaChart data={perfData} isIntraday={perfResponse?.granularity === "INTRADAY"} height={200} />
-        ) : perfData.length === 1 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-muted)", fontSize: 13, gap: 8 }}>
-            <div>📊</div>
-            <div>Grafik için en az 2 veri noktası gerekli</div>
-            <div style={{ fontSize: 11 }}>Tek veri noktası: ₺{perfData[0].value.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}</div>
-          </div>
-        ) : (
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-muted)", fontSize: 13 }}>
-            Bu dönem için veri bulunamadı
-          </div>
-        )}
+        <div style={s.chartBody}>
+          {perfLoading ? (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-muted)", fontSize: 13 }}>
+              Performans verileri yükleniyor...
+            </div>
+          ) : perfData.length >= 2 ? (
+            <PortfolioAreaChart data={perfData} isIntraday={perfResponse?.granularity === "INTRADAY"} height={200} />
+          ) : perfData.length === 1 ? (
+            <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-muted)", fontSize: 13, gap: 8 }}>
+              <IconBarChart size={28} />
+              <div>Grafik için en az 2 veri noktası gerekli</div>
+              <div style={{ fontSize: 11 }}>Tek veri noktası: ₺{perfData[0].value.toLocaleString("tr-TR", { maximumFractionDigits: 2 })}</div>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-muted)", fontSize: 13 }}>
+              Bu dönem için veri bulunamadı
+            </div>
+          )}
+        </div>
       </div>
 
       <div style={s.allocCard}>
@@ -106,9 +109,9 @@ export function PortfolioCharts({
             </div>
           </div>
           <div style={{ display: "flex", gap: 4 }}>
-            <button style={{ ...s.allocViewBtn, ...(allocView === "symbol" ? s.allocViewBtnActive : {}) }} onClick={() => setAllocView("symbol")} title="Enstrüman bazında">📊</button>
-            <button style={{ ...s.allocViewBtn, ...(allocView === "type" ? s.allocViewBtnActive : {}) }} onClick={() => setAllocView("type")} title="Varlık tipi bazında">🏷️</button>
-            <button style={{ ...s.allocViewBtn, ...(allocView === "market" ? s.allocViewBtnActive : {}) }} onClick={() => setAllocView("market")} title="Piyasa bazında">🌍</button>
+            <button style={{ ...s.allocViewBtn, ...(allocView === "symbol" ? s.allocViewBtnActive : {}) }} onClick={() => setAllocView("symbol")} title="Enstrüman bazında" aria-label="Enstrüman bazında"><IconBarChart /></button>
+            <button style={{ ...s.allocViewBtn, ...(allocView === "type" ? s.allocViewBtnActive : {}) }} onClick={() => setAllocView("type")} title="Varlık tipi bazında" aria-label="Varlık tipi bazında"><IconTag /></button>
+            <button style={{ ...s.allocViewBtn, ...(allocView === "market" ? s.allocViewBtnActive : {}) }} onClick={() => setAllocView("market")} title="Piyasa bazında" aria-label="Piyasa bazında"><IconGlobe /></button>
           </div>
         </div>
         {(() => {

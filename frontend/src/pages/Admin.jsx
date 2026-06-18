@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { IconNewspaper, IconRefresh, IconSparkles } from "../components/common/icons";
 import { isAdmin } from "../utils/roleUtils";
 import { createAdminApi } from "../api/adminApi";
 import { useI18n } from "../contexts/I18nContext";
@@ -522,7 +523,7 @@ function FeedsPanel({ keycloak }) {
                         disabled={fetchingNews}
                         title="RSS kaynaklarından yeni haberleri çeker (mevcutları silmez). Bir feed'i yeniden aktif ettikten sonra kullanın."
                     >
-                        {fetchingNews ? "Çekiliyor..." : "📰 Haberleri Çek"}
+                        {fetchingNews ? "Çekiliyor..." : <><IconNewspaper size={13} style={{ verticalAlign: "-2px", marginRight: 6 }} />Haberleri Çek</>}
                     </button>
                     <button
                         type="button"
@@ -531,7 +532,7 @@ function FeedsPanel({ keycloak }) {
                         disabled={resettingNews}
                         title="Tüm haberleri siler ve RSS kaynaklarından baştan çeker"
                     >
-                        {resettingNews ? "Sıfırlanıyor..." : "🔄 Sıfırla & Baştan Çek"}
+                        {resettingNews ? "Sıfırlanıyor..." : <><IconRefresh size={13} style={{ verticalAlign: "-2px", marginRight: 6 }} />Sıfırla & Baştan Çek</>}
                     </button>
                     <button
                         type="button"
@@ -540,7 +541,7 @@ function FeedsPanel({ keycloak }) {
                         disabled={cleaning}
                         title="Silinmiş RSS kaynaklarına ait yetim haberleri kaldırır"
                     >
-                        {cleaning ? "Temizleniyor..." : "🧹 Yetim Haberleri Temizle"}
+                        {cleaning ? "Temizleniyor..." : <><IconSparkles size={13} style={{ verticalAlign: "-2px", marginRight: 6 }} />Yetim Haberleri Temizle</>}
                     </button>
                     <input
                         style={{ ...fp.input, maxWidth: 280 }}

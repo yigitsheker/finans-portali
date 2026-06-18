@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { IconLock } from "./common/icons";
 import PropTypes from "prop-types";
 import Modal from "./Modal";
 import { LWAreaChart } from "./common/LWAreaChart";
@@ -139,7 +140,7 @@ export default function AssetDetailModal({ asset, kind, onClose, keycloak, onBuy
                         </button>
                     ) : (
                         <button style={s.primaryBtn} onClick={handleBuy}>
-                            🔒 {t("assetDetail.buyAction")}
+                            <IconLock size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />{t("assetDetail.buyAction")}
                         </button>
                     )}
                 </div>

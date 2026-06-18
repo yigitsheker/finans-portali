@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { IconSun, IconMoon, IconMonitor } from "../components/common/icons";
 import { applyTheme } from "../theme";
 import { useI18n } from "../contexts/I18nContext";
 import { getNotificationPrefs, putNotificationPrefs } from "../api/userPrefsApi";
@@ -242,9 +243,9 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
   }
 
   const THEME_OPTIONS = [
-    { key: "light",  label: t("settings.themeLight"),  icon: "☀️" },
-    { key: "dark",   label: t("settings.themeDark"),   icon: "🌙" },
-    { key: "system", label: t("settings.themeSystem"), icon: "💻" },
+    { key: "light",  label: t("settings.themeLight"),  icon: <IconSun size={22} /> },
+    { key: "dark",   label: t("settings.themeDark"),   icon: <IconMoon size={22} /> },
+    { key: "system", label: t("settings.themeSystem"), icon: <IconMonitor size={22} /> },
   ];
 
   return (
@@ -312,7 +313,7 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
                   style={{ ...s.themeBtn, ...(theme === opt.key ? s.themeBtnActive : {}) }}
                   onClick={() => handleTheme(opt.key)}
                 >
-                  <span style={{ fontSize: 22 }}>{opt.icon}</span>
+                  <span style={{ display: "inline-flex", lineHeight: 0 }}>{opt.icon}</span>
                   <span style={{ fontSize: 12, marginTop: 4 }}>{opt.label}</span>
                 </button>
               ))}

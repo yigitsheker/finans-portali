@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { createPortal } from "react-dom";
+import { IconX } from "./common/icons";
 
 export default function Modal({ open, title, children, onClose, footer, maxWidth = 560, busy = false }) {
     // When `busy` (e.g. a save/submit in flight) the modal won't close via
@@ -89,7 +90,7 @@ export default function Modal({ open, title, children, onClose, footer, maxWidth
                         disabled={busy}
                         aria-label="Close"
                     >
-                        ✕
+                        <IconX size={14} />
                     </button>
                 </div>
 

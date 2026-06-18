@@ -1,4 +1,5 @@
 import WatchlistManager from "../components/WatchlistManager";
+import { IconStar } from "../components/common/icons";
 import { useI18n } from "../contexts/I18nContext";
 
 /**
@@ -22,7 +23,7 @@ export default function Watchlists({ keycloak }) {
 
     return (
         <div style={{ padding: 60, textAlign: "center", maxWidth: 480, margin: "0 auto" }}>
-            <div style={{ fontSize: 56 }}>⭐</div>
+            <div style={{ lineHeight: 0 }}><IconStar size={48} /></div>
             <h3 style={{ color: "var(--text-primary)", marginTop: 16 }}>{t("stocks.loginNeeded")}</h3>
             <p style={{ color: "var(--text-muted)", lineHeight: 1.6 }}>{t("stocks.loginNeededSub")}</p>
             <div style={{ display: "flex", gap: 10, justifyContent: "center", marginTop: 16, flexWrap: "wrap" }}>

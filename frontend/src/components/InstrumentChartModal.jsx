@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { IconLock, IconTrendingDown, IconRadio } from "./common/icons";
 import Modal from "./Modal";
 import PriceAlertModal from "./PriceAlertModal";
 import TechnicalAnalysisPanel from "./TechnicalAnalysisPanel";
@@ -437,7 +438,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                     }}
                     title={keycloak?.authenticated ? "Detaylı grafik" : "Detaylı grafik için giriş yapın"}
                 >
-                    {keycloak?.authenticated ? "Detaylı Grafik →" : "🔒 Detaylı Grafik"}
+                    {keycloak?.authenticated ? "Detaylı Grafik →" : <><IconLock size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />Detaylı Grafik</>}
                 </button>
             </div>
 
@@ -485,7 +486,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                         </div>
                     ) : data.length === 0 ? (
                         <div style={s.loading}>
-                            <span>📉</span>
+                            <span><IconTrendingDown size={20} /></span>
                             <span>{instrument.symbol} için {period} verisi bulunamadı</span>
                         </div>
                     ) : (
@@ -513,7 +514,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                                         }}
                                         title="Çevrimdışı veri — önbellekteki son görüntü gösteriliyor. Bağlantı geri gelince otomatik yenilenir."
                                     >
-                                        📡 Önbellekten
+                                        <IconRadio size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />Önbellekten
                                     </span>
                                 </>
                             )}

@@ -1,4 +1,5 @@
 import PropTypes from "prop-types";
+import { IconAlertTriangle } from "./common/icons";
 import { useI18n } from "../contexts/I18nContext";
 
 /**
@@ -10,7 +11,7 @@ export default function SimulationDisclaimer({ risk, style }) {
     const { t } = useI18n();
     return (
         <div style={{ ...s.box, ...style }} role="note">
-            <div style={s.main}>⚠️ {t("disclaimer.simNotReal")}</div>
+            <div style={s.main}><IconAlertTriangle size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />{t("disclaimer.simNotReal")}</div>
             {risk === "viop" && <div style={s.risk}>{t("disclaimer.viopRisk")}</div>}
             {risk === "bond" && <div style={s.risk}>{t("disclaimer.bondRisk")}</div>}
         </div>

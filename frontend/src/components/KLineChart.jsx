@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState, memo } from "react";
+import { IconTrash, IconX } from "./common/icons";
 import PropTypes from "prop-types";
 import { init, dispose } from "klinecharts";
 import { getCandles, searchInstruments } from "../api/marketChartApi";
@@ -445,7 +446,7 @@ export default function KLineChart({ symbol }) {
                     <button type="button"
                         style={{ ...s.btn, ...(hasSelection ? {} : s.btnDisabled) }}
                         onClick={deleteSelected} disabled={!hasSelection}
-                        title={t("chartTools.delSelected")}>🗑 {t("chartTools.delSelected")}</button>
+                        title={t("chartTools.delSelected")}><IconTrash size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />{t("chartTools.delSelected")}</button>
                     <button type="button"
                         style={{ ...s.btn, ...(justSaved ? s.btnActive : {}) }}
                         onClick={saveDrawings}>{justSaved ? t("chartTools.saved") : t("chartTools.save")}</button>
@@ -454,7 +455,7 @@ export default function KLineChart({ symbol }) {
                     {compareSymbols.map((sym) => (
                         <span key={sym} style={s.cmpChip}>
                             {sym}
-                            <button type="button" style={s.cmpX} onClick={() => removeCompare(sym)} aria-label="remove">✕</button>
+                            <button type="button" style={s.cmpX} onClick={() => removeCompare(sym)} aria-label="remove"><IconX size={12} /></button>
                         </span>
                     ))}
                     {compareSymbols.length < MAX_COMPARES && (

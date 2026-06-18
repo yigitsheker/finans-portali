@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from "react";
+import { IconInbox, IconBell, IconInfo } from "./common/icons";
 import {
   getNotifications,
   getUnreadCount,
@@ -171,7 +172,7 @@ export default function NotificationBell({ keycloak }) {
           {loading ? (
             <div style={s.empty}>Yükleniyor…</div>
           ) : items.length === 0 ? (
-            <div style={s.empty}>📭 Henüz bildirim yok</div>
+            <div style={s.empty}><IconInbox size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />Henüz bildirim yok</div>
           ) : (
             <div style={s.list}>
               {items.map((n) => (
@@ -182,7 +183,7 @@ export default function NotificationBell({ keycloak }) {
                 >
                   <div style={s.itemHead}>
                     <span style={s.itemIcon}>
-                      {n.type === "PRICE_ALERT" ? "🔔" : "ℹ️"}
+                      {n.type === "PRICE_ALERT" ? <IconBell size={14} /> : <IconInfo size={14} />}
                     </span>
                     <span style={s.itemTitle}>{n.title}</span>
                     {!n.read && <span style={s.unreadDot} />}

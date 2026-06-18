@@ -1,4 +1,5 @@
 import { useId } from "react";
+import { IconBarChart } from "../../common/icons";
 import Modal from "../../Modal";
 import { portfolioStyles as s } from "./portfolioStyles";
 
@@ -163,7 +164,7 @@ export function AddPositionModal({
                 justifyContent: "space-between",
                 alignItems: "center",
               }}>
-                <span>📊 Alınacak miktar:</span>
+                <span><IconBarChart size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />Alınacak miktar:</span>
                 <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>
                   {effectiveQty > 0 ? effectiveQty.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) + " adet" : "—"}
                 </span>

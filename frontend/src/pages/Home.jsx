@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { IconTrendingUp, IconBarChart, IconBriefcase, IconLandmark, IconExchange, IconNewspaper } from "../components/common/icons";
 import PropTypes from "prop-types";
 import { Link } from "react-router-dom";
 import { getMarketSummary, getNews } from "../api/portfolioApi";
@@ -123,7 +124,7 @@ export default function Home({ keycloak }) {
             {/* ───────── HERO ───────── */}
             <section style={s.hero} className="home-hero">
                 <div style={s.heroLeft}>
-                    <span style={s.heroBadge}>📈 {t("home.badge")}</span>
+                    <span style={s.heroBadge}><IconTrendingUp size={14} /> {t("home.badge")}</span>
                     <h1 style={s.heroTitle}>
                         <span style={s.heroTitleSoft}>{t("home.heroLine1")}</span><br/>
                         <span style={s.heroTitleAccent}>{t("home.heroLine2")}</span>
@@ -194,12 +195,12 @@ export default function Home({ keycloak }) {
 
             {/* ───────── FEATURE CARDS ───────── */}
             <section style={s.featuresGrid} className="home-features">
-                <FeatureCard to="/stocks" icon="📊" title={t("home.cardStocks")} desc={t("home.cardStocksSub")} />
+                <FeatureCard to="/stocks" icon={<IconBarChart size={22} />} title={t("home.cardStocks")} desc={t("home.cardStocksSub")} />
                 <FeatureCard to="/crypto" icon="₿" title={t("home.cardCrypto")} desc={t("home.cardCryptoSub")} />
-                <FeatureCard to="/funds" icon="💼" title={t("home.cardFunds")} desc={t("home.cardFundsSub")} />
-                <FeatureCard to="/bonds" icon="🏛️" title={t("home.cardBonds")} desc={t("home.cardBondsSub")} />
-                <FeatureCard to="/market-data" icon="💱" title={t("home.cardFx")} desc={t("home.cardFxSub")} />
-                <FeatureCard to="/news" icon="📰" title={t("home.cardNews")} desc={t("home.cardNewsSub")} />
+                <FeatureCard to="/funds" icon={<IconBriefcase size={22} />} title={t("home.cardFunds")} desc={t("home.cardFundsSub")} />
+                <FeatureCard to="/bonds" icon={<IconLandmark size={22} />} title={t("home.cardBonds")} desc={t("home.cardBondsSub")} />
+                <FeatureCard to="/market-data" icon={<IconExchange size={22} />} title={t("home.cardFx")} desc={t("home.cardFxSub")} />
+                <FeatureCard to="/news" icon={<IconNewspaper size={22} />} title={t("home.cardNews")} desc={t("home.cardNewsSub")} />
             </section>
 
             {/* ───────── BIST + SIDECARDS ───────── */}

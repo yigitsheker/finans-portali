@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { IconSettings } from "./common/icons";
 import { useNavigate } from "react-router-dom";
 import { getMarketSummary, getPositions } from "../api/portfolioApi";
 import { watchlistApi } from "../api/watchlistApi";
@@ -307,7 +308,7 @@ export default function Ticker({ keycloak }) {
                         title="Ticker ayarları"
                         aria-label="Ticker ayarları"
                     >
-                        ⚙
+                        <IconSettings size={16} />
                     </button>
                     {showSettings && (
                         <div style={st.settingsPanel}>

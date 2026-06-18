@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { IconRefresh } from "../components/common/icons";
 import PropTypes from "prop-types";
 import { getViopContracts } from "../api/viopApi";
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
@@ -209,7 +210,7 @@ export default function Viop({ keycloak, onAdded }) {
                         onClick={() => setLoadVersion((v) => v + 1)}
                         style={s.retryBtn}
                     >
-                        🔄 {t("common.retry")}
+                        <IconRefresh size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />{t("common.retry")}
                     </button>
                 </div>
             )}

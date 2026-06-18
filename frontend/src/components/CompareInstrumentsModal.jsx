@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState, useRef, useCallback } from "react";
+import { IconLightbulb } from "./common/icons";
 import Modal from "./Modal";
 import { getMarketHistory, getMarketSummary } from "../api/portfolioApi";
 import { getInflationHistory } from "../api/inflationApi";
@@ -881,7 +882,7 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
                   (period === "30D" || period === "1Y") &&
                   series.find((s) => s.symbol === "TÜFE" && typeof s.estimatedFromIdx === "number") && (
                     <div style={s.inflationHint}>
-                        💡 TCMB en güncel TÜFE'yi <b>{latestCpiLabel ?? t("compare.cpiFallbackMonth")}</b> olarak yayınladı.
+                        <IconLightbulb size={14} style={{ verticalAlign: "-2px", marginRight: 4 }} />TCMB en güncel TÜFE'yi <b>{latestCpiLabel ?? t("compare.cpiFallbackMonth")}</b> olarak yayınladı.
                         Sonraki günler için TÜFE eğrisi <b>son 3 aylık ortalama enflasyon hızıyla</b> tahmin
                         ediliyor ve <span style={{ borderBottom: "2px dashed currentColor" }}>kesik çizgi</span> ile gösterilir.
                     </div>

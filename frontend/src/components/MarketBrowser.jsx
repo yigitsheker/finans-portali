@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { IconCheck, IconBarChart, IconX, IconSearch } from "./common/icons";
 import {
     getMarketSummary, upsertPosition,
 } from "../api/portfolioApi";
@@ -159,7 +160,7 @@ export default function MarketBrowser({ keycloak, onAdded }) {
                                 </div>
                                 {isActive && (
                                     <div style={s.activeIndicator}>
-                                        ✓ Filtrelendi
+                                        <IconCheck size={12} style={{ verticalAlign: "-2px", marginRight: 4 }} />Filtrelendi
                                     </div>
                                 )}
                             </div>
@@ -175,18 +176,18 @@ export default function MarketBrowser({ keycloak, onAdded }) {
                 {indexFilter && (
                     <div style={s.filterBanner}>
                         <span>
-                            📊 {indexFilter === "XU030" ? "BIST 30" : indexFilter === "XU050" ? "BIST 50" : "BIST 100"} hisseleri gösteriliyor
+                            <IconBarChart size={13} style={{ verticalAlign: "-2px", marginRight: 6 }} />{indexFilter === "XU030" ? "BIST 30" : indexFilter === "XU050" ? "BIST 50" : "BIST 100"} hisseleri gösteriliyor
                         </span>
                         <button
                             style={s.clearFilterBtn}
                             onClick={() => setIndexFilter(null)}
                         >
-                            ✕ Filtreyi Kaldır
+                            <IconX size={12} style={{ verticalAlign: "-2px", marginRight: 4 }} />Filtreyi Kaldır
                         </button>
                     </div>
                 )}
                 <div style={s.searchWrap}>
-                    <span style={{ fontSize: 13, color: "var(--text-muted)" }}>🔍</span>
+                    <span style={{ display: "inline-flex", color: "var(--text-muted)" }}><IconSearch size={13} /></span>
                     <input
                         value={search}
                         onChange={(e) => setSearch(e.target.value)}

@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
+import { IconAlertTriangle, IconRefresh, IconBarChart } from "../components/common/icons";
 import PropTypes from "prop-types";
 import { getInflationHistory } from "../api/inflationApi";
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
@@ -86,10 +87,10 @@ export default function Inflation() {
   if (error) {
     return (
       <div style={s.error}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>⚠️</div>
+        <div style={{ marginBottom: 12 }}><IconAlertTriangle size={48} /></div>
         <div>{error}</div>
         <button type="button" onClick={load} style={s.retryBtn}>
-          🔄 {t("common.retry")}
+          <IconRefresh size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />{t("common.retry")}
         </button>
       </div>
     );
@@ -98,7 +99,7 @@ export default function Inflation() {
   if (!rows.length) {
     return (
       <div style={s.error}>
-        <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
+        <div style={{ marginBottom: 12 }}><IconBarChart size={48} /></div>
         <div>{t("inflation.empty")}</div>
         <div style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 8 }}>
           {t("inflation.emptyHint")}

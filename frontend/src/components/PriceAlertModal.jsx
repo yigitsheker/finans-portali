@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { IconFlask } from "./common/icons";
 import Modal from "./Modal";
 import { createPriceAlert, getLatestPrice, getUserAlerts, deletePriceAlert, triggerAlertManually, searchMarketInstruments } from "../api/portfolioApi";
 import { useCurrencyDisplay, usePriceDisplay, nativeCurrencyOf } from "../contexts/CurrencyDisplayContext";
@@ -512,7 +513,7 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                                     onClick={() => handleTriggerTest(alert.id)}
                                                     style={s.testButton}
                                                 >
-                                                    🧪 {t("alerts.actionTest")}
+                                                    <IconFlask size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />{t("alerts.actionTest")}
                                                 </button>
                                             )}
                                             <button

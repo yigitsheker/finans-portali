@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { IconLock } from "./components/common/icons";
 import { Routes, Route, useLocation } from "react-router-dom";
 import Layout from "./components/Layout";
 import Topbar from "./components/Topbar";
@@ -38,7 +39,7 @@ function RequireAuth({ keycloak, children }) {
     if (!keycloak.authenticated) {
         return (
             <div style={gateStyles.wrap}>
-                <div style={gateStyles.icon}>🔒</div>
+                <div style={gateStyles.icon}><IconLock size={40} /></div>
                 <h2 style={gateStyles.title}>Giriş gerekli</h2>
                 <p style={gateStyles.text}>
                     Bu sayfayı görüntülemek için hesabınıza giriş yapmanız gerekiyor.

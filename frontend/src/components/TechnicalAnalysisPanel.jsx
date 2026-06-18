@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { IconBarChart, IconTrendingUp, IconTrendingDown, IconArrowRight, IconAlertTriangle } from "./common/icons";
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
     ResponsiveContainer, Area, ComposedChart, Bar, ReferenceLine,
@@ -114,7 +115,7 @@ export default function TechnicalAnalysisPanel({ symbol, period }) {
     if (data.trend.direction === "INSUFFICIENT_DATA") {
         return (
             <div style={s.insufficientData}>
-                <div style={{ fontSize: 32, marginBottom: 8 }}>📊</div>
+                <div style={{ marginBottom: 8 }}><IconBarChart size={32} /></div>
                 <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>Yetersiz Veri</div>
                 <div style={{ fontSize: 12, color: "var(--text-muted)" }}>
                     {data.trend.description}
@@ -144,8 +145,8 @@ export default function TechnicalAnalysisPanel({ symbol, period }) {
         data.trend.direction === "DOWNWARD" ? "#ef4444" : "#6b7280";
 
     const trendIcon =
-        data.trend.direction === "UPWARD" ? "📈" :
-        data.trend.direction === "DOWNWARD" ? "📉" : "➡️";
+        data.trend.direction === "UPWARD" ? <IconTrendingUp size={20} style={{ verticalAlign: "-3px" }} /> :
+        data.trend.direction === "DOWNWARD" ? <IconTrendingDown size={20} style={{ verticalAlign: "-3px" }} /> : <IconArrowRight size={20} style={{ verticalAlign: "-3px" }} />;
 
     const isDark = document.documentElement.getAttribute("data-theme") !== "light";
     const tooltipBg = isDark ? "#1c2128" : "#ffffff";
@@ -158,7 +159,7 @@ export default function TechnicalAnalysisPanel({ symbol, period }) {
         <div style={s.root}>
             {/* Disclaimer */}
             <div style={s.disclaimer}>
-                ⚠️ Bu bölüm yalnızca temel teknik analiz göstergelerini sunar. Yatırım tavsiyesi değildir.
+                <IconAlertTriangle size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />Bu bölüm yalnızca temel teknik analiz göstergelerini sunar. Yatırım tavsiyesi değildir.
             </div>
 
             {/* Summary Cards */}

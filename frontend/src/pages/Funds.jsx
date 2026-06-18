@@ -1,4 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from "react";
+import { IconAlertTriangle, IconRefresh, IconSearch, IconBarChart } from "../components/common/icons";
 import PropTypes from "prop-types";
 import { getInvestmentFunds, getFundTypes, refreshInvestmentFunds } from "../api/portfolioApi";
 import CheckboxFilterGroup from "../components/common/CheckboxFilterGroup";
@@ -216,7 +217,7 @@ export default function Funds({ keycloak, onAdded }) {
     if (error) {
         return (
             <div style={s.error}>
-                <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
+                <div style={{ marginBottom: 16 }}><IconAlertTriangle size={48} /></div>
                 <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 8 }}>{t("common.error")}</div>
                 <div style={{ color: "var(--text-muted)", fontSize: 13, marginBottom: 16 }}>{error}</div>
                 <button style={s.retryBtn} onClick={loadData}>
@@ -249,7 +250,7 @@ export default function Funds({ keycloak, onAdded }) {
                                     ...(refreshing ? s.refreshBtnDisabled : {})
                                 }}
                             >
-                                {refreshing ? `🔄 ${t("funds.refreshing")}` : `🔄 ${t("funds.refresh")}`}
+                                {refreshing ? <><IconRefresh size={13} style={{ verticalAlign: "-2px", marginRight: 6 }} />{t("funds.refreshing")}</> : <><IconRefresh size={13} style={{ verticalAlign: "-2px", marginRight: 6 }} />{t("funds.refresh")}</>}
                             </button>
                         )}
                     </div>
@@ -259,7 +260,7 @@ export default function Funds({ keycloak, onAdded }) {
                     (client-side, like the Stocks/Analysis pages). */}
                 <div style={{ padding: "8px 0 12px" }}>
                     <div style={s.searchBox}>
-                        <span style={{ fontSize: 14, color: "var(--text-muted)" }}>🔍</span>
+                        <span style={{ display: "inline-flex", color: "var(--text-muted)" }}><IconSearch size={14} /></span>
                         <input
                             value={search}
                             onChange={(e) => setSearch(e.target.value)}
@@ -330,7 +331,7 @@ export default function Funds({ keycloak, onAdded }) {
                 <div style={s.tableBody}>
                     {filteredFunds.length === 0 ? (
                         <div style={s.emptyState}>
-                            <div style={{ fontSize: 48, marginBottom: 12 }}>📊</div>
+                            <div style={{ marginBottom: 12 }}><IconBarChart size={48} /></div>
                             <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
                                 {funds.length === 0
                                     ? t("funds.emptyAll")

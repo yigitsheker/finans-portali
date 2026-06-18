@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { IconLock } from "../components/common/icons";
 import PropTypes from 'prop-types';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -283,7 +284,7 @@ const News = ({ keycloak }) => {
                     {/* CTA card for non-authenticated */}
                     {!keycloak?.authenticated && (
                         <div style={s.ctaCard}>
-                            <div style={s.ctaIcon}>🔐</div>
+                            <div style={s.ctaIcon}><IconLock size={32} /></div>
                             <h3 style={s.ctaTitle}>{t('home.investorBadge')}</h3>
                             <p style={s.ctaText}>
                                 {t('home.investorBadgeSub')}
