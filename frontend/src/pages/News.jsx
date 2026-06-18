@@ -233,6 +233,7 @@ const News = ({ keycloak }) => {
                                             </div>
                                             <h4 style={s.listTitle}>{a.title}</h4>
                                             <p style={s.listSummary}>{a.summary}</p>
+                                            <span style={s.readMore}>{t('news.readMore')}</span>
                                         </article>
                                     </button>
                                 ))}
