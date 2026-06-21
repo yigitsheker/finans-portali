@@ -1,10 +1,103 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createChart, ColorType, LineSeries, HistogramSeries, LineStyle } from "lightweight-charts";
 import { IconBarChart, IconTrendingUp, IconTrendingDown, IconArrowRight, IconAlertTriangle } from "./common/icons";
-import {
-    LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend,
-    ResponsiveContainer, Area, ComposedChart, Bar, ReferenceLine,
-} from "recharts";
 import { getTechnicalAnalysis } from "../api/portfolioApi";
+
+// Maps the backend's analysis series to lightweight-charts rows ('YYYY-MM-DD'
+// daily times, de-duplicated and ascending). Replaces the recharts dependency
+// with the chart engine the rest of the app already ships.
+function buildLwRows(series) {
+    const out = [];
+    const seen = new Set();
+    for (const p of series || []) {
+        const d = new Date(p.date);
+        if (Number.isNaN(d.getTime())) continue;
+        const time = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+        if (seen.has(time)) continue;
+        seen.add(time);
+        out.push({
+            time,
+            close: p.close,
+            sma7: p.sma7, sma20: p.sma20, sma50: p.sma50,
+            bbUpper: p.bbUpper, bbLower: p.bbLower,
+            rsi: p.rsi14,
+            macd: p.macd, macdSignal: p.macdSignal, macdHist: p.macdHist,
+        });
+    }
+    return out;
+}
+
+/**
+ * Generic single-pane chart on lightweight-charts. `seriesDefs` is an ordered
+ * list of {field, color, lineWidth, lineStyle, type:'line'|'histogram',
+ * colorFn, fixed:[min,max]}; `priceLines` are horizontal reference levels
+ * attached to the first series. Recreated whenever `redrawKey` changes (data,
+ * toggles or theme), which keeps the render path simple.
+ */
+function IndicatorChart({ rows, seriesDefs, priceLines = [], height, redrawKey }) {
+    const containerRef = useRef(null);
+    useEffect(() => {
+        const el = containerRef.current;
+        if (!el || !rows || rows.length === 0) return;
+        const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+        const gridC = isDark ? "rgba(48,54,61,0.5)" : "rgba(0,0,0,0.06)";
+        const textC = isDark ? "#8b949e" : "#6b7280";
+        const borderC = isDark ? "rgba(48,54,61,0.6)" : "rgba(0,0,0,0.12)";
+
+        const chart = createChart(el, {
+            layout: {
+                background: { type: ColorType.Solid, color: "transparent" },
+                textColor: textC,
+                fontSize: 11,
+                fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+                attributionLogo: false,
+            },
+            grid: { vertLines: { color: gridC }, horzLines: { color: gridC } },
+            rightPriceScale: { borderColor: borderC },
+            timeScale: { borderColor: borderC },
+            width: el.clientWidth,
+            height,
+        });
+
+        let firstSeries = null;
+        for (const def of seriesDefs) {
+            let series;
+            if (def.type === "histogram") {
+                series = chart.addSeries(HistogramSeries, { priceLineVisible: false, lastValueVisible: false });
+                series.setData(rows.filter((r) => r[def.field] != null)
+                    .map((r) => ({ time: r.time, value: r[def.field], color: def.colorFn ? def.colorFn(r[def.field]) : def.color })));
+            } else {
+                const opts = {
+                    color: def.color,
+                    lineWidth: def.lineWidth || 2,
+                    lineStyle: def.lineStyle || 0,
+                    priceLineVisible: false,
+                    lastValueVisible: false,
+                };
+                if (def.fixed) opts.autoscaleInfoProvider = () => ({ priceRange: { minValue: def.fixed[0], maxValue: def.fixed[1] } });
+                series = chart.addSeries(LineSeries, opts);
+                series.setData(rows.filter((r) => r[def.field] != null).map((r) => ({ time: r.time, value: r[def.field] })));
+            }
+            if (!firstSeries) firstSeries = series;
+        }
+        if (firstSeries) {
+            for (const pl of priceLines) {
+                firstSeries.createPriceLine({ price: pl.price, color: pl.color, lineWidth: 1, lineStyle: LineStyle.Dashed, axisLabelVisible: true });
+            }
+        }
+        chart.timeScale().fitContent();
+
+        const ro = new ResizeObserver((entries) => {
+            const w = entries[0].contentRect.width;
+            if (w > 0) chart.applyOptions({ width: w });
+        });
+        ro.observe(el);
+        return () => { ro.disconnect(); chart.remove(); };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [redrawKey, height]);
+
+    return <div ref={containerRef} style={{ width: "100%", height }} />;
+}
 
 // localStorage cache for the technical-analysis response. Reads paint
 // instantly on reload and survive a backend / network outage on stale
@@ -124,21 +217,34 @@ export default function TechnicalAnalysisPanel({ symbol, period }) {
         );
     }
 
-    // Prepare chart data — recharts is forgiving with extra keys, the toggles
-    // gate whether a <Line> is rendered.
-    const chartData = data.series.map(point => ({
-        date: new Date(point.date).toLocaleDateString('tr-TR', { month: 'short', day: 'numeric' }),
-        Fiyat: point.close,
-        'SMA 7':  point.sma7  ?? null,
-        'SMA 20': point.sma20 ?? null,
-        'SMA 50': point.sma50 ?? null,
-        bbUpper:  point.bbUpper ?? null,
-        bbLower:  point.bbLower ?? null,
-        rsi:      point.rsi14 ?? null,
-        macd:     point.macd ?? null,
-        macdSignal: point.macdSignal ?? null,
-        macdHist:   point.macdHist ?? null,
-    }));
+    // lightweight-charts rows (replaces recharts). Toggles gate which series
+    // definitions get drawn; redrawKeys recreate each pane on change.
+    const rows = buildLwRows(data.series);
+    const isDark = document.documentElement.getAttribute("data-theme") !== "light";
+
+    const mainDefs = [
+        ...(showBB ? [
+            { field: "bbUpper", color: "#94a3b8", lineWidth: 1, lineStyle: LineStyle.Dashed },
+            { field: "bbLower", color: "#94a3b8", lineWidth: 1, lineStyle: LineStyle.Dashed },
+        ] : []),
+        { field: "close", color: "#10b981", lineWidth: 2 },
+        ...(showSMA7 ? [{ field: "sma7", color: "#3b82f6", lineWidth: 1.5, lineStyle: LineStyle.Dashed }] : []),
+        ...(showSMA20 ? [{ field: "sma20", color: "#f59e0b", lineWidth: 1.5, lineStyle: LineStyle.Dashed }] : []),
+        ...(showSMA50 ? [{ field: "sma50", color: "#8b5cf6", lineWidth: 1.5, lineStyle: LineStyle.Dashed }] : []),
+    ];
+    const mainKey = `m:${symbol}:${period}:${rows.length}:${showSMA7 ? 1 : 0}${showSMA20 ? 1 : 0}${showSMA50 ? 1 : 0}${showBB ? 1 : 0}:${isDark ? 1 : 0}`;
+
+    const rsiDefs = [{ field: "rsi", color: "#a855f7", lineWidth: 1.8, fixed: [0, 100] }];
+    const rsiPriceLines = [{ price: 70, color: "#ef4444" }, { price: 30, color: "#10b981" }];
+    const rsiKey = `r:${symbol}:${period}:${rows.length}:${isDark ? 1 : 0}`;
+
+    const macdDefs = [
+        { field: "macdHist", type: "histogram", colorFn: (v) => (v >= 0 ? "rgba(16,185,129,0.6)" : "rgba(239,68,68,0.6)") },
+        { field: "macd", color: "#06b6d4", lineWidth: 1.8 },
+        { field: "macdSignal", color: "#f59e0b", lineWidth: 1.5, lineStyle: LineStyle.Dashed },
+    ];
+    const macdPriceLines = [{ price: 0, color: "#8b949e" }];
+    const macdKey = `d:${symbol}:${period}:${rows.length}:${isDark ? 1 : 0}`;
 
     const trendColor =
         data.trend.direction === "UPWARD" ? "#10b981" :
@@ -147,13 +253,6 @@ export default function TechnicalAnalysisPanel({ symbol, period }) {
     const trendIcon =
         data.trend.direction === "UPWARD" ? <IconTrendingUp size={20} style={{ verticalAlign: "-3px" }} /> :
         data.trend.direction === "DOWNWARD" ? <IconTrendingDown size={20} style={{ verticalAlign: "-3px" }} /> : <IconArrowRight size={20} style={{ verticalAlign: "-3px" }} />;
-
-    const isDark = document.documentElement.getAttribute("data-theme") !== "light";
-    const tooltipBg = isDark ? "#1c2128" : "#ffffff";
-    const tooltipBorder = isDark ? "#30363d" : "#d0d7de";
-    const tooltipColor = isDark ? "#e6edf3" : "#1f2328";
-    const gridColor = isDark ? "#30363d" : "#e5e7eb";
-    const axisColor = isDark ? "#8b949e" : "#6b7280";
 
     return (
         <div style={s.root}>
@@ -253,86 +352,25 @@ export default function TechnicalAnalysisPanel({ symbol, period }) {
                 </label>
             </div>
 
-            {/* Main price chart */}
+            {/* Main price chart — price + optional SMA overlays + Bollinger. */}
             <div style={s.chartWrap}>
-                <ResponsiveContainer width="100%" height={350}>
-                    <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                        <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: 11 }} />
-                        <YAxis stroke={axisColor} style={{ fontSize: 11 }} domain={['auto', 'auto']} />
-                        <Tooltip contentStyle={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`,
-                            borderRadius: 6, color: tooltipColor, fontSize: 12 }} />
-                        <Legend wrapperStyle={{ fontSize: 12 }} />
-                        {/* Bollinger Bands: the upper line carries the fill that
-                            paints the channel down to the lower line. */}
-                        {showBB && (
-                            <>
-                                <Area type="monotone" dataKey="bbUpper" stroke="#94a3b8" strokeWidth={1}
-                                    fill="rgba(148, 163, 184, 0.10)" name="Bollinger Üst" dot={false}
-                                    activeDot={false} isAnimationActive={false} />
-                                <Line type="monotone" dataKey="bbLower" stroke="#94a3b8" strokeWidth={1}
-                                    strokeDasharray="2 2" dot={false} name="Bollinger Alt" />
-                            </>
-                        )}
-                        <Line type="monotone" dataKey="Fiyat" stroke="#10b981" strokeWidth={2} dot={false} />
-                        {showSMA7 && (
-                            <Line type="monotone" dataKey="SMA 7" stroke="#3b82f6" strokeWidth={1.5}
-                                strokeDasharray="5 5" dot={false} />
-                        )}
-                        {showSMA20 && (
-                            <Line type="monotone" dataKey="SMA 20" stroke="#f59e0b" strokeWidth={1.5}
-                                strokeDasharray="5 5" dot={false} />
-                        )}
-                        {showSMA50 && (
-                            <Line type="monotone" dataKey="SMA 50" stroke="#8b5cf6" strokeWidth={1.5}
-                                strokeDasharray="5 5" dot={false} />
-                        )}
-                    </ComposedChart>
-                </ResponsiveContainer>
+                <IndicatorChart rows={rows} seriesDefs={mainDefs} height={350} redrawKey={mainKey} />
             </div>
 
-            {/* RSI subplot — bounded 0-100 with the canonical 70/30 reference
+            {/* RSI subplot — fixed 0-100 with the canonical 70/30 reference
                 lines so overbought/oversold zones are immediately readable. */}
             {showRsi && (
                 <div style={s.chartWrap}>
                     <div style={s.subplotTitle}>RSI (14)</div>
-                    <ResponsiveContainer width="100%" height={140}>
-                        <LineChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                            <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: 10 }} hide />
-                            <YAxis stroke={axisColor} style={{ fontSize: 10 }} domain={[0, 100]} ticks={[0, 30, 50, 70, 100]} />
-                            <Tooltip contentStyle={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`,
-                                borderRadius: 6, color: tooltipColor, fontSize: 12 }} />
-                            <ReferenceLine y={70} stroke="#ef4444" strokeDasharray="3 3" />
-                            <ReferenceLine y={30} stroke="#10b981" strokeDasharray="3 3" />
-                            <Line type="monotone" dataKey="rsi" stroke="#a855f7" strokeWidth={1.8}
-                                dot={false} name="RSI" />
-                        </LineChart>
-                    </ResponsiveContainer>
+                    <IndicatorChart rows={rows} seriesDefs={rsiDefs} priceLines={rsiPriceLines} height={140} redrawKey={rsiKey} />
                 </div>
             )}
 
-            {/* MACD subplot — two lines + histogram. Histogram bars colour-
-                code the sign so positive momentum (>0) reads green. */}
+            {/* MACD subplot — histogram (sign-coloured) + MACD & signal lines. */}
             {showMacd && (
                 <div style={s.chartWrap}>
                     <div style={s.subplotTitle}>MACD (12, 26, 9)</div>
-                    <ResponsiveContainer width="100%" height={160}>
-                        <ComposedChart data={chartData} margin={{ top: 5, right: 20, left: 10, bottom: 5 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
-                            <XAxis dataKey="date" stroke={axisColor} style={{ fontSize: 10 }} hide />
-                            <YAxis stroke={axisColor} style={{ fontSize: 10 }} />
-                            <Tooltip contentStyle={{ background: tooltipBg, border: `1px solid ${tooltipBorder}`,
-                                borderRadius: 6, color: tooltipColor, fontSize: 12 }} />
-                            <ReferenceLine y={0} stroke={axisColor} />
-                            <Bar dataKey="macdHist" name="Histogram"
-                                fill="#06b6d4" fillOpacity={0.6} isAnimationActive={false} />
-                            <Line type="monotone" dataKey="macd" stroke="#06b6d4" strokeWidth={1.8}
-                                dot={false} name="MACD" />
-                            <Line type="monotone" dataKey="macdSignal" stroke="#f59e0b" strokeWidth={1.5}
-                                strokeDasharray="4 4" dot={false} name="Sinyal" />
-                        </ComposedChart>
-                    </ResponsiveContainer>
+                    <IndicatorChart rows={rows} seriesDefs={macdDefs} priceLines={macdPriceLines} height={160} redrawKey={macdKey} />
                 </div>
             )}
 

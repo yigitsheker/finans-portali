@@ -40,6 +40,7 @@ const NewsDetail = () => {
     const { t, lang } = useI18n();
     const [article, setArticle] = useState(null);
     const [loading, setLoading] = useState(true);
+    const [enriching, setEnriching] = useState(false);
     const [error, setError] = useState(null);
 
     useEffect(() => {
@@ -59,29 +60,29 @@ const NewsDetail = () => {
         setLoading(true);
         setError(null);
 
+        setEnriching(false);
         getNewsById(numericId, lang)
-            .then(async (fetched) => {
+            .then((fetched) => {
                 if (cancelled) return;
+                // Paint immediately with title/summary/meta so the page never
+                // sits behind a full-screen spinner; the full body (if missing)
+                // streams in afterwards from the on-demand source fetch.
+                setArticle(fetched);
+                setLoading(false);
                 const needsContent = !fetched.content
                     || fetched.content === fetched.summary
                     || fetched.content.length < 200;
                 if (needsContent && fetched.sourceUrl) {
-                    try {
-                        const enriched = await fetchNewsContent(fetched.id);
-                        if (!cancelled) setArticle(enriched);
-                        return;
-                    } catch (e) {
-                        console.error('Failed to enrich article content:', e);
-                    }
+                    setEnriching(true);
+                    fetchNewsContent(fetched.id, lang)
+                        .then((enriched) => { if (!cancelled) setArticle(enriched); })
+                        .catch((e) => console.error('Failed to enrich article content:', e))
+                        .finally(() => { if (!cancelled) setEnriching(false); });
                 }
-                if (!cancelled) setArticle(fetched);
             })
             .catch((e) => {
                 console.error('Failed to load article:', e);
-                if (!cancelled) setError(t('news.detailLoadError'));
-            })
-            .finally(() => {
-                if (!cancelled) setLoading(false);
+                if (!cancelled) { setError(t('news.detailLoadError')); setLoading(false); }
             });
 
         return () => {
@@ -189,6 +190,10 @@ const NewsDetail = () => {
                             {p}
                         </p>
                     ))
+                ) : enriching ? (
+                    <p style={{ ...s.bodyParagraph, color: 'var(--text-muted)', fontStyle: 'italic' }}>
+                        {t('news.detailLoading')}
+                    </p>
                 ) : (
                     <p style={s.bodyParagraph}>
                         {t('news.detailFooter')}

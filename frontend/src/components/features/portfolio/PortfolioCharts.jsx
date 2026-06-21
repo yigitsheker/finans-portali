@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import { PortfolioAreaChart } from "../../common/PortfolioAreaChart";
 import { ALLOC_COLORS, portfolioStyles as s } from "./portfolioStyles";
 import { IconBarChart, IconTag, IconGlobe } from "../../common/icons";
@@ -31,6 +30,22 @@ function consolidateSmallSlices(data) {
   return big;
 }
 
+// ── SVG donut geometry (replaces the recharts PieChart dependency) ──
+const DONUT = { cx: 90, cy: 90, rOut: 82, rIn: 56 };
+function donutPoint(r, angleDeg) {
+  const a = ((angleDeg - 90) * Math.PI) / 180; // 0° = top, clockwise
+  return [DONUT.cx + r * Math.cos(a), DONUT.cy + r * Math.sin(a)];
+}
+function donutSlicePath(startDeg, endDeg) {
+  const { rOut, rIn } = DONUT;
+  const [ox1, oy1] = donutPoint(rOut, startDeg);
+  const [ox2, oy2] = donutPoint(rOut, endDeg);
+  const [ix2, iy2] = donutPoint(rIn, endDeg);
+  const [ix1, iy1] = donutPoint(rIn, startDeg);
+  const large = endDeg - startDeg > 180 ? 1 : 0;
+  return `M ${ox1} ${oy1} A ${rOut} ${rOut} 0 ${large} 1 ${ox2} ${oy2} L ${ix2} ${iy2} A ${rIn} ${rIn} 0 ${large} 0 ${ix1} ${iy1} Z`;
+}
+
 export function PortfolioCharts({
   perfData,
   perfResponse,
@@ -41,11 +56,6 @@ export function PortfolioCharts({
   setAllocView,
   allocData,
 }) {
-  const isDark = document.documentElement.getAttribute("data-theme") !== "light";
-  const tooltipBg = isDark ? "#1c2128" : "#ffffff";
-  const tooltipBorder = isDark ? "#30363d" : "#d0d7de";
-  const tooltipColor = isDark ? "#e6edf3" : "#1f2328";
-
   // Which allocation slice is shown in the donut centre. null → default to the
   // largest. Clicking a slice or a legend row selects it. Reset when the
   // grouping (symbol/type/market) changes so a stale name doesn't linger.
@@ -142,41 +152,50 @@ export function PortfolioCharts({
               </div>
 
               <div style={{ position: "relative" }}>
-                <ResponsiveContainer width="100%" height={180}>
-                  <PieChart>
-                    <Pie
-                      data={display}
-                      cx="50%"
-                      cy="50%"
-                      innerRadius={56}
-                      outerRadius={82}
-                      paddingAngle={display.length > 1 ? 2 : 0}
-                      dataKey="value"
-                      stroke="none"
-                      style={{ cursor: "pointer", outline: "none" }}
-                      onClick={(d) => setActiveName(d?.name ?? d?.payload?.name ?? null)}
+                {/* Pure-SVG donut (no recharts). Each slice is a clickable arc;
+                    native <title> gives the hover tooltip. */}
+                <svg viewBox="0 0 180 180" width="100%" height={180} style={{ display: "block" }}>
+                  {display.length === 1 ? (
+                    <circle
+                      cx={DONUT.cx} cy={DONUT.cy} r={(DONUT.rOut + DONUT.rIn) / 2}
+                      fill="none"
+                      stroke={display[0].isOther ? "var(--text-muted)" : ALLOC_COLORS[0]}
+                      strokeWidth={DONUT.rOut - DONUT.rIn}
+                      style={{ cursor: "pointer" }}
+                      onClick={() => setActiveName(display[0].name)}
                     >
-                      {display.map((d, index) => {
-                        const isActive = d.name === active.name;
-                        return (
-                          <Cell key={index}
-                            fill={d.isOther ? "var(--text-muted)" : ALLOC_COLORS[index % ALLOC_COLORS.length]}
-                            fillOpacity={d.isOther ? 0.45 : (isActive ? 1 : 0.7)}
-                            stroke={isActive ? "var(--text-primary)" : "none"}
-                            strokeWidth={isActive ? 2 : 0}
-                          />
-                        );
-                      })}
-                    </Pie>
-                    <Tooltip
-                      contentStyle={{ background: tooltipBg, border: "1px solid " + tooltipBorder, borderRadius: 6, color: tooltipColor, fontSize: 11 }}
-                      formatter={(value, name) => {
-                        const pct = total > 0 ? ((value / total) * 100).toFixed(1) : "0";
-                        return [`₺${Number(value).toLocaleString("tr-TR")} • %${pct}`, name];
-                      }}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
+                      <title>{`${display[0].name}: ₺${Math.round(display[0].value).toLocaleString("tr-TR")} • %100`}</title>
+                    </circle>
+                  ) : (() => {
+                    const pad = 1; // ~2° gap between slices
+                    let cursor = 0;
+                    return display.map((d, index) => {
+                      const frac = total > 0 ? d.value / total : 0;
+                      const start = cursor;
+                      const end = cursor + frac * 360;
+                      cursor = end;
+                      const s0 = start + pad;
+                      const e0 = Math.max(s0, end - pad);
+                      const isActive = d.name === active.name;
+                      const color = d.isOther ? "var(--text-muted)" : ALLOC_COLORS[index % ALLOC_COLORS.length];
+                      const pct = total > 0 ? ((d.value / total) * 100).toFixed(1) : "0";
+                      return (
+                        <path
+                          key={d.name}
+                          d={donutSlicePath(s0, e0)}
+                          fill={color}
+                          fillOpacity={d.isOther ? 0.45 : (isActive ? 1 : 0.7)}
+                          stroke={isActive ? "var(--text-primary)" : "none"}
+                          strokeWidth={isActive ? 2 : 0}
+                          style={{ cursor: "pointer" }}
+                          onClick={() => setActiveName(d.name)}
+                        >
+                          <title>{`${d.name}: ₺${Math.round(d.value).toLocaleString("tr-TR")} • %${pct}`}</title>
+                        </path>
+                      );
+                    });
+                  })()}
+                </svg>
                 {/* Seçili (varsayılan: en büyük) dilimi ortada özetle. */}
                 {active && (
                   <div style={s.allocCenter}>

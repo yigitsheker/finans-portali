@@ -14,7 +14,6 @@ export default defineConfig({
           if (!id.includes("node_modules")) return undefined;
           if (id.includes("klinecharts")) return "vendor-klinecharts";
           if (id.includes("lightweight-charts")) return "vendor-lwcharts";
-          if (id.includes("recharts") || id.includes("d3-") || id.includes("victory")) return "vendor-recharts";
           if (id.includes("react-router") || id.includes("react-dom") || id.includes("/react/")) return "vendor-react";
           return undefined;
         },

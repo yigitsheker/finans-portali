@@ -49,8 +49,9 @@ public class NewsController {
 
     /** Scrape and persist the full body for an article whose feed only gave a summary. */
     @PostMapping("/{id}/fetch-content")
-    public NewsArticle fetchContent(@PathVariable Long id) {
-        return service.fetchContentForArticle(id);
+    public NewsArticle fetchContent(@PathVariable Long id,
+                                    @RequestParam(required = false) String lang) {
+        return service.fetchContentForArticle(id, lang);
     }
 
     /** Remove stale articles; returns a summary of what was deleted. */

@@ -444,8 +444,15 @@ public class NewsService {
         if (a == null) return null;
         String target = normalizeLang(lang);
         if (target != null && translator.isEnabled()) {
-            // Detail page needs the full body, so opt into content translation.
-            ensureTranslationCached(a, target, /*includeContent=*/true);
+            // Only translate the body inline when it's already substantial.
+            // Placeholder/summary-length bodies get replaced by the on-demand
+            // /fetch-content scrape, so translating them here is wasted work
+            // (and would block the first detail open). fetch-content handles
+            // the translation of the freshly scraped body instead.
+            boolean substantialBody = a.getContent() != null
+                    && a.getContent().length() > 200
+                    && !a.getContent().equals(a.getSummary());
+            ensureTranslationCached(a, target, /*includeContent=*/substantialBody);
             applyTranslationToBaseFields(a, target);
         }
         return a;
@@ -453,27 +460,37 @@ public class NewsService {
 
     /**
      * Lazily back-fill an article's full body from its source URL when the
-     * stored content is missing or too short, persisting the fetched text.
+     * stored content is missing or too short, persisting the fetched text, then
+     * translate the (possibly newly scraped) body to {@code lang} so the detail
+     * reader gets it in their language. Translating here — rather than inline in
+     * {@link #getById(Long, String)} — avoids translating a short placeholder
+     * body that's about to be replaced.
      */
-    public NewsArticle fetchContentForArticle(Long id) {
+    public NewsArticle fetchContentForArticle(Long id, String lang) {
         NewsArticle article = repo.findById(id).orElse(null);
         if (article == null) {
             return null;
         }
 
-        // If content already exists and is substantial, return as is
-        if (article.getContent() != null && article.getContent().length() > 200) {
-            return article;
-        }
+        boolean substantial = article.getContent() != null && article.getContent().length() > 200;
 
-        // Try to fetch content from source URL
-        if (article.getSourceUrl() != null && !article.getSourceUrl().isBlank()) {
+        // Scrape the source only when we don't already have a real body.
+        if (!substantial && article.getSourceUrl() != null && !article.getSourceUrl().isBlank()) {
             String content = contentFetcher.fetchArticleContent(article.getSourceUrl());
             if (content != null && !content.isBlank()) {
                 article.setContent(content);
+                // New body invalidates any translation cached for the old one.
+                article.setContentTranslated(null);
                 repo.save(article);
                 log.info("Fetched and saved content for article: {}", article.getTitle());
             }
+        }
+
+        // Translate the body to the reader's language (cached on the row).
+        String target = normalizeLang(lang);
+        if (target != null && translator.isEnabled()) {
+            ensureTranslationCached(article, target, /*includeContent=*/true);
+            applyTranslationToBaseFields(article, target);
         }
 
         return article;

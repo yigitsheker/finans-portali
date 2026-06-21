@@ -266,9 +266,11 @@ function safeNewsId(value) {
     return n;
 }
 
-export async function fetchNewsContent(id) {
+export async function fetchNewsContent(id, lang) {
     const safeId = safeNewsId(id);
-    const res = await axios.post(`${API_BASE}/api/v1/news/${safeId}/fetch-content`);
+    const res = await axios.post(`${API_BASE}/api/v1/news/${safeId}/fetch-content`, null, {
+        params: lang ? { lang } : {}
+    });
     return res.data;
 }
 

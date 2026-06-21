@@ -21,7 +21,6 @@
     "react-router-dom": "^7.14.2",
     "react-sparklines": "^1.7.0",
     "react-window": "^2.2.7",
-    "recharts": "^3.8.1",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "zustand": "^5.0.12"
   },
