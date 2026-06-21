@@ -12,9 +12,11 @@ import org.springframework.web.reactive.function.client.WebClient;
 import org.springframework.web.reactive.function.client.WebClientResponseException;
 import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
+import reactor.util.retry.Retry;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
@@ -220,9 +222,15 @@ public class TefasFundFetcher {
                 .bodyValue(body)
                 .retrieve()
                 .bodyToMono(JsonNode.class)
+                // Per-request timeout + a couple of backoff retries: with 1000+
+                // parallel calls, transient TEFAS hiccups/timeouts otherwise left
+                // a handful of funds with no unit price (rendered as "—"). Retry
+                // recovers most of them; EMPTY is only the last-resort fallback.
+                .timeout(Duration.ofSeconds(8))
+                .retryWhen(Retry.backoff(2, Duration.ofMillis(400)).maxBackoff(Duration.ofSeconds(2)))
                 .map(this::parsePriceResponse)
                 .onErrorResume(e -> {
-                    log.debug("Price fetch failed for {}: {}", fonKodu, e.getMessage());
+                    log.debug("Price fetch failed for {} after retries: {}", fonKodu, e.getMessage());
                     return Mono.just(PriceInfo.EMPTY);
                 });
     }

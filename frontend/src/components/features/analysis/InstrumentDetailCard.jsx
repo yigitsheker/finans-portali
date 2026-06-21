@@ -1,5 +1,6 @@
 import PropTypes from "prop-types";
 import { useI18n } from "../../../contexts/I18nContext";
+import { IconTrendingUp } from "../../common/icons";
 
 /**
  * Map an analysis summary (value/changeDaily/category) onto the shape
@@ -113,7 +114,7 @@ export default function InstrumentDetailCard({ detail, loading, error, onShowCha
                     onClick={() => onShowChart(toChartInstrument(sum))}
                     style={s.chartBtn}
                 >
-                    {t("analysis.detailShowChart")}
+                    <IconTrendingUp size={15} style={{ verticalAlign: "-3px", marginRight: 6 }} />{t("analysis.detailShowChart")}
                 </button>
             )}
         </div>

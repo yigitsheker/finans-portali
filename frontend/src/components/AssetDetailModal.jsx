@@ -70,6 +70,10 @@ export default function AssetDetailModal({ asset, kind, onClose, keycloak, onBuy
     if (!asset) return null;
 
     const title = buildTitle(asset, kind);
+    // Funds have no historical NAV feed, but their reported period returns let
+    // us reconstruct the implied price path: value N days ago = current ÷ (1+r).
+    const fundSeries = kind === "FUND" ? buildFundSeries(asset) : [];
+    const fundUp = (asset?.yearlyReturn ?? asset?.monthlyReturn ?? 0) >= 0;
 
     function handleBuy() {
         if (!onBuy) return;
@@ -88,6 +92,24 @@ export default function AssetDetailModal({ asset, kind, onClose, keycloak, onBuy
                 {kind === "FX" && <FxBody asset={asset} t={t} />}
                 {kind === "BOND" && <BondBody asset={asset} t={t} />}
                 {kind === "FUND" && <FundBody asset={asset} t={t} />}
+
+                {kind === "FUND" && fundSeries.length >= 2 && (
+                    <div style={s.chartSection}>
+                        <div style={s.chartHeader}>
+                            <h3 style={s.chartTitle}>{t("assetDetail.fundChartTitle")}</h3>
+                        </div>
+                        <div style={s.chartWrap}>
+                            <LWAreaChart
+                                data={fundSeries}
+                                color={fundUp ? "#10b981" : "#ef4444"}
+                                height={260}
+                            />
+                        </div>
+                        <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>
+                            {t("assetDetail.fundChartNote")}
+                        </div>
+                    </div>
+                )}
 
                 {kind === "FX" && (
                     <div style={s.chartSection}>
@@ -151,6 +173,38 @@ export default function AssetDetailModal({ asset, kind, onClose, keycloak, onBuy
             </div>
         </Modal>
     );
+}
+
+/**
+ * Reconstruct a fund's implied NAV path from its reported period returns.
+ * Each return is relative to the latest unit price, so the value `days` ago is
+ * current ÷ (1 + return/100). Produces ascending {time(unix sec), value} points
+ * for LWAreaChart; missing horizons are skipped. Needs ≥2 points to draw.
+ */
+function buildFundSeries(asset) {
+    const base = Number(asset?.unitPrice);
+    if (!base || Number.isNaN(base)) return [];
+    const anchorMs = asset?.priceDate ? new Date(asset.priceDate).getTime() : Date.now();
+    const nowSec = Math.floor(anchorMs / 1000);
+    const DAY = 86400;
+    const horizons = [
+        { days: 1825, ret: asset.fiveYearReturn },
+        { days: 1095, ret: asset.threeYearReturn },
+        { days: 365, ret: asset.yearlyReturn },
+        { days: 180, ret: asset.sixMonthReturn },
+        { days: 90, ret: asset.threeMonthReturn },
+        { days: 30, ret: asset.monthlyReturn },
+        { days: 7, ret: asset.weeklyReturn },
+        { days: 1, ret: asset.dailyReturn },
+    ];
+    const pts = [];
+    for (const h of horizons) {
+        const r = Number(h.ret);
+        if (h.ret == null || Number.isNaN(r) || 1 + r / 100 === 0) continue;
+        pts.push({ time: nowSec - h.days * DAY, value: base / (1 + r / 100) });
+    }
+    pts.push({ time: nowSec, value: base });
+    return pts;
 }
 
 function buildTitle(asset, kind) {

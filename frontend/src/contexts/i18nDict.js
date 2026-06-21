@@ -538,7 +538,7 @@ export const dict = {
       detailShortTerm: "Kısa vadeli",
       detailLongTerm: "Uzun vadeli",
       detailRiskNote: "Risk yorumu",
-      detailShowChart: "📈 Grafiği Göster",
+      detailShowChart: "Grafiği Göster",
       // Chatbot
       botGreeting:
         "Merhaba! Ben **Finans Portalı AI**. Yatırım enstrümanları, kısa/uzun vadeli analizler veya risk profili hakkında soru sorabilirsin.",
@@ -763,6 +763,8 @@ export const dict = {
       buyAction: "Al",
       chartTitle: "Fiyat Grafiği",
       chartUnavailable: "Grafik verisi mevcut değil",
+      fundChartTitle: "Getiri Seyri",
+      fundChartNote: "Bildirilen dönem getirilerinden türetilmiş yaklaşık seyir.",
       disclaimer: "Bu içerik yatırım tavsiyesi değildir.",
       issuer: "İhraççı",
       currency: "Para Birimi",
@@ -1584,7 +1586,7 @@ export const dict = {
       detailShortTerm: "Short term",
       detailLongTerm: "Long term",
       detailRiskNote: "Risk note",
-      detailShowChart: "📈 Show Chart",
+      detailShowChart: "Show Chart",
       // Chatbot
       botGreeting:
         "Hi! I'm **Finans Portalı AI**. Ask me about instruments, short/long-term analysis or risk profiles.",
@@ -1808,6 +1810,8 @@ export const dict = {
       buyAction: "Buy",
       chartTitle: "Price Chart",
       chartUnavailable: "Chart data unavailable",
+      fundChartTitle: "Performance Path",
+      fundChartNote: "Approximate path derived from the reported period returns.",
       disclaimer: "This is not investment advice.",
       issuer: "Issuer",
       currency: "Currency",
