@@ -55,7 +55,9 @@ export default function HistoricalComparison({ keycloak }) {
   const [addOpen, setAddOpen] = useState(false);
   const [addSymbol, setAddSymbol] = useState("");
   const [addDate, setAddDate] = useState("");
-  const [addLots, setAddLots] = useState(1);
+  // Free-text so fractional quantities (e.g. 0.5 BTC) can be typed without the
+  // value being clamped mid-keystroke; parsed to a number on submit.
+  const [addLots, setAddLots] = useState("1");
   const [addLoading, setAddLoading] = useState(false);
   const [addError, setAddError] = useState(null);
   const [showSugg, setShowSugg] = useState(false);
@@ -299,7 +301,8 @@ export default function HistoricalComparison({ keycloak }) {
       setAddError(t("historical.errDate"));
       return;
     }
-    if (addLots <= 0) {
+    const lots = Number(addLots);
+    if (!(lots > 0)) {
       setAddError(t("historical.errQty"));
       return;
     }
@@ -317,8 +320,8 @@ export default function HistoricalComparison({ keycloak }) {
       setAddLoading(true);
       setAddError(null);
 
-      const override = overrideFrom(addPrice, addPriceMode, addLots);
-      const pos = await buildHistoricalPosition(sym, addDate, addLots, override);
+      const override = overrideFrom(addPrice, addPriceMode, lots);
+      const pos = await buildHistoricalPosition(sym, addDate, lots, override);
       if (!pos) {
         setAddError(t("historical.errNoHistory"));
         return;
@@ -332,7 +335,7 @@ export default function HistoricalComparison({ keycloak }) {
       setAddOpen(false);
       setAddSymbol("");
       setAddDate("");
-      setAddLots(1);
+      setAddLots("1");
       setAddPrice("");
     } catch (e) {
       console.error("Error adding position:", e);
@@ -606,7 +609,7 @@ export default function HistoricalComparison({ keycloak }) {
           <button style={s.addBtn} onClick={() => {
             setAddSymbol("");
             setAddDate("");
-            setAddLots(1);
+            setAddLots("1");
             setAddError(null);
             setAddOpen(true);
           }}>
@@ -862,8 +865,10 @@ export default function HistoricalComparison({ keycloak }) {
               <input
                 type="number"
                 value={addLots}
-                min={1}
-                onChange={(e) => setAddLots(Math.max(1, Number(e.target.value)))}
+                min="0"
+                step="any"
+                inputMode="decimal"
+                onChange={(e) => setAddLots(e.target.value)}
                 style={s.input}
                 placeholder="1"
               />
