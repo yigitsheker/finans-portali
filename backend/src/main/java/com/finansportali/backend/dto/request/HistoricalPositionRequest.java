@@ -23,7 +23,7 @@ public record HistoricalPositionRequest(
 
     @NotNull(message = "Lots is required")
     @Positive(message = "Lots must be positive")
-    Integer lots,
+    BigDecimal lots,
 
     @NotBlank(message = "Currency is required")
     String currency

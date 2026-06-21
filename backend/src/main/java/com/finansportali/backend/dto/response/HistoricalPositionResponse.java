@@ -9,6 +9,6 @@ public record HistoricalPositionResponse(
     String name,
     LocalDate buyDate,
     BigDecimal buyPrice,
-    Integer lots,
+    BigDecimal lots,
     String currency
 ) {}

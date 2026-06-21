@@ -29,8 +29,8 @@ public class HistoricalPosition {
     @Column(name = "buy_price", nullable = false, precision = 20, scale = 6)
     private BigDecimal buyPrice;
 
-    @Column(nullable = false)
-    private Integer lots;
+    @Column(nullable = false, precision = 20, scale = 8)
+    private BigDecimal lots;
 
     @Column(nullable = false, length = 3)
     private String currency; // "TRY" or "USD"
@@ -56,7 +56,7 @@ public class HistoricalPosition {
     public HistoricalPosition() {}
 
     public HistoricalPosition(String userId, String symbol, String name, LocalDate buyDate,
-                              BigDecimal buyPrice, Integer lots, String currency) {
+                              BigDecimal buyPrice, BigDecimal lots, String currency) {
         this.userId = userId;
         this.symbol = symbol;
         this.name = name;
@@ -115,11 +115,11 @@ public class HistoricalPosition {
         this.buyPrice = buyPrice;
     }
 
-    public Integer getLots() {
+    public BigDecimal getLots() {
         return lots;
     }
 
-    public void setLots(Integer lots) {
+    public void setLots(BigDecimal lots) {
         this.lots = lots;
     }
 

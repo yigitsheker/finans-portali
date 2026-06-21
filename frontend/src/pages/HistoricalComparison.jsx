@@ -196,6 +196,20 @@ export default function HistoricalComparison({ keycloak }) {
     return mode === "total" ? v / Number(lots) : v;
   }
 
+  // Switch the amount-entry mode, converting the typed value so it keeps the
+  // same meaning: total = per-lot × lots. This makes the "Alınan Tutar" reflect
+  // the (possibly fractional) lot count when the user picks "Toplam".
+  function switchAddPriceMode(newMode) {
+    if (newMode === addPriceMode) return;
+    const v = parseFloat(String(addPrice ?? "").replace(",", "."));
+    const n = Number(addLots);
+    if (v > 0 && n > 0) {
+      const converted = newMode === "total" ? v * n : v / n;
+      setAddPrice(String(Number(converted.toFixed(8))));
+    }
+    setAddPriceMode(newMode);
+  }
+
   // Closing price for `sym` nearest to `dateISO`, picking the right history
   // window from how far back the date is. Returns null when no history covers
   // it. Shared by buildHistoricalPosition and the buy-price auto-fill effect.
@@ -886,11 +900,11 @@ export default function HistoricalComparison({ keycloak }) {
                 placeholder={t("historical.amountPlaceholder")}
               />
               <div style={{ display: "flex", border: "1px solid var(--border-card)", borderRadius: 8, overflow: "hidden", flexShrink: 0 }}>
-                <button type="button" onClick={() => setAddPriceMode("perLot")}
+                <button type="button" onClick={() => switchAddPriceMode("perLot")}
                   style={{ padding: "0 12px", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, background: addPriceMode === "perLot" ? "var(--accent-solid)" : "transparent", color: addPriceMode === "perLot" ? "#000" : "var(--text-muted)" }}>
                   {t("historical.perLot")}
                 </button>
-                <button type="button" onClick={() => setAddPriceMode("total")}
+                <button type="button" onClick={() => switchAddPriceMode("total")}
                   style={{ padding: "0 12px", border: "none", cursor: "pointer", fontSize: 12, fontWeight: 600, background: addPriceMode === "total" ? "var(--accent-solid)" : "transparent", color: addPriceMode === "total" ? "#000" : "var(--text-muted)" }}>
                   {t("historical.total")}
                 </button>
