@@ -35,7 +35,22 @@ public class InvestmentFundService {
     /** All funds ordered by total value, descending. */
     @Cacheable("investment-funds")
     public List<InvestmentFund> getAllFunds() {
-        return repository.findAllOrderByTotalValueDesc();
+        // Drop completely-empty rows: TEFAS lists some newly-launched / inactive
+        // funds with price 0 AND no return history at all (e.g. LTL). They render
+        // as a row of dashes with nothing actionable, so they're noise. Funds
+        // with EITHER a real price OR any period return are kept.
+        return repository.findAllOrderByTotalValueDesc().stream()
+                .filter(InvestmentFundService::hasUsableData)
+                .toList();
+    }
+
+    private static boolean hasUsableData(InvestmentFund f) {
+        boolean hasPrice = f.getUnitPrice() != null && f.getUnitPrice().signum() > 0;
+        boolean hasReturn = f.getDailyReturn() != null || f.getWeeklyReturn() != null
+                || f.getMonthlyReturn() != null || f.getThreeMonthReturn() != null
+                || f.getSixMonthReturn() != null || f.getYearlyReturn() != null
+                || f.getThreeYearReturn() != null || f.getFiveYearReturn() != null;
+        return hasPrice || hasReturn;
     }
 
     /** Funds of a given type, ordered by total value descending. */
