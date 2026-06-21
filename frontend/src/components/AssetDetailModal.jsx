@@ -12,6 +12,15 @@ const PERIODS = [
     { labelKey: "assetDetail.p1Y", value: "1Y" },
 ];
 
+// Fund chart horizons (days). The reconstructed NAV series is filtered to the
+// selected horizon so funds get the same period switching stocks have.
+const FUND_PERIODS = [
+    { labelKey: "assetDetail.p1A", days: 30 },
+    { labelKey: "assetDetail.p6A", days: 180 },
+    { labelKey: "assetDetail.p1Y", days: 365 },
+    { labelKey: "assetDetail.p5Y", days: 1825 },
+];
+
 /**
  * Generic asset detail card used on the Bonds, Funds and FX pages — the
  * stocks/crypto/commodities pages already have InstrumentChartModal which
@@ -29,6 +38,7 @@ const PERIODS = [
 export default function AssetDetailModal({ asset, kind, onClose, keycloak, onBuy }) {
     const { t } = useI18n();
     const [period, setPeriod] = useState("30D");
+    const [fundPeriod, setFundPeriod] = useState(365); // fund chart horizon, in days
     const [chartData, setChartData] = useState([]);
     const [chartLoading, setChartLoading] = useState(false);
 
@@ -72,7 +82,10 @@ export default function AssetDetailModal({ asset, kind, onClose, keycloak, onBuy
     const title = buildTitle(asset, kind);
     // Funds have no historical NAV feed, but their reported period returns let
     // us reconstruct the implied price path: value N days ago = current ÷ (1+r).
-    const fundSeries = kind === "FUND" ? buildFundSeries(asset) : [];
+    // fundFullSeries gates whether the panel shows at all; fundSeries is the
+    // currently-selected horizon (1A / 6A / 1Y / 5Y).
+    const fundFullSeries = kind === "FUND" ? buildFundSeries(asset, 1825) : [];
+    const fundSeries = kind === "FUND" ? buildFundSeries(asset, fundPeriod) : [];
     const fundUp = (asset?.yearlyReturn ?? asset?.monthlyReturn ?? 0) >= 0;
 
     function handleBuy() {
@@ -93,17 +106,37 @@ export default function AssetDetailModal({ asset, kind, onClose, keycloak, onBuy
                 {kind === "BOND" && <BondBody asset={asset} t={t} />}
                 {kind === "FUND" && <FundBody asset={asset} t={t} />}
 
-                {kind === "FUND" && fundSeries.length >= 2 && (
+                {kind === "FUND" && fundFullSeries.length >= 2 && (
                     <div style={s.chartSection}>
                         <div style={s.chartHeader}>
                             <h3 style={s.chartTitle}>{t("assetDetail.fundChartTitle")}</h3>
+                            <div style={s.periodGroup} role="tablist">
+                                {FUND_PERIODS.map((p) => (
+                                    <button
+                                        key={p.days}
+                                        role="tab"
+                                        aria-selected={fundPeriod === p.days}
+                                        style={{
+                                            ...s.periodBtn,
+                                            ...(fundPeriod === p.days ? s.periodActive : {}),
+                                        }}
+                                        onClick={() => setFundPeriod(p.days)}
+                                    >
+                                        {t(p.labelKey)}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                         <div style={s.chartWrap}>
-                            <LWAreaChart
-                                data={fundSeries}
-                                color={fundUp ? "#10b981" : "#ef4444"}
-                                height={260}
-                            />
+                            {fundSeries.length >= 2 ? (
+                                <LWAreaChart
+                                    data={fundSeries}
+                                    color={fundUp ? "#10b981" : "#ef4444"}
+                                    height={260}
+                                />
+                            ) : (
+                                <div style={s.chartEmpty}>{t("assetDetail.chartUnavailable")}</div>
+                            )}
                         </div>
                         <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6 }}>
                             {t("assetDetail.fundChartNote")}
@@ -181,7 +214,7 @@ export default function AssetDetailModal({ asset, kind, onClose, keycloak, onBuy
  * current ÷ (1 + return/100). Produces ascending {time(unix sec), value} points
  * for LWAreaChart; missing horizons are skipped. Needs ≥2 points to draw.
  */
-function buildFundSeries(asset) {
+function buildFundSeries(asset, maxDays = 1825) {
     const base = Number(asset?.unitPrice);
     if (!base || Number.isNaN(base)) return [];
     const anchorMs = asset?.priceDate ? new Date(asset.priceDate).getTime() : Date.now();
@@ -199,6 +232,7 @@ function buildFundSeries(asset) {
     ];
     const pts = [];
     for (const h of horizons) {
+        if (h.days > maxDays) continue; // only points within the selected horizon
         const r = Number(h.ret);
         if (h.ret == null || Number.isNaN(r) || 1 + r / 100 === 0) continue;
         pts.push({ time: nowSec - h.days * DAY, value: base / (1 + r / 100) });

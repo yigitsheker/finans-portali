@@ -17,6 +17,7 @@ const PERIODS = [
     { labelKey: "instrumentChart.p5G", value: "5D" },
     { labelKey: "instrumentChart.p1A", value: "30D" },
     { labelKey: "instrumentChart.p1Y", value: "1Y" },
+    { labelKey: "instrumentChart.p5Y", value: "5Y" },
 ];
 
 const BellIcon = () => (

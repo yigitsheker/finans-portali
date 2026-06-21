@@ -774,7 +774,9 @@ export const dict = {
       weekly: "Haftalık",
       p5G: "5G",
       p1A: "1A",
+      p6A: "6A",
       p1Y: "1Y",
+      p5Y: "5Y",
     },
     market: {
       authPrompt:
@@ -1003,6 +1005,7 @@ export const dict = {
       p5G: "5G",
       p1A: "1A",
       p1Y: "1Y",
+      p5Y: "5Y",
     },
     compare: {
       title: "Karşılaştır: {symbol}",
@@ -1821,7 +1824,9 @@ export const dict = {
       weekly: "Weekly",
       p5G: "5D",
       p1A: "1M",
+      p6A: "6M",
       p1Y: "1Y",
+      p5Y: "5Y",
     },
     market: {
       authPrompt:
@@ -2050,6 +2055,7 @@ export const dict = {
       p5G: "5D",
       p1A: "1M",
       p1Y: "1Y",
+      p5Y: "5Y",
     },
     compare: {
       title: "Compare: {symbol}",
