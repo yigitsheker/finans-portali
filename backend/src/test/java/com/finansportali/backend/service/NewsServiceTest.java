@@ -127,7 +127,7 @@ class NewsServiceTest {
     @Test
     void fetchContentForArticle_returns_null_when_article_missing() {
         when(repo.findById(99L)).thenReturn(Optional.empty());
-        assertThat(service.fetchContentForArticle(99L)).isNull();
+        assertThat(service.fetchContentForArticle(99L, null)).isNull();
     }
 
     @Test
@@ -137,7 +137,7 @@ class NewsServiceTest {
         NewsArticle a = article(1L, "T", big, "borsa");
         when(repo.findById(1L)).thenReturn(Optional.of(a));
 
-        NewsArticle result = service.fetchContentForArticle(1L);
+        NewsArticle result = service.fetchContentForArticle(1L, null);
         assertThat(result).isSameAs(a);
         verify(contentFetcher, never()).fetchArticleContent(anyString());
     }
@@ -148,7 +148,7 @@ class NewsServiceTest {
         ReflectionTestUtils.setField(a, "sourceUrl", "");
         when(repo.findById(1L)).thenReturn(Optional.of(a));
 
-        service.fetchContentForArticle(1L);
+        service.fetchContentForArticle(1L, null);
         verify(contentFetcher, never()).fetchArticleContent(anyString());
     }
 
@@ -158,7 +158,7 @@ class NewsServiceTest {
         when(repo.findById(1L)).thenReturn(Optional.of(a));
         when(contentFetcher.fetchArticleContent(anyString())).thenReturn("fresh body");
 
-        service.fetchContentForArticle(1L);
+        service.fetchContentForArticle(1L, null);
         assertThat(a.getContent()).isEqualTo("fresh body");
         verify(repo).save(a);
     }
@@ -169,7 +169,7 @@ class NewsServiceTest {
         when(repo.findById(1L)).thenReturn(Optional.of(a));
         when(contentFetcher.fetchArticleContent(anyString())).thenReturn(" ");
 
-        service.fetchContentForArticle(1L);
+        service.fetchContentForArticle(1L, null);
         verify(repo, never()).save(any());
     }
 

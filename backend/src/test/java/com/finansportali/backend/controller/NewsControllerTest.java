@@ -88,13 +88,13 @@ class NewsControllerTest {
 
     @Test
     void fetch_content_routes_path_var() throws Exception {
-        when(service.fetchContentForArticle(7L)).thenReturn(article("Fetched", "borsa"));
+        when(service.fetchContentForArticle(eq(7L), any())).thenReturn(article("Fetched", "borsa"));
 
         mvc.perform(post("/api/v1/news/7/fetch-content").with(csrf()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.title").value("Fetched"));
 
-        verify(service).fetchContentForArticle(7L);
+        verify(service).fetchContentForArticle(eq(7L), any());
     }
 
     @Test

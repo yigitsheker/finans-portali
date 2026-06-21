@@ -462,47 +462,37 @@ class InstrumentAnalysisServiceTest {
         assertThat(d.getBeatsInflation()).isFalse();
     }
 
-    // ── changeOverDays(...) private helper ───────────────────────────────
+    // ── changeFromCandles(...) private helper ────────────────────────────
+    // Operates on an already-loaded ascending candle list (no DB query).
 
-    @Test
-    void changeOverDays_returns_null_when_no_candle_history() {
-        MarketInstrument inst = new MarketInstrument("AAPL", "Apple",
+    private MarketInstrument testInstrument() {
+        return new MarketInstrument("AAPL", "Apple",
                 com.finansportali.backend.entity.InstrumentType.STOCK,
                 com.finansportali.backend.entity.MarketDataProvider.YAHOO,
                 "AAPL", false);
-        when(candleRepo.findByInstrumentAndDayBetweenOrderByDayAsc(any(), any(), any()))
-                .thenReturn(List.of());
-        BigDecimal result = ReflectionTestUtils.invokeMethod(service, "changeOverDays",
-                inst, new BigDecimal("150"), 7);
+    }
+
+    @Test
+    void changeFromCandles_returns_null_when_no_candle_history() {
+        BigDecimal result = ReflectionTestUtils.invokeMethod(service, "changeFromCandles",
+                List.of(), new BigDecimal("150"), 7);
         assertThat(result).isNull();
     }
 
     @Test
-    void changeOverDays_computes_positive_pct_when_history_present() {
-        MarketInstrument inst = new MarketInstrument("AAPL", "Apple",
-                com.finansportali.backend.entity.InstrumentType.STOCK,
-                com.finansportali.backend.entity.MarketDataProvider.YAHOO,
-                "AAPL", false);
-        MarketCandle c = new MarketCandle(inst, LocalDate.now().minusDays(7), new BigDecimal("100"));
-        when(candleRepo.findByInstrumentAndDayBetweenOrderByDayAsc(any(), any(), any()))
-                .thenReturn(List.of(c));
-        BigDecimal result = ReflectionTestUtils.invokeMethod(service, "changeOverDays",
-                inst, new BigDecimal("110"), 7);
+    void changeFromCandles_computes_positive_pct_when_history_present() {
+        MarketCandle c = new MarketCandle(testInstrument(), LocalDate.now().minusDays(7), new BigDecimal("100"));
+        BigDecimal result = ReflectionTestUtils.invokeMethod(service, "changeFromCandles",
+                List.of(c), new BigDecimal("110"), 7);
         // 110 vs 100 base → +10%.
         assertThat(result).isEqualByComparingTo("10.00");
     }
 
     @Test
-    void changeOverDays_returns_null_when_base_close_is_zero() {
-        MarketInstrument inst = new MarketInstrument("AAPL", "Apple",
-                com.finansportali.backend.entity.InstrumentType.STOCK,
-                com.finansportali.backend.entity.MarketDataProvider.YAHOO,
-                "AAPL", false);
-        MarketCandle c = new MarketCandle(inst, LocalDate.now().minusDays(7), BigDecimal.ZERO);
-        when(candleRepo.findByInstrumentAndDayBetweenOrderByDayAsc(any(), any(), any()))
-                .thenReturn(List.of(c));
-        BigDecimal result = ReflectionTestUtils.invokeMethod(service, "changeOverDays",
-                inst, new BigDecimal("110"), 7);
+    void changeFromCandles_returns_null_when_base_close_is_zero() {
+        MarketCandle c = new MarketCandle(testInstrument(), LocalDate.now().minusDays(7), BigDecimal.ZERO);
+        BigDecimal result = ReflectionTestUtils.invokeMethod(service, "changeFromCandles",
+                List.of(c), new BigDecimal("110"), 7);
         assertThat(result).isNull();
     }
 }
