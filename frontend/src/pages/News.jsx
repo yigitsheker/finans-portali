@@ -103,78 +103,22 @@ const News = ({ keycloak }) => {
 
     return (
         <div style={s.root} className="home-page">
-            {/* Hero / Welcome */}
-            <section style={s.hero} className="home-hero">
-                <div style={s.heroLeft}>
-                    <div style={s.heroBadge}>FİNANS PORTALI</div>
-                    <h1 style={s.heroTitle}>{t('home.heroAltTitle')}</h1>
-                    <p style={s.heroText}>
-                        {t('home.heroAltLead')}
-                    </p>
-                    <div style={s.heroCtas}>
-                        <button style={s.ctaPrimary} onClick={() => navigate('/stocks')}>
-                            {t('home.ctaExplore')}
-                        </button>
-                        {!keycloak?.authenticated && (
-                            <button
-                                style={s.ctaSecondary}
-                                onClick={() =>
-                                    keycloak?.register({ redirectUri: window.location.href })
-                                }
-                            >
-                                {t('home.ctaRegister')}
-                            </button>
-                        )}
-                        {keycloak?.authenticated && (
-                            <button
-                                style={s.ctaSecondary}
-                                onClick={() => navigate('/portfolio')}
-                            >
-                                {t('home.ctaPortfolio')}
-                            </button>
-                        )}
-                    </div>
-                </div>
-                <div style={s.heroRight}>
-                    <div style={s.heroStatsTitle}>{t('home.moversTitle')}</div>
-                    {topMovers.length === 0 ? (
-                        <div style={s.heroStatsEmpty}>{t('common.loading')}</div>
-                    ) : (
-                        <div style={s.heroStatsList}>
-                            {topMovers.slice(0, 4).map((m) => {
-                                const positive = m.changePct >= 0;
-                                return (
-                                    <div key={m.symbol} style={s.heroStatRow}>
-                                        <div style={s.heroStatSymbol}>{m.symbol}</div>
-                                        <div
-                                            style={{
-                                                ...s.heroStatChange,
-                                                color: positive ? 'var(--green)' : 'var(--red)',
-                                            }}
-                                        >
-                                            {positive ? '▲' : '▼'} {positive ? '+' : ''}
-                                            {m.changePct.toFixed(2)}%
-                                        </div>
-                                    </div>
-                                );
-                            })}
-                        </div>
-                    )}
-                </div>
-            </section>
-
+            {/* Page header — slim title strip in place of the old hero banner */}
+            <header style={s.pageHeader}>
+                <h1 style={s.pageTitle}>{t('news.title')}</h1>
+                <p style={s.pageSubtitle}>{t('home.heroAltLead')}</p>
+            </header>
 
             {/* Main grid: news + sidebar */}
             <section style={s.mainGrid} className="home-main-grid fp-news-page">
                 {/* Left: news feed */}
                 <div style={s.newsCol}>
                     <div style={s.sectionHeader}>
-                        <h2 style={s.sectionTitle}>{t('news.title')}</h2>
-                        <span style={s.sectionMeta}>
+                        <h2 style={s.sectionTitle}>
                             {selectedCategory
                                 ? (CATEGORY_LABEL_KEYS[selectedCategory] ? t(CATEGORY_LABEL_KEYS[selectedCategory]) : selectedCategory)
-                                : t('news.all')}
-                        </span>
+                                : t('news.allNews')}
+                        </h2>
                     </div>
 
                     {loading && news.length === 0 ? (
@@ -252,6 +196,31 @@ const News = ({ keycloak }) => {
 
                 {/* Right: sidebar */}
                 <aside style={s.sidebar} className="home-sidebar">
+                    {/* Günün Hareketlileri — relocated here from the old hero. */}
+                    {topMovers.length > 0 && (
+                        <div style={s.sideCard}>
+                            <h3 style={s.sideTitle}>{t('home.moversTitle')}</h3>
+                            <div style={s.moverList}>
+                                {topMovers.slice(0, 6).map((m) => {
+                                    const positive = m.changePct >= 0;
+                                    return (
+                                        <button
+                                            key={m.symbol}
+                                            type="button"
+                                            style={s.moverRow}
+                                            onClick={() => navigate('/stocks')}
+                                        >
+                                            <span style={s.moverSymbol}>{m.symbol}</span>
+                                            <span style={{ ...s.moverChange, color: positive ? 'var(--green)' : 'var(--red)' }}>
+                                                {positive ? '▲' : '▼'} {positive ? '+' : ''}{m.changePct.toFixed(2)}%
+                                            </span>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+
                     {/* Categories */}
                     <div style={s.sideCard}>
                         <h3 style={s.sideTitle}>{t('news.categoriesTitle')}</h3>
@@ -318,6 +287,45 @@ const s = {
         gap: 24,
         paddingBottom: 32,
     },
+
+    // Page header (replaces the old hero banner)
+    pageHeader: {
+        display: 'flex',
+        flexDirection: 'column',
+        gap: 4,
+        paddingBottom: 4,
+        borderBottom: '1px solid var(--border-card)',
+    },
+    pageTitle: {
+        margin: 0,
+        fontSize: 26,
+        fontWeight: 800,
+        color: 'var(--text-primary)',
+        letterSpacing: '-0.02em',
+    },
+    pageSubtitle: {
+        margin: 0,
+        fontSize: 14,
+        color: 'var(--text-muted)',
+        lineHeight: 1.5,
+    },
+
+    // Sidebar "Günün Hareketlileri" card
+    moverList: { display: 'flex', flexDirection: 'column' },
+    moverRow: {
+        all: 'unset',
+        boxSizing: 'border-box',
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        gap: 8,
+        padding: '8px 0',
+        borderBottom: '1px solid var(--border-soft, var(--border-card))',
+        cursor: 'pointer',
+        width: '100%',
+    },
+    moverSymbol: { fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' },
+    moverChange: { fontSize: 13, fontWeight: 700, fontVariantNumeric: 'tabular-nums' },
 
     // Hero
     hero: {
