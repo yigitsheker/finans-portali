@@ -224,6 +224,18 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
         }
     };
 
+    // Price and percent targets are different units — carrying the old value
+    // across a PRICE_*/PERCENT_* switch left a stale price sitting in what's
+    // now a "%" field (and vice versa). Clear it whenever the unit changes.
+    const handleAlertTypeChange = (newType) => {
+        const wasPercent = alertType.includes("PERCENT");
+        const isPercent = newType.includes("PERCENT");
+        if (wasPercent !== isPercent) {
+            setTargetPrice("");
+        }
+        setAlertType(newType);
+    };
+
     const handleSelectInstrument = (instrument) => {
         // Suppress the symbol-effect's search (otherwise the dropdown would
         // re-open with a single result after we just closed it).
@@ -353,7 +365,7 @@ export default function PriceAlertModal({ open, onClose, keycloak, prefilledSymb
                                 <label style={s.label}>{t("alerts.alertType")}</label>
                                 <select
                                     value={alertType}
-                                    onChange={(e) => setAlertType(e.target.value)}
+                                    onChange={(e) => handleAlertTypeChange(e.target.value)}
                                     style={s.select}
                                 >
                                     {ALERT_TYPES.map(type => (
