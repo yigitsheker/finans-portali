@@ -11,35 +11,58 @@ import BrandLogo from "./common/BrandLogo";
 /**
  * Inline navigation items shown in the top bar.
  *
- * Tiers, all rendered as flat chips in the nav strip:
- *   PUBLIC_NAV  — always visible, top-level. Home + content.
- *   MARKET_NAV  — always visible, but grouped under one "Piyasalar" dropdown
- *                 instead of flat chips — 8 market-data pages used to sit
- *                 inline and pushed the strip past the available width,
- *                 forcing a horizontal scrollbar at ordinary desktop widths.
+ * Tiers, all rendered in the nav strip:
+ *   PUBLIC_NAV  — always visible, top-level flat chips. Home + content.
+ *   MARKET_GROUPS — the market-data pages, split into THREE themed dropdowns
+ *                 (Hisse & Kripto / Döviz & Vadeli / Fon & Tahvil) instead of
+ *                 8 flat chips. The flat layout pushed the strip past the
+ *                 available width (horizontal scrollbar); a single catch-all
+ *                 "Piyasalar" menu was too coarse, so they're grouped by asset
+ *                 family. Enflasyon stays a standalone top-level chip (it's a
+ *                 macro indicator, not a tradeable market).
  *   PRIVATE_NAV — shown only to authenticated users (per-user dashboards).
  *   ADMIN_NAV   — shown only to users with the ADMIN realm role.
  *
  * Labels are i18n keys; `useI18n().t()` resolves them per the active language.
  */
 const PUBLIC_NAV = [
-  { to: "/",     key: "nav.home" },
+  { to: "/", key: "nav.home" },
 ];
 
-const CONTENT_NAV = [
-  { to: "/news", key: "nav.news" },
+const MARKET_GROUPS = [
+  {
+    labelKey: "nav.grpStocksCrypto",
+    items: [
+      { to: "/stocks", key: "nav.stocks" },
+      { to: "/crypto", key: "nav.crypto" },
+    ],
+  },
+  {
+    labelKey: "nav.grpFxDeriv",
+    items: [
+      { to: "/market-data", key: "nav.fx" },
+      { to: "/commodities", key: "nav.commodities" },
+      { to: "/viop",        key: "nav.viop" },
+    ],
+  },
+  {
+    labelKey: "nav.grpFundsBonds",
+    items: [
+      { to: "/funds", key: "nav.funds" },
+      { to: "/bonds", key: "nav.bonds" },
+    ],
+  },
 ];
 
-const MARKET_NAV = [
-  { to: "/stocks",      key: "nav.stocks" },
-  { to: "/crypto",      key: "nav.crypto" },
-  { to: "/funds",       key: "nav.funds" },
-  { to: "/bonds",       key: "nav.bonds" },
-  { to: "/market-data", key: "nav.fx" },
-  { to: "/commodities", key: "nav.commodities" },
-  { to: "/viop",        key: "nav.viop" },
-  { to: "/inflation",   key: "nav.inflation" },
+// Standalone market chips that don't belong to any dropdown.
+const STANDALONE_NAV = [
+  { to: "/inflation", key: "nav.inflation" },
+  { to: "/news",      key: "nav.news" },
 ];
+
+// Flat list of every market page — used to build the mobile drawer (which
+// lists everything vertically, no grouping needed) and nowhere else.
+const MARKET_FLAT = MARKET_GROUPS.flatMap((g) => g.items);
 
 const PRIVATE_NAV = [
   { to: "/analysis",   key: "nav.analysis" },
@@ -102,12 +125,13 @@ function LanguageToggle() {
 }
 
 /**
- * "Piyasalar" nav dropdown — groups the 8 market-data pages (Hisseler,
- * Kripto, Fonlar, Tahvil, Döviz, Emtia, VIOP, Enflasyon) behind one chip
- * instead of 8 flat links, so the inline nav strip fits without scrolling.
- * Highlights as active when the current route matches any grouped page.
+ * Generic nav dropdown — renders one labelled chip that opens a small panel
+ * of route links. Used for the three themed market groups (Hisse & Kripto,
+ * Döviz & Vadeli, Fon & Tahvil) so the inline strip stays short instead of
+ * listing every market page flat. The chip highlights as active when the
+ * current route matches any of its grouped pages.
  */
-function MarketsDropdown({ isActive, t }) {
+function NavDropdown({ labelKey, items, isActive, t }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
   const location = useLocation();
@@ -128,7 +152,7 @@ function MarketsDropdown({ isActive, t }) {
     };
   }, [open]);
 
-  const groupActive = MARKET_NAV.some((item) => isActive(item.to));
+  const groupActive = items.some((item) => isActive(item.to));
 
   return (
     <div ref={wrapRef} style={s.marketsWrap}>
@@ -139,7 +163,7 @@ function MarketsDropdown({ isActive, t }) {
         aria-haspopup="menu"
         aria-expanded={open}
       >
-        {t("nav.markets")}
+        {t(labelKey)}
         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
              strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
              style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
@@ -148,7 +172,7 @@ function MarketsDropdown({ isActive, t }) {
       </button>
       {open && (
         <div style={s.marketsPanel} role="menu">
-          {MARKET_NAV.map((item) => {
+          {items.map((item) => {
             const active = isActive(item.to);
             return (
               <Link
@@ -168,7 +192,12 @@ function MarketsDropdown({ isActive, t }) {
   );
 }
 
-MarketsDropdown.propTypes = {
+NavDropdown.propTypes = {
+  labelKey: PropTypes.string.isRequired,
+  items: PropTypes.arrayOf(PropTypes.shape({
+    to: PropTypes.string.isRequired,
+    key: PropTypes.string.isRequired,
+  })).isRequired,
   isActive: PropTypes.func.isRequired,
   t: PropTypes.func.isRequired,
 };
@@ -239,12 +268,12 @@ export default function Topbar({
     : location.pathname.startsWith(to);
 
   // Mobile drawer lists everything flat (it's a vertical scroll, not a
-  // horizontal strip, so the "Piyasalar" grouping that the desktop nav
-  // needs to avoid overflow scroll isn't necessary here).
+  // horizontal strip, so the dropdown grouping the desktop nav needs to
+  // avoid overflow scroll isn't necessary here).
   const allNavItems = [
     ...PUBLIC_NAV,
-    ...MARKET_NAV,
-    ...CONTENT_NAV,
+    ...MARKET_FLAT,
+    ...STANDALONE_NAV,
     ...(isAuthenticated ? PRIVATE_NAV : []),
     ...(isAuthenticated && isAdmin(keycloak) ? ADMIN_NAV : []),
   ];
@@ -340,8 +369,10 @@ export default function Topbar({
             </Link>
           );
         })}
-        <MarketsDropdown isActive={isActive} t={t} />
-        {CONTENT_NAV.map((item) => {
+        {MARKET_GROUPS.map((g) => (
+          <NavDropdown key={g.labelKey} labelKey={g.labelKey} items={g.items} isActive={isActive} t={t} />
+        ))}
+        {STANDALONE_NAV.map((item) => {
           const active = isActive(item.to);
           return (
             <Link
