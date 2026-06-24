@@ -188,7 +188,8 @@ function NavDropdown({ labelKey, items, isActive, t }) {
   const panel = open && coords && createPortal(
     <div
       ref={panelRef}
-      style={{ ...s.marketsPanel, top: coords.top, left: coords.left }}
+      className="fp-navdd-panel"
+      style={{ top: coords.top, left: coords.left }}
       role="menu"
     >
       {items.map((item) => {
@@ -198,7 +199,7 @@ function NavDropdown({ labelKey, items, isActive, t }) {
             key={item.to}
             to={item.to}
             role="menuitem"
-            style={{ ...s.marketsItem, ...(active ? s.marketsItemActive : {}) }}
+            className={`fp-navdd-item${active ? " fp-navdd-item--active" : ""}`}
             onClick={() => setOpen(false)}
           >
             {t(item.key)}
@@ -597,32 +598,9 @@ const s = {
     cursor: "pointer",
     fontFamily: "inherit",
   },
-  marketsPanel: {
-    position: "fixed",   // coords (top/left) injected at open — body portal
-    minWidth: 180,
-    padding: 6,
-    borderRadius: 10,
-    border: "1px solid var(--border-card)",
-    background: "var(--bg-card)",
-    boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
-    display: "flex",
-    flexDirection: "column",
-    gap: 2,
-    zIndex: 9000,
-  },
-  marketsItem: {
-    padding: "8px 10px",
-    borderRadius: 8,
-    fontSize: 13,
-    fontWeight: 600,
-    color: "var(--text-muted)",
-    textDecoration: "none",
-    whiteSpace: "nowrap",
-  },
-  marketsItemActive: {
-    color: "var(--accent-solid)",
-    background: "var(--accent-hover-bg)",
-  },
+  // Panel + item visuals live in index.css (.fp-navdd-panel / .fp-navdd-item)
+  // so the green left-stripe accent and hover states can use :hover/::before —
+  // only the dynamic open coords (top/left) stay inline on the element.
   right: {
     display: "flex",
     alignItems: "center",

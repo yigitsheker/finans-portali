@@ -787,6 +787,81 @@ button[role="switch"]:focus-visible { outline: 2px solid var(--accent-solid); ou
     white-space: normal;
 }
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Navbar group dropdown (Hisse & Kripto / Döviz & Vadeli / Fon & Tahvil)
+   Rendered through a body portal by Topbar.jsx's NavDropdown; only the open
+   coords (top/left) are inline, everything visual lives here so the green
+   left-stripe accent + hover states can use ::before / :hover.
+   ────────────────────────────────────────────────────────────────────────── */
+.fp-navdd-panel {
+    position: fixed;
+    min-width: 190px;
+    padding: 7px;
+    border-radius: 12px;
+    border: 1px solid var(--border-card);
+    background: var(--bg-card);
+    box-shadow: 0 16px 38px rgba(0, 0, 0, 0.30);
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    z-index: 9000;
+    transform-origin: top left;
+    animation: fp-navdd-in 0.15s cubic-bezier(0.21, 1.02, 0.73, 1);
+}
+@keyframes fp-navdd-in {
+    from { opacity: 0; transform: translateY(-6px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.fp-navdd-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    /* extra left padding makes room for the accent stripe at left:7px */
+    padding: 9px 14px 9px 18px;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-secondary, var(--text-muted));
+    text-decoration: none;
+    white-space: nowrap;
+    transition: background 0.14s ease, color 0.14s ease;
+}
+
+/* Green left stripe — short & subtle by default, grows + brightens on
+   hover/active so every row reads as part of the brand-green family. */
+.fp-navdd-item::before {
+    content: "";
+    position: absolute;
+    left: 7px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 3px;
+    height: 14px;
+    border-radius: 2px;
+    background: var(--accent-solid);
+    opacity: 0.35;
+    transition: height 0.16s ease, opacity 0.16s ease;
+}
+
+.fp-navdd-item:hover {
+    background: var(--accent-hover-bg);
+    color: var(--text-primary);
+}
+.fp-navdd-item:hover::before {
+    height: 22px;
+    opacity: 1;
+}
+
+.fp-navdd-item--active {
+    color: var(--accent-solid);
+    background: var(--accent-hover-bg);
+}
+.fp-navdd-item--active::before {
+    height: 22px;
+    opacity: 1;
+}
+
 /* Global "back to top" floating button. Mounted once at the App root by
    ScrollToTop.jsx; opacity-toggled so it fades in past the scroll
    threshold instead of popping in. pointer-events disabled while hidden
