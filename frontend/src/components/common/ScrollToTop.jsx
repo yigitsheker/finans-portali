@@ -66,7 +66,11 @@ export default function ScrollToTop() {
     const style = {
         position: "fixed",
         bottom: 28,
-        right: 28,
+        // Bottom-LEFT, not bottom-right: the right corner is where page action
+        // buttons live (e.g. the Analiz chatbot's "Gönder" button), and a
+        // fixed FAB there sat right on top of them. There's no left sidebar
+        // anymore, so the bottom-left corner is empty on every page.
+        left: 28,
         width: 52,
         height: 52,
         borderRadius: "50%",

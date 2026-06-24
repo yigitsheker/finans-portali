@@ -794,7 +794,10 @@ button[role="switch"]:focus-visible { outline: 2px solid var(--accent-solid); ou
 .fp-scrolltop {
     position: fixed;
     bottom: 28px;
-    right: 28px;
+    /* Bottom-LEFT — keeps the FAB clear of right-aligned page action buttons
+       (e.g. the Analiz chatbot "Gönder"). Kept in sync with the inline style
+       in ScrollToTop.jsx, which overrides this rule. */
+    left: 28px;
     width: 52px;
     height: 52px;
     border-radius: 50%;
