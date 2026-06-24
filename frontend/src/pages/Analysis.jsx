@@ -162,9 +162,13 @@ const s = {
     // Sticky chatbot column with a fixed viewport-relative max height so
     // the card itself never grows past the visible area — messages scroll
     // inside the bubble, the surrounding page stays put.
+    //
+    // top must clear the sticky header (ticker ~40px + topbar ~57px ≈ 97px),
+    // otherwise the chatbot's own header scrolls UP and disappears behind the
+    // navbar. 104px = header height + a small gap.
     rightCol: {
         position: "sticky",
-        top: 12,
+        top: 104,
         minWidth: 0,
         maxHeight: "calc(100vh - 120px)",
     },

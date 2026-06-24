@@ -202,9 +202,12 @@ const s = {
         // Cap the whole card to the viewport. Messages scroll inside the
         // `s.scroll` flex:1 region — without this lid the card kept growing
         // with every reply and stretched the surrounding page layout.
-        height: "calc(100vh - 140px)",
+        // Height pairs with the sticky column's top:104 (Analysis.jsx) — the
+        // card sits 104px down, so 100vh-124px leaves a ~20px bottom gap and
+        // keeps the composer/send button on-screen.
+        height: "calc(100vh - 124px)",
         minHeight: 420,
-        maxHeight: "calc(100vh - 140px)",
+        maxHeight: "calc(100vh - 124px)",
         overflow: "hidden",
     },
     head: { display: "flex", justifyContent: "space-between", alignItems: "baseline" },
