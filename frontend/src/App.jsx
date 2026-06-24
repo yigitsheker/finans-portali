@@ -367,11 +367,14 @@ export default function App({ keycloak }) {
             {/* Toast notifications — anchored just below the navbar (ticker 40px
                 + topbar ≈60-70px = ~110px), 5s auto-dismiss. Visual is fully
                 handled by the AppToast component via notify.js; we only place
-                the Toaster container here. */}
+                the Toaster container here. zIndex must beat Modal.jsx's card
+                (10000) — react-hot-toast's own default is 9999, same as the
+                modal backdrop, which left incoming toasts rendering behind an
+                open modal/card instead of on top of it. */}
             <Toaster
                 position="top-right"
                 gutter={10}
-                containerStyle={{ top: 110, right: 16 }}
+                containerStyle={{ top: 110, right: 16, zIndex: 10500 }}
                 toastOptions={{ duration: 5000 }}
             />
             </CurrencyDisplayProvider>

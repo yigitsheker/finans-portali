@@ -758,9 +758,19 @@ button[role="switch"]:focus-visible { outline: 2px solid var(--accent-solid); ou
     box-shadow: none;
 }
 
+/* The tooltip itself is rendered through a document.body PORTAL (see
+   TermInfo.jsx) with `position:fixed` coordinates computed from the
+   trigger icon's getBoundingClientRect() — not CSS position:absolute
+   nested under .fp-term-info. Every call site lives inside a table header
+   wrapped by a horizontally-scrollable container (.fp-card-table /
+   overflowX:auto); an absolutely-positioned descendant of that container
+   gets hard-clipped at its overflow boundary the moment the popup would
+   extend past the visible table area — which is exactly the "info kartı
+   okunamıyor" cutoff bug. A fixed-position portal escapes that clipping
+   entirely, so only static visual styling lives here; placement/clamping
+   is computed in JS. */
 .fp-term-info__tip {
-    position: absolute;
-    z-index: 50;
+    z-index: 9000;
     width: max-content;
     max-width: 280px;
     padding: 8px 10px;
@@ -775,42 +785,6 @@ button[role="switch"]:focus-visible { outline: 2px solid var(--accent-solid); ou
     font-style: normal;
     text-align: left;
     white-space: normal;
-    opacity: 0;
-    pointer-events: none;
-    transition: opacity 0.12s ease;
-}
-.fp-term-info__btn:hover + .fp-term-info__tip,
-.fp-term-info__btn:focus-visible + .fp-term-info__tip {
-    opacity: 1;
-    pointer-events: auto;
-}
-
-/* Placement variants. Tooltips anchor to the LEFT edge of the icon (not
-   centered) so leftmost table-column headers don't clip off the page.
-   For genuinely right-edge spots, use `placement="left-anchored"` which
-   flips the anchor to the icon's right edge. */
-.fp-term-info--top .fp-term-info__tip {
-    bottom: calc(100% + 8px);
-    left: 0;
-}
-.fp-term-info--bottom .fp-term-info__tip {
-    top: calc(100% + 8px);
-    left: 0;
-}
-.fp-term-info--right .fp-term-info__tip {
-    left: calc(100% + 8px);
-    top: 50%;
-    transform: translateY(-50%);
-}
-/* Used when the term sits near the right edge — pin the tooltip's right
-   side to the icon so it grows leftward. */
-.fp-term-info--bottom-right .fp-term-info__tip {
-    top: calc(100% + 8px);
-    right: 0;
-}
-.fp-term-info--top-right .fp-term-info__tip {
-    bottom: calc(100% + 8px);
-    right: 0;
 }
 
 /* Global "back to top" floating button. Mounted once at the App root by

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import PropTypes from "prop-types";
 import { Link, useLocation } from "react-router-dom";
 import { createPortal } from "react-dom";
@@ -11,15 +11,26 @@ import BrandLogo from "./common/BrandLogo";
 /**
  * Inline navigation items shown in the top bar.
  *
- * Three tiers, all rendered as flat chips in the nav strip:
- *   PUBLIC_NAV  — always visible. Market & content pages.
+ * Tiers, all rendered as flat chips in the nav strip:
+ *   PUBLIC_NAV  — always visible, top-level. Home + content.
+ *   MARKET_NAV  — always visible, but grouped under one "Piyasalar" dropdown
+ *                 instead of flat chips — 8 market-data pages used to sit
+ *                 inline and pushed the strip past the available width,
+ *                 forcing a horizontal scrollbar at ordinary desktop widths.
  *   PRIVATE_NAV — shown only to authenticated users (per-user dashboards).
  *   ADMIN_NAV   — shown only to users with the ADMIN realm role.
  *
  * Labels are i18n keys; `useI18n().t()` resolves them per the active language.
  */
 const PUBLIC_NAV = [
-  { to: "/",            key: "nav.home" },
+  { to: "/",     key: "nav.home" },
+];
+
+const CONTENT_NAV = [
+  { to: "/news", key: "nav.news" },
+];
+
+const MARKET_NAV = [
   { to: "/stocks",      key: "nav.stocks" },
   { to: "/crypto",      key: "nav.crypto" },
   { to: "/funds",       key: "nav.funds" },
@@ -28,7 +39,6 @@ const PUBLIC_NAV = [
   { to: "/commodities", key: "nav.commodities" },
   { to: "/viop",        key: "nav.viop" },
   { to: "/inflation",   key: "nav.inflation" },
-  { to: "/news",        key: "nav.news" },
 ];
 
 const PRIVATE_NAV = [
@@ -90,6 +100,78 @@ function LanguageToggle() {
     </div>
   );
 }
+
+/**
+ * "Piyasalar" nav dropdown — groups the 8 market-data pages (Hisseler,
+ * Kripto, Fonlar, Tahvil, Döviz, Emtia, VIOP, Enflasyon) behind one chip
+ * instead of 8 flat links, so the inline nav strip fits without scrolling.
+ * Highlights as active when the current route matches any grouped page.
+ */
+function MarketsDropdown({ isActive, t }) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef(null);
+  const location = useLocation();
+
+  useEffect(() => { setOpen(false); }, [location.pathname]);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const onDocDown = (e) => {
+      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+    };
+    const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    document.addEventListener("mousedown", onDocDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDocDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const groupActive = MARKET_NAV.some((item) => isActive(item.to));
+
+  return (
+    <div ref={wrapRef} style={s.marketsWrap}>
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        style={{ ...s.navLink, ...s.marketsBtn, ...(groupActive ? s.navLinkActive : {}) }}
+        aria-haspopup="menu"
+        aria-expanded={open}
+      >
+        {t("nav.markets")}
+        <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+             strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"
+             style={{ transform: open ? "rotate(180deg)" : "none", transition: "transform 0.15s" }}>
+          <polyline points="6 9 12 15 18 9" />
+        </svg>
+      </button>
+      {open && (
+        <div style={s.marketsPanel} role="menu">
+          {MARKET_NAV.map((item) => {
+            const active = isActive(item.to);
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                role="menuitem"
+                style={{ ...s.marketsItem, ...(active ? s.marketsItemActive : {}) }}
+                onClick={() => setOpen(false)}
+              >
+                {t(item.key)}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+MarketsDropdown.propTypes = {
+  isActive: PropTypes.func.isRequired,
+  t: PropTypes.func.isRequired,
+};
 
 const ctgl = {
   wrap: {
@@ -156,8 +238,13 @@ export default function Topbar({
     ? location.pathname === "/"
     : location.pathname.startsWith(to);
 
+  // Mobile drawer lists everything flat (it's a vertical scroll, not a
+  // horizontal strip, so the "Piyasalar" grouping that the desktop nav
+  // needs to avoid overflow scroll isn't necessary here).
   const allNavItems = [
     ...PUBLIC_NAV,
+    ...MARKET_NAV,
+    ...CONTENT_NAV,
     ...(isAuthenticated ? PRIVATE_NAV : []),
     ...(isAuthenticated && isAdmin(keycloak) ? ADMIN_NAV : []),
   ];
@@ -242,6 +329,19 @@ export default function Topbar({
           admin items show only when the user carries the ADMIN realm role. */}
       <nav style={s.nav} className="fp-topbar-nav" aria-label={t("topbar.mainMenu")}>
         {PUBLIC_NAV.map((item) => {
+          const active = isActive(item.to);
+          return (
+            <Link
+              key={item.to}
+              to={item.to}
+              style={{ ...s.navLink, ...(active ? s.navLinkActive : {}) }}
+            >
+              {t(item.key)}
+            </Link>
+          );
+        })}
+        <MarketsDropdown isActive={isActive} t={t} />
+        {CONTENT_NAV.map((item) => {
           const active = isActive(item.to);
           return (
             <Link
@@ -378,8 +478,9 @@ const s = {
     gap: 1,
     flex: 1,
     justifyContent: "center",
-    // Never wrap nav items onto a second line — keep them on one row and let
-    // the (rare, very narrow desktop) overflow scroll horizontally instead.
+    // The "Piyasalar" dropdown keeps the inline strip down to ~6 chips, so
+    // this no longer needs to scroll at ordinary desktop widths — the
+    // overflow-x stays only as a safety net for very narrow/zoomed windows.
     // Below 1100px the hamburger replaces this nav entirely (see index.css).
     flexWrap: "nowrap",
     overflowX: "auto",
@@ -411,6 +512,47 @@ const s = {
     background: "rgba(245, 158, 11, 0.12)",
     color: "var(--accent-amber, #f59e0b)",
     borderStyle: "solid",
+  },
+  marketsWrap: {
+    position: "relative",
+    flexShrink: 0,
+  },
+  marketsBtn: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 4,
+    border: "none",
+    background: "transparent",
+    cursor: "pointer",
+    fontFamily: "inherit",
+  },
+  marketsPanel: {
+    position: "absolute",
+    top: "calc(100% + 6px)",
+    left: 0,
+    minWidth: 170,
+    padding: 6,
+    borderRadius: 10,
+    border: "1px solid var(--border-card)",
+    background: "var(--bg-card)",
+    boxShadow: "0 12px 28px rgba(0,0,0,0.25)",
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+    zIndex: 60,
+  },
+  marketsItem: {
+    padding: "8px 10px",
+    borderRadius: 8,
+    fontSize: 13,
+    fontWeight: 600,
+    color: "var(--text-muted)",
+    textDecoration: "none",
+    whiteSpace: "nowrap",
+  },
+  marketsItemActive: {
+    color: "var(--accent-solid)",
+    background: "var(--accent-hover-bg)",
   },
   right: {
     display: "flex",
@@ -449,8 +591,13 @@ const s = {
     letterSpacing: 0.2,
     whiteSpace: "nowrap",
   },
+  // Explicit height — matches the action cluster's other buttons (iconBtn /
+  // alarmBtn are both height:32). Without it, this button's height came
+  // purely from padding + line-height (~27px), which sat visibly lower
+  // than its 32px-tall siblings in the same flex row.
   logoutBtn: {
-    padding: "6px 12px",
+    height: 32,
+    padding: "0 12px",
     borderRadius: 8,
     border: "1px solid var(--danger-border)",
     background: "var(--danger-bg)",
@@ -461,7 +608,8 @@ const s = {
     flexShrink: 0,
   },
   loginBtn: {
-    padding: "7px 14px",
+    height: 32,
+    padding: "0 14px",
     borderRadius: 8,
     border: "none",
     background: "linear-gradient(135deg, var(--accent-strong), var(--accent-solid))",
