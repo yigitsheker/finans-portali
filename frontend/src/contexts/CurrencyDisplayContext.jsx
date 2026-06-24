@@ -92,6 +92,12 @@ export function usePriceDisplay() {
       return { value: null, currency: "TRY", symbol: "₺" };
     }
     const n = Number(value);
+    // Watchlist BOND rows (TR2Y/TR5Y/TR10Y, US2Y/US10Y) store a benchmark
+    // yield, not a price — there's no currency to convert, so skip the
+    // TRY/USD math entirely and render with a "%" sign instead.
+    if (instrumentType === "BOND") {
+      return { value: n, currency: "PCT", symbol: "%" };
+    }
     const native = nativeCurrencyOf(instrumentType, symbol, explicitCurrency);
 
     let outCurrency, outValue;

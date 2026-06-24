@@ -375,10 +375,11 @@ public class MarketDataSeedService {
         seedQuoteIfMissing(eurtryf,"52.85",    "0.15",   "0.28",  now);
         seedQuoteIfMissing(goldtryf,"4850.00", "10.00",  "0.21",  now);
         
-        // Tahvil ve Bonolar (Getiri oranları %)
-        seedQuoteIfMissing(tr2y,   "48.50",    "0.25",   "0.52",  now);
-        seedQuoteIfMissing(tr5y,   "47.80",    "0.15",   "0.31",  now);
-        seedQuoteIfMissing(tr10y,  "46.90",    "0.10",   "0.21",  now);
+        // Tahvil ve Bonolar (Getiri oranları %) — yalnızca BenchmarkBondQuoteService
+        // ilk TCMB EVDS3 refresh'ini tamamlayana kadar (startup'tan ~100s) görünür kalır.
+        seedQuoteIfMissing(tr2y,   "19.80",    "-0.10",  "-0.50", now);
+        seedQuoteIfMissing(tr5y,   "18.40",    "-0.05",  "-0.27", now);
+        seedQuoteIfMissing(tr10y,  "17.20",    "-0.03",  "-0.17", now);
         seedQuoteIfMissing(us2y,   "4.25",     "-0.05",  "-1.16", now);
         seedQuoteIfMissing(us10y,  "4.45",     "-0.03",  "-0.67", now);
         
@@ -477,8 +478,8 @@ public class MarketDataSeedService {
         seedCandlesIfMissing(goldtryf,"4800.00");
         
         // Tahvil ve Bonolar
-        seedCandlesIfMissing(tr2y,   "48.00");    seedCandlesIfMissing(tr5y,   "47.50");
-        seedCandlesIfMissing(tr10y,  "46.70");    seedCandlesIfMissing(us2y,   "4.30");
+        seedCandlesIfMissing(tr2y,   "19.90");    seedCandlesIfMissing(tr5y,   "18.45");
+        seedCandlesIfMissing(tr10y,  "17.23");    seedCandlesIfMissing(us2y,   "4.30");
         seedCandlesIfMissing(us10y,  "4.50");
         
         // Yatırım Fonları
