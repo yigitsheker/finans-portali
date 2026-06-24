@@ -133,32 +133,87 @@ function LanguageToggle() {
  */
 function NavDropdown({ labelKey, items, isActive, t }) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState(null);
   const wrapRef = useRef(null);
+  const panelRef = useRef(null);
   const location = useLocation();
 
   useEffect(() => { setOpen(false); }, [location.pathname]);
 
   useEffect(() => {
     if (!open) return undefined;
+    // Click-outside / Escape close. The panel lives in a body portal (see
+    // below), so it isn't a DOM descendant of wrapRef — check it separately.
     const onDocDown = (e) => {
-      if (wrapRef.current && !wrapRef.current.contains(e.target)) setOpen(false);
+      if (wrapRef.current?.contains(e.target)) return;
+      if (panelRef.current?.contains(e.target)) return;
+      setOpen(false);
     };
     const onKey = (e) => { if (e.key === "Escape") setOpen(false); };
+    // The panel is position:fixed at coords captured on open — if the user
+    // scrolls or resizes it would drift, so just close it.
+    const onReflow = () => setOpen(false);
     document.addEventListener("mousedown", onDocDown);
     document.addEventListener("keydown", onKey);
+    window.addEventListener("scroll", onReflow, true);
+    window.addEventListener("resize", onReflow);
     return () => {
       document.removeEventListener("mousedown", onDocDown);
       document.removeEventListener("keydown", onKey);
+      window.removeEventListener("scroll", onReflow, true);
+      window.removeEventListener("resize", onReflow);
     };
   }, [open]);
 
   const groupActive = items.some((item) => isActive(item.to));
 
+  const toggle = () => {
+    if (open) { setOpen(false); return; }
+    const el = wrapRef.current;
+    if (el) {
+      const r = el.getBoundingClientRect();
+      const PANEL_W = 180;
+      // Anchor under the chip; clamp so the panel never runs off the right edge.
+      const left = Math.min(r.left, window.innerWidth - PANEL_W - 8);
+      setCoords({ top: r.bottom + 6, left: Math.max(8, left) });
+    }
+    setOpen(true);
+  };
+
+  // Rendered through a document.body portal with position:fixed so the
+  // panel escapes the nav strip's overflow clipping — the nav has
+  // overflow-x:auto (computed overflow-y:auto) which otherwise hard-clips
+  // an absolutely-positioned child, leaving the menu invisible and a stray
+  // scrollbar on the right.
+  const panel = open && coords && createPortal(
+    <div
+      ref={panelRef}
+      style={{ ...s.marketsPanel, top: coords.top, left: coords.left }}
+      role="menu"
+    >
+      {items.map((item) => {
+        const active = isActive(item.to);
+        return (
+          <Link
+            key={item.to}
+            to={item.to}
+            role="menuitem"
+            style={{ ...s.marketsItem, ...(active ? s.marketsItemActive : {}) }}
+            onClick={() => setOpen(false)}
+          >
+            {t(item.key)}
+          </Link>
+        );
+      })}
+    </div>,
+    document.body
+  );
+
   return (
     <div ref={wrapRef} style={s.marketsWrap}>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
+        onClick={toggle}
         style={{ ...s.navLink, ...s.marketsBtn, ...(groupActive ? s.navLinkActive : {}) }}
         aria-haspopup="menu"
         aria-expanded={open}
@@ -170,24 +225,7 @@ function NavDropdown({ labelKey, items, isActive, t }) {
           <polyline points="6 9 12 15 18 9" />
         </svg>
       </button>
-      {open && (
-        <div style={s.marketsPanel} role="menu">
-          {items.map((item) => {
-            const active = isActive(item.to);
-            return (
-              <Link
-                key={item.to}
-                to={item.to}
-                role="menuitem"
-                style={{ ...s.marketsItem, ...(active ? s.marketsItemActive : {}) }}
-                onClick={() => setOpen(false)}
-              >
-                {t(item.key)}
-              </Link>
-            );
-          })}
-        </div>
-      )}
+      {panel}
     </div>
   );
 }
@@ -509,12 +547,14 @@ const s = {
     gap: 1,
     flex: 1,
     justifyContent: "center",
-    // The "Piyasalar" dropdown keeps the inline strip down to ~6 chips, so
-    // this no longer needs to scroll at ordinary desktop widths — the
-    // overflow-x stays only as a safety net for very narrow/zoomed windows.
-    // Below 1100px the hamburger replaces this nav entirely (see index.css).
+    // The themed dropdowns keep the inline strip short enough to fit at every
+    // desktop width down to 1100px (below which the hamburger takes over), so
+    // overflow MUST stay visible — an overflow:auto here clips the open
+    // dropdown panels and spawns a stray scrollbar. The dropdown panels
+    // themselves are body-portaled, but keeping overflow visible avoids the
+    // scrollbar artefact entirely.
     flexWrap: "nowrap",
-    overflowX: "auto",
+    overflow: "visible",
     minWidth: 0,
   },
   navLink: {
@@ -558,10 +598,8 @@ const s = {
     fontFamily: "inherit",
   },
   marketsPanel: {
-    position: "absolute",
-    top: "calc(100% + 6px)",
-    left: 0,
-    minWidth: 170,
+    position: "fixed",   // coords (top/left) injected at open — body portal
+    minWidth: 180,
     padding: 6,
     borderRadius: 10,
     border: "1px solid var(--border-card)",
@@ -570,7 +608,7 @@ const s = {
     display: "flex",
     flexDirection: "column",
     gap: 2,
-    zIndex: 60,
+    zIndex: 9000,
   },
   marketsItem: {
     padding: "8px 10px",
