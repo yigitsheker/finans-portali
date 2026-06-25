@@ -7,7 +7,9 @@ import com.finansportali.backend.dto.response.portfolio.AllocationItem;
 import com.finansportali.backend.dto.response.portfolio.PortfolioPerformanceResponse;
 import com.finansportali.backend.dto.response.portfolio.PortfolioSummary;
 import com.finansportali.backend.entity.PortfolioPosition;
-import com.finansportali.backend.service.PortfolioService;
+import com.finansportali.backend.service.portfolio.PortfolioCalculationService;
+import com.finansportali.backend.service.portfolio.PortfolioPerformanceService;
+import com.finansportali.backend.service.portfolio.PortfolioPositionService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
@@ -35,7 +37,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 class PortfolioControllerTest {
 
     @Autowired private MockMvc mvc;
-    @MockitoBean private PortfolioService service;
+    @MockitoBean private PortfolioPositionService positionService;
+    @MockitoBean private PortfolioCalculationService calculationService;
+    @MockitoBean private PortfolioPerformanceService performanceService;
 
     private PortfolioPosition position(String symbol, double qty, double avgCost) {
         return new PortfolioPosition("user-1", symbol,
@@ -44,7 +48,7 @@ class PortfolioControllerTest {
 
     @Test
     void positions_returns_user_list() throws Exception {
-        when(service.list("user-1")).thenReturn(List.of(position("THYAO", 10, 100)));
+        when(positionService.list("user-1")).thenReturn(List.of(position("THYAO", 10, 100)));
 
         mvc.perform(get("/api/v1/portfolio/positions").with(jwt().jwt(j -> j.subject("user-1"))))
                 .andExpect(status().isOk())
@@ -53,7 +57,7 @@ class PortfolioControllerTest {
 
     @Test
     void summary_returns_totals() throws Exception {
-        when(service.summary("user-1")).thenReturn(new PortfolioSummary(
+        when(calculationService.summary("user-1")).thenReturn(new PortfolioSummary(
                 new BigDecimal("12345.67"), List.of()));
 
         mvc.perform(get("/api/v1/portfolio/summary").with(jwt().jwt(j -> j.subject("user-1"))))
@@ -63,7 +67,7 @@ class PortfolioControllerTest {
 
     @Test
     void allocation_returns_pct_per_symbol() throws Exception {
-        when(service.allocation("user-1")).thenReturn(List.of(
+        when(calculationService.allocation("user-1")).thenReturn(List.of(
                 new AllocationItem("THYAO", new BigDecimal("1000"), new BigDecimal("50.0"))));
 
         mvc.perform(get("/api/v1/portfolio/allocation").with(jwt().jwt(j -> j.subject("user-1"))))
@@ -73,7 +77,7 @@ class PortfolioControllerTest {
 
     @Test
     void allocation_by_type_routes_to_service() throws Exception {
-        when(service.allocationByType("user-1")).thenReturn(List.of(
+        when(calculationService.allocationByType("user-1")).thenReturn(List.of(
                 new AllocationByTypeItem("BIST", new BigDecimal("2000"), new BigDecimal("60.0"))));
 
         mvc.perform(get("/api/v1/portfolio/allocation/by-type").with(jwt().jwt(j -> j.subject("user-1"))))
@@ -90,12 +94,12 @@ class PortfolioControllerTest {
                         .content("{\"symbol\":\"THYAO\",\"quantity\":10,\"avgCost\":100}"))
                 .andExpect(status().isOk());
 
-        verify(service).upsert(org.mockito.ArgumentMatchers.eq("user-1"), any(UpsertPositionRequest.class));
+        verify(positionService).upsert(org.mockito.ArgumentMatchers.eq("user-1"), any(UpsertPositionRequest.class));
     }
 
     @Test
     void sell_returns_proceeds_envelope() throws Exception {
-        when(service.sell(org.mockito.ArgumentMatchers.eq("user-1"), any(SellPositionRequest.class)))
+        when(positionService.sell(org.mockito.ArgumentMatchers.eq("user-1"), any(SellPositionRequest.class)))
                 .thenReturn(new BigDecimal("1234.56"));
 
         mvc.perform(post("/api/v1/portfolio/positions/sell")
@@ -116,7 +120,7 @@ class PortfolioControllerTest {
                         .with(csrf()))
                 .andExpect(status().isNoContent());
 
-        verify(service).deleteBySymbol("user-1", "THYAO");
+        verify(positionService).deleteBySymbol("user-1", "THYAO");
     }
 
     @Test
@@ -126,12 +130,12 @@ class PortfolioControllerTest {
                         .with(csrf()))
                 .andExpect(status().isNoContent());
 
-        verify(service).clear("user-1");
+        verify(positionService).clear("user-1");
     }
 
     @Test
     void summary_detail_forwards_to_service() throws Exception {
-        when(service.calculatePortfolioSummaryDetail("user-1"))
+        when(calculationService.calculatePortfolioSummaryDetail("user-1"))
                 .thenReturn(new com.finansportali.backend.dto.response.portfolio.PortfolioSummaryDetail(
                         new BigDecimal("100"), new BigDecimal("110"),
                         new BigDecimal("10"), new BigDecimal("10.0"), List.of()));
@@ -142,7 +146,7 @@ class PortfolioControllerTest {
 
     @Test
     void performance_forwards_range_param() throws Exception {
-        when(service.calculatePortfolioPerformance("user-1", "1Y"))
+        when(performanceService.calculatePortfolioPerformance("user-1", "1Y"))
                 .thenReturn(new PortfolioPerformanceResponse(
                         "1Y",
                         java.time.LocalDate.now().minusYears(1),
@@ -154,6 +158,6 @@ class PortfolioControllerTest {
                         .with(jwt().jwt(j -> j.subject("user-1"))))
                 .andExpect(status().isOk());
 
-        verify(service).calculatePortfolioPerformance("user-1", "1Y");
+        verify(performanceService).calculatePortfolioPerformance("user-1", "1Y");
     }
 }

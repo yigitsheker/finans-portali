@@ -4,7 +4,9 @@ import com.finansportali.backend.entity.PortfolioPosition;
 import com.finansportali.backend.dto.request.UpsertPositionRequest;
 import com.finansportali.backend.dto.request.SellPositionRequest;
 import com.finansportali.backend.dto.response.portfolio.*;
-import com.finansportali.backend.service.PortfolioService;
+import com.finansportali.backend.service.portfolio.PortfolioCalculationService;
+import com.finansportali.backend.service.portfolio.PortfolioPerformanceService;
+import com.finansportali.backend.service.portfolio.PortfolioPositionService;
 import jakarta.validation.Valid;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -22,10 +24,16 @@ import java.util.List;
 @RequestMapping("/api/v1/portfolio")
 public class PortfolioController {
 
-    private final PortfolioService service;
+    private final PortfolioPositionService positionService;
+    private final PortfolioCalculationService calculationService;
+    private final PortfolioPerformanceService performanceService;
 
-    public PortfolioController(PortfolioService service) {
-        this.service = service;
+    public PortfolioController(PortfolioPositionService positionService,
+                              PortfolioCalculationService calculationService,
+                              PortfolioPerformanceService performanceService) {
+        this.positionService = positionService;
+        this.calculationService = calculationService;
+        this.performanceService = performanceService;
     }
 
     private String userId(Jwt jwt) {
@@ -35,38 +43,38 @@ public class PortfolioController {
     /** Lists all open positions held by the current user. */
     @GetMapping("/positions")
     public List<PortfolioPosition> positions(@AuthenticationPrincipal Jwt jwt) {
-        return service.list(userId(jwt));
+        return positionService.list(userId(jwt));
     }
 
     /** Observable buy/sell movement history (newest first) for this user. */
     @GetMapping("/transactions")
     public List<com.finansportali.backend.dto.response.PortfolioTransactionView> transactions(@AuthenticationPrincipal Jwt jwt) {
-        return service.transactions(userId(jwt));
+        return positionService.transactions(userId(jwt));
     }
 
     /** Returns aggregate totals (cost, market value, P/L) for the portfolio. */
     @GetMapping("/summary")
     public PortfolioSummary summary(@AuthenticationPrincipal Jwt jwt) {
-        return service.summary(userId(jwt));
+        return calculationService.summary(userId(jwt));
     }
 
     /** Returns the portfolio allocation broken down per symbol. */
     @GetMapping("/allocation")
     public List<AllocationItem> allocation(@AuthenticationPrincipal Jwt jwt) {
-        return service.allocation(userId(jwt));
+        return calculationService.allocation(userId(jwt));
     }
 
     /** Returns the portfolio allocation grouped by asset type. */
     @GetMapping("/allocation/by-type")
     public List<AllocationByTypeItem> allocationByType(@AuthenticationPrincipal Jwt jwt) {
-        return service.allocationByType(userId(jwt));
+        return calculationService.allocationByType(userId(jwt));
     }
 
     /** Creates a new position or buys into an existing one (averaging the cost). */
     @PostMapping("/positions")
     public ResponseEntity<Void> upsert(@AuthenticationPrincipal Jwt jwt,
                                        @Valid @RequestBody UpsertPositionRequest req) {
-        service.upsert(userId(jwt), req);
+        positionService.upsert(userId(jwt), req);
         return ResponseEntity.ok().build();
     }
 
@@ -78,7 +86,7 @@ public class PortfolioController {
     public ResponseEntity<java.util.Map<String, Object>> sell(
             @AuthenticationPrincipal Jwt jwt,
             @Valid @RequestBody SellPositionRequest req) {
-        java.math.BigDecimal proceeds = service.sell(userId(jwt), req);
+        java.math.BigDecimal proceeds = positionService.sell(userId(jwt), req);
         return ResponseEntity.ok(java.util.Map.of(
                 "symbol", req.symbol(),
                 "soldQuantity", req.quantity(),
@@ -90,21 +98,21 @@ public class PortfolioController {
     @DeleteMapping("/positions/{symbol}")
     public ResponseEntity<Void> delete(@AuthenticationPrincipal Jwt jwt,
                                        @PathVariable String symbol) {
-        service.deleteBySymbol(userId(jwt), symbol);
+        positionService.deleteBySymbol(userId(jwt), symbol);
         return ResponseEntity.noContent().build();
     }
 
     /** Removes all positions for the current user. */
     @DeleteMapping("/positions")
     public ResponseEntity<Void> clear(@AuthenticationPrincipal Jwt jwt) {
-        service.clear(userId(jwt));
+        positionService.clear(userId(jwt));
         return ResponseEntity.noContent().build();
     }
 
     /** Returns a detailed summary with per-position breakdown and computed metrics. */
     @GetMapping("/summary-detail")
     public PortfolioSummaryDetail summaryDetail(@AuthenticationPrincipal Jwt jwt) {
-        return service.calculatePortfolioSummaryDetail(userId(jwt));
+        return calculationService.calculatePortfolioSummaryDetail(userId(jwt));
     }
 
     /**
@@ -115,6 +123,6 @@ public class PortfolioController {
     public PortfolioPerformanceResponse performance(
             @AuthenticationPrincipal Jwt jwt,
             @RequestParam(defaultValue = "ALL") String range) {
-        return service.calculatePortfolioPerformance(userId(jwt), range);
+        return performanceService.calculatePortfolioPerformance(userId(jwt), range);
     }
 }

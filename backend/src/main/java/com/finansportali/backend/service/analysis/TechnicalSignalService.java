@@ -18,12 +18,12 @@ import java.util.List;
  *   HOLD  — small moves either way
  *   NEUTRAL — insufficient data
  */
-// Explicit bean name — the project already has a
-// com.finansportali.backend.service.TechnicalAnalysisService (charting),
-// and Spring's default name generator would collide on
-// "technicalAnalysisService" when both classes get scanned.
-@Service("analysisTechnicalAnalysisService")
-public class TechnicalAnalysisService {
+// Distinct class name from the charting-side
+// com.finansportali.backend.service.TechnicalAnalysisService — this one
+// derives BUY/HOLD/SELL signals for the Analiz page, so it carries the
+// default bean name "technicalSignalService" with no qualifier needed.
+@Service
+public class TechnicalSignalService {
 
     public static final String BUY = "BUY";
     public static final String SELL = "SELL";

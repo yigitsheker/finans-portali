@@ -9,62 +9,60 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 
 /**
- * Pure-math tests for the analysis-package {@link TechnicalAnalysisService}
+ * Pure-math tests for the analysis-package {@link TechnicalSignalService}
  * (signals + trend + volatility + moving-average comparison). This sibling
  * class is distinct from the chart-data TA service in
- * {@code com.finansportali.backend.service.TechnicalAnalysisService}; they
- * share a name only because Spring already disambiguates via an explicit
- * {@code @Service} bean name.
+ * {@code com.finansportali.backend.service.TechnicalAnalysisService}.
  */
-class TechnicalAnalysisServiceTest {
+class TechnicalSignalServiceTest {
 
-    private TechnicalAnalysisService ta;
+    private TechnicalSignalService ta;
 
     @BeforeEach
     void setUp() {
-        ta = new TechnicalAnalysisService();
+        ta = new TechnicalSignalService();
     }
 
     // ── shortTermSignal / longTermSignal ────────────────────────────────
 
     @Test
     void shortTermSignal_returns_NEUTRAL_when_both_null() {
-        assertThat(ta.shortTermSignal(null, null)).isEqualTo(TechnicalAnalysisService.NEUTRAL);
+        assertThat(ta.shortTermSignal(null, null)).isEqualTo(TechnicalSignalService.NEUTRAL);
     }
 
     @Test
     void shortTermSignal_returns_BUY_on_strong_weekly_uptick() {
         assertThat(ta.shortTermSignal(new BigDecimal("5"), new BigDecimal("2")))
-                .isEqualTo(TechnicalAnalysisService.BUY);
+                .isEqualTo(TechnicalSignalService.BUY);
     }
 
     @Test
     void shortTermSignal_returns_SELL_on_strong_weekly_downtick() {
         assertThat(ta.shortTermSignal(new BigDecimal("-5"), new BigDecimal("-2")))
-                .isEqualTo(TechnicalAnalysisService.SELL);
+                .isEqualTo(TechnicalSignalService.SELL);
     }
 
     @Test
     void shortTermSignal_returns_HOLD_for_flat_moves() {
         assertThat(ta.shortTermSignal(new BigDecimal("1"), new BigDecimal("1")))
-                .isEqualTo(TechnicalAnalysisService.HOLD);
+                .isEqualTo(TechnicalSignalService.HOLD);
     }
 
     @Test
     void longTermSignal_returns_NEUTRAL_when_both_null() {
-        assertThat(ta.longTermSignal(null, null)).isEqualTo(TechnicalAnalysisService.NEUTRAL);
+        assertThat(ta.longTermSignal(null, null)).isEqualTo(TechnicalSignalService.NEUTRAL);
     }
 
     @Test
     void longTermSignal_returns_BUY_on_strong_yearly_with_stable_monthly() {
         assertThat(ta.longTermSignal(new BigDecimal("0"), new BigDecimal("30")))
-                .isEqualTo(TechnicalAnalysisService.BUY);
+                .isEqualTo(TechnicalSignalService.BUY);
     }
 
     @Test
     void longTermSignal_returns_SELL_on_steep_yearly_decline() {
         assertThat(ta.longTermSignal(new BigDecimal("0"), new BigDecimal("-30")))
-                .isEqualTo(TechnicalAnalysisService.SELL);
+                .isEqualTo(TechnicalSignalService.SELL);
     }
 
     // ── trend(weekly, monthly) ──────────────────────────────────────────
@@ -161,49 +159,49 @@ class TechnicalAnalysisServiceTest {
 
     @Test
     void shortTermComposite_NEUTRAL_with_no_data() {
-        TechnicalAnalysisService.SignalResult r = ta.shortTermComposite(List.of(), null, null);
-        assertThat(r.signal()).isEqualTo(TechnicalAnalysisService.NEUTRAL);
+        TechnicalSignalService.SignalResult r = ta.shortTermComposite(List.of(), null, null);
+        assertThat(r.signal()).isEqualTo(TechnicalSignalService.NEUTRAL);
         assertThat(r.confidence()).isNull();
     }
 
     @Test
     void shortTermComposite_momentumOnly_BUY_on_strong_weekly() {
         // No price series → momentum-only path on weekly/monthly.
-        TechnicalAnalysisService.SignalResult r =
+        TechnicalSignalService.SignalResult r =
                 ta.shortTermComposite(List.of(), new BigDecimal("10"), new BigDecimal("6"));
-        assertThat(r.signal()).isEqualTo(TechnicalAnalysisService.BUY);
-        assertThat(r.confidence()).isEqualTo(TechnicalAnalysisService.CONF_HIGH);
+        assertThat(r.signal()).isEqualTo(TechnicalSignalService.BUY);
+        assertThat(r.confidence()).isEqualTo(TechnicalSignalService.CONF_HIGH);
     }
 
     @Test
     void shortTermComposite_BUY_on_rising_series() {
         // Steadily rising 60-day series → price above MAs, positive momentum.
-        TechnicalAnalysisService.SignalResult r =
+        TechnicalSignalService.SignalResult r =
                 ta.shortTermComposite(ramp(60, 100, 1), new BigDecimal("4"), new BigDecimal("12"));
-        assertThat(r.signal()).isEqualTo(TechnicalAnalysisService.BUY);
+        assertThat(r.signal()).isEqualTo(TechnicalSignalService.BUY);
         assertThat(r.confidence()).isIn(
-                TechnicalAnalysisService.CONF_MEDIUM, TechnicalAnalysisService.CONF_HIGH);
+                TechnicalSignalService.CONF_MEDIUM, TechnicalSignalService.CONF_HIGH);
     }
 
     @Test
     void longTermComposite_momentumOnly_SELL_on_steep_yearly_decline() {
-        TechnicalAnalysisService.SignalResult r =
+        TechnicalSignalService.SignalResult r =
                 ta.longTermComposite(List.of(), new BigDecimal("-5"), new BigDecimal("-50"));
-        assertThat(r.signal()).isEqualTo(TechnicalAnalysisService.SELL);
-        assertThat(r.confidence()).isEqualTo(TechnicalAnalysisService.CONF_HIGH);
+        assertThat(r.signal()).isEqualTo(TechnicalSignalService.SELL);
+        assertThat(r.confidence()).isEqualTo(TechnicalSignalService.CONF_HIGH);
     }
 
     @Test
     void longTermComposite_SELL_on_falling_series() {
-        TechnicalAnalysisService.SignalResult r =
+        TechnicalSignalService.SignalResult r =
                 ta.longTermComposite(ramp(220, 300, -1), new BigDecimal("-6"), new BigDecimal("-40"));
-        assertThat(r.signal()).isEqualTo(TechnicalAnalysisService.SELL);
+        assertThat(r.signal()).isEqualTo(TechnicalSignalService.SELL);
     }
 
     @Test
     void rsiLast_saturates_to_100_on_pure_uptrend() {
         double[] x = new double[20];
         for (int i = 0; i < x.length; i++) x[i] = 100 + i;
-        assertThat(TechnicalAnalysisService.rsiLast(x, 14)).isEqualTo(100.0);
+        assertThat(TechnicalSignalService.rsiLast(x, 14)).isEqualTo(100.0);
     }
 }

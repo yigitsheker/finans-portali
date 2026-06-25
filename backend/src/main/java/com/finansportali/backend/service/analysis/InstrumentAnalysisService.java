@@ -53,7 +53,7 @@ public class InstrumentAnalysisService {
     private final InflationService inflationService;
     private final ExchangeRateService exchangeRateService;
     private final RiskProfileService riskProfile;
-    private final TechnicalAnalysisService ta;
+    private final TechnicalSignalService ta;
 
     public InstrumentAnalysisService(MarketService marketService,
                                      MarketInstrumentRepository instrumentRepo,
@@ -62,7 +62,7 @@ public class InstrumentAnalysisService {
                                      InflationService inflationService,
                                      ExchangeRateService exchangeRateService,
                                      RiskProfileService riskProfile,
-                                     TechnicalAnalysisService ta) {
+                                     TechnicalSignalService ta) {
         this.marketService = marketService;
         this.instrumentRepo = instrumentRepo;
         this.candleRepo = candleRepo;
@@ -243,8 +243,8 @@ public class InstrumentAnalysisService {
         // Composite signal from the daily close series loaded above (trend +
         // momentum + RSI + MACD); falls back to momentum-only on the change
         // percentages when no series is available.
-        TechnicalAnalysisService.SignalResult st = ta.shortTermComposite(closes, weekly, monthly);
-        TechnicalAnalysisService.SignalResult lt = ta.longTermComposite(closes, monthly, yearly);
+        TechnicalSignalService.SignalResult st = ta.shortTermComposite(closes, weekly, monthly);
+        TechnicalSignalService.SignalResult lt = ta.longTermComposite(closes, monthly, yearly);
         dto.setShortTermSignal(st.signal());
         dto.setShortTermConfidence(st.confidence());
         dto.setLongTermSignal(lt.signal());
@@ -345,8 +345,8 @@ public class InstrumentAnalysisService {
         dto.setChangeMonthly(null);
         dto.setChangeYearly(null);
         dto.setRiskLevel(riskProfile.classify("FX", null));
-        dto.setShortTermSignal(TechnicalAnalysisService.NEUTRAL);
-        dto.setLongTermSignal(TechnicalAnalysisService.NEUTRAL);
+        dto.setShortTermSignal(TechnicalSignalService.NEUTRAL);
+        dto.setLongTermSignal(TechnicalSignalService.NEUTRAL);
         if (r.getRateDate() != null) {
             dto.setUpdatedAt(r.getRateDate().atStartOfDay(ZoneOffset.UTC).toInstant());
         }
@@ -376,8 +376,8 @@ public class InstrumentAnalysisService {
         dto.setRiskLevel(fundRisk(f));
         // Funds carry TEFAS returns but no candle history wired here, so the
         // composite engine scores them on momentum alone (returns null series).
-        TechnicalAnalysisService.SignalResult fst = ta.shortTermComposite(List.of(), f.getWeeklyReturn(), f.getMonthlyReturn());
-        TechnicalAnalysisService.SignalResult flt = ta.longTermComposite(List.of(), f.getMonthlyReturn(), f.getYearlyReturn());
+        TechnicalSignalService.SignalResult fst = ta.shortTermComposite(List.of(), f.getWeeklyReturn(), f.getMonthlyReturn());
+        TechnicalSignalService.SignalResult flt = ta.longTermComposite(List.of(), f.getMonthlyReturn(), f.getYearlyReturn());
         dto.setShortTermSignal(fst.signal());
         dto.setShortTermConfidence(fst.confidence());
         dto.setLongTermSignal(flt.signal());
@@ -420,8 +420,8 @@ public class InstrumentAnalysisService {
             dto.setChangeMonthly(p.getCpiMonthlyChange());
             dto.setChangeYearly(p.getCpiYearlyChange());
             dto.setRiskLevel(RiskProfileService.LOW);
-            dto.setShortTermSignal(TechnicalAnalysisService.NEUTRAL);
-            dto.setLongTermSignal(TechnicalAnalysisService.NEUTRAL);
+            dto.setShortTermSignal(TechnicalSignalService.NEUTRAL);
+            dto.setLongTermSignal(TechnicalSignalService.NEUTRAL);
             if (p.getPeriodDate() != null) {
                 dto.setUpdatedAt(p.getPeriodDate().atStartOfDay(ZoneOffset.UTC).toInstant());
             }

@@ -96,12 +96,3 @@ shell-postgres: ## Open PostgreSQL shell
 
 stats: ## Show container resource usage
 	docker stats
-
-prod-up: ## Start production environment
-	docker-compose -f docker-compose.prod.yml up -d
-
-prod-down: ## Stop production environment
-	docker-compose -f docker-compose.prod.yml down
-
-prod-logs: ## Show production logs
-	docker-compose -f docker-compose.prod.yml logs -f

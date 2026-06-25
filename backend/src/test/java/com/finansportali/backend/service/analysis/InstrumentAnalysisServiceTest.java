@@ -56,7 +56,7 @@ class InstrumentAnalysisServiceTest {
     @BeforeEach
     void setUp() {
         RiskProfileService risk = new RiskProfileService();
-        TechnicalAnalysisService ta = new TechnicalAnalysisService();
+        TechnicalSignalService ta = new TechnicalSignalService();
         service = new InstrumentAnalysisService(
                 marketService, instrumentRepo, candleRepo, fundService,
                 inflationService, exchangeRateService, risk, ta);
