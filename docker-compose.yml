@@ -377,8 +377,6 @@ services:
         condition: service_started
       kafka:
         condition: service_started
-      mailpit:
-        condition: service_started
       playwright-service:
         condition: service_started
     networks:
@@ -722,29 +720,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 30s
-
-  # Mailpit - Email Testing Tool (Development Only)
-  mailpit:
-    image: axllent/mailpit:latest
-    container_name: finans-mailpit
-    logging: *default-logging
-    restart: unless-stopped
-    deploy:
-      resources:
-        limits:
-          cpus: "0.25"
-          memory: 128M
-    ports:
-      - "1025:1025"  # SMTP server
-      - "8025:8025"  # Web UI
-    networks:
-      - finans-network
-    healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8025/ || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
 
 networks:
   finans-network:
