@@ -51,7 +51,6 @@ spring:
     default-encoding: UTF-8
 
 app:
-  base-url: ${APP_BASE_URL:http://localhost}
   keycloak:
     server-url: ${APP_KEYCLOAK_SERVER_URL:http://localhost:8090}
     realm: ${APP_KEYCLOAK_REALM:finans}
@@ -73,8 +72,6 @@ app:
       base-url: https://evds3.tcmb.gov.tr/igmevdsms-dis/
       evds3-jsessionid: ${TCMB_EVDS3_JSESSIONID:}
       evds3-ts-cookie: ${TCMB_EVDS3_TS_COOKIE:}
-    bist:
-      base-url: https://www.borsaistanbul.com/
   funds:
     provider: ${FUNDS_PROVIDER:TEFAS}  # TEFAS (real data source via JSON API)
     scheduler-enabled: ${FUNDS_SCHEDULER_ENABLED:true}

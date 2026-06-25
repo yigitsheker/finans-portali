@@ -75,6 +75,4 @@ public class MarketInstrument {
     public String getType() {
         return instrumentType != null ? instrumentType.name() : null;
     }
-    /** Backward compat */
-    public String getFinnhubSymbol() { return providerSymbol; }
 }
