@@ -698,18 +698,20 @@ services:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=admin
       - GF_USERS_ALLOW_SIGN_UP=false
-      # Public URL reflects the published host port. Hyper-V on Windows
-      # reserves 2954-3053 as its dynamic NAT range, which traps the
-      # default :3000 (we hit "bind: An attempt was made to access a
-      # socket in a way forbidden by its access permissions"). Moving
-      # to :3100 sidesteps the reserved range entirely.
-      - GF_SERVER_ROOT_URL=http://localhost:3100
+      # Public URL reflects the published host port. Windows/Hyper-V (WinNAT)
+      # reserves shifting dynamic port ranges; after a reboot the reserved
+      # block moved to 3048-3147, which trapped the previous :3100 (we hit
+      # "bind: An attempt was made to access a socket in a way forbidden by
+      # its access permissions"). :3300 is outside every current reserved
+      # range — check `netsh interface ipv4 show excludedportrange protocol=tcp`
+      # if this ever recurs.
+      - GF_SERVER_ROOT_URL=http://localhost:3300
       - GF_INSTALL_PLUGINS=grafana-piechart-panel
     volumes:
       - grafana_data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
     ports:
-      - "3100:3000"
+      - "3300:3000"
     depends_on:
       - prometheus
     networks:
