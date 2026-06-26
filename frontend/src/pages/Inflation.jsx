@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo, useCallback, useRef } from "react";
-import { IconAlertTriangle, IconRefresh, IconBarChart } from "../components/common/icons";
+import { IconAlertTriangle, IconRefresh, IconBarChart, IconLandmark } from "../components/common/icons";
 import PropTypes from "prop-types";
 import { getInflationHistory } from "../api/inflationApi";
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
@@ -101,7 +101,9 @@ export default function Inflation() {
         style={{ ...s.countryBtn, ...(tab === "deposit" ? s.countryBtnActive : {}) }}
         onClick={() => setTab("deposit")}
       >
-        💰 {t("inflation.tabDeposit")}
+        <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+          <IconLandmark size={15} />{t("inflation.tabDeposit")}
+        </span>
       </button>
     </div>
   );
