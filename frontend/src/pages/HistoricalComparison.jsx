@@ -94,6 +94,17 @@ export default function HistoricalComparison({ keycloak }) {
     [instruments],
   );
 
+  // Buy dates of the currently plotted positions — marked on the chart so the
+  // step-up at each one reads as "position added" (capital injection), not a
+  // natural rise. Focus mode narrows to the single focused position.
+  const perfMarkerDates = useMemo(() => {
+    const active = focusPosition ? [focusPosition] : positions;
+    const dates = active
+      .map((p) => (p.buyDate ? String(p.buyDate).slice(0, 10) : null))
+      .filter(Boolean);
+    return [...new Set(dates)];
+  }, [positions, focusPosition]);
+
   useEffect(() => {
     getMarketSummary().then(setInstruments).catch(() => {});
 
@@ -681,11 +692,20 @@ export default function HistoricalComparison({ keycloak }) {
           {perfLoading ? (
             <div style={s.perfMsg}>{t("common.loadingDots")}</div>
           ) : perfSeries.length >= 2 ? (
-            <PortfolioAreaChart
-              data={perfSeries}
-              height={240}
-              positive={focusPosition ? focusPosition.currentPrice >= focusPosition.buyPrice : totals.change >= 0}
-            />
+            <>
+              <PortfolioAreaChart
+                data={perfSeries}
+                height={240}
+                positive={focusPosition ? focusPosition.currentPrice >= focusPosition.buyPrice : totals.change >= 0}
+                markerDates={perfMarkerDates}
+              />
+              {perfMarkerDates.length > 0 && (
+                <div style={s.markerNote}>
+                  <span style={{ color: "#f59e0b", fontWeight: 700 }}>↑ Ekleme</span> işaretli noktalar yeni
+                  pozisyon eklendiğini gösterir — bu yükseliş grafiğin doğal hareketi değil, portföye eklenen sermayedir.
+                </div>
+              )}
+            </>
           ) : (
             <div style={s.perfMsg}>{t("historical.perfEmpty")}</div>
           )}
@@ -1063,6 +1083,7 @@ const s = {
   pnlToggleBtn: { padding: "5px 12px", border: "none", background: "transparent", color: "var(--text-muted)", fontSize: 12, fontWeight: 600, cursor: "pointer", borderRadius: 4 },
   pnlToggleActive: { background: "var(--accent-solid, #3b82f6)", color: "#fff" },
   perfMsg: { height: 240, display: "grid", placeItems: "center", color: "var(--text-muted)", fontSize: 13 },
+  markerNote: { marginTop: 10, fontSize: 12, lineHeight: 1.5, color: "var(--text-secondary)", background: "var(--bg-panel)", border: "1px solid var(--border-card)", borderRadius: 8, padding: "8px 12px" },
   empty: { display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", padding: "48px 20px", textAlign: "center" },
   tableWrap: { overflowX: "auto" },
   table: { width: "100%", borderCollapse: "collapse" },

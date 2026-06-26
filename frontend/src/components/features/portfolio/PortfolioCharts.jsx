@@ -55,6 +55,7 @@ export function PortfolioCharts({
   allocView,
   setAllocView,
   allocData,
+  markerDates = [],
 }) {
   // Which allocation slice is shown in the donut centre. null → default to the
   // largest. Clicking a slice or a legend row selects it. Reset when the
@@ -95,7 +96,15 @@ export function PortfolioCharts({
               Performans verileri yükleniyor...
             </div>
           ) : perfData.length >= 2 ? (
-            <PortfolioAreaChart data={perfData} isIntraday={perfResponse?.granularity === "INTRADAY"} height={200} />
+            <>
+              <PortfolioAreaChart data={perfData} isIntraday={perfResponse?.granularity === "INTRADAY"} height={200} markerDates={markerDates} />
+              {markerDates.length > 0 && (
+                <div style={s.markerNote}>
+                  <span style={{ color: "#f59e0b", fontWeight: 700 }}>↑ Ekleme</span> işaretli noktalar yeni
+                  pozisyon eklendiğini gösterir — bu yükseliş grafiğin doğal hareketi değil, portföye eklenen sermayedir.
+                </div>
+              )}
+            </>
           ) : perfData.length === 1 ? (
             <div style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", height: 200, color: "var(--text-muted)", fontSize: 13, gap: 8 }}>
               <IconBarChart size={28} />

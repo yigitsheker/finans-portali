@@ -5,7 +5,17 @@ import {
   CrosshairMode,
   AreaSeries,
   TickMarkType,
+  createSeriesMarkers,
 } from "lightweight-charts";
+
+// A normalized series time is either a 'YYYY-MM-DD' string (daily) or a unix
+// timestamp number (intraday). Reduce either to a 'YYYY-MM-DD' day string so a
+// buy date can be matched against the series points.
+function pointDayStr(time) {
+  if (typeof time === "number") return new Date(time * 1000).toISOString().slice(0, 10);
+  if (typeof time === "string") return time.slice(0, 10);
+  return "";
+}
 
 // Lightweight-charts may invoke formatters with UTCTimestamp (number),
 // BusinessDay ({year,month,day}), or a 'YYYY-MM-DD' string.
@@ -22,10 +32,14 @@ function toDate(time) {
   return new Date(Number.NaN);
 }
 
-export function PortfolioAreaChart({ data, isIntraday = false, height = 200, positive = null }) {
+export function PortfolioAreaChart({ data, isIntraday = false, height = 200, positive = null, markerDates = [] }) {
   const containerRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
+  const markersRef = useRef(null);
+  // Joined into a primitive so the data effect's dep array compares by value,
+  // not array identity (the parent rebuilds the array each render).
+  const markerKey = (markerDates || []).join(",");
 
   // Determine chart color: prefer the caller-supplied P/L sign (based on real
   // buy price vs current price), since the first/last series values reflect
@@ -124,6 +138,9 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200, pos
 
     chartRef.current = chart;
     seriesRef.current = series;
+    // Markers primitive lives on the series — recreated alongside it. Capital
+    // -injection markers (buy dates) are pushed in the data effect below.
+    markersRef.current = createSeriesMarkers(series, []);
 
     // ResizeObserver for responsive sizing
     const ro = new ResizeObserver((entries) => {
@@ -137,6 +154,7 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200, pos
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
+      markersRef.current = null;
     };
   }, [isIntraday, height]); // recreate only when mode changes
 
@@ -163,8 +181,38 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200, pos
 
     seriesRef.current.applyOptions({ lineColor: lc, topColor: tc, bottomColor: bc });
     seriesRef.current.setData(normalized);
+
+    // Capital-injection markers: an upward arrow on each buy date so the user
+    // sees the jump is a new position being added, not a natural price move.
+    // Each buy date snaps to the first series point on/after it; dates outside
+    // the visible window are skipped, and duplicates on the same point merge.
+    if (markersRef.current) {
+      const dayStrs = normalized.map((p) => pointDayStr(p.time));
+      const firstDay = dayStrs[0];
+      const lastDay = dayStrs[dayStrs.length - 1];
+      const seen = new Set();
+      const built = [];
+      for (const raw of (markerDates || [])) {
+        const md = String(raw || "").slice(0, 10);
+        if (!md || md < firstDay || md > lastDay) continue;
+        const idx = dayStrs.findIndex((ds) => ds >= md);
+        if (idx < 0 || seen.has(idx)) continue;
+        seen.add(idx);
+        built.push({
+          idx,
+          time: normalized[idx].time,
+          position: "belowBar",
+          color: "#f59e0b",
+          shape: "arrowUp",
+          text: "Ekleme",
+        });
+      }
+      built.sort((a, b) => a.idx - b.idx); // markers must be time-ascending
+      markersRef.current.setMarkers(built.map(({ idx, ...m }) => m));
+    }
+
     chartRef.current.timeScale().fitContent();
-  }, [data, positive]);
+  }, [data, positive, markerKey]);
 
   return (
     <div

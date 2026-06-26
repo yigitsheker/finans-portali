@@ -206,6 +206,16 @@ export function usePortfolioPage(keycloak) {
     return { totalValue, totalCost, totalGain, totalGainPct, count: items.length };
   }, [summaryDetail, items, prices, marketData]);
 
+  // Buy dates of the open positions — used to mark capital-injection points on
+  // the performance chart (each new position bumps total value, which would
+  // otherwise read as a natural rise).
+  const perfMarkerDates = useMemo(() => {
+    const dates = items
+      .map((p) => (p.purchaseDate ? String(p.purchaseDate).slice(0, 10) : null))
+      .filter(Boolean);
+    return [...new Set(dates)];
+  }, [items]);
+
   const perfData = useMemo(() => {
     if (!perfResponse || perfResponse.points.length === 0) return [];
 
@@ -480,6 +490,7 @@ export function usePortfolioPage(keycloak) {
     setSellQty,
     stats,
     perfData,
+    perfMarkerDates,
     allocData,
     openAddModal,
     closeAddModal,

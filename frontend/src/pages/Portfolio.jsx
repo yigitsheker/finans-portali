@@ -140,6 +140,7 @@ export default function Portfolio({ keycloak }) {
             allocView={portfolio.allocView}
             setAllocView={portfolio.setAllocView}
             allocData={portfolio.allocData}
+            markerDates={portfolio.perfMarkerDates}
           />
         </>
       )}
