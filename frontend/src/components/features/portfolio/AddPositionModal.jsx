@@ -57,7 +57,9 @@ export function AddPositionModal({
   if (priceLoading) {
     currentPriceDisplay = "Yukleniyor...";
   } else if (price > 0) {
-    currentPriceDisplay = price.toLocaleString("tr-TR");
+    // Prefix with the instrument's own currency symbol so it's clear AAPL is
+    // quoted in $ while THYAO is in ₺ (the price itself is always native).
+    currentPriceDisplay = curSym(nativeCurrency) + price.toLocaleString("tr-TR");
   } else {
     currentPriceDisplay = "-";
   }
@@ -195,7 +197,7 @@ export function AddPositionModal({
                 justifyContent: "space-between",
                 alignItems: "center",
               }}>
-                <span><IconBarChart size={14} style={{ verticalAlign: "-2px", marginRight: 6 }} />Alınacak miktar:</span>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><IconBarChart size={14} />Alınacak miktar:</span>
                 <span style={{ fontWeight: 700, color: "var(--text-primary)", fontSize: 15 }}>
                   {effectiveQty > 0 ? effectiveQty.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) + " adet" : "—"}
                 </span>

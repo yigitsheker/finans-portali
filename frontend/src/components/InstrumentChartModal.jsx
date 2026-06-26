@@ -439,7 +439,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                     }}
                     title={keycloak?.authenticated ? "Detaylı grafik" : "Detaylı grafik için giriş yapın"}
                 >
-                    {keycloak?.authenticated ? "Detaylı Grafik →" : <><IconLock size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />Detaylı Grafik</>}
+                    {keycloak?.authenticated ? "Detaylı Grafik →" : <><IconLock size={13} />Detaylı Grafik</>}
                 </button>
             </div>
 
@@ -510,12 +510,15 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                                     <span style={s.footerDot}>·</span>
                                     <span
                                         style={{
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: 4,
                                             color: "var(--amber)",
                                             fontWeight: 600,
                                         }}
                                         title="Çevrimdışı veri — önbellekteki son görüntü gösteriliyor. Bağlantı geri gelince otomatik yenilenir."
                                     >
-                                        <IconRadio size={13} style={{ verticalAlign: "-2px", marginRight: 4 }} />Önbellekten
+                                        <IconRadio size={13} />Önbellekten
                                     </span>
                                 </>
                             )}
@@ -683,6 +686,10 @@ const s = {
         border: "1px solid var(--accent-solid)",
     },
     detailedChartBtn: {
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        gap: 4,
         padding: "8px 14px",
         borderRadius: 8,
         border: "1px solid var(--accent-border)",
