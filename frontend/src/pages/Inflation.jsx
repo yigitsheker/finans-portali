@@ -14,6 +14,7 @@ export default function Inflation() {
   const [error, setError] = useState(null);
   const [view, setView] = useState("yearly"); // "yearly" | "monthly"
   const [country, setCountry] = useState("TR"); // "TR" | "US"
+  const [tab, setTab] = useState("inflation");  // "inflation" | "deposit"
   const [selYear, setSelYear] = useState(null);    // month-lookup: selected year
   const [selMonth, setSelMonth] = useState(null);  // month-lookup: selected month "MM"
   const [tableRange, setTableRange] = useState("24"); // "24" | "all"
@@ -75,6 +76,47 @@ export default function Inflation() {
       cumulative5y,
     };
   }, [rows]);
+
+  // Top tab strip — TR / ABD enflasyonu + Mevduat Faizi. Shared between the
+  // deposit view (below) and the main inflation view so the deposit tab is
+  // always reachable from the top instead of being buried at page bottom.
+  const tabBar = (
+    <div style={s.countryToggle}>
+      <button
+        type="button"
+        style={{ ...s.countryBtn, ...(tab === "inflation" && country === "TR" ? s.countryBtnActive : {}) }}
+        onClick={() => { setTab("inflation"); setCountry("TR"); }}
+      >
+        🇹🇷 {t("inflation.countryTR")}
+      </button>
+      <button
+        type="button"
+        style={{ ...s.countryBtn, ...(tab === "inflation" && country === "US" ? s.countryBtnActive : {}) }}
+        onClick={() => { setTab("inflation"); setCountry("US"); }}
+      >
+        🇺🇸 {t("inflation.countryUS")}
+      </button>
+      <button
+        type="button"
+        style={{ ...s.countryBtn, ...(tab === "deposit" ? s.countryBtnActive : {}) }}
+        onClick={() => setTab("deposit")}
+      >
+        💰 {t("inflation.tabDeposit")}
+      </button>
+    </div>
+  );
+
+  // Deposit-rates view is independent of the inflation data load, so it short
+  // -circuits before the inflation loading/error/empty guards below.
+  if (tab === "deposit") {
+    return (
+      <div style={s.root}>
+        <h1 style={s.pageTitle}>{t("nav.inflation")} <TermInfo termKey="cpi" placement="bottom" /></h1>
+        {tabBar}
+        <DepositRatesCard />
+      </div>
+    );
+  }
 
   if (loading) {
     return (
@@ -151,23 +193,8 @@ export default function Inflation() {
 
       <DataFreshnessHeader asOf={asOf} onRefresh={load} refreshing={loading} />
 
-      {/* Country selector — TCMB (TR) vs FRED (US) */}
-      <div style={s.countryToggle}>
-        <button
-          type="button"
-          style={{ ...s.countryBtn, ...(country === "TR" ? s.countryBtnActive : {}) }}
-          onClick={() => setCountry("TR")}
-        >
-          🇹🇷 {t("inflation.countryTR")}
-        </button>
-        <button
-          type="button"
-          style={{ ...s.countryBtn, ...(country === "US" ? s.countryBtnActive : {}) }}
-          onClick={() => setCountry("US")}
-        >
-          🇺🇸 {t("inflation.countryUS")}
-        </button>
-      </div>
+      {/* TR / ABD enflasyonu + Mevduat Faizi sekmeleri */}
+      {tabBar}
 
       {/* Summary cards */}
       <div style={s.summaryGrid}>
@@ -325,11 +352,6 @@ export default function Inflation() {
           </table>
         </div>
       </div>
-
-      {/* Mevduat faizi (TCMB EVDS3) — enflasyonla yan yana en anlamlı yer:
-          nominal faiz vs enflasyon = reel getiri. Türk banka oranları olduğu
-          için yalnızca TR görünümünde gösterilir. */}
-      {country === "TR" && <DepositRatesCard />}
     </div>
   );
 }
