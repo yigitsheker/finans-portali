@@ -6,6 +6,7 @@ import {
   AreaSeries,
   TickMarkType,
 } from "lightweight-charts";
+import { useTheme } from "../../contexts/ThemeContext";
 
 // A normalized series time is either a 'YYYY-MM-DD' string (daily) or a unix
 // timestamp number (intraday). Reduce either to a 'YYYY-MM-DD' day string so a
@@ -32,6 +33,15 @@ function toDate(time) {
 }
 
 export function PortfolioAreaChart({ data, isIntraday = false, height = 200, positive = null, markerDates = [] }) {
+  const { theme } = useTheme();
+  const isLight = theme === "light";
+  // Theme-aware chrome palette. Grid was a fixed dark-gray at 0.5 alpha — fine
+  // on the dark surface but heavy/boxy on white. Light mode now uses a very
+  // faint ink grid, a softer axis text and a subtle scale border.
+  const gridColor   = isLight ? "rgba(15,23,42,0.06)"  : "rgba(255,255,255,0.05)";
+  const axisText    = isLight ? "#64748b"              : "#7d8590";
+  const borderColor = isLight ? "rgba(15,23,42,0.12)"  : "rgba(48,54,61,0.6)";
+
   const containerRef = useRef(null);
   const overlayRef = useRef(null);
   const chartRef = useRef(null);
@@ -95,14 +105,14 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200, pos
     const chart = createChart(containerRef.current, {
       layout: {
         background: { type: ColorType.Solid, color: "transparent" },
-        textColor: "#7d8590",
+        textColor: axisText,
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
         fontSize: 11,
         attributionLogo: false,
       },
       grid: {
-        vertLines: { color: "rgba(48,54,61,0.5)" },
-        horzLines: { color: "rgba(48,54,61,0.5)" },
+        vertLines: { color: gridColor },
+        horzLines: { color: gridColor },
       },
       crosshair: {
         mode: CrosshairMode.Magnet,
@@ -120,11 +130,11 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200, pos
         },
       },
       rightPriceScale: {
-        borderColor: "rgba(48,54,61,0.6)",
+        borderColor,
         scaleMargins: { top: 0.1, bottom: 0.1 },
       },
       timeScale: {
-        borderColor: "rgba(48,54,61,0.6)",
+        borderColor,
         timeVisible: isIntraday,
         secondsVisible: false,
         tickMarkFormatter: isIntraday
@@ -198,7 +208,7 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200, pos
       chartRef.current = null;
       seriesRef.current = null;
     };
-  }, [isIntraday, height, renderMarkers]); // recreate only when mode changes
+  }, [isIntraday, height, renderMarkers, gridColor, axisText, borderColor]); // recreate on mode/theme change
 
   // Update data and colors when data changes
   useEffect(() => {
