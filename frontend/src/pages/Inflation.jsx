@@ -3,6 +3,7 @@ import { IconAlertTriangle, IconRefresh, IconBarChart } from "../components/comm
 import PropTypes from "prop-types";
 import { getInflationHistory } from "../api/inflationApi";
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
+import DepositRatesCard from "../components/DepositRatesCard";
 import TermInfo from "../components/common/TermInfo";
 import { useI18n } from "../contexts/I18nContext";
 
@@ -324,6 +325,11 @@ export default function Inflation() {
           </table>
         </div>
       </div>
+
+      {/* Mevduat faizi (TCMB EVDS3) — enflasyonla yan yana en anlamlı yer:
+          nominal faiz vs enflasyon = reel getiri. Türk banka oranları olduğu
+          için yalnızca TR görünümünde gösterilir. */}
+      {country === "TR" && <DepositRatesCard />}
     </div>
   );
 }

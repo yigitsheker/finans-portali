@@ -10,7 +10,6 @@ import BondDetailModal from "../components/BondDetailModal";
 import BondBuyModal from "../components/bond/BondBuyModal";
 import BondPositionsTable from "../components/bond/BondPositionsTable";
 import SimulationDisclaimer from "../components/SimulationDisclaimer";
-import DepositRatesCard from "../components/DepositRatesCard";
 import DataFreshnessHeader from "../components/common/DataFreshnessHeader";
 import TermInfo from "../components/common/TermInfo";
 import { useI18n } from "../contexts/I18nContext";
@@ -207,9 +206,6 @@ export default function Bonds({ keycloak, onAdded }) {
             <div style={s.disclaimer}>
                 <strong>{t("bonds.noteLabel")}</strong> {t("bonds.noteBody")}
             </div>
-
-            {/* Mevduat Faizi (TCMB EVDS3) — tahvil veriliğinin doğal komşusu */}
-            <DepositRatesCard />
 
             {/* Summary Cards */}
             {summary && (
