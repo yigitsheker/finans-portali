@@ -1,11 +1,10 @@
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import {
   createChart,
   ColorType,
   CrosshairMode,
   AreaSeries,
   TickMarkType,
-  createSeriesMarkers,
 } from "lightweight-charts";
 
 // A normalized series time is either a 'YYYY-MM-DD' string (daily) or a unix
@@ -34,12 +33,52 @@ function toDate(time) {
 
 export function PortfolioAreaChart({ data, isIntraday = false, height = 200, positive = null, markerDates = [] }) {
   const containerRef = useRef(null);
+  const overlayRef = useRef(null);
   const chartRef = useRef(null);
   const seriesRef = useRef(null);
-  const markersRef = useRef(null);
+  // Snapped series-time values for each buy date — read by the overlay
+  // renderer so it can reposition the badges on pan/zoom/resize.
+  const markerTimesRef = useRef([]);
   // Joined into a primitive so the data effect's dep array compares by value,
   // not array identity (the parent rebuilds the array each render).
   const markerKey = (markerDates || []).join(",");
+
+  // Draw capital-injection markers as an HTML overlay (a dashed vertical guide
+  // + a solid pill label) instead of lightweight-charts' built-in series
+  // markers, which are small and can't be styled enough to stay legible over
+  // the coloured area fill. Positions are derived from the chart's time scale
+  // so they track panning/zooming/resizing.
+  const renderMarkers = useCallback(() => {
+    const overlay = overlayRef.current;
+    const chart = chartRef.current;
+    if (!overlay || !chart) return;
+    overlay.replaceChildren();
+    const ts = chart.timeScale();
+    for (const time of markerTimesRef.current) {
+      const x = ts.timeToCoordinate(time);
+      if (x == null) continue;
+
+      const line = document.createElement("div");
+      Object.assign(line.style, {
+        position: "absolute", top: "20px", bottom: "0", left: `${x}px`,
+        width: "0", borderLeft: "1px dashed rgba(245,158,11,0.75)",
+        transform: "translateX(-0.5px)", pointerEvents: "none",
+      });
+      overlay.appendChild(line);
+
+      const pill = document.createElement("div");
+      pill.textContent = "↑ Ekleme";
+      Object.assign(pill.style, {
+        position: "absolute", top: "2px", left: `${x}px`,
+        transform: "translateX(-50%)",
+        background: "#f59e0b", color: "#1b1f23",
+        fontSize: "10px", fontWeight: "700", lineHeight: "1",
+        padding: "3px 7px", borderRadius: "10px", whiteSpace: "nowrap",
+        boxShadow: "0 1px 4px rgba(0,0,0,0.25)", pointerEvents: "none",
+      });
+      overlay.appendChild(pill);
+    }
+  }, []);
 
   // Determine chart color: prefer the caller-supplied P/L sign (based on real
   // buy price vs current price), since the first/last series values reflect
@@ -138,25 +177,28 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200, pos
 
     chartRef.current = chart;
     seriesRef.current = series;
-    // Markers primitive lives on the series — recreated alongside it. Capital
-    // -injection markers (buy dates) are pushed in the data effect below.
-    markersRef.current = createSeriesMarkers(series, []);
+
+    // Reposition the HTML marker overlay whenever the visible range shifts
+    // (pan/zoom) so the badges stay glued to their buy dates.
+    const ts = chart.timeScale();
+    ts.subscribeVisibleLogicalRangeChange(renderMarkers);
 
     // ResizeObserver for responsive sizing
     const ro = new ResizeObserver((entries) => {
       const { width } = entries[0].contentRect;
       chart.applyOptions({ width });
+      renderMarkers();
     });
     ro.observe(containerRef.current);
 
     return () => {
+      ts.unsubscribeVisibleLogicalRangeChange(renderMarkers);
       ro.disconnect();
       chart.remove();
       chartRef.current = null;
       seriesRef.current = null;
-      markersRef.current = null;
     };
-  }, [isIntraday, height]); // recreate only when mode changes
+  }, [isIntraday, height, renderMarkers]); // recreate only when mode changes
 
   // Update data and colors when data changes
   useEffect(() => {
@@ -182,42 +224,38 @@ export function PortfolioAreaChart({ data, isIntraday = false, height = 200, pos
     seriesRef.current.applyOptions({ lineColor: lc, topColor: tc, bottomColor: bc });
     seriesRef.current.setData(normalized);
 
-    // Capital-injection markers: an upward arrow on each buy date so the user
-    // sees the jump is a new position being added, not a natural price move.
-    // Each buy date snaps to the first series point on/after it; dates outside
-    // the visible window are skipped, and duplicates on the same point merge.
-    if (markersRef.current) {
-      const dayStrs = normalized.map((p) => pointDayStr(p.time));
-      const firstDay = dayStrs[0];
-      const lastDay = dayStrs[dayStrs.length - 1];
-      const seen = new Set();
-      const built = [];
-      for (const raw of (markerDates || [])) {
-        const md = String(raw || "").slice(0, 10);
-        if (!md || md < firstDay || md > lastDay) continue;
-        const idx = dayStrs.findIndex((ds) => ds >= md);
-        if (idx < 0 || seen.has(idx)) continue;
-        seen.add(idx);
-        built.push({
-          idx,
-          time: normalized[idx].time,
-          position: "belowBar",
-          color: "#f59e0b",
-          shape: "arrowUp",
-          text: "Ekleme",
-        });
-      }
-      built.sort((a, b) => a.idx - b.idx); // markers must be time-ascending
-      markersRef.current.setMarkers(built.map(({ idx, ...m }) => m));
+    // Snap each buy date to the first series point on/after it; skip dates
+    // outside the visible window and merge duplicates landing on the same point.
+    const dayStrs = normalized.map((p) => pointDayStr(p.time));
+    const firstDay = dayStrs[0];
+    const lastDay = dayStrs[dayStrs.length - 1];
+    const seen = new Set();
+    const times = [];
+    for (const raw of (markerDates || [])) {
+      const md = String(raw || "").slice(0, 10);
+      if (!md || md < firstDay || md > lastDay) continue;
+      const idx = dayStrs.findIndex((ds) => ds >= md);
+      if (idx < 0 || seen.has(idx)) continue;
+      seen.add(idx);
+      times.push(normalized[idx].time);
     }
+    markerTimesRef.current = times;
 
     chartRef.current.timeScale().fitContent();
-  }, [data, positive, markerKey]);
+    // fitContent reflows the time scale; defer the overlay draw a frame so
+    // timeToCoordinate returns final positions.
+    requestAnimationFrame(renderMarkers);
+  }, [data, positive, markerKey, renderMarkers]);
 
   return (
-    <div
-      ref={containerRef}
-      style={{ width: "100%", height }}
-    />
+    <div style={{ position: "relative", width: "100%", height }}>
+      <div ref={containerRef} style={{ width: "100%", height }} />
+      {/* Capital-injection marker overlay — positioned children are placed by
+          renderMarkers() using the chart's time scale. */}
+      <div
+        ref={overlayRef}
+        style={{ position: "absolute", inset: 0, overflow: "hidden", pointerEvents: "none" }}
+      />
+    </div>
   );
 }
