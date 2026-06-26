@@ -10,6 +10,7 @@ import {
   upsertPosition,
 } from "../api/portfolioApi";
 import notify from "../utils/notify";
+import { nativeCurrencyOf } from "../contexts/CurrencyDisplayContext";
 
 export function usePortfolioPage(keycloak) {
   const [items, setItems] = useState([]);
@@ -29,6 +30,10 @@ export function usePortfolioPage(keycloak) {
   // lot count is derived as floor(amount / price). Reset on every open.
   const [addInputMode, setAddInputMode] = useState("quantity");
   const [addAmount, setAddAmount] = useState(0);
+  // Currency the budget ("Tutar") is typed in — independent of the instrument's
+  // native pricing currency, so a user can spend e.g. ₺10.000 on a USD-priced
+  // stock like AAPL. Defaults to TRY (home currency); user can switch to USD.
+  const [addAmountCurrency, setAddAmountCurrency] = useState("TRY");
   const [addPriceLoading, setAddPriceLoading] = useState(false);
   const [addSaving, setAddSaving] = useState(false);
   const [importing, setImporting] = useState(false);
@@ -237,19 +242,44 @@ export function usePortfolioPage(keycloak) {
     );
   }, [addSymbol, instruments]);
 
-  // In "amount" mode, the effective lot count is derived from the budget;
-  // in "quantity" mode it's whatever the user typed. The save handler reads
-  // this value (not addQty) so the two paths stay consistent. Non-crypto is
-  // floored to whole lots; crypto keeps fractional units (backend NUMERIC(19,6)).
+  // Spot USDTRY used to convert a budget typed in one currency into the
+  // instrument's native pricing currency (e.g. ₺10.000 → USD for AAPL).
+  const usdRate = useMemo(() => {
+    const usdtry = marketData.find((item) => item.symbol === "USDTRY");
+    return usdtry?.last ?? 35.0;
+  }, [marketData]);
+
+  // Native pricing currency of the typed symbol ("TRY" | "USD"): BIST/funds are
+  // TRY, US stocks/crypto are USD. Drives the budget→native conversion below.
+  const addNativeCurrency = useMemo(() => {
+    const sym = String(addSymbol || "").trim().toUpperCase();
+    const inst = instruments.find((i) => String(i.symbol).toUpperCase() === sym);
+    return nativeCurrencyOf(inst?.type, sym);
+  }, [addSymbol, instruments]);
+
+  // Budget converted into the instrument's native currency, so it can be
+  // divided by the (native) price. Same currency → passthrough; otherwise
+  // convert via spot USDTRY.
+  const addAmountInNative = useMemo(() => {
+    const amt = Number(addAmount) || 0;
+    if (amt <= 0) return 0;
+    if (addAmountCurrency === addNativeCurrency) return amt;
+    return addAmountCurrency === "TRY" ? amt / usdRate : amt * usdRate;
+  }, [addAmount, addAmountCurrency, addNativeCurrency, usdRate]);
+
+  // In "amount" mode, the effective lot count is derived from the (converted)
+  // budget; in "quantity" mode it's whatever the user typed. The save handler
+  // reads this value (not addQty) so the two paths stay consistent. Non-crypto
+  // is floored to whole lots; crypto keeps fractional units (NUMERIC(19,6)).
   const addEffectiveQty = useMemo(() => {
     if (addInputMode === "amount") {
-      if (!addAmount || !addPrice || addAmount <= 0 || addPrice <= 0) return 0;
-      const units = Number(addAmount) / Number(addPrice);
+      if (!addAmountInNative || !addPrice || addAmountInNative <= 0 || addPrice <= 0) return 0;
+      const units = addAmountInNative / Number(addPrice);
       return addIsCrypto ? Number(units.toFixed(6)) : Math.floor(units);
     }
     const raw = Number(addQty) || 0;
     return addIsCrypto ? raw : Math.floor(raw);
-  }, [addInputMode, addAmount, addPrice, addQty, addIsCrypto]);
+  }, [addInputMode, addAmountInNative, addPrice, addQty, addIsCrypto]);
 
   const addTotal = useMemo(() => {
     const qty = addEffectiveQty;
@@ -260,9 +290,15 @@ export function usePortfolioPage(keycloak) {
   // count rounded down (e.g. ₺1000 budget at ₺137/lot → 7 lots, ₺41 leftover).
   const addAmountLeftover = useMemo(() => {
     if (addInputMode !== "amount") return 0;
-    if (!addAmount || !addPrice || addEffectiveQty <= 0) return Number(addAmount) || 0;
-    return Number(addAmount) - addEffectiveQty * Number(addPrice);
-  }, [addInputMode, addAmount, addPrice, addEffectiveQty]);
+    const amt = Number(addAmount) || 0;
+    if (!amt || !addPrice || addEffectiveQty <= 0) return amt;
+    // What we actually spend (native) expressed back in the chosen currency.
+    const spentNative = addEffectiveQty * Number(addPrice);
+    let spentChosen;
+    if (addAmountCurrency === addNativeCurrency) spentChosen = spentNative;
+    else spentChosen = addAmountCurrency === "TRY" ? spentNative * usdRate : spentNative / usdRate;
+    return amt - spentChosen;
+  }, [addInputMode, addAmount, addPrice, addEffectiveQty, addAmountCurrency, addNativeCurrency, usdRate]);
 
   const sellCurrentPrice = sellTarget ? (prices[sellTarget.symbol] ?? Number(sellTarget.avgCost ?? 0)) : 0;
   const sellProceeds = sellCurrentPrice * Number(sellQty);
@@ -280,6 +316,7 @@ export function usePortfolioPage(keycloak) {
     setAddPrice(0);
     setAddInputMode("quantity");
     setAddAmount(0);
+    setAddAmountCurrency("TRY");
     setErr(null);
     setAddOpen(true);
   }, []);
@@ -420,6 +457,8 @@ export function usePortfolioPage(keycloak) {
     addTotal,
     addInputMode,
     addAmount,
+    addAmountCurrency,
+    addNativeCurrency,
     addEffectiveQty,
     addIsCrypto,
     addAmountLeftover,
@@ -429,6 +468,7 @@ export function usePortfolioPage(keycloak) {
     setAddQty,
     setAddInputMode,
     setAddAmount,
+    setAddAmountCurrency,
     setShowSugg,
     sellOpen,
     sellTarget,

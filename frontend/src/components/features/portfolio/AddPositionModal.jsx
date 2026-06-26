@@ -27,9 +27,16 @@ export function AddPositionModal({
   amountLeftover = 0,
   setInputMode = () => {},
   setAmount = () => {},
+  // Budget currency selector — lets the user enter the "Tutar" in TRY or USD
+  // regardless of the instrument's native pricing currency (e.g. ₺10.000 of
+  // AAPL). nativeCurrency is the instrument's own currency, shown on the total.
+  amountCurrency = "TRY",
+  setAmountCurrency = () => {},
+  nativeCurrency = "TRY",
   // Crypto allows fractional lots (e.g. 0.1 BTC); everything else is whole lots.
   isCrypto = false,
 }) {
+  const curSym = (c) => (c === "USD" ? "$" : "₺");
   // Stable per-instance IDs so <label htmlFor> can target each <input>
   // (Sonar S6819 — accessibility: every form control needs a programmatic
   // label association). useId is the React-blessed way to avoid clashes
@@ -136,7 +143,7 @@ export function AddPositionModal({
         ) : (
           <>
             <div style={{ display: "grid", gap: 6 }}>
-              <label htmlFor={ids.amount} style={s.label}>Tutar</label>
+              <label htmlFor={ids.amount} style={s.label}>Tutar ({curSym(amountCurrency)})</label>
               <input
                 id={ids.amount}
                 type="number"
@@ -147,6 +154,30 @@ export function AddPositionModal({
                 placeholder="örn. 5000"
                 style={s.input}
               />
+              {/* Budget currency: TRY/USD, independent of the instrument's
+                  native pricing currency. */}
+              <div style={{ display: "flex", gap: 4 }}>
+                {["TRY", "USD"].map((c) => (
+                  <button
+                    key={c}
+                    type="button"
+                    onClick={() => setAmountCurrency(c)}
+                    style={{
+                      flex: 1,
+                      padding: "5px 0",
+                      border: "1px solid var(--border-card)",
+                      background: amountCurrency === c ? "var(--accent)" : "var(--input-bg)",
+                      color: amountCurrency === c ? "var(--accent-solid)" : "var(--text-muted)",
+                      fontSize: 12,
+                      fontWeight: 600,
+                      cursor: "pointer",
+                      borderRadius: 6,
+                    }}
+                  >
+                    {curSym(c)} {c}
+                  </button>
+                ))}
+              </div>
             </div>
             <div style={{ display: "grid", gap: 6 }}>
               <label htmlFor={ids.currentPriceAmt} style={s.label}>Guncel Fiyat</label>
@@ -171,7 +202,12 @@ export function AddPositionModal({
               </div>
               {amountLeftover > 0 && effectiveQty > 0 && (
                 <div style={{ fontSize: 11, color: "var(--text-muted)", paddingLeft: 4 }}>
-                  Kalan: {amountLeftover.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} (artık para — alımda kullanılmaz)
+                  Kalan: {curSym(amountCurrency)}{amountLeftover.toLocaleString("tr-TR", { maximumFractionDigits: 2 })} (artık para — alımda kullanılmaz)
+                </div>
+              )}
+              {amountCurrency !== nativeCurrency && effectiveQty > 0 && (
+                <div style={{ fontSize: 11, color: "var(--text-muted)", paddingLeft: 4 }}>
+                  {curSym(amountCurrency)} tutar, güncel kurdan {nativeCurrency} fiyatına çevrilerek hesaplandı.
                 </div>
               )}
             </div>
@@ -179,7 +215,7 @@ export function AddPositionModal({
         )}
 
         <div style={{ gridColumn: "span 2", display: "grid", gap: 6 }}>
-          <label htmlFor={ids.total} style={s.label}>Toplam Tutar</label>
+          <label htmlFor={ids.total} style={s.label}>Toplam Tutar ({curSym(nativeCurrency)})</label>
           <input id={ids.total} value={total > 0 ? total.toLocaleString("tr-TR", { maximumFractionDigits: 2 }) : "-"} readOnly style={{ ...s.input, opacity: 0.75, fontWeight: 600 }} />
         </div>
       </div>

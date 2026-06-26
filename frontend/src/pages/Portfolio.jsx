@@ -193,6 +193,9 @@ export default function Portfolio({ keycloak }) {
         amountLeftover={portfolio.addAmountLeftover}
         setInputMode={portfolio.setAddInputMode}
         setAmount={portfolio.setAddAmount}
+        amountCurrency={portfolio.addAmountCurrency}
+        setAmountCurrency={portfolio.setAddAmountCurrency}
+        nativeCurrency={portfolio.addNativeCurrency}
         isCrypto={portfolio.addIsCrypto}
       />
 
