@@ -393,19 +393,19 @@ function BarChart({ data, field, view, t }) {
             title={`${formatPeriod(r.periodDate)}: ${fmtPct(v)}`}
             style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "flex-end", height: "100%" }}
           >
-            {view === "yearly" && (
-              <div
-                style={{
-                  fontSize: 11,
-                  fontWeight: 600,
-                  color: v >= 0 ? "var(--red)" : "var(--green)",
-                  marginBottom: 4,
-                  whiteSpace: "nowrap",
-                }}
-              >
-                {fmtPct(v)}
-              </div>
-            )}
+            {/* Value label on every bar — yearly uses 11px, monthly drops to
+                9px so the 24 bars' percentages fit without overlapping. */}
+            <div
+              style={{
+                fontSize: view === "yearly" ? 11 : 9,
+                fontWeight: 600,
+                color: v >= 0 ? "var(--red)" : "var(--green)",
+                marginBottom: 4,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {fmtPct(v)}
+            </div>
             <div
               style={{
                 width: "85%",
