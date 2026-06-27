@@ -1,4 +1,4 @@
-import { createContext, useContext, useCallback, useMemo, useState } from "react";
+import { createContext, useContext, useCallback, useEffect, useMemo, useState } from "react";
 import { dict } from "./i18nDict";
 
 /**
@@ -53,6 +53,17 @@ export function I18nProvider({ children }) {
     }
   });
 
+  // Keep <html lang> in sync with the active language — on first mount too,
+  // not just on toggle. Without this the static index.html lang sticks and
+  // Chrome offers to "translate" a Turkish page it thinks is English.
+  useEffect(() => {
+    try {
+      document.documentElement.setAttribute("lang", lang);
+    } catch {
+      /* SSR / non-DOM env */
+    }
+  }, [lang]);
+
   const setLang = useCallback((next) => {
     if (!VALID.includes(next)) return;
     setLangState(next);
@@ -60,11 +71,6 @@ export function I18nProvider({ children }) {
       localStorage.setItem(STORAGE_KEY, next);
     } catch {
       /* ignore quota / private mode */
-    }
-    try {
-      document.documentElement.setAttribute("lang", next);
-    } catch {
-      /* SSR / non-DOM env */
     }
   }, []);
 
