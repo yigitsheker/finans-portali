@@ -170,9 +170,28 @@ const CandlePane = memo(function CandlePane({
             chart.subscribeAction("onZoom", () => onMainView(chart));
         }
         register(paneKey, chart, isMain, symbol);
-        const ro = new ResizeObserver(() => { try { chart.resize(); } catch { /* disposed */ } });
+        // ResizeObserver feedback guard: calling chart.resize() synchronously
+        // in the callback makes klinecharts repaint, which nudges the container
+        // by a sub-pixel and re-fires the observer → an endless resize loop that
+        // reads on screen as flicker. Defer the resize to the next frame and
+        // skip it unless the integer size actually changed, so it converges.
+        let rafId = 0;
+        let lastW = 0;
+        let lastH = 0;
+        const ro = new ResizeObserver((entries) => {
+            const cr = entries[0]?.contentRect;
+            if (!cr) return;
+            const w = Math.round(cr.width);
+            const h = Math.round(cr.height);
+            if (w === lastW && h === lastH) return;
+            lastW = w;
+            lastH = h;
+            cancelAnimationFrame(rafId);
+            rafId = requestAnimationFrame(() => { try { chart.resize(); } catch { /* disposed */ } });
+        });
         ro.observe(elRef.current);
         return () => {
+            cancelAnimationFrame(rafId);
             ro.disconnect();
             register(paneKey, null, isMain, symbol);
             overlayCbs.onChartGone(chart);
@@ -526,7 +545,10 @@ const s = {
     sugName: { fontSize: 11, color: "#9ba7b4" },
     cmpChip: { display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", color: "#22c55e", fontSize: 12, fontWeight: 700 },
     cmpX: { border: "none", background: "transparent", color: "#9ba7b4", cursor: "pointer", fontSize: 12, padding: 0 },
-    chartBox: { position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflowY: "auto" },
+    // scrollbarGutter:stable reserves the scrollbar's width so a pane that
+    // briefly overflows can't toggle the scrollbar on/off and oscillate the
+    // chart width (another flicker source feeding the resize loop).
+    chartBox: { position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflowY: "auto", scrollbarGutter: "stable" },
     pane: { position: "relative", flexShrink: 0, minHeight: 220 },
     paneLabel: { position: "absolute", top: 6, left: 8, zIndex: 5, padding: "2px 7px", borderRadius: 5, background: "rgba(22,27,34,0.7)", color: "#e6edf3", fontSize: 12, fontWeight: 700, pointerEvents: "none" },
     chart: { width: "100%", height: "100%" },
