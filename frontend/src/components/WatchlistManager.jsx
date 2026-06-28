@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { IconEdit, IconTrash, IconCheck } from './common/icons';
 import { watchlistApi } from '../api/watchlistApi';
-import { getMarketSummary } from '../api/portfolioApi';
+import { getMarketSummary, getInvestmentFunds } from '../api/portfolioApi';
 import { useI18n } from '../contexts/I18nContext';
 import notify from '../utils/notify';
 import Modal from './Modal';
@@ -75,8 +75,30 @@ const WatchlistManager = ({ keycloak }) => {
 
   const loadInstruments = async () => {
     try {
-      const data = await getMarketSummary();
-      setInstruments(data);
+      // The watchlist add-picker AND the watchlist display both resolve symbols
+      // against this one `instruments` list. market_instruments (getMarketSummary)
+      // covers stocks/crypto/FX/commodity/index/VIOP, but TEFAS funds live in a
+      // separate system — so we fold them in here as instrument-shaped rows
+      // (symbol=fundCode, last=unitPrice, changePct=dailyReturn) so they become
+      // both addable and displayable like any other instrument.
+      const [market, funds] = await Promise.all([
+        getMarketSummary(),
+        getInvestmentFunds().catch(() => []),
+      ]);
+      const have = new Set((market || []).map((i) => String(i.symbol).toUpperCase()));
+      const fundRows = (funds || [])
+        .filter((f) => f.fundCode && !have.has(String(f.fundCode).toUpperCase()))
+        .map((f) => ({
+          symbol: f.fundCode,
+          name: f.fundName,
+          type: "FUND",
+          last: f.unitPrice != null ? Number(f.unitPrice) : null,
+          changePct: f.dailyReturn != null ? Number(f.dailyReturn) : null,
+          changeAbs: null,
+          currency: "TRY",
+          volume: null,
+        }));
+      setInstruments([...(market || []), ...fundRows]);
     } catch (error) {
       console.error('Failed to load instruments:', error);
     }
@@ -190,6 +212,10 @@ const WatchlistManager = ({ keycloak }) => {
     }
     return true;
   });
+  // Funds push the catalog past ~1000 rows; render only the first slice so the
+  // modal stays snappy. Users narrow with the search box / category chips.
+  const ADD_RENDER_CAP = 80;
+  const shownCandidates = addCandidates.slice(0, ADD_RENDER_CAP);
   const addedSymbols = new Set(selectedWatchlist?.symbols ?? []);
 
   if (loading) {
@@ -370,7 +396,7 @@ const WatchlistManager = ({ keycloak }) => {
             {addCandidates.length === 0 ? (
               <div style={{ padding: 24, textAlign: 'center', color: 'var(--text-muted)', fontSize: 14 }}>{t("watchlist.noResults")}</div>
             ) : (
-              addCandidates.map(inst => {
+              shownCandidates.map(inst => {
                 const isAdded = addedSymbols.has(inst.symbol);
                 return (
                   <div
@@ -398,6 +424,11 @@ const WatchlistManager = ({ keycloak }) => {
                   </div>
                 );
               })
+            )}
+            {addCandidates.length > shownCandidates.length && (
+              <div style={{ padding: '8px 10px', textAlign: 'center', color: 'var(--text-muted)', fontSize: 12 }}>
+                {addCandidates.length} sonuçtan ilk {shownCandidates.length} tanesi gösteriliyor — daraltmak için arayın.
+              </div>
             )}
           </div>
         </div>
