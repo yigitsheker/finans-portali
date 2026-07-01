@@ -601,12 +601,21 @@ services:
           memory: 384M
     environment:
       - COLLECTOR_OTLP_ENABLED=true
-      - SPAN_STORAGE_TYPE=memory
-      - MEMORY_MAX_TRACES=10000
+      # Traces persisted to OpenSearch (ES-compatible API) instead of Jaeger's
+      # in-memory store — survives container restarts and lets OpenSearch
+      # Dashboards' Trace Analytics plugin read the same *jaeger-span-* /
+      # *jaeger-service-* indices. OpenSearch's security plugin is disabled
+      # (see the opensearch service), so no ES username/password is needed.
+      - SPAN_STORAGE_TYPE=elasticsearch
+      - ES_SERVER_URLS=http://opensearch:9200
+      - ES_TAGS_AS_FIELDS_ALL=true
     ports:
       - "16686:16686"  # Jaeger UI
       - "4317:4317"    # OTLP gRPC receiver
       - "4318:4318"    # OTLP HTTP receiver
+    depends_on:
+      opensearch:
+        condition: service_healthy
     networks:
       - finans-network
     healthcheck:
