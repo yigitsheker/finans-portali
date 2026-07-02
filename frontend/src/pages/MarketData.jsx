@@ -208,7 +208,9 @@ const MarketData = ({ keycloak, onAdded }) => {
                                             // Stop the row click from also opening the detail modal.
                                             e.stopPropagation();
                                             openBuy({
-                                                symbol: rate.currencyCode,
+                                                // Katalog FX sembolü parite formatındadır (CHF → CHFTRY);
+                                                // çıplak ISO kodu backend'de "Unknown symbol" hatası verir.
+                                                symbol: `${rate.currencyCode}TRY`,
                                                 price: rate.sellingRate,
                                             });
                                         }}

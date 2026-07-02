@@ -1,6 +1,7 @@
 package com.finansportali.backend.service.scheduler;
 
 import com.finansportali.backend.entity.*;
+import com.finansportali.backend.repository.ExchangeRateRepository;
 import com.finansportali.backend.repository.MarketCandleRepository;
 import com.finansportali.backend.repository.MarketInstrumentRepository;
 import com.finansportali.backend.repository.MarketQuoteRepository;
@@ -41,6 +42,7 @@ public class PriceRefreshScheduler {
     private final MarketInstrumentRepository instrumentRepo;
     private final MarketQuoteRepository      quoteRepo;
     private final MarketCandleRepository     candleRepo;
+    private final ExchangeRateRepository     exchangeRateRepo;
     private final YahooPriceFetcher          yahoo;
     private final MarketService              marketService;
     private final PriceAlertService          priceAlertService;
@@ -67,6 +69,7 @@ public class PriceRefreshScheduler {
     public PriceRefreshScheduler(MarketInstrumentRepository instrumentRepo,
                                  MarketQuoteRepository quoteRepo,
                                  MarketCandleRepository candleRepo,
+                                 ExchangeRateRepository exchangeRateRepo,
                                  YahooPriceFetcher yahoo,
                                  MarketService marketService,
                                  PriceAlertService priceAlertService,
@@ -75,6 +78,7 @@ public class PriceRefreshScheduler {
         this.instrumentRepo = instrumentRepo;
         this.quoteRepo      = quoteRepo;
         this.candleRepo     = candleRepo;
+        this.exchangeRateRepo = exchangeRateRepo;
         this.yahoo          = yahoo;
         this.marketService  = marketService;
         this.priceAlertService = priceAlertService;
@@ -213,6 +217,12 @@ public class PriceRefreshScheduler {
         // 1) Anlık quote çek
         var quoteOpt = yahoo.fetchQuote(yahooSym);
         if (quoteOpt.isEmpty()) {
+            // Yahoo bazı TCMB dövizlerini (DKK, NOK, SEK, SAR, KWD ...) parite
+            // olarak sunmuyor (CODETRY=X → 404). Bu FX enstrümanları için TCMB
+            // satış kuruna düş, böylece portföyde fiyatlanabilir olurlar.
+            if (inst.getInstrumentType() == InstrumentType.FX && tcmbFxFallback(inst)) {
+                return true;
+            }
             log.warn("[Scheduler] Quote alınamadı: {} ({})", inst.getSymbol(), yahooSym);
             return false;
         }
@@ -262,6 +272,27 @@ public class PriceRefreshScheduler {
 
         log.info("[Scheduler] Güncellendi: {} → {} ({})",
                 inst.getSymbol(), q.last(), q.currency() != null ? q.currency() : "?");
+        return true;
+    }
+
+    /**
+     * Yahoo'nun parite olarak sunmadığı dövizler için TCMB satış kurundan
+     * quote + candle yazar. Sembol "XXXTRY" → currencyCode "XXX". Fiyat yoksa
+     * (TCMB'de o döviz yoksa) false döner ve normal "başarısız" akışı devam eder.
+     */
+    private boolean tcmbFxFallback(MarketInstrument inst) {
+        String symbol = inst.getSymbol();
+        if (symbol == null || !symbol.endsWith("TRY") || symbol.length() <= 3) return false;
+        String code = symbol.substring(0, symbol.length() - 3);
+        List<ExchangeRate> rates = exchangeRateRepo.findByCurrencyCodeOrderByRateDateDesc(code);
+        if (rates.isEmpty()) return false;
+        java.math.BigDecimal last = rates.get(0).getSellingRate();
+        if (last == null || last.signum() == 0) return false;
+        MarketQuote quote = MarketQuote.fromPreviousClose(
+                inst, last, null, Instant.now(), MarketDataProvider.TCMB);
+        quoteRepo.save(quote);
+        upsertCandle(inst, LocalDate.now(), last);
+        log.info("[Scheduler] TCMB kurundan güncellendi: {} → {} (TRY)", inst.getSymbol(), last);
         return true;
     }
 

@@ -56,6 +56,12 @@ public class MarketDataSeedService {
         var audtry = upsert("AUDTRY", "AUD/TRY",              InstrumentType.FX,        "AUDTRY=X",    false);
         var cadtry = upsert("CADTRY", "CAD/TRY",              InstrumentType.FX,        "CADTRY=X",    false);
         var aedtry = upsert("AEDTRY", "AED/TRY",              InstrumentType.FX,        "AEDTRY=X",    false);
+        // TCMB döviz sayfasında gösterilen ek dövizler (parite olarak takip edilir).
+        upsert("DKKTRY", "DKK/TRY",              InstrumentType.FX,        "DKKTRY=X",    false);
+        upsert("NOKTRY", "NOK/TRY",              InstrumentType.FX,        "NOKTRY=X",    false);
+        upsert("SEKTRY", "SEK/TRY",              InstrumentType.FX,        "SEKTRY=X",    false);
+        upsert("SARTRY", "SAR/TRY",              InstrumentType.FX,        "SARTRY=X",    false);
+        upsert("KWDTRY", "KWD/TRY",              InstrumentType.FX,        "KWDTRY=X",    false);
         // Emtia — Yahoo: futures tickers (GC/SI/CL/NG/HG/PL =F)
         var xauusd = upsert("XAUUSD", "Altın (XAU/USD)",      InstrumentType.COMMODITY, "GC=F",        false);
         var xagusd = upsert("XAGUSD", "Gümüş (XAG/USD)",      InstrumentType.COMMODITY, "SI=F",        false);

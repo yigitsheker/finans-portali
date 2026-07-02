@@ -91,7 +91,8 @@ export default function AssetDetailModal({ asset, kind, onClose, keycloak, onBuy
     function handleBuy() {
         if (!onBuy) return;
         if (kind === "FX") {
-            onBuy({ symbol: asset.currencyCode, price: asset.sellingRate ?? null });
+            // Katalog FX sembolü parite formatındadır (CHF → CHFTRY).
+            onBuy({ symbol: `${asset.currencyCode}TRY`, price: asset.sellingRate ?? null });
         } else if (kind === "BOND") {
             onBuy({ symbol: asset.symbol, price: asset.latestPrice ?? null });
         } else if (kind === "FUND") {
