@@ -7,12 +7,9 @@ import { getSecurityStatus, disable2fa } from "../api/securityApi";
 import notify from "../utils/notify";
 
 const NOTIF_ITEMS = [
-  { key: "transactions", labelKey: "settings.txNotif",         descKey: "settings.txNotifSub",         defaultOn: true },
-  { key: "budget",       labelKey: "settings.budgetWarn",      descKey: "settings.budgetWarnSub",      defaultOn: true },
-  { key: "investments",  labelKey: "settings.investUpdates",   descKey: "settings.investUpdatesSub",   defaultOn: false },
-  { key: "marketing",    labelKey: "settings.marketingComm",   descKey: "settings.marketingCommSub",   defaultOn: false },
-  { key: "push",         labelKey: "settings.pushNotif",       descKey: "settings.pushNotifSub",       defaultOn: true },
-  { key: "security",     labelKey: "settings.securityAlert",   descKey: "settings.securityAlertSub",   defaultOn: true },
+  { key: "transactions", labelKey: "settings.txNotif",       descKey: "settings.txNotifSub",       defaultOn: true },
+  { key: "push",         labelKey: "settings.pushNotif",     descKey: "settings.pushNotifSub",     defaultOn: true },
+  { key: "security",     labelKey: "settings.securityAlert", descKey: "settings.securityAlertSub", defaultOn: true },
 ];
 
 const NOTIF_PREF_KEY = "notif-preferences";
