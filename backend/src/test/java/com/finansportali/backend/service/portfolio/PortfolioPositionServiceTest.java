@@ -5,6 +5,7 @@ import com.finansportali.backend.dto.request.UpsertPositionRequest;
 import com.finansportali.backend.entity.MarketInstrument;
 import com.finansportali.backend.entity.MarketQuote;
 import com.finansportali.backend.entity.PortfolioPosition;
+import com.finansportali.backend.repository.InvestmentFundRepository;
 import com.finansportali.backend.repository.MarketInstrumentRepository;
 import com.finansportali.backend.repository.MarketQuoteRepository;
 import com.finansportali.backend.repository.PortfolioPositionRepository;
@@ -37,6 +38,7 @@ class PortfolioPositionServiceTest {
     @Mock private MarketQuoteRepository quoteRepo;
     @Mock private MarketService marketService;
     @Mock private com.finansportali.backend.repository.PortfolioTransactionRepository txRepo;
+    @Mock private InvestmentFundRepository fundRepo;
     @InjectMocks private PortfolioPositionService service;
 
     private static MarketInstrument inst(String symbol) {
