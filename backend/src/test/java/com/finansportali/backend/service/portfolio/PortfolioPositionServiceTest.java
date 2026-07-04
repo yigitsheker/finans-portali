@@ -79,6 +79,34 @@ class PortfolioPositionServiceTest {
     }
 
     @Test
+    void upsert_registers_tefas_fund_when_not_in_catalog() {
+        // Symbol not in the instrument catalog...
+        when(instrumentRepo.findBySymbol("BON")).thenReturn(Optional.empty());
+        // ...but it's a known TEFAS fund → lazily registered as a FUND instrument.
+        com.finansportali.backend.entity.InvestmentFund fund =
+                new com.finansportali.backend.entity.InvestmentFund();
+        fund.setFundCode("BON");
+        fund.setFundName("Fon BON");
+        fund.setUnitPrice(new BigDecimal("1.304716"));
+        when(fundRepo.findByFundCode("BON")).thenReturn(Optional.of(fund));
+        when(instrumentRepo.save(any(MarketInstrument.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(positionRepo.findByUserIdAndSymbol("u", "BON")).thenReturn(Optional.empty());
+
+        service.upsert("u", new UpsertPositionRequest("BON", new BigDecimal("100"), new BigDecimal("1.304716")));
+
+        // Fund got registered into the catalog with a seed quote from its unit price.
+        ArgumentCaptor<MarketInstrument> instCap = ArgumentCaptor.forClass(MarketInstrument.class);
+        verify(instrumentRepo).save(instCap.capture());
+        assertThat(instCap.getValue().getSymbol()).isEqualTo("BON");
+        verify(quoteRepo).save(any(MarketQuote.class));
+        // ...and the position was persisted under the fund code.
+        ArgumentCaptor<PortfolioPosition> posCap = ArgumentCaptor.forClass(PortfolioPosition.class);
+        verify(positionRepo).save(posCap.capture());
+        assertThat(posCap.getValue().getSymbol()).isEqualTo("BON");
+        assertThat(posCap.getValue().getQuantity()).isEqualByComparingTo("100");
+    }
+
+    @Test
     void upsert_creates_new_position_with_purchase_date() {
         when(instrumentRepo.findBySymbol("THYAO")).thenReturn(Optional.of(inst("THYAO")));
         when(positionRepo.findByUserIdAndSymbol("u", "THYAO")).thenReturn(Optional.empty());
