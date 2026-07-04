@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
+  getInvestmentFunds,
   getLatestPrice,
   getMarketInstruments,
   getMarketSummary,
@@ -125,7 +126,26 @@ export function usePortfolioPage(keycloak) {
 
   useEffect(() => {
     refresh();
-    getMarketInstruments().then(setInstruments).catch(() => {});
+    // Catalog instruments + TEFAS funds. Funds live in a separate table, so fold
+    // them in as instrument-shaped rows (symbol=fundCode, name=fundName,
+    // type=FUND, last=unitPrice) — this makes them searchable and addable from
+    // the Add Position modal (they weren't in getMarketInstruments before).
+    Promise.all([
+      getMarketInstruments().catch(() => []),
+      getInvestmentFunds().catch(() => []),
+    ]).then(([market, funds]) => {
+      const have = new Set((market || []).map((i) => String(i.symbol).toUpperCase()));
+      const fundRows = (funds || [])
+        .filter((f) => f.fundCode && !have.has(String(f.fundCode).toUpperCase()))
+        .map((f) => ({
+          symbol: f.fundCode,
+          name: f.fundName,
+          type: "FUND",
+          last: f.unitPrice != null ? Number(f.unitPrice) : null,
+          currency: "TRY",
+        }));
+      setInstruments([...(market || []), ...fundRows]);
+    });
     getMarketSummary().then(setMarketData).catch(() => {});
   }, [refresh]);
 
@@ -140,12 +160,19 @@ export function usePortfolioPage(keycloak) {
 
     let cancelled = false;
     setAddPriceLoading(true);
+    // TEFAS funds aren't in the live-price catalog yet (only registered on buy),
+    // so getLatestPrice throws for them — fall back to the unit price we merged
+    // into `instruments`.
+    const fundFallback = () => {
+      const inst = instruments.find((i) => String(i.symbol).toUpperCase() === symbol);
+      return inst && inst.last != null ? Number(inst.last) : 0;
+    };
     const timer = setTimeout(async () => {
       try {
         const price = await getLatestPrice(symbol, keycloak);
-        if (!cancelled) setAddPrice(price);
+        if (!cancelled) setAddPrice(price && Number(price) > 0 ? price : fundFallback());
       } catch {
-        if (!cancelled) setAddPrice(0);
+        if (!cancelled) setAddPrice(fundFallback());
       } finally {
         if (!cancelled) setAddPriceLoading(false);
       }
@@ -155,7 +182,7 @@ export function usePortfolioPage(keycloak) {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [addSymbol, addOpen, keycloak]);
+  }, [addSymbol, addOpen, keycloak, instruments]);
 
   const suggestions = useMemo(() => {
     if (!addSymbol.trim()) return instruments.slice(0, 8);

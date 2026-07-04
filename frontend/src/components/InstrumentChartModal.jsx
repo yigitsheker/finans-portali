@@ -10,6 +10,7 @@ import {
 import { watchlistApi } from "../api/watchlistApi";
 import { readHistoryCache, writeHistoryCache } from "../utils/historyCache";
 import { useI18n } from "../contexts/I18nContext";
+import { usePriceDisplay } from "../contexts/CurrencyDisplayContext";
 
 // Period değerleri sabit; etiketler render anında t() ile çevrilir.
 const PERIODS = [
@@ -64,6 +65,7 @@ const LockIcon = () => (
 
 export default function InstrumentChartModal({ instrument, onClose, keycloak, onAddToPortfolio, onCompare }) {
     const { t } = useI18n();
+    const { format, convert } = usePriceDisplay();
     const [period, setPeriod] = useState("30D");
     const [data, setData] = useState([]);
     const [loading, setLoading] = useState(false);
@@ -250,16 +252,17 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
     const positive = instrument.changePct >= 0;
     const color = positive ? "#4ade80" : "#f87171";
 
-    const priceFmt = instrument.last != null
-        ? Number(instrument.last).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-        : "—";
-    const changeAbsFmt = instrument.changeAbs != null
-        ? `${positive ? "+" : ""}${Number(instrument.changeAbs).toFixed(2)}`
+    // Para birimi duyarlı gösterim: uluslararası hisse/kripto (native USD) için $,
+    // BIST/FX/fon için ₺; TRY/USD görüntüleme modunda çevrilir — liste satırlarıyla
+    // aynı mantık. (Eski sabit kod her enstrümanı ₺ ile gösteriyordu; AAPL ₺308 çıkıyordu.)
+    const priceFmt = format(instrument.last, instrument.type, { symbol: instrument.symbol });
+    const changeConv = convert(instrument.changeAbs, instrument.type, instrument.symbol);
+    const changeAbsFmt = changeConv.value != null
+        ? `${positive ? "+" : ""}${Number(changeConv.value).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
         : "—";
     const changePctFmt = instrument.changePct != null
         ? `${positive ? "+" : ""}${Number(instrument.changePct).toFixed(2)}%`
         : "—";
-    const currencyPrefix = instrument.currency === "USD" ? "$" : instrument.currency === "EUR" ? "€" : "₺";
 
     return (
         <Modal
@@ -272,7 +275,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
             <div style={s.hero}>
                 <div style={s.heroLeft}>
                     <div style={s.priceLine}>
-                        <span style={s.price}>{currencyPrefix}{priceFmt}</span>
+                        <span style={s.price}>{priceFmt}</span>
                         <span style={{ ...s.changePill, ...(positive ? s.changePillUp : s.changePillDown) }}>
                             {positive ? "▲" : "▼"} {changePctFmt}
                         </span>
@@ -504,7 +507,7 @@ export default function InstrumentChartModal({ instrument, onClose, keycloak, on
                             <span style={s.footerDot}>·</span>
                             <span>{data[0]?.label} → {data[data.length - 1]?.label}</span>
                             <span style={s.footerDot}>·</span>
-                            <span>Son: <strong>{currencyPrefix}{Number(data[data.length - 1]?.close ?? 0).toLocaleString("tr-TR", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></span>
+                            <span>Son: <strong>{format(data[data.length - 1]?.close ?? 0, instrument.type, { symbol: instrument.symbol })}</strong></span>
                             {dataStale && (
                                 <>
                                     <span style={s.footerDot}>·</span>

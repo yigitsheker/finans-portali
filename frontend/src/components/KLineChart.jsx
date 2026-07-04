@@ -9,6 +9,13 @@ const PERIODS = ["1G", "5G", "1A", "1Y"];
 const IND_NAMES = ["MA", "VOL", "RSI", "MACD"];
 const MAX_COMPARES = 4;
 
+// Each VOL/RSI/MACD sub-pane gets a FIXED (small) height so the candlestick
+// keeps the lion's share of whatever vertical space its CandlePane has. Charts
+// SHARE the viewport via flexGrow (flexBasis:0), so a compare chart stays
+// visible WITHOUT scrolling — 1–2 charts always fit; only 3+ stacked charts
+// overflow into the scroll fallback.
+const SUB_PANE_H = 70;     // px per VOL / RSI / MACD sub-pane
+
 // Built-in klinecharts drawing overlays — the real "trader toolset".
 const TOOLS = [
     { name: "horizontalStraightLine", key: "chartTools.hline" },
@@ -128,7 +135,7 @@ function applyIndicators(chart, paneIds, prev, next) {
             if (now) {
                 paneIds[name] = name === "MA"
                     ? chart.createIndicator("MA", true, { id: "candle_pane" })
-                    : chart.createIndicator(name);
+                    : chart.createIndicator(name, false, { height: SUB_PANE_H });
             } else if (name === "MA") {
                 chart.removeIndicator("candle_pane", "MA");
             } else if (paneIds[name]) {
@@ -303,6 +310,7 @@ CandlePane.propTypes = {
 export default function KLineChart({ symbol }) {
     const { t } = useI18n();
     const mainChartRef = useRef(null);
+    const chartBoxRef = useRef(null);      // scroll container for the stacked charts
     const comparesRef = useRef(new Map()); // paneKey -> { chart, symbol }
     const selectedRef = useRef(null);      // { chart, id } of the selected overlay
     const historyRef = useRef([]);         // [{ chart, id }] in draw order (for undo)
@@ -416,6 +424,28 @@ export default function KLineChart({ symbol }) {
     // Clear the save-flash timer on unmount.
     useEffect(() => () => clearTimeout(flashRef.current), []);
 
+    // Wheel over stacked charts: klinecharts swallows the wheel for zoom, which
+    // makes the lower (compare) charts unreachable once the panes overflow the
+    // viewport. A capture-phase native listener scrolls the container first and
+    // stops klinecharts from zooming — EXCEPT at the very top/bottom edge, where
+    // the wheel falls through to zoom the chart under the cursor. When nothing
+    // overflows (single chart, few indicators) the chart zooms as usual.
+    useEffect(() => {
+        const el = chartBoxRef.current;
+        if (!el) return;
+        const onWheel = (e) => {
+            if (el.scrollHeight <= el.clientHeight + 1) return;      // fits → let chart zoom
+            const atTop = el.scrollTop <= 0;
+            const atBottom = el.scrollTop + el.clientHeight >= el.scrollHeight - 1;
+            if ((e.deltaY < 0 && atTop) || (e.deltaY > 0 && atBottom)) return; // edges → zoom
+            el.scrollTop += e.deltaY;
+            e.preventDefault();
+            e.stopPropagation();
+        };
+        el.addEventListener("wheel", onWheel, { capture: true, passive: false });
+        return () => el.removeEventListener("wheel", onWheel, { capture: true });
+    }, []);
+
     // ── comparison autocomplete (debounced instrument search) ────────────────
     useEffect(() => {
         const q = compareInput.trim();
@@ -508,17 +538,17 @@ export default function KLineChart({ symbol }) {
                 </div>
             </div>
 
-            <div style={s.chartBox}>
+            <div ref={chartBoxRef} style={s.chartBox}>
                 <CandlePane
                     key="main" paneKey="main" symbol={symbol} period={period} indicators={ind}
-                    activeTool={activeTool} isMain grow={1.3} basis={300}
+                    activeTool={activeTool} isMain grow={1.25} basis={0}
                     register={register} getMainChart={getMainChart} onMainView={onMainView}
                     onDrawn={onDrawn} overlayCbs={overlayCbs}
                 />
                 {compareSymbols.map((sym) => (
                     <CandlePane
                         key={sym} paneKey={sym} symbol={sym} period={period} indicators={ind}
-                        activeTool={activeTool} isMain={false} grow={1} basis={260} borderTop
+                        activeTool={activeTool} isMain={false} grow={1} basis={0} borderTop
                         register={register} getMainChart={getMainChart} onMainView={onMainView}
                         onDrawn={onDrawn} overlayCbs={overlayCbs}
                     />
@@ -549,7 +579,7 @@ const s = {
     // briefly overflows can't toggle the scrollbar on/off and oscillate the
     // chart width (another flicker source feeding the resize loop).
     chartBox: { position: "relative", flex: 1, minHeight: 0, display: "flex", flexDirection: "column", overflowY: "auto", scrollbarGutter: "stable" },
-    pane: { position: "relative", flexShrink: 0, minHeight: 220 },
+    pane: { position: "relative", flexShrink: 0, minHeight: 280 },
     paneLabel: { position: "absolute", top: 6, left: 8, zIndex: 5, padding: "2px 7px", borderRadius: 5, background: "rgba(22,27,34,0.7)", color: "#e6edf3", fontSize: 12, fontWeight: 700, pointerEvents: "none" },
     chart: { width: "100%", height: "100%" },
     loading: { position: "absolute", inset: 0, display: "grid", placeItems: "center", color: "#9ba7b4", fontSize: 14, pointerEvents: "none" },
