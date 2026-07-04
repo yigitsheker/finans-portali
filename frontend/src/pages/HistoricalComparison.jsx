@@ -566,7 +566,7 @@ export default function HistoricalComparison({ keycloak }) {
           perSym[sym] = hist;
           hist.forEach((h) => allDays.add(h.day));
         }
-        const days = [...allDays].sort();
+        const days = [...allDays].sort((a, b) => a.localeCompare(b));
         const series = [];
         for (const day of days) {
           let total = 0;

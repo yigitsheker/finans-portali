@@ -89,7 +89,7 @@ export function usePortfolioPage(keycloak) {
     const today = new Date().toISOString().split("T")[0];
     const earliest = items
       .map((position) => position.purchaseDate ?? today)
-      .sort()[0];
+      .sort((a, b) => a.localeCompare(b))[0];
     const daysDiff = Math.floor((Date.now() - new Date(earliest).getTime()) / 86400000);
 
     let next;

@@ -158,7 +158,7 @@ export default function Inflation() {
 
   // Month-lookup + table-range helpers — the full ~10y monthly history is available.
   const byPeriod = new Map(rows.map((r) => [r.periodDate.slice(0, 7), r])); // "YYYY-MM" → row
-  const years = [...new Set(rows.map((r) => r.periodDate.slice(0, 4)))].sort().reverse();
+  const years = [...new Set(rows.map((r) => r.periodDate.slice(0, 4)))].sort((a, b) => a.localeCompare(b)).reverse();
   const selKey = selYear && selMonth ? `${selYear}-${selMonth}` : null;     // "YYYY-MM"
   const selectedRow = selKey ? byPeriod.get(selKey) : null;
   const tableRows = tableRange === "all" ? rows : last24;
