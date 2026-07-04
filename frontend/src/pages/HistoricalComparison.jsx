@@ -202,7 +202,7 @@ export default function HistoricalComparison({ keycloak }) {
   // value as-is; "total" divides by the lot count. Returns null (→ use the
   // historical market price) when the field is blank/invalid.
   function overrideFrom(priceStr, mode, lots) {
-    const v = parseFloat(String(priceStr ?? "").replace(",", "."));
+    const v = Number.parseFloat(String(priceStr ?? "").replace(",", "."));
     if (!(v > 0) || !(Number(lots) > 0)) return null;
     return mode === "total" ? v / Number(lots) : v;
   }
@@ -212,7 +212,7 @@ export default function HistoricalComparison({ keycloak }) {
   // the (possibly fractional) lot count when the user picks "Toplam".
   function switchAddPriceMode(newMode) {
     if (newMode === addPriceMode) return;
-    const v = parseFloat(String(addPrice ?? "").replace(",", "."));
+    const v = Number.parseFloat(String(addPrice ?? "").replace(",", "."));
     const n = Number(addLots);
     if (v > 0 && n > 0) {
       const converted = newMode === "total" ? v * n : v / n;

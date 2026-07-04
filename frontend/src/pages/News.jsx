@@ -520,15 +520,6 @@ const s = {
         color: 'var(--text-primary)',
     },
     sideList: { display: 'flex', flexDirection: 'column', gap: 10 },
-    moverRow: {
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        gap: 6,
-    },
-    moverSymbol: { fontSize: 13, fontWeight: 700, color: 'var(--text-primary)' },
-    moverName: { fontSize: 11, color: 'var(--text-muted)', marginTop: 1 },
-    moverChange: { fontSize: 13, fontWeight: 700 },
 
     categoryList: { display: 'flex', flexDirection: 'column', gap: 5 },
     categoryBtn: {

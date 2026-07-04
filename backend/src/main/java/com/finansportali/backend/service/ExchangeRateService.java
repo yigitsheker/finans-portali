@@ -34,9 +34,14 @@ public class ExchangeRateService {
 
     private static final Logger log = LoggerFactory.getLogger(ExchangeRateService.class);
     private static final String SRC_TCMB = "TCMB";
+    // Tek bir <Currency ...> ... </Currency> bloğunu yakalar: group(1)=öznitelikler,
+    // group(2)=içerik. Öznitelik dizisi possessive ([^>]*+) ile eşleşir; bu, eski
+    // desendeki iç içe [^>]* ... [^>]* geri-izleme (ReDoS) riskini ortadan kaldırır
+    // (Sonar S5852). CurrencyCode ayrıca CURRENCY_CODE_ATTR ile çıkarılır.
     private static final Pattern CURRENCY_PATTERN = Pattern.compile(
-            "<Currency[^>]*CrossOrder=\"(\\d+)\"[^>]*CurrencyCode=\"([^\"]+)\"[^>]*>(.*?)</Currency>",
-            Pattern.DOTALL);
+            "<Currency\\b([^>]*+)>(.*?)</Currency>", Pattern.DOTALL);
+    private static final Pattern CURRENCY_CODE_ATTR = Pattern.compile(
+            "CurrencyCode=\"([^\"]++)\"");
 
     private final ExchangeRateRepository repository;
     private final WebClient webClient;
@@ -137,7 +142,9 @@ public class ExchangeRateService {
 
         int saved = 0;
         while (matcher.find()) {
-            if (saveCurrencyFromXml(matcher.group(2), matcher.group(3), date, existing)) {
+            Matcher codeMatcher = CURRENCY_CODE_ATTR.matcher(matcher.group(1));
+            if (!codeMatcher.find()) continue;
+            if (saveCurrencyFromXml(codeMatcher.group(1), matcher.group(2), date, existing)) {
                 saved++;
                 currenciesFetchedCounter.increment();
             }

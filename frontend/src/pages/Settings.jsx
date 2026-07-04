@@ -179,7 +179,7 @@ export default function Settings({ keycloak, theme, onThemeChange }) {
     // Client-side validation before the PATCH: name required, email well-formed.
     const validationError =
       !firstName.trim() ? t("settings.errNameRequired")
-      : (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) ? t("settings.errEmailInvalid")
+      : (email.trim() && !/^[^\s@]+@[^\s@.]+\.[^\s@]+$/.test(email.trim())) ? t("settings.errEmailInvalid")
       : null;
     if (validationError) {
       setSaveStatus("error");

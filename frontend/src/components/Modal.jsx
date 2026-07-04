@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { IconX } from "./common/icons";
 
@@ -7,15 +7,25 @@ export default function Modal({ open, title, children, onClose, footer, maxWidth
     // Escape, backdrop click or the ✕ — prevents a half-finished action from
     // being dismissed mid-request.
     const requestClose = () => { if (!busy) onClose(); };
+    const cardRef = useRef(null);
     useEffect(() => {
         function onKey(e) { if (e.key === "Escape" && !busy) onClose(); }
+        // Backdrop click: handled at the document level (not via a listener on
+        // the presentation backdrop element) so we don't attach interaction
+        // handlers to a non-interactive node — closes only when the press
+        // starts outside the modal card. Sonar S6842.
+        function onDocMouseDown(e) {
+            if (!busy && cardRef.current && !cardRef.current.contains(e.target)) onClose();
+        }
         if (open) {
             window.addEventListener("keydown", onKey);
+            document.addEventListener("mousedown", onDocMouseDown);
             // Prevent body scroll
             document.body.style.overflow = 'hidden';
         }
         return () => {
             window.removeEventListener("keydown", onKey);
+            document.removeEventListener("mousedown", onDocMouseDown);
             document.body.style.overflow = 'unset';
         };
     }, [open, onClose, busy]);
@@ -35,10 +45,9 @@ export default function Modal({ open, title, children, onClose, footer, maxWidth
                 justifyContent: "center",
                 padding: 16
             }}
-            onMouseDown={requestClose}
-            role="presentation"
         >
             <div
+                ref={cardRef}
                 className="fp-modal-card"
                 style={{
                     width: "100%",
