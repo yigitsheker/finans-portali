@@ -133,9 +133,9 @@ const MarketData = ({ keycloak, onAdded }) => {
             <CurrencyConverter rates={exchangeRates} />
 
             {/* Exchange Rates Table */}
-            <div style={s.tableContainer} className="fp-card-table">
+            <div style={s.tableContainer} className="fp-card-table fp-fx-table">
                 {/* Table Header */}
-                <div style={{ ...s.tableHeader, ...s.tableHeaderExchange }}>
+                <div style={{ ...s.tableHeader, ...s.tableHeaderExchange }} className="fp-fx-head">
                     <div style={{ ...s.colCurrency, cursor: "pointer" }} {...clickable(() => toggleSort("currencyName"))}>
                         {t("fx.currency")} {sortArrow("currencyName")}
                     </div>
@@ -175,6 +175,7 @@ const MarketData = ({ keycloak, onAdded }) => {
                             <div
                                 key={rate.id}
                                 style={{ ...s.tableRow, ...s.tableRowExchange }}
+                                className="fp-fx-row"
                                 {...clickable(() => setSelected(rate))}
                             >
                                 <div style={s.colCurrency}>
@@ -186,10 +187,10 @@ const MarketData = ({ keycloak, onAdded }) => {
                                         <div style={s.currencyName}>{rate.currencyName}</div>
                                     </div>
                                 </div>
-                                <div style={s.colRate}>
+                                <div style={s.colRate} data-label={t("fx.bid")}>
                                     <div style={s.rateValue}>{formatCurrency(rate.buyingRate)}</div>
                                 </div>
-                                <div style={s.colRate}>
+                                <div style={s.colRate} data-label={t("fx.ask")}>
                                     <div style={s.rateValue}>{formatCurrency(rate.sellingRate)}</div>
                                 </div>
                                 <div style={s.colRate}>

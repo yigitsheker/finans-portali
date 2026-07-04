@@ -91,7 +91,7 @@ export default function CurrencyConverter({ rates }) {
         </div>
       </div>
 
-      <div style={s.row}>
+      <div style={s.row} className="fp-fx-conv-row">
         {/* FROM */}
         <div style={s.field}>
           <div style={s.label}>{t("fx.amountToConvert")}</div>

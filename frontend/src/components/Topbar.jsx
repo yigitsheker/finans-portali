@@ -377,6 +377,12 @@ export default function Topbar({
             );
           })}
         </nav>
+        {/* Footer — currency + language controls live here on mobile (they're
+            hidden from the top bar so it can stay a single row). */}
+        <div style={s.drawerFooter}>
+          <CurrencyToggle />
+          <LanguageToggle />
+        </div>
       </aside>
     </>,
     document.body
@@ -451,8 +457,12 @@ export default function Topbar({
 
       {/* Action cluster */}
       <div style={s.right} className="fp-topbar-actions">
-        <CurrencyToggle />
-        <LanguageToggle />
+        {/* Currency + language toggles — hidden on phones (moved into the mobile
+            drawer footer) so the top bar stays a single clean row. */}
+        <span className="fp-topbar-toggles" style={s.topToggles}>
+          <CurrencyToggle />
+          <LanguageToggle />
+        </span>
 
         {/* Notification bell — hidden for admin (their own test pings) */}
         {isAuthenticated && !isAdmin(keycloak) && <NotificationBell keycloak={keycloak} />}
@@ -461,7 +471,7 @@ export default function Topbar({
           // Labelled (icon + "Alarm" text) so it can't be mistaken for the
           // bell-shaped notification button rendered immediately above —
           // both are bells, but only this one creates a price alert.
-          <button style={s.alarmBtn} onClick={onAlertsClick} title={t("topbar.priceAlertCreate")} aria-label={t("topbar.priceAlert")}>
+          <button className="fp-topbar-alarm" style={s.alarmBtn} onClick={onAlertsClick} title={t("topbar.priceAlertCreate")} aria-label={t("topbar.priceAlert")}>
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 5V3M12 5C8.69 5 6 7.69 6 11V16L4 18V19H20V18L18 16V11C18 7.69 15.31 5 12 5Z"
                     stroke="currentColor" strokeWidth="2" strokeLinejoin="round"/>
@@ -476,6 +486,7 @@ export default function Topbar({
         {isAuthenticated && (
           <Link
             to="/settings"
+            className="fp-topbar-settings"
             style={{ ...s.iconBtn, ...(isActive("/settings") ? { color: "var(--accent-solid)" } : {}) }}
             title={t("nav.settings")}
             aria-label={t("nav.settings")}
@@ -695,5 +706,20 @@ const s = {
   drawerLinkAdmin: {
     color: "var(--accent-amber, #f59e0b)",
     border: "1px dashed var(--accent-amber, #f59e0b)",
+  },
+  drawerFooter: {
+    marginTop: "auto",
+    display: "flex",
+    alignItems: "center",
+    gap: 10,
+    padding: "14px 16px",
+    borderTop: "1px solid var(--border-card)",
+    flexWrap: "wrap",
+  },
+  topToggles: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 6,
+    flexShrink: 0,
   },
 };

@@ -556,6 +556,23 @@ button:hover .news-external-icon   { transform: translate(2px, -2px); }
 @media (max-width: 900px) {
   .fp-topbar-actions { gap: 6px !important; flex-wrap: wrap; justify-content: flex-end; }
 }
+
+/* Phones & small tablets — keep the top bar a SINGLE clean row: brand +
+   minimal actions (theme + login/logout, plus the bell for signed-in users).
+   The currency/language toggles, price-alarm and settings icons move into the
+   mobile drawer footer, so the bar never wraps onto a second line. */
+@media (max-width: 768px) {
+  .fp-topbar { flex-wrap: nowrap !important; }
+  .fp-topbar-toggles,
+  .fp-topbar-alarm,
+  .fp-topbar-settings { display: none !important; }
+  .fp-topbar-actions {
+    flex-wrap: nowrap !important;
+    overflow: visible !important;
+    min-width: 0;
+  }
+  .fp-topbar-brand { min-width: 0; }
+}
 @media (max-width: 640px) {
   /* Shrink the brand wordmark on phone-width topbars so it doesn't fight
      the hamburger + action cluster for horizontal space. Targets the
@@ -625,6 +642,48 @@ button:hover .news-external-icon   { transform: translate(2px, -2px); }
   /* Modal in narrow viewport: full-bleed-ish. The Modal component uses inline
      styles, so we widen via a generic class set on its wrapper. */
   .fp-modal-card { max-width: 96vw !important; padding: 18px !important; }
+
+  /* Döviz Kurları — on phones the 7-column table won't fit, so drop the column
+     header and render each currency as a STACKED card: code + name on top, then
+     ALIŞ / SATIŞ as labelled rows below. Effective rates, source and the
+     quick-buy button are hidden (reachable by tapping the row's detail card). */
+  /* Undo the generic .fp-card-table horizontal-scroll min-width (720px) for the
+     FX table — we STACK into cards here instead of scrolling sideways, so the
+     rows must shrink to the viewport (otherwise the price values overflow the
+     720px track and get clipped off the right edge). */
+  .fp-fx-table { overflow-x: hidden !important; }
+  .fp-fx-table > * { min-width: 0 !important; }
+
+  .fp-fx-head { display: none !important; }
+  .fp-fx-row {
+    display: flex !important;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 6px !important;
+    padding: 14px !important;
+  }
+  .fp-fx-row > :nth-child(4),   /* effective buy  */
+  .fp-fx-row > :nth-child(5),   /* effective sell */
+  .fp-fx-row > :nth-child(6),   /* source badge   */
+  .fp-fx-row > :nth-child(7) {  /* quick-buy "Al" */
+    display: none !important;
+  }
+  /* Currency converter — stack From / swap / To vertically on phones. The
+     3-column row (1fr auto 1fr) squeezed each field to ~150px, which crushed
+     the amount input and truncated the currency <select> ("USD — US DOLL"). */
+  .fp-fx-conv-row { grid-template-columns: 1fr !important; }
+  .fp-fx-conv-row > button { justify-self: center; margin: 2px 0; }
+
+  /* Buy / Sell rows: label on the left, value on the right. */
+  .fp-fx-row > [data-label] { justify-content: space-between !important; }
+  .fp-fx-row > [data-label]::before {
+    content: attr(data-label);
+    color: var(--text-muted);
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
 }
 
 @media (max-width: 480px) {
