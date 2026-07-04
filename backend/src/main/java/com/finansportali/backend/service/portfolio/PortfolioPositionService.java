@@ -1,11 +1,16 @@
 package com.finansportali.backend.service.portfolio;
 
+import com.finansportali.backend.entity.InstrumentType;
+import com.finansportali.backend.entity.InvestmentFund;
+import com.finansportali.backend.entity.MarketDataProvider;
 import com.finansportali.backend.entity.MarketInstrument;
+import com.finansportali.backend.entity.MarketQuote;
 import com.finansportali.backend.entity.PortfolioPosition;
 import com.finansportali.backend.entity.PortfolioTransaction;
 import com.finansportali.backend.dto.request.SellPositionRequest;
 import com.finansportali.backend.dto.request.UpsertPositionRequest;
 import com.finansportali.backend.dto.response.PortfolioTransactionView;
+import com.finansportali.backend.repository.InvestmentFundRepository;
 import com.finansportali.backend.repository.MarketInstrumentRepository;
 import com.finansportali.backend.repository.MarketQuoteRepository;
 import com.finansportali.backend.repository.PortfolioPositionRepository;
@@ -36,17 +41,20 @@ public class PortfolioPositionService {
     private final MarketQuoteRepository quoteRepo;
     private final MarketService marketService;
     private final PortfolioTransactionRepository txRepo;
+    private final InvestmentFundRepository fundRepo;
 
     public PortfolioPositionService(PortfolioPositionRepository positionRepo,
                                     MarketInstrumentRepository instrumentRepo,
                                     MarketQuoteRepository quoteRepo,
                                     MarketService marketService,
-                                    PortfolioTransactionRepository txRepo) {
+                                    PortfolioTransactionRepository txRepo,
+                                    InvestmentFundRepository fundRepo) {
         this.positionRepo = positionRepo;
         this.instrumentRepo = instrumentRepo;
         this.quoteRepo = quoteRepo;
         this.marketService = marketService;
         this.txRepo = txRepo;
+        this.fundRepo = fundRepo;
     }
 
     /** Append a movement to the observable ledger. Never throws — a ledger
@@ -123,8 +131,7 @@ public class PortfolioPositionService {
 
         marketService.seedIfEmpty();
 
-        MarketInstrument inst = instrumentRepo.findBySymbol(req.symbol())
-                .orElseThrow(() -> new IllegalArgumentException("Unknown symbol: " + req.symbol()));
+        MarketInstrument inst = resolveOrRegisterInstrument(req.symbol());
 
         PortfolioPosition pos = positionRepo.findByUserIdAndSymbol(userId, req.symbol())
                 .orElseGet(() -> new PortfolioPosition(userId, req.symbol(), BigDecimal.ZERO, null));
@@ -162,6 +169,41 @@ public class PortfolioPositionService {
 
         log.info("Portfolio operation completed - Action: UPSERT - Symbol: {} - NewQuantity: {} - AvgCost: {} - UserId: {}",
                 req.symbol(), pos.getQuantity(), pos.getAvgCost(), userId);
+    }
+
+    /**
+     * Sembolü kataloğda arar; yoksa bir TEFAS fonu olup olmadığına bakar ve
+     * öyleyse fonu market_instruments'e kaydeder. Böylece fonlar da (döviz gibi)
+     * ilk alımda katalog vatandaşı olur ve tüm değerleme/performans yolları
+     * değişmeden çalışır.
+     */
+    private MarketInstrument resolveOrRegisterInstrument(String symbol) {
+        return instrumentRepo.findBySymbol(symbol)
+                .orElseGet(() -> registerFundInstrument(symbol));
+    }
+
+    /**
+     * TEFAS fonunu (investment_funds) market_instruments'e FUND enstrümanı olarak
+     * kaydeder ve güncel birim fiyattan bir quote yazar. Fon değilse sembol
+     * gerçekten bilinmiyor demektir → hata.
+     */
+    private MarketInstrument registerFundInstrument(String symbol) {
+        InvestmentFund fund = fundRepo.findByFundCode(symbol)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown symbol: " + symbol));
+
+        String name = fund.getFundName() != null && !fund.getFundName().isBlank()
+                ? fund.getFundName() : fund.getFundCode();
+        MarketInstrument inst = instrumentRepo.save(new MarketInstrument(
+                fund.getFundCode(), name, InstrumentType.FUND,
+                MarketDataProvider.NONE, fund.getFundCode(), false));
+
+        BigDecimal price = fund.getUnitPrice();
+        if (price != null && price.signum() > 0) {
+            quoteRepo.save(MarketQuote.fromPreviousClose(
+                    inst, price, null, Instant.now(), MarketDataProvider.NONE));
+        }
+        log.info("TEFAS fonu enstrüman olarak kaydedildi: {} ({})", fund.getFundCode(), name);
+        return inst;
     }
 
     /**

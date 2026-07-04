@@ -2,6 +2,7 @@ package com.finansportali.backend.service.scheduler;
 
 import com.finansportali.backend.entity.*;
 import com.finansportali.backend.repository.ExchangeRateRepository;
+import com.finansportali.backend.repository.InvestmentFundRepository;
 import com.finansportali.backend.repository.MarketCandleRepository;
 import com.finansportali.backend.repository.MarketInstrumentRepository;
 import com.finansportali.backend.repository.MarketQuoteRepository;
@@ -43,6 +44,7 @@ public class PriceRefreshScheduler {
     private final MarketQuoteRepository      quoteRepo;
     private final MarketCandleRepository     candleRepo;
     private final ExchangeRateRepository     exchangeRateRepo;
+    private final InvestmentFundRepository   fundRepo;
     private final YahooPriceFetcher          yahoo;
     private final MarketService              marketService;
     private final PriceAlertService          priceAlertService;
@@ -70,6 +72,7 @@ public class PriceRefreshScheduler {
                                  MarketQuoteRepository quoteRepo,
                                  MarketCandleRepository candleRepo,
                                  ExchangeRateRepository exchangeRateRepo,
+                                 InvestmentFundRepository fundRepo,
                                  YahooPriceFetcher yahoo,
                                  MarketService marketService,
                                  PriceAlertService priceAlertService,
@@ -79,6 +82,7 @@ public class PriceRefreshScheduler {
         this.quoteRepo      = quoteRepo;
         this.candleRepo     = candleRepo;
         this.exchangeRateRepo = exchangeRateRepo;
+        this.fundRepo       = fundRepo;
         this.yahoo          = yahoo;
         this.marketService  = marketService;
         this.priceAlertService = priceAlertService;
@@ -223,6 +227,10 @@ public class PriceRefreshScheduler {
             if (inst.getInstrumentType() == InstrumentType.FX && tcmbFxFallback(inst)) {
                 return true;
             }
+            // TEFAS fonları Yahoo'da yok; fiyatı investment_funds tablosundan al.
+            if (inst.getInstrumentType() == InstrumentType.FUND && fundFallback(inst)) {
+                return true;
+            }
             log.warn("[Scheduler] Quote alınamadı: {} ({})", inst.getSymbol(), yahooSym);
             return false;
         }
@@ -293,6 +301,23 @@ public class PriceRefreshScheduler {
         quoteRepo.save(quote);
         upsertCandle(inst, LocalDate.now(), last);
         log.info("[Scheduler] TCMB kurundan güncellendi: {} → {} (TRY)", inst.getSymbol(), last);
+        return true;
+    }
+
+    /**
+     * Yahoo'da bulunmayan TEFAS fonları için fiyatı investment_funds tablosundaki
+     * güncel birim fiyattan (TEFAS refresh'i besler) alıp quote+candle yazar.
+     */
+    private boolean fundFallback(MarketInstrument inst) {
+        var fundOpt = fundRepo.findByFundCode(inst.getSymbol());
+        if (fundOpt.isEmpty()) return false;
+        java.math.BigDecimal last = fundOpt.get().getUnitPrice();
+        if (last == null || last.signum() == 0) return false;
+        MarketQuote quote = MarketQuote.fromPreviousClose(
+                inst, last, null, Instant.now(), MarketDataProvider.NONE);
+        quoteRepo.save(quote);
+        upsertCandle(inst, LocalDate.now(), last);
+        log.info("[Scheduler] TEFAS fon fiyatından güncellendi: {} → {} (TRY)", inst.getSymbol(), last);
         return true;
     }
 
