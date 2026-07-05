@@ -5,12 +5,15 @@ import { getMarketHistory, getMarketSummary } from "../api/portfolioApi";
 import { getInflationHistory } from "../api/inflationApi";
 import { clickable } from "../utils/clickable";
 import { useI18n } from "../contexts/I18nContext";
+import { nativeCurrencyOf } from "../contexts/CurrencyDisplayContext";
 
-// Instrument types whose prices are denominated in TRY. When the user picks
-// "USD Bazlı" view we need to divide these by the historical USDTRY rate of
-// each respective day — using today's rate would distort the past.
-const TRY_DENOMINATED_TYPES = new Set(["BIST", "INDEX", "BOND", "FUND", "VIOP"]);
-const isTryDenominated = (inst) => inst && TRY_DENOMINATED_TYPES.has(inst.type);
+// Is this instrument priced in TRY? (BIST/index/fund/bond/VIOP and any Turkish
+// symbol). We reuse the app-wide nativeCurrencyOf so detection works even when
+// the passed object is missing its `type` field — it then falls back to the
+// symbol heuristic (e.g. AKBNK, KONTR → TRY). In "USD Bazlı" view TRY series
+// are divided by each day's USDTRY rate; USD-native ones pass through.
+const isTryDenominated = (inst) =>
+  inst && !inst.isInflation && nativeCurrencyOf(inst.type, inst.symbol) === "TRY";
 
 // Sentinel "instrument" representing CPI (TÜFE). Treated specially in the data
 // fetcher and series builder; never shown in stock search results.

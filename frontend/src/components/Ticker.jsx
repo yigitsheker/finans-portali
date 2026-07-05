@@ -50,7 +50,10 @@ export default function Ticker({ keycloak }) {
     const [sourceLabel, setSourceLabel] = useState("");
     const [showSettings, setShowSettings] = useState(false);
     const [watchlists, setWatchlists] = useState([]);
-    const [customInput, setCustomInput] = useState("");
+    // Seed from saved symbols so the textarea shows them and is fully editable.
+    // (Was falling back to prefs.customSymbols in `value` when empty, which made
+    // deleting the last character snap the saved list back — "can't delete".)
+    const [customInput, setCustomInput] = useState(() => prefs.customSymbols.join(", "));
     const [selectedInstrument, setSelectedInstrument] = useState(null);
     const [compareTarget, setCompareTarget] = useState(null);
     const settingsRef = useRef(null);
@@ -436,7 +439,7 @@ export default function Ticker({ keycloak }) {
                                     </div>
                                     <textarea
                                         rows={3}
-                                        value={customInput || prefs.customSymbols.join(", ")}
+                                        value={customInput}
                                         onChange={(e) => setCustomInput(e.target.value)}
                                         placeholder="THYAO, AKBNK, BIMAS..."
                                         style={st.textarea}
