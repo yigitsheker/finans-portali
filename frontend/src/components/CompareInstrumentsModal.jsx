@@ -15,22 +15,22 @@ import { nativeCurrencyOf } from "../contexts/CurrencyDisplayContext";
 const isTryDenominated = (inst) =>
   inst && !inst.isInflation && nativeCurrencyOf(inst.type, inst.symbol) === "TRY";
 
-// Sentinel "instrument" representing CPI (TÜFE). Treated specially in the data
-// fetcher and series builder; never shown in stock search results.
-const INFLATION_INSTRUMENT = {
-  symbol: "TÜFE",
-  name: "Enflasyon (TCMB)",
-  isInflation: true,
-};
+// Sentinel "instrument" for a CPI overlay. Turkish assets compare against TR CPI
+// (TCMB); international / USD assets against US CPI (FRED) — chosen from the base
+// instrument's native currency. `country` rides on the sentinel so the fetcher
+// and the "beats inflation" hint pull the right series. Never shown in search.
+const inflationSentinel = (country) => country === "US"
+  ? { symbol: "US-TÜFE", name: "Enflasyon (ABD)",  isInflation: true, country: "US" }
+  : { symbol: "TÜFE",    name: "Enflasyon (TCMB)", isInflation: true, country: "TR" };
 
 /**
- * Fetch raw monthly CPI rows. The series builder will interpolate them onto the
- * stock's daily date grid so the two lines share the same x-axis. CPI is monthly,
- * so intraday periods can't carry an inflation overlay.
+ * Fetch raw monthly CPI rows for the given country. The series builder will
+ * interpolate them onto the stock's daily date grid so the two lines share the
+ * same x-axis. CPI is monthly, so intraday periods can't carry an overlay.
  */
-async function fetchInflationAsHistory(period) {
+async function fetchInflationAsHistory(period, country = "TR") {
   if (period === "1D" || period === "5D") return [];
-  const rows = await getInflationHistory();
+  const rows = await getInflationHistory(country);
   if (!rows || rows.length < 2) return [];
   return rows.map((r) => ({
     label: r.periodDate,
@@ -611,7 +611,7 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
             for (const inst of selectedInstruments) {
                 try {
                     if (inst.isInflation) {
-                        result[inst.symbol] = await fetchInflationAsHistory(period);
+                        result[inst.symbol] = await fetchInflationAsHistory(period, inst.country);
                     } else {
                         result[inst.symbol] = await getMarketHistory(inst.symbol, period);
                     }
@@ -765,9 +765,14 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
         i.name.toLowerCase().includes(searchTerm.toLowerCase())
     );
 
+    // Which CPI does the inflation overlay use? Follows the base (first non-
+    // inflation) instrument: Turkish assets → TR (TCMB), international/USD → US (FRED).
+    const inflationCountry = isTryDenominated(selectedInstruments.find((i) => !i.isInflation)) ? "TR" : "US";
+
     // Human-readable name of the latest published CPI month, for the no-data hint.
     const latestCpiLabel = useMemo(() => {
-        const rows = rawData["TÜFE"];
+        const inflInst = selectedInstruments.find((i) => i.isInflation);
+        const rows = inflInst ? rawData[inflInst.symbol] : null;
         if (!rows || rows.length === 0) return null;
         const last = rows[rows.length - 1];
         if (!last?.label) return null;
@@ -778,7 +783,7 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
         const locale = (() => { try { return localStorage.getItem("i18n-lang") === "en" ? "en-US" : "tr-TR"; } catch { return "tr-TR"; } })();
         const monthName = new Intl.DateTimeFormat(locale, { month: "long" }).format(new Date(Number(y), mi, 1));
         return `${monthName} ${y}`;
-    }, [rawData]);
+    }, [rawData, selectedInstruments]);
 
     const getYAxisLabel = () => {
         if (mode === "percentage") return t("compare.yAxisChange");
@@ -861,10 +866,10 @@ export default function CompareInstrumentsModal({ baseInstrument, onClose }) {
                     <button
                         type="button"
                         style={s.inflationBtn}
-                        onClick={() => addInstrument(INFLATION_INSTRUMENT)}
-                        title={t("compare.addInflationTooltip")}
+                        onClick={() => addInstrument(inflationSentinel(inflationCountry))}
+                        title={inflationCountry === "US" ? t("compare.addInflationUsTooltip") : t("compare.addInflationTooltip")}
                     >
-                        {t("compare.addInflation")}
+                        {inflationCountry === "US" ? t("compare.addInflationUs") : t("compare.addInflation")}
                     </button>
                 )}
 

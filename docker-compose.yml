@@ -569,7 +569,11 @@ services:
       # Telemetry / newsfeed don't ship in OpenSearch Dashboards anyway,
       # so removing the env vars is the fix — not adding new ones.
     ports:
-      - "5601:5601"
+      # Host port 15601 (not 5601): Windows reserves the 5541-5640 TCP range
+      # (WinNAT/Hyper-V), so binding 5601 fails with "forbidden by its access
+      # permissions". Container-internal port stays 5601 → access the dashboard
+      # at http://localhost:15601.
+      - "15601:5601"
     depends_on:
       opensearch:
         condition: service_healthy
