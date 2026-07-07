@@ -117,7 +117,7 @@ public class NotificationService {
                                         String email, String username) {
         String lang = langOf(alert);
         String message = formatAlertMessage(alert, currentPrice, lang);
-        log.info("🔔 PRICE ALERT: {}", message);
+        log.info("PRICE ALERT: {}", message);
 
         // 1) Persist as in-app notification (visible in the bell dropdown).
         try {
@@ -144,10 +144,10 @@ public class NotificationService {
         }
         try {
             sendAlertEmail(email, username, alert, currentPrice, message, lang);
-            log.info("✅ Email notification sent to {} for alert {} (lang={})",
+            log.info("Email notification sent to {} for alert {} (lang={})",
                     LogSanitizer.sanitize(email), alert.getId(), lang);
         } catch (Exception e) {
-            log.error("❌ Failed to send email to {} for alert {}: {}",
+            log.error("Failed to send email to {} for alert {}: {}",
                     LogSanitizer.sanitize(email), alert.getId(), LogSanitizer.sanitize(e.getMessage()), e);
         }
     }
@@ -175,8 +175,8 @@ public class NotificationService {
             helper.setFrom(from);
             helper.setTo(toEmail);
             String subject = "en".equals(lang)
-                    ? "🔔 Price Alert Triggered: " + alert.getSymbol()
-                    : "🔔 Fiyat Alarmı Tetiklendi: " + alert.getSymbol();
+                    ? "Price Alert Triggered: " + alert.getSymbol()
+                    : "Fiyat Alarmı Tetiklendi: " + alert.getSymbol();
             helper.setSubject(subject);
 
             String htmlContent = buildAlertEmailHtml(username, alert, currentPrice, message, lang);
@@ -214,14 +214,14 @@ public class NotificationService {
         String alertTypeLabel = getAlertTypeLabel(alert.getAlertType().name(), lang);
 
         // Localized labels
-        String headerTitle    = en ? "🔔 Price Alert Triggered"             : "🔔 Fiyat Alarmı Tetiklendi";
+        String headerTitle    = en ? "Price Alert Triggered"             : "Fiyat Alarmı Tetiklendi";
         String greeting       = en ? "Hi "                                  : "Merhaba ";
         String detailsHeader  = en ? "Alert Details"                        : "Alarm Detayları";
         String labelType      = en ? "Alert Type:"                          : "Alarm Tipi:";
         String labelTarget    = en ? "Target Price:"                        : "Hedef Fiyat:";
         String labelCurrent   = en ? "Current Price:"                       : "Mevcut Fiyat:";
         String labelCreation  = en ? "Creation Price:"                      : "Oluşturulma Fiyatı:";
-        String labelNote      = en ? "📝 Your note:"                        : "📝 Notunuz:";
+        String labelNote      = en ? "Your note:"                        : "Notunuz:";
         String autoDisabled   = en
                 ? "This alert was automatically deactivated. Visit Finans Portalı to create a new one."
                 : "Bu alarm otomatik olarak devre dışı bırakıldı. Yeni bir alarm oluşturmak için Finans Portalı'nı ziyaret edin.";

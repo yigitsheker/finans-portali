@@ -275,7 +275,7 @@ public class PriceAlertService {
             alert.setTriggeredPrice(currentPrice);
             alertRepository.save(alert);
 
-            log.info("🔔 Alert {} triggered for symbol {} at price {} {}",
+            log.info("Alert {} triggered for symbol {} at price {} {}",
                     alert.getId(), alert.getSymbol(), currentPrice, alert.getCurrency());
 
             try {
