@@ -586,11 +586,6 @@ services:
       retries: 5
       start_period: 60s
 
-  # NOTE: fluent-bit was removed on 2026-05-26. The canonical log pipeline
-  # is now backend (logback KafkaAppender) -> Kafka topic `finans-logs`
-  # -> log-consumer -> OpenSearch index `finans-logs-YYYY-MM-DD`. Keeping
-  # two parallel shippers wrote to two separate indices and made queries
-  # ambiguous. See log-consumer/ for the consumer side.
 
   # Jaeger - Distributed Tracing Backend
   jaeger:
